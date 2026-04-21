@@ -1409,7 +1409,10 @@ var _neonReady = false;
 var _neonReadyPromise = null;
 
 function neonQuery(query, params) {
-    return fetch(_NEON_EP, {
+    // Use _realFetch if available (original fetch before interceptor)
+    // This prevents the interceptor from redirecting Neon calls
+    var _f = (typeof _realFetch === 'function') ? _realFetch : fetch;
+    return _f(_NEON_EP, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Neon-Connection-String': _NEON_CS },
         body: JSON.stringify({ query: query, params: params || [] })
@@ -1576,10 +1579,15 @@ function syncFetchHandler(urlStr, opts) {
     return _realFetch(urlStr, opts);
 }
 
-// NOTE: Fetch interceptor DISABLED — data now goes through Vercel API routes (server-side Neon)
-// The Vercel server queries Neon directly (no CORS issues from WebView)
-// var _realFetch = window.fetch;
-// window.fetch = function(url, opts) { ... };
+// Fetch interceptor ENABLED — routes /api/* calls directly to Neon DB
+// This bypasses Vercel API stubs and talks to Neon directly
+var _realFetch = window.fetch;
+window.fetch = function(url, opts) {
+    if (typeof url === 'string' && url.indexOf('/api/') !== -1) {
+        return syncFetchHandler(url, opts || {});
+    }
+    return _realFetch(url, opts || {});
+};
 
 function saveServerUrl(url) {
     localStorage.setItem('inv_serverUrl', url);
@@ -5621,7 +5629,7 @@ function autoSyncFromServer() {
 
             return fetch(url + '/api/sync/store', { headers: { 'Content-Type': 'application/json' } });
         })
-        .then(function(r) { return r.json(); })
+        .then(function(r) { if (r && typeof r.json === 'function') return r.json(); return null; })
         .then(function(storeData) {
             if (storeData) {
                 var cfg = getStoreConfig();
@@ -5889,19 +5897,19 @@ function updateSyncStatusUI(connected) {
 function forceSync() {
     var url = getServerUrl();
     if (!url) { showToast('No hay URL del servidor configurada', 'error'); return; }
+    // Quick check — if navigator says offline, don't even try
+    if (typeof navigator.onLine !== 'undefined' && !navigator.onLine) {
+        showToast('Sin conexion a Internet — activa el WiFi o datos', 'error');
+        return;
+    }
     showToast('Sincronizando con la nube...', 'info');
-    // First do a real connection check, then sync
-    _realOnlineStatus = null; // force recheck
-    checkRealConnection();
-    setTimeout(function() {
-        if (_realOnlineStatus !== true) {
-            showToast('No se pudo conectar al servidor', 'error');
-            return;
-        }
-        processOfflineQueue().then(function() {
-            autoSyncFromServer();
-        });
-    }, 3000);
+    _realOnlineStatus = true;
+    updateConnectionStatus();
+    updateSyncStatusUI(true);
+    // Try sync directly — don't wait for ping (causes timeout issues in WebView)
+    processOfflineQueue().then(function() {
+        autoSyncFromServer();
+    });
 }
 
 // Auto-sync on load and every 30 seconds
