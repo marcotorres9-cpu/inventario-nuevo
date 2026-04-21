@@ -1576,16 +1576,10 @@ function syncFetchHandler(urlStr, opts) {
     return _realFetch(urlStr, opts);
 }
 
-// Install fetch interceptor for data sync calls
-var _realFetch = window.fetch;
-window.fetch = function(url, opts) {
-    var u = (typeof url === 'string') ? url : (url && url.toString ? url.toString() : '');
-    // Intercept only data sync calls — NOT auth or ping calls
-    if (u.indexOf('/api/sync/') !== -1 || u === getServerUrl() + '/api/store' || u === getServerUrl() + '/api/products' || u === getServerUrl() + '/api/quotations') {
-        return syncFetchHandler(u, opts || {});
-    }
-    return _realFetch.apply(this, arguments);
-};
+// NOTE: Fetch interceptor DISABLED — data now goes through Vercel API routes (server-side Neon)
+// The Vercel server queries Neon directly (no CORS issues from WebView)
+// var _realFetch = window.fetch;
+// window.fetch = function(url, opts) { ... };
 
 function saveServerUrl(url) {
     localStorage.setItem('inv_serverUrl', url);
@@ -1694,7 +1688,7 @@ function checkRealConnection() {
     var fetchOpts = { method: 'OPTIONS', cache: 'no-store' };
     if (controller) fetchOpts.signal = controller.signal;
 
-    _realFetch(pingUrl, fetchOpts).then(function(r) {
+    fetch(pingUrl, fetchOpts).then(function(r) {
         clearTimeout(timeoutId);
         if (timedOut) throw new Error('timeout');
         var wasOffline = (_realOnlineStatus !== true);
@@ -1719,7 +1713,7 @@ function checkRealConnection() {
             var timeoutId2 = setTimeout(function() { timedOut2 = true; if (controller2) try { controller2.abort(); } catch(e) {} }, 12000);
             var fetchOpts2 = { method: 'GET', cache: 'no-store' };
             if (controller2) fetchOpts2.signal = controller2.signal;
-            _realFetch(serverUrl + '/api/version?_t=' + Date.now(), fetchOpts2).then(function(r) {
+            fetch(serverUrl + '/api/version?_t=' + Date.now(), fetchOpts2).then(function(r) {
                 clearTimeout(timeoutId2);
                 if (timedOut2) throw new Error('timeout');
                 var wasOffline = (_realOnlineStatus !== true);
@@ -4252,7 +4246,7 @@ function testServerConnection() {
 
     // Test connection using the auth server (NOT intercepted by syncFetchHandler)
     var authUrl = getAuthUrl();
-    _realFetch(authUrl + '/api/auth/login', { method: 'OPTIONS', cache: 'no-store' })
+    fetch(authUrl + '/api/auth/login', { method: 'OPTIONS', cache: 'no-store' })
         .then(function(r) {
             clearTimeout(timeout);
             if (r.ok || r.status === 200) {
@@ -4269,14 +4263,18 @@ function testServerConnection() {
         })
         .catch(function(err) {
             clearTimeout(timeout);
-            // Fallback: try Neon DB directly
-            neonQuery('SELECT 1 as ok').then(function(res) {
-                _realOnlineStatus = true;
-                updateConnectionStatus();
-                if (dot) dot.className = 'status-dot online';
-                if (txt) txt.textContent = 'Base de datos conectada ✓';
-                showToast('Conexión exitosa a la base de datos', 'success');
-                setTimeout(function() { pullFromServer(); }, 500);
+            // Fallback: try Vercel server directly
+            fetch(getServerUrl() + '/api/store', { method: 'GET', cache: 'no-store' }).then(function(r) {
+                if (r.ok) {
+                    _realOnlineStatus = true;
+                    updateConnectionStatus();
+                    if (dot) dot.className = 'status-dot online';
+                    if (txt) txt.textContent = 'Servidor conectado ✓';
+                    showToast('Conexión exitosa al servidor', 'success');
+                    setTimeout(function() { pullFromServer(); }, 500);
+                } else {
+                    throw new Error('HTTP ' + r.status);
+                }
             }).catch(function() {
                 _realOnlineStatus = false;
                 updateConnectionStatus();
@@ -4305,7 +4303,7 @@ function updateServerStatus() {
         if (txt) txt.textContent = 'Verificando conexión...';
         // Quick auto-test
         var authUrl = getAuthUrl();
-        _realFetch(authUrl + '/api/auth/login', { method: 'OPTIONS', cache: 'no-store' }).then(function(r) {
+        fetch(authUrl + '/api/auth/login', { method: 'OPTIONS', cache: 'no-store' }).then(function(r) {
             if (r.ok || r.status === 200) {
                 _realOnlineStatus = true;
                 updateConnectionStatus();
@@ -6488,7 +6486,7 @@ function downloadQuotationPDF(id) {
     applyTheme(savedTheme);
 
     // Save current version to localStorage (no redirect — avoids infinite loops)
-    var _appVer = 'v20260422d';
+    var _appVer = 'v20260422e';
     localStorage.setItem('inv_appVersion', _appVer);
 
     // ALWAYS force the correct server URL — clear any old/wrong URL
