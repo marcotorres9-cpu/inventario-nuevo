@@ -1423,6 +1423,10 @@ function getServerUrl() {
     // window.location.origin can be wrong inside Capacitor WebView
     return 'https://inventario-tienda-three.vercel.app';
 }
+// Separate auth server (fixes login/register which are broken in main deploy)
+function getAuthUrl() {
+    return 'https://auth-proxy-v2.vercel.app';
+}
 function saveServerUrl(url) {
     localStorage.setItem('inv_serverUrl', url);
 }
@@ -1659,11 +1663,11 @@ document.getElementById('loginForm').addEventListener('submit', function(e) {
         return;
     }
 
-    var url = getServerUrl();
-    console.log('[LOGIN] Server URL:', url, 'Online:', isOnline());
-    // STEP 1: Try server login if online and server URL is available
+    var url = getAuthUrl();
+    console.log('[LOGIN] Auth URL:', url, 'Online:', isOnline());
+    // STEP 1: Try server login if online
     if (isOnline() && url) {
-        errEl.textContent = 'Conectando al servidor (' + url + ')...';
+        errEl.textContent = 'Conectando al servidor...';
         errEl.style.display = 'block';
         errEl.style.color = 'var(--info)';
         errEl.style.background = 'var(--info-bg)';
@@ -1747,8 +1751,8 @@ function tryLocalLogin(email, pass, errEl) {
     addActivity('Inicio de sesión: ' + found.name + ' (local)');
 
     // If logged in locally but user is NOT synced to server yet, sync the password now
-    if (isOnline() && getServerUrl() && !found._serverAuth) {
-        var syncUrl = getServerUrl() + '/api/auth/sync-password';
+    if (isOnline() && !found._serverAuth) {
+        var syncUrl = getAuthUrl() + '/api/auth/sync-password';
         fetch(syncUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -1807,7 +1811,7 @@ document.getElementById('registerForm').addEventListener('submit', function(e) {
     }
 
     var role = users.length === 0 ? 'admin' : (document.getElementById('regRole').value || 'vendedor');
-    var url = getServerUrl();
+    var url = getAuthUrl();
 
     // STEP 1: Try server register if online
     if (isOnline() && url) {
@@ -1856,7 +1860,7 @@ document.getElementById('registerForm').addEventListener('submit', function(e) {
                     errEl.style.color = 'var(--warning)';
                     errEl.style.background = 'var(--warning-bg)';
                     // Try to log in with these credentials on the server
-                    fetch(url + '/api/auth/login', {
+                    fetch(getAuthUrl() + '/api/auth/login', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ email: email, password: pass })
@@ -6312,7 +6316,7 @@ document.getElementById('resetForm').addEventListener('submit', function(e) {
         return;
     }
 
-    var url = getServerUrl();
+    var url = getAuthUrl();
     if (!isOnline() || !url) {
         errEl.textContent = 'Necesitas conexion a internet para actualizar la contraseña';
         errEl.style.display = 'block';
