@@ -8,7 +8,7 @@
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
     <title>Inventario Pro</title>
-    <!-- Cache-busting: ALWAYS check server version before loading app -->
+    <!-- Version check moved to init() to avoid redirect loops -->
     <script>
     (function(){
         // Unregister any service workers that might cache old versions
@@ -19,34 +19,6 @@
         }
         // Prevent back-forward cache from serving stale page
         window.onpageshow = function(e) { if (e.persisted) window.location.reload(); };
-
-        // CRITICAL: Force-fresh fetch to detect new version (bypass ALL caches)
-        var _forceUrl = '/api/version?_t=' + Date.now() + '&_r=' + Math.random();
-        try {
-            var xhr = new XMLHttpRequest();
-            xhr.open('GET', _forceUrl, false); // synchronous — blocks page load
-            xhr.setRequestHeader('Cache-Control', 'no-cache');
-            xhr.setRequestHeader('Pragma', 'no-cache');
-            xhr.send();
-            if (xhr.status === 200) {
-                var data = JSON.parse(xhr.responseText);
-                var serverV = data.v || '';
-                var localV = localStorage.getItem('inv_appVersion') || '';
-                // If server version differs from local, force a complete page reload
-                if (serverV && localV && serverV !== localV) {
-                    localStorage.setItem('inv_appVersion', serverV);
-                    // Use location.replace with unique query param to bust any cache
-                    window.location.replace('/app.html?_v=' + serverV + '&_t=' + Date.now());
-                    return; // Stop everything
-                }
-                // If no local version yet, save server version for future comparison
-                if (serverV && !localV) {
-                    localStorage.setItem('inv_appVersion', serverV);
-                }
-            }
-        } catch(e) {
-            // XHR failed — continue loading (offline mode)
-        }
     })();
     </script>
     <style>
@@ -6165,23 +6137,9 @@ function downloadQuotationPDF(id) {
     var savedTheme = localStorage.getItem('inv_theme') || 'dark';
     applyTheme(savedTheme);
 
-    // Force reload: compare local version with server version
-    // This runs EVERY time the app loads to ensure the APK gets the latest code
-    var _appVer = 'v20260421g';
-    var _storedVer = localStorage.getItem('inv_appVersion') || '';
-
-    // If versions don't match, we need to reload to get the latest code
-    if (_storedVer !== _appVer) {
-        // Save new version and force reload
-        localStorage.setItem('inv_appVersion', _appVer);
-        // Clear any cached server URL
-        localStorage.removeItem('inv_serverUrl');
-        // Clear all caches
-        try { if (window.caches) { caches.keys().then(function(names) { for (var i = 0; i < names.length; i++) caches.delete(names[i]); }); } } catch(e){}
-        // Force reload with cache-busting parameter
-        window.location.replace('/app.html?v=' + _appVer + '&_t=' + Date.now());
-        return; // Stop execution, reload will happen
-    }
+    // Save current version to localStorage (no redirect — avoids infinite loops)
+    var _appVer = 'v20260421h';
+    localStorage.setItem('inv_appVersion', _appVer);
 
     // ALWAYS force the correct server URL — clear any old/wrong URL
     // This fixes APK where inv_serverUrl may be set to a wrong vercel project
