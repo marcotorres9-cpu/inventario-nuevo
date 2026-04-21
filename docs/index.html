@@ -4247,24 +4247,43 @@ function testServerConnection() {
     var timeout = setTimeout(function() {
         if (dot) dot.className = 'status-dot offline';
         if (txt) txt.textContent = 'Sin respuesta del servidor';
-    }, 10000);
+        showToast('Tiempo de espera agotado', 'error');
+    }, 12000);
 
-    fetch(url + '/api/products', { method: 'GET', headers: { 'Content-Type': 'application/json' } })
+    // Test connection using the auth server (NOT intercepted by syncFetchHandler)
+    var authUrl = getAuthUrl();
+    _realFetch(authUrl + '/api/auth/login', { method: 'OPTIONS', cache: 'no-store' })
         .then(function(r) {
             clearTimeout(timeout);
-            if (r.ok) {
+            if (r.ok || r.status === 200) {
+                _realOnlineStatus = true;
+                updateConnectionStatus();
                 if (dot) dot.className = 'status-dot online';
                 if (txt) txt.textContent = 'Servidor conectado ✓';
                 showToast('Conexión exitosa al servidor', 'success');
+                // Also trigger a pull to make sure data is synced
+                setTimeout(function() { pullFromServer(); }, 500);
             } else {
                 throw new Error('HTTP ' + r.status);
             }
         })
         .catch(function(err) {
             clearTimeout(timeout);
-            if (dot) dot.className = 'status-dot offline';
-            if (txt) txt.textContent = 'Error de conexión';
-            showToast('No se pudo conectar: ' + err.message, 'error');
+            // Fallback: try Neon DB directly
+            neonQuery('SELECT 1 as ok').then(function(res) {
+                _realOnlineStatus = true;
+                updateConnectionStatus();
+                if (dot) dot.className = 'status-dot online';
+                if (txt) txt.textContent = 'Base de datos conectada ✓';
+                showToast('Conexión exitosa a la base de datos', 'success');
+                setTimeout(function() { pullFromServer(); }, 500);
+            }).catch(function() {
+                _realOnlineStatus = false;
+                updateConnectionStatus();
+                if (dot) dot.className = 'status-dot offline';
+                if (txt) txt.textContent = 'Error de conexión';
+                showToast('No se pudo conectar: ' + err.message, 'error');
+            });
         });
 }
 
@@ -4277,8 +4296,30 @@ function updateServerStatus() {
         if (txt) txt.textContent = 'Sin configurar';
         return;
     }
-    if (dot) dot.className = 'status-dot offline';
-    if (txt) txt.textContent = 'Configurado — Sin probar';
+    // Auto-test connection when showing status
+    if (_realOnlineStatus === true) {
+        if (dot) dot.className = 'status-dot online';
+        if (txt) txt.textContent = 'Servidor conectado ✓';
+    } else {
+        if (dot) dot.className = 'status-dot checking';
+        if (txt) txt.textContent = 'Verificando conexión...';
+        // Quick auto-test
+        var authUrl = getAuthUrl();
+        _realFetch(authUrl + '/api/auth/login', { method: 'OPTIONS', cache: 'no-store' }).then(function(r) {
+            if (r.ok || r.status === 200) {
+                _realOnlineStatus = true;
+                updateConnectionStatus();
+                if (dot) dot.className = 'status-dot online';
+                if (txt) txt.textContent = 'Servidor conectado ✓';
+            } else {
+                if (dot) dot.className = 'status-dot offline';
+                if (txt) txt.textContent = 'Sin conexión';
+            }
+        }).catch(function() {
+            if (dot) dot.className = 'status-dot offline';
+            if (txt) txt.textContent = 'Sin conexión';
+        });
+    }
 }
 
 // ====================================================================
@@ -4842,7 +4883,8 @@ function pushToServer() {
     }
     var url = getServerUrl();
     if (!url) { showToast('Configura la URL del servidor y toca Guardar', 'error'); return; }
-    if (!isOnline()) { showToast('Sin conexión a internet', 'error'); return; }
+    // Allow sync attempt even if isOnline() is unsure — Neon direct connection works independently
+    console.log('[PUSH] Syncing to server, online status:', _realOnlineStatus);
 
     showToast('Subiendo datos al servidor...', 'info');
     var badge = document.getElementById('syncBadge');
@@ -5021,7 +5063,7 @@ function pullFromServer() {
     }
     var url = getServerUrl();
     if (!url) { showToast('Configura la URL del servidor y toca Guardar', 'error'); return; }
-    if (!isOnline()) { showToast('Sin conexión a internet', 'error'); return; }
+    // Don't block — try sync anyway (Neon works directly, not through Vercel)
 
     showToast('Descargando datos del servidor...', 'info');
     var badge = document.getElementById('syncBadge');
@@ -6446,7 +6488,7 @@ function downloadQuotationPDF(id) {
     applyTheme(savedTheme);
 
     // Save current version to localStorage (no redirect — avoids infinite loops)
-    var _appVer = 'v20260422c';
+    var _appVer = 'v20260422d';
     localStorage.setItem('inv_appVersion', _appVer);
 
     // ALWAYS force the correct server URL — clear any old/wrong URL
