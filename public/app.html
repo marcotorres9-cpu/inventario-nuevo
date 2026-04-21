@@ -1391,11 +1391,10 @@ function setCurrentUser(u) {
 function getServerUrl() {
     var stored = (localStorage.getItem('inv_serverUrl') || '').trim();
     if (stored) return stored;
-    // Hardcoded server URL — reliable for both web and APK
-    // window.location.origin can be wrong inside Capacitor WebView
+    // Server URL for data sync — main app server (now with real DB connection)
     return 'https://inventario-tienda-three.vercel.app';
 }
-// Separate auth server (fixes login/register which are broken in main deploy)
+// Auth server (separate proxy for login/register)
 function getAuthUrl() {
     return 'https://auth-proxy-v2.vercel.app';
 }
@@ -1955,9 +1954,7 @@ function enterApp(user) {
             pullFromServer();
         }, 1500);
     } else if (isOnline() && !getServerUrl()) {
-        // Auto-set server URL for web version
-        var webUrl = window.location.origin;
-        saveServerUrl(webUrl);
+        // Server URL is hardcoded — no need to auto-set
         setTimeout(function() {
             pullFromServer();
         }, 2000);
@@ -6138,19 +6135,11 @@ function downloadQuotationPDF(id) {
     applyTheme(savedTheme);
 
     // Save current version to localStorage (no redirect — avoids infinite loops)
-    var _appVer = 'v20260421h';
+    var _appVer = 'v20260421i';
     localStorage.setItem('inv_appVersion', _appVer);
 
-    // ALWAYS force the correct server URL — clear any old/wrong URL
-    // This fixes APK where inv_serverUrl may be set to a wrong vercel project
-    var _badUrl = localStorage.getItem('inv_serverUrl') || '';
-    var _correctUrl = 'https://inventario-tienda-three.vercel.app';
-    if (_badUrl !== _correctUrl) {
-        console.log('[INIT] Correcting server URL from', _badUrl, 'to', _correctUrl);
-        localStorage.removeItem('inv_serverUrl');
-        // Also force-set the correct one
-        localStorage.setItem('inv_serverUrl', _correctUrl);
-    }
+    // ALWAYS clear old server URL to force use of current server
+    localStorage.removeItem('inv_serverUrl');
 
     // Check if there's a logged in user
     var user = getCurrentUser();
