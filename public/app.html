@@ -1391,106 +1391,202 @@ function setCurrentUser(u) {
 function getServerUrl() {
     var stored = (localStorage.getItem('inv_serverUrl') || '').trim();
     if (stored) return stored;
-    // Server URL for data sync — uses auth-proxy which has Neon DB connection
-    return 'https://auth-proxy-v2.vercel.app';
+    // Hardcoded server URL — reliable for both web and APK
+    // window.location.origin can be wrong inside Capacitor WebView
+    return 'https://inventario-tienda-three.vercel.app';
 }
-// Auth server (separate proxy for login/register)
+// Separate auth server (fixes login/register which are broken in main deploy)
 function getAuthUrl() {
     return 'https://auth-proxy-v2.vercel.app';
 }
 
-// ================================================================
-// NEON DATABASE - Direct client-side sync (bypasses stub API routes)
-// ================================================================
-var _NEON_HOST = 'ep-little-queen-anghflli.c-6.us-east-1.aws.neon.tech';
-var _NEON_CONN = 'postgresql://neondb_owner:npg_GBoFNmzL9vW2@ep-little-queen-anghflli.c-6.us-east-1.aws.neon.tech/neondb?sslmode=require';
+// ====================================================================
+// NEON DB DIRECT CONNECTION — Replaces stub API endpoints
+// ====================================================================
+var _NEON_EP = 'https://ep-little-queen-anghflli.c-6.us-east-1.aws.neon.tech/sql';
+var _NEON_CS = 'postgresql://neondb_owner:npg_GBoFNmzL9vW2@ep-little-queen-anghflli.c-6.us-east-1.aws.neon.tech/neondb?sslmode=require';
+var _neonReady = false;
+var _neonReadyPromise = null;
 
-function neonQuery(sql, params) {
-    params = params || [];
-    return fetch('https://' + _NEON_HOST + '/sql', {
+function neonQuery(query, params) {
+    return fetch(_NEON_EP, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Neon-Connection-String': _NEON_CONN },
-        body: JSON.stringify({ query: sql, params: params })
-    }).then(function(r) {
-        if (!r.ok) throw new Error('DB error ' + r.status);
-        return r.json();
-    }).then(function(d) { return d.rows || []; });
+        headers: { 'Content-Type': 'application/json', 'Neon-Connection-String': _NEON_CS },
+        body: JSON.stringify({ query: query, params: params || [] })
+    }).then(function(r) { return r.json(); });
 }
 
-// Pull store config (categories, brands, colors) from Neon
-function pullStoreFromDB() {
-    return neonQuery('SELECT key, value FROM "StoreConfig"').then(function(rows) {
-        var cfg = {};
-        for (var i = 0; i < rows.length; i++) {
-            try { cfg[rows[i].key] = JSON.parse(rows[i].value); } catch(e) { cfg[rows[i].key] = rows[i].value; }
-        }
-        return cfg;
+function neonInit() {
+    if (_neonReadyPromise) return _neonReadyPromise;
+    _neonReadyPromise = Promise.all([
+        neonQuery('CREATE TABLE IF NOT EXISTS store_config (id TEXT PRIMARY KEY DEFAULT \'main\', name TEXT DEFAULT \'Mi Tienda\', address TEXT DEFAULT \'\', phone TEXT DEFAULT \'\', email TEXT DEFAULT \'\', currency TEXT DEFAULT \'MXN\', footer TEXT DEFAULT \'\', footer_text TEXT DEFAULT \'\', logo TEXT DEFAULT \'\', categories TEXT DEFAULT \'[]\', brands TEXT DEFAULT \'[]\', colors TEXT DEFAULT \'[]\', category_specs TEXT DEFAULT \'{}\', updated_at TIMESTAMPTZ DEFAULT NOW())'),
+        neonQuery('CREATE TABLE IF NOT EXISTS products (id TEXT PRIMARY KEY, name TEXT NOT NULL DEFAULT \'\', sku TEXT DEFAULT \'\', barcode TEXT DEFAULT \'\', category TEXT DEFAULT \'\', brand TEXT DEFAULT \'\', color TEXT DEFAULT \'\', cost_price REAL DEFAULT 0, sale_price REAL DEFAULT 0, price REAL DEFAULT 0, stock INTEGER DEFAULT 0, min_stock INTEGER DEFAULT 5, description TEXT DEFAULT \'\', created_at TIMESTAMPTZ DEFAULT NOW(), updated_at TIMESTAMPTZ DEFAULT NOW())'),
+        neonQuery('CREATE TABLE IF NOT EXISTS quotations (id TEXT PRIMARY KEY, client_name TEXT DEFAULT \'\', client_phone TEXT DEFAULT \'\', client_email TEXT DEFAULT \'\', items TEXT DEFAULT \'[]\', subtotal REAL DEFAULT 0, tax REAL DEFAULT 0, discount REAL DEFAULT 0, total REAL DEFAULT 0, status TEXT DEFAULT \'pendiente\', notes TEXT DEFAULT \'\', created_at TIMESTAMPTZ DEFAULT NOW(), updated_at TIMESTAMPTZ DEFAULT NOW())'),
+        neonQuery('CREATE TABLE IF NOT EXISTS users_sync (id TEXT PRIMARY KEY, name TEXT DEFAULT \'\', email TEXT UNIQUE DEFAULT \'\', role TEXT DEFAULT \'vendedor\', store_name TEXT DEFAULT \'\', created_at TIMESTAMPTZ DEFAULT NOW(), updated_at TIMESTAMPTZ DEFAULT NOW())')
+    ]).then(function() {
+        _neonReady = true;
+        console.log('[NEON] Tables ready');
+    }).catch(function(e) {
+        console.error('[NEON] Init error:', e);
     });
+    return _neonReadyPromise;
 }
 
-// Push store config to Neon
-function pushStoreToDB(storePayload) {
-    var keys = [
-        { k: 'name', v: storePayload.name || storePayload.storeName },
-        { k: 'address', v: storePayload.address },
-        { k: 'phone', v: storePayload.phone },
-        { k: 'email', v: storePayload.email },
-        { k: 'currency', v: storePayload.currency },
-        { k: 'footer', v: storePayload.footer || storePayload.footerText },
-        { k: 'footerText', v: storePayload.footerText || storePayload.footer },
-        { k: 'logo', v: storePayload.logo },
-        { k: 'categories', v: storePayload.categories },
-        { k: 'brands', v: storePayload.brands },
-        { k: 'colors', v: storePayload.colors },
-        { k: 'categorySpecs', v: storePayload.categorySpecs }
-    ];
-    var chain = Promise.resolve();
-    for (var i = 0; i < keys.length; i++) {
-        (function(item) {
-            chain = chain.then(function() {
-                if (item.v === undefined || item.v === null) return;
-                var val = typeof item.v === 'string' ? item.v : JSON.stringify(item.v);
-                return neonQuery(
-                    'INSERT INTO "StoreConfig" (key, value, updated_at) VALUES ($1, $2, NOW()) ON CONFLICT (key) DO UPDATE SET value = $2, updated_at = NOW()',
-                    [item.k, val]
-                );
-            });
-        })(keys[i]);
+// Ensure tables exist on page load
+neonInit();
+
+function _mockResp(data) {
+    return { ok: true, status: 200, json: function() { return Promise.resolve(data); } };
+}
+
+function syncFetchHandler(urlStr, opts) {
+    var method = (opts.method || 'GET').toUpperCase();
+    var url = urlStr;
+
+    if (!_neonReady) {
+        return _mockResp({});
     }
-    return chain;
+
+    // Store config
+    if (url.indexOf('/api/sync/store') !== -1 || url.indexOf('/api/store') !== -1) {
+        if (method === 'PUT' || method === 'POST') {
+            var b = {};
+            try { b = JSON.parse(opts.body || '{}'); } catch(e) { b = {}; }
+            return neonQuery(
+                'INSERT INTO store_config (id,name,address,phone,email,currency,footer,footer_text,logo,categories,brands,colors,category_specs,updated_at) VALUES (\'main\',$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,NOW()) ON CONFLICT (id) DO UPDATE SET name=$1,address=$2,phone=$3,email=$4,currency=$5,footer=$6,footer_text=$7,logo=$8,categories=$9,brands=$10,colors=$11,category_specs=$12,updated_at=NOW()',
+                [b.name||'Mi Tienda', b.address||'', b.phone||'', b.email||'', b.currency||'MXN', b.footer||'', b.footerText||b.footer_text||'', b.logo||null, b.categories||'[]', b.brands||'[]', b.colors||'[]', b.categorySpecs||b.category_specs||'{}']
+            ).then(function() { return _mockResp({success:true}); }).catch(function(e) { console.error('[NEON] store PUT error:', e); return _mockResp({error:e.message}); });
+        } else {
+            return neonQuery("SELECT * FROM store_config WHERE id='main'").then(function(res) {
+                if (res.rows && res.rows.length > 0) {
+                    var r = res.rows[0];
+                    return _mockResp({id:r.id,name:r.name,address:r.address,phone:r.phone,email:r.email,currency:r.currency,footer:r.footer,footerText:r.footer_text,logo:r.logo,categories:r.categories,brands:r.brands,colors:r.colors,categorySpecs:r.category_specs});
+                }
+                return _mockResp({});
+            }).catch(function(e) { console.error('[NEON] store GET error:', e); return _mockResp({}); });
+        }
+    }
+
+    // Products
+    if (url.indexOf('/api/sync/products') !== -1 || url.indexOf('/api/products') !== -1) {
+        if (method === 'DELETE') {
+            var m = url.match(/[?&]id=([^&]+)/);
+            if (m) {
+                return neonQuery('DELETE FROM products WHERE id=$1', [m[1]]).then(function() { return _mockResp({success:true}); }).catch(function(e) { return _mockResp({error:e.message}); });
+            }
+            return Promise.resolve(_mockResp({error:'Missing id'}));
+        } else if (method === 'POST' || method === 'PUT') {
+            var items = [];
+            try { items = JSON.parse(opts.body || '[]'); } catch(e) { try { items = [JSON.parse(opts.body)]; } catch(e2) { items = []; } }
+            if (!Array.isArray(items)) items = [items];
+            var chain = Promise.resolve();
+            for (var i = 0; i < items.length; i++) {
+                (function(p) {
+                    chain = chain.then(function() {
+                        if (!p || !p.id) return Promise.resolve();
+                        return neonQuery(
+                            'INSERT INTO products (id,name,sku,barcode,category,brand,color,cost_price,sale_price,price,stock,min_stock,description,created_at,updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,NOW()) ON CONFLICT (id) DO UPDATE SET name=$2,sku=$3,barcode=$4,category=$5,brand=$6,color=$7,cost_price=$8,sale_price=$9,price=$10,stock=$11,min_stock=$12,description=$13,updated_at=NOW()',
+                            [p.id, p.name||'', p.sku||'', p.barcode||'', p.category||'', p.brand||'', p.color||'', p.costPrice||0, p.salePrice||p.price||0, p.price||p.salePrice||0, p.stock||0, p.minStock||5, p.description||'', p.createdAt||new Date().toISOString()]
+                        );
+                    });
+                })(items[i]);
+            }
+            return chain.then(function() { return _mockResp({success:true,count:items.length}); }).catch(function(e) { console.error('[NEON] products POST error:', e); return _mockResp({error:e.message}); });
+        } else {
+            return neonQuery('SELECT * FROM products ORDER BY updated_at DESC').then(function(res) {
+                var prods = (res.rows||[]).map(function(r) {
+                    return {id:r.id,name:r.name,sku:r.sku,barcode:r.barcode,category:r.category,brand:r.brand,color:r.color,costPrice:r.cost_price,salePrice:r.sale_price,price:r.price,stock:r.stock,minStock:r.min_stock,description:r.description,createdAt:r.created_at,updatedAt:r.updated_at};
+                });
+                return _mockResp(prods);
+            }).catch(function(e) { console.error('[NEON] products GET error:', e); return _mockResp([]); });
+        }
+    }
+
+    // Quotations
+    if (url.indexOf('/api/sync/quotations') !== -1 || url.indexOf('/api/quotations') !== -1) {
+        if (method === 'DELETE') {
+            var m = url.match(/[?&]id=([^&]+)/);
+            if (m) {
+                return neonQuery('DELETE FROM quotations WHERE id=$1', [m[1]]).then(function() { return _mockResp({success:true}); }).catch(function(e) { return _mockResp({error:e.message}); });
+            }
+            return Promise.resolve(_mockResp({error:'Missing id'}));
+        } else if (method === 'POST' || method === 'PUT') {
+            var items = [];
+            try { items = JSON.parse(opts.body || '[]'); } catch(e) { try { items = [JSON.parse(opts.body)]; } catch(e2) { items = []; } }
+            if (!Array.isArray(items)) items = [items];
+            var chain = Promise.resolve();
+            for (var i = 0; i < items.length; i++) {
+                (function(q) {
+                    chain = chain.then(function() {
+                        if (!q || !q.id) return Promise.resolve();
+                        return neonQuery(
+                            'INSERT INTO quotations (id,client_name,client_phone,client_email,items,subtotal,tax,discount,total,status,notes,created_at,updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,NOW()) ON CONFLICT (id) DO UPDATE SET client_name=$2,client_phone=$3,client_email=$4,items=$5,subtotal=$6,tax=$7,discount=$8,total=$9,status=$10,notes=$11,updated_at=NOW()',
+                            [q.id, q.clientName||q.customerName||'', q.clientPhone||q.customerPhone||'', q.clientEmail||q.customerEmail||'', typeof q.items==='string'?q.items:JSON.stringify(q.items||[]), q.subtotal||0, q.tax||0, q.discount||0, q.total||0, q.status||'pendiente', q.notes||'', q.createdAt||new Date().toISOString()]
+                        );
+                    });
+                })(items[i]);
+            }
+            return chain.then(function() { return _mockResp({success:true,count:items.length}); }).catch(function(e) { console.error('[NEON] quotations POST error:', e); return _mockResp({error:e.message}); });
+        } else {
+            return neonQuery('SELECT * FROM quotations ORDER BY updated_at DESC').then(function(res) {
+                var quotes = (res.rows||[]).map(function(r) {
+                    return {id:r.id,clientName:r.client_name,clientPhone:r.client_phone,clientEmail:r.client_email,items:r.items,subtotal:r.subtotal,tax:r.tax,discount:r.discount,total:r.total,status:r.status,notes:r.notes,createdAt:r.created_at,updatedAt:r.updated_at};
+                });
+                return _mockResp(quotes);
+            }).catch(function(e) { console.error('[NEON] quotations GET error:', e); return _mockResp([]); });
+        }
+    }
+
+    // Users
+    if (url.indexOf('/api/sync/users') !== -1) {
+        if (method === 'POST' || method === 'PUT') {
+            var items = [];
+            try { items = JSON.parse(opts.body || '[]'); } catch(e) { try { items = [JSON.parse(opts.body)]; } catch(e2) { items = []; } }
+            if (!Array.isArray(items)) items = [items];
+            var chain = Promise.resolve();
+            for (var i = 0; i < items.length; i++) {
+                (function(u) {
+                    chain = chain.then(function() {
+                        if (!u || (!u.id && !u.email)) return Promise.resolve();
+                        var uid = u.id || u.email;
+                        return neonQuery(
+                            'INSERT INTO users_sync (id,name,email,role,store_name,created_at,updated_at) VALUES ($1,$2,$3,$4,$5,$6,NOW()) ON CONFLICT (id) DO UPDATE SET name=$2,email=$3,role=$4,store_name=$5,updated_at=NOW()',
+                            [uid, u.name||'', u.email||'', u.role||'vendedor', u.storeName||'', u.createdAt||new Date().toISOString()]
+                        );
+                    });
+                })(items[i]);
+            }
+            return chain.then(function() { return _mockResp({success:true,count:items.length}); }).catch(function(e) { return _mockResp({error:e.message}); });
+        } else {
+            return neonQuery('SELECT id,name,email,role,store_name,created_at,updated_at FROM users_sync ORDER BY created_at').then(function(res) {
+                var users = (res.rows||[]).map(function(r) {
+                    return {id:r.id,name:r.name,email:r.email,role:r.role,storeName:r.store_name,createdAt:r.created_at,updatedAt:r.updated_at};
+                });
+                return _mockResp(users);
+            }).catch(function(e) { return _mockResp([]); });
+        }
+    }
+
+    // Locations — not persisted in DB, return empty
+    if (url.indexOf('/api/sync/locations') !== -1) {
+        return Promise.resolve(_mockResp([]));
+    }
+
+    // Unknown — pass through to real fetch
+    return _realFetch(urlStr, opts);
 }
 
-// Pull products from Neon
-function pullProductsFromDB() {
-    return neonQuery('SELECT id, name, sku, barcode, category, brand, color, cost_price as "costPrice", sale_price as "salePrice", stock, min_stock as "minStock", description, specifications, created_at as "createdAt", updated_at as "updatedAt" FROM "Product" ORDER BY updated_at DESC').then(function(rows) {
-        return rows.map(function(r) {
-            return {
-                id: r.id, name: r.name || '', sku: r.sku || '', barcode: r.barcode || '',
-                category: r.category || '', brand: r.brand || '', color: r.color || '',
-                costPrice: parseFloat(r.costPrice) || 0, salePrice: parseFloat(r.salePrice) || 0,
-                stock: parseInt(r.stock) || 0, minStock: parseInt(r.minStock) || 5,
-                description: r.description || '', specifications: r.specifications || null,
-                createdAt: r.createdAt, updatedAt: r.updatedAt
-            };
-        });
-    });
-}
+// Install fetch interceptor for data sync calls
+var _realFetch = window.fetch;
+window.fetch = function(url, opts) {
+    var u = (typeof url === 'string') ? url : (url && url.toString ? url.toString() : '');
+    // Intercept only data sync calls — NOT auth or ping calls
+    if (u.indexOf('/api/sync/') !== -1 || u === getServerUrl() + '/api/store' || u === getServerUrl() + '/api/products' || u === getServerUrl() + '/api/quotations') {
+        return syncFetchHandler(u, opts || {});
+    }
+    return _realFetch.apply(this, arguments);
+};
 
-// Push a single product to Neon
-function pushProductToDB(p) {
-    var specs = p.specifications ? (typeof p.specifications === 'string' ? p.specifications : JSON.stringify(p.specifications)) : null;
-    return neonQuery(
-        'INSERT INTO "Product" (id, name, sku, barcode, category, brand, color, cost_price, sale_price, stock, min_stock, description, specifications, created_at, updated_at, user_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16) ON CONFLICT (id) DO UPDATE SET name=$2,sku=$3,barcode=$4,category=$5,brand=$6,color=$7,cost_price=$8,sale_price=$9,stock=$10,min_stock=$11,description=$12,specifications=$13,updated_at=$15',
-        [p.id, p.name||'', p.sku||'', p.barcode||'', p.category||'', p.brand||'', p.color||'',
-         parseFloat(p.costPrice)||0, parseFloat(p.salePrice)||0, parseInt(p.stock)||0, parseInt(p.minStock)||5,
-         p.description||'', specs, p.createdAt||new Date().toISOString(), p.updatedAt||new Date().toISOString(), p.userId||null]
-    );
-}
-
-// Delete a product from Neon
-function deleteProductFromDB(id) {
-    return neonQuery('DELETE FROM "Product" WHERE id = $1', [id]);
-}
 function saveServerUrl(url) {
     localStorage.setItem('inv_serverUrl', url);
 }
@@ -1572,16 +1668,24 @@ function isOnline() {
     return true;
 }
 
-// Real connectivity check — pings Neon database directly
+// Real connectivity check — pings the server
 function checkRealConnection() {
     clearTimeout(_onlineCheckTimer);
+    var url = getServerUrl();
+    if (!url) { _realOnlineStatus = false; updateConnectionStatus(); return; }
 
     var controller = new AbortController();
     var timeoutId = setTimeout(function() { controller.abort(); }, 8000);
 
-    neonQuery('SELECT 1 as ok').then(function(rows) {
+    fetch(url + '/api/version?_ping=' + Date.now(), {
+        method: 'GET',
+        signal: controller.signal,
+        cache: 'no-store'
+    }).then(function(r) {
         clearTimeout(timeoutId);
-        if (!rows || rows.length === 0) throw new Error('No response');
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+    }).then(function() {
         var wasOffline = (_realOnlineStatus !== true);
         _realOnlineStatus = true;
         updateConnectionStatus();
@@ -2039,7 +2143,9 @@ function enterApp(user) {
             pullFromServer();
         }, 1500);
     } else if (isOnline() && !getServerUrl()) {
-        // Server URL is hardcoded — no need to auto-set
+        // Auto-set server URL for web version
+        var webUrl = window.location.origin;
+        saveServerUrl(webUrl);
         setTimeout(function() {
             pullFromServer();
         }, 2000);
@@ -2163,6 +2269,29 @@ function populateAllSelects() {
     var categories = getCategories();
     var brands = getBrands();
     var colors = getColors();
+
+    // Seed defaults if completely empty (first-time use)
+    if (categories.length === 0 && brands.length === 0 && colors.length === 0) {
+        var defaults = {
+            categories: ['Celulares', 'Laptops', 'Tablets', 'Audífonos', 'Accesorios', 'Smartwatch', 'Cámaras', 'Electrónica'],
+            brands: ['Samsung', 'Apple', 'Xiaomi', 'Huawei', 'Motorola', 'Lenovo', 'Sony', 'LG'],
+            colors: ['Negro', 'Blanco', 'Azul', 'Rojo', 'Gris', 'Dorado', 'Verde', 'Rosa']
+        };
+        setCategories(defaults.categories);
+        setBrands(defaults.brands);
+        setColors(defaults.colors);
+        categories = defaults.categories;
+        brands = defaults.brands;
+        colors = defaults.colors;
+        // Push defaults to server
+        if (_neonReady) {
+            var cfg = getStoreConfig();
+            neonQuery(
+                'INSERT INTO store_config (id,name,categories,brands,colors,updated_at) VALUES (\'main\',$1,$2,$3,$4,NOW()) ON CONFLICT (id) DO UPDATE SET categories=$2,brands=$3,colors=$4,updated_at=NOW()',
+                [cfg.storeName||'Mi Tienda', JSON.stringify(categories), JSON.stringify(brands), JSON.stringify(colors)]
+            ).catch(function(){});
+        }
+    }
 
     // Populate category options
     populateCustomSelectOptions('category', categories);
@@ -4786,54 +4915,97 @@ function pushToServer() {
 // PULL FROM SERVER (Download data - CRITICAL: must call updateDashboard + populateAllSelects)
 // ====================================================================
 function pullFromServer() {
+    // Auto-save URL first
+    var inputUrl = document.getElementById('serverUrlInput') ? document.getElementById('serverUrlInput').value.trim() : '';
+    if (inputUrl) {
+        if (!inputUrl.startsWith('http://') && !inputUrl.startsWith('https://')) inputUrl = 'https://' + inputUrl;
+        if (inputUrl.endsWith('/')) inputUrl = inputUrl.slice(0, -1);
+        localStorage.setItem('inv_serverUrl', inputUrl);
+    }
+    var url = getServerUrl();
+    if (!url) { showToast('Configura la URL del servidor y toca Guardar', 'error'); return; }
     if (!isOnline()) { showToast('Sin conexión a internet', 'error'); return; }
 
-    showToast('Descargando datos de la nube...', 'info');
+    showToast('Descargando datos del servidor...', 'info');
     var badge = document.getElementById('syncBadge');
     if (badge) { badge.className = 'sync-badge syncing'; badge.textContent = '📥 Descargando datos...'; }
 
-    // Step 1: Pull store config from Neon DB
-    pullStoreFromDB().then(function(cfg) {
-        // Apply categories, brands, colors from DB
-        if (cfg.categories) {
+    // Step 1: Download store config
+    fetch(url + '/api/store', {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
+    }).then(function(r) {
+        if (!r.ok) throw new Error('Error al descargar configuración (HTTP ' + r.status + ')');
+        return r.json();
+    }).then(function(storeData) {
+        if (storeData) {
+            // Parse categories, brands, colors
             try {
-                var cats = typeof cfg.categories === 'string' ? JSON.parse(cfg.categories) : cfg.categories;
-                if (Array.isArray(cats)) setCategories(cats);
-            } catch(e) {}
-        }
-        if (cfg.brands) {
-            try {
-                var brands = typeof cfg.brands === 'string' ? JSON.parse(cfg.brands) : cfg.brands;
-                if (Array.isArray(brands)) setBrands(brands);
-            } catch(e) {}
-        }
-        if (cfg.colors) {
-            try {
-                var colors = typeof cfg.colors === 'string' ? JSON.parse(cfg.colors) : cfg.colors;
-                if (Array.isArray(colors)) setColors(colors);
-            } catch(e) {}
+                if (storeData.categories && typeof storeData.categories === 'string') {
+                    try { storeData.categories = JSON.parse(storeData.categories); } catch(e) {
+                        storeData.categories = storeData.categories.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+                    }
+                }
+                if (storeData.brands && typeof storeData.brands === 'string') {
+                    try { storeData.brands = JSON.parse(storeData.brands); } catch(e) {
+                        storeData.brands = storeData.brands.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+                    }
+                }
+                if (storeData.colors && typeof storeData.colors === 'string') {
+                    try { storeData.colors = JSON.parse(storeData.colors); } catch(e) {
+                        storeData.colors = storeData.colors.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+                    }
+                }
+            } catch(e) { console.error('Parse store error:', e); }
+
+            // Replace categories/brands/colors with server data (server is source of truth)
+            if (storeData.categories) {
+                try {
+                    var sCats = typeof storeData.categories === 'string' ? JSON.parse(storeData.categories) : storeData.categories;
+                    if (Array.isArray(sCats)) setCategories(sCats);
+                } catch(e) {}
+            }
+            if (storeData.brands) {
+                try {
+                    var sBrands = typeof storeData.brands === 'string' ? JSON.parse(storeData.brands) : storeData.brands;
+                    if (Array.isArray(sBrands)) setBrands(sBrands);
+                } catch(e) {}
+            }
+            if (storeData.colors) {
+                try {
+                    var sColors = typeof storeData.colors === 'string' ? JSON.parse(storeData.colors) : storeData.colors;
+                    if (Array.isArray(sColors)) setColors(sColors);
+                } catch(e) {}
+            }
+
+            // Save other store config fields
+            var cfg = getStoreConfig();
+            if (storeData.name) cfg.storeName = storeData.name;
+            if (storeData.storeName) cfg.storeName = storeData.storeName;
+            if (storeData.address) cfg.address = storeData.address;
+            if (storeData.phone) cfg.phone = storeData.phone;
+            if (storeData.email) cfg.email = storeData.email;
+            if (storeData.currency) cfg.currency = storeData.currency;
+            if (storeData.footer) cfg.footerText = storeData.footer;
+            if (storeData.footerText) cfg.footerText = storeData.footerText;
+            if (storeData.logo) cfg.logo = storeData.logo;
+            saveStoreConfig(cfg);
+            loadStoreInfoUI();
+            renderCategories();
+            renderBrands();
+            renderColors();
+
+            showToast('Configuración descargada ✓', 'success');
         }
 
-        // Save other store config fields
-        var storeCfg = getStoreConfig();
-        if (cfg.name) storeCfg.storeName = cfg.name;
-        if (cfg.address) storeCfg.address = cfg.address;
-        if (cfg.phone) storeCfg.phone = cfg.phone;
-        if (cfg.email) storeCfg.email = cfg.email;
-        if (cfg.currency) storeCfg.currency = cfg.currency;
-        if (cfg.footer) storeCfg.footerText = cfg.footer;
-        if (cfg.footerText) storeCfg.footerText = cfg.footerText;
-        if (cfg.logo) storeCfg.logo = cfg.logo;
-        saveStoreConfig(storeCfg);
-        loadStoreInfoUI();
-        renderCategories();
-        renderBrands();
-        renderColors();
-
-        showToast('Configuración sincronizada ✓', 'success');
-
-        // Step 2: Pull products from Neon DB
-        return pullProductsFromDB();
+        // Step 2: Download products
+        return fetch(url + '/api/products', {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' }
+        }).then(function(r) {
+            if (!r.ok) throw new Error('Error al descargar productos (HTTP ' + r.status + ')');
+            return r.json();
+        });
     }).then(function(productsData) {
         if (productsData && Array.isArray(productsData) && productsData.length > 0) {
             var existing = getProducts();
@@ -4880,8 +5052,14 @@ function pullFromServer() {
             showToast('No hay productos en el servidor', 'info');
         }
 
-        // Step 3: Pull quotations from Neon DB
-        return neonQuery('SELECT id, user_id as "userId", number, client_name as "clientName", customer_phone as "customerPhone", items_a as "itemsA", items_b as "itemsB", is_dual_mode as "isDualMode", discount_a as "discountA", discount_b as "discountB", notes, total, subtotal, valid_days as "validDays", status, created_at as "createdAt", updated_at as "updatedAt" FROM "Quotation" ORDER BY updated_at DESC');
+        // Step 3: Download quotations
+        return fetch(url + '/api/quotations', {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' }
+        }).then(function(r) {
+            if (!r.ok) throw new Error('Error al descargar cotizaciones (HTTP ' + r.status + ')');
+            return r.json();
+        });
     }).then(function(quotData) {
         if (quotData && Array.isArray(quotData) && quotData.length > 0) {
             var existingQ = getQuotations();
@@ -5024,9 +5202,12 @@ function processOfflineQueue() {
     if (_offlineQueue.length === 0) return Promise.resolve();
     if (!isOnline()) return Promise.resolve();
 
+    var url = getServerUrl();
+    if (!url) return Promise.resolve();
+
     showToast('Sincronizando ' + _offlineQueue.length + ' cambio(s) pendiente(s)...', 'info');
     var badge = document.getElementById('syncBadge');
-    if (badge) { badge.className = 'sync-badge syncing'; badge.textContent = 'Enviando cambios...'; }
+    if (badge) { badge.className = 'sync-badge syncing'; badge.textContent = '\uD83D\uDCE4 Enviando cambios...'; }
 
     var queue = _offlineQueue.slice();
     _offlineQueue = [];
@@ -5037,21 +5218,29 @@ function processOfflineQueue() {
         (function(op) {
             chain = chain.then(function() {
                 if (op.type === 'product' && op.action === 'delete') {
-                    return deleteProductFromDB(op.data.id).catch(function() {});
+                    return fetch(url + '/api/sync/products?id=' + op.data.id, { method: 'DELETE' }).catch(function() {});
                 } else if (op.type === 'product' && op.action === 'upsert' && op.data) {
-                    return pushProductToDB(op.data).catch(function() {});
+                    return fetch(url + '/api/sync/products', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(op.data)
+                    }).catch(function() {});
                 } else if (op.type === 'quotation' && op.action === 'delete') {
-                    return neonQuery('DELETE FROM "Quotation" WHERE id = $1', [op.data.id]).catch(function() {});
+                    return fetch(url + '/api/sync/quotations?id=' + op.data.id, { method: 'DELETE' }).catch(function() {});
                 } else if (op.type === 'quotation' && op.action === 'create' && op.data) {
-                    return pushQuotationToDB(op.data).catch(function() {});
+                    return pushQuotationToServer(op.data, url).catch(function() {});
                 } else if (op.type === 'store' && op.action === 'update') {
                     var cfg = getStoreConfig();
-                    return pushStoreToDB({
-                        name: cfg.storeName || 'Mi Tienda', address: cfg.address || '', phone: cfg.phone || '',
-                        email: cfg.email || '', currency: cfg.currency || 'MXN', footer: cfg.footerText || '',
-                        logo: cfg.logo || null, categories: getCategories(),
-                        brands: getBrands(), colors: getColors(),
-                        categorySpecs: cfg.categorySpecs || '{}'
+                    return fetch(url + '/api/sync/store', {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            name: cfg.storeName || 'Mi Tienda', address: cfg.address || '', phone: cfg.phone || '',
+                            email: cfg.email || '', currency: cfg.currency || 'MXN', footer: cfg.footerText || '',
+                            logo: cfg.logo || null, categories: JSON.stringify(getCategories()),
+                            brands: JSON.stringify(getBrands()), colors: JSON.stringify(getColors()),
+                            categorySpecs: cfg.categorySpecs || '{}'
+                        })
                     }).catch(function() {});
                 } else if (op.type === 'user' && op.action === 'create' && op.data) {
                     return fetch(url + '/api/sync/users', {
@@ -5131,6 +5320,7 @@ function doSyncToServer(url, reason) {
     if (_isSyncing) return;
 
     // Push store config — only include categories/brands/colors when store config changed
+    // to avoid overwriting server-side changes with stale local data
     var storeCfg = getStoreConfig();
     var storePayload = {
         name: storeCfg.storeName || 'Mi Tienda', address: storeCfg.address || '', phone: storeCfg.phone || '',
@@ -5138,13 +5328,16 @@ function doSyncToServer(url, reason) {
         logo: storeCfg.logo || null
     };
     if (reason === 'store' || reason === 'specs') {
-        storePayload.categories = getCategories();
-        storePayload.brands = getBrands();
-        storePayload.colors = getColors();
+        storePayload.categories = JSON.stringify(getCategories());
+        storePayload.brands = JSON.stringify(getBrands());
+        storePayload.colors = JSON.stringify(getColors());
         storePayload.categorySpecs = storeCfg.categorySpecs || '{}';
     }
-    // Push store config to Neon DB directly
-    pushStoreToDB(storePayload).catch(function(e) { console.error('Store sync error:', e); });
+    fetch(url + '/api/sync/store', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(storePayload)
+    }).then(function(r) { return r.json(); }).catch(function() {});
 
     if (reason === 'product') {
         // Push only the most recently modified products (last 60 seconds)
@@ -5158,6 +5351,7 @@ function doSyncToServer(url, reason) {
                 if (age < 60000) recent.push(products[i]);
             }
         }
+        // If nothing recent found, push the last one (edge case)
         if (recent.length === 0 && products.length > 0) {
             recent.push(products[products.length - 1]);
         }
@@ -5165,7 +5359,11 @@ function doSyncToServer(url, reason) {
         for (var j = 0; j < recent.length; j++) {
             (function(p) {
                 chain = chain.then(function() {
-                    return pushProductToDB(p).catch(function(e) { console.error('Product sync error:', e); });
+                    return fetch(url + '/api/sync/products', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(p)
+                    }).catch(function() {});
                 });
             })(recent[j]);
         }
@@ -5175,15 +5373,15 @@ function doSyncToServer(url, reason) {
         var quotes = getQuotations();
         if (quotes.length > 0) {
             var latest = quotes[quotes.length - 1];
-            pushQuotationToDB(latest).then(function() { _isSyncing = false; }).catch(function() { _isSyncing = false; });
+            pushQuotationToServer(latest, url).then(function() { _isSyncing = false; }).catch(function() { _isSyncing = false; });
         } else {
             _isSyncing = false;
         }
     }
 }
 
-// Push a single quotation to Neon DB directly
-function pushQuotationToDB(q) {
+// Push a single quotation to the sync API
+function pushQuotationToServer(q, url) {
     var syncData = {
         itemsA: q.itemsA || q.items || [],
         itemsB: q.itemsB || [],
@@ -5197,29 +5395,49 @@ function pushQuotationToDB(q) {
         notes: q.notes || '',
         validDays: q.validDays || 15
     };
-    var itemsA = JSON.stringify(q.itemsA || q.items || []);
-    var itemsB = JSON.stringify(q.itemsB || []);
-    var discountA = JSON.stringify(q.discountA || { type: 'percentage', value: 0 });
-    var discountB = JSON.stringify(q.discountB || { type: 'percentage', value: 0 });
-    var notes = JSON.stringify(syncData);
+    var discA = q.discountA || { type: 'percentage', value: 0 };
+    var discB = q.discountB || { type: 'percentage', value: 0 };
     var isDual = q.isDualMode && q.itemsB && q.itemsB.length > 0;
 
-    return neonQuery(
-        'INSERT INTO "Quotation" (id, user_id, number, client_name, customer_phone, items_a, items_b, is_dual_mode, discount_a, discount_b, notes, total, subtotal, valid_days, status, created_at, updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16) ON CONFLICT (id) DO UPDATE SET user_id=$2,number=$3,client_name=$4,customer_phone=$5,items_a=$6,items_b=$7,is_dual_mode=$8,discount_a=$9,discount_b=$10,notes=$11,total=$12,subtotal=$13,valid_days=$14,status=$15,updated_at=$16',
-        [q.id, null, q.number || '', q.clientName || '', q.customerPhone || '',
-         itemsA, itemsB, isDual, discountA, discountB, notes,
-         parseFloat(q.total) || 0, parseFloat(q.subtotal) || 0,
-         parseInt(q.validDays) || 15, q.status || 'pending',
-         q.createdAt || new Date().toISOString(), q.updatedAt || new Date().toISOString()]
-    );
+    return fetch(url + '/api/sync/quotations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            id: q.id,
+            number: q.number || '',
+            customerName: q.clientName || '',
+            customerPhone: q.customerPhone || '',
+            customerEmail: q.customerEmail || '',
+            items: [],
+            subtotal: q.subtotal || 0,
+            total: q.total || 0,
+            notes: JSON.stringify(syncData),
+            validDays: q.validDays || 15,
+            mode: isDual ? 'dual' : 'simple',
+            optionATitle: q.optionTitleA || 'Opcion A',
+            optionBTitle: q.optionTitleB || 'Opcion B',
+            optionBSubtotal: isDual ? (q.totalsB ? q.totalsB.subtotal : 0) : 0,
+            optionBDiscountType: discB.type || 'percentage',
+            optionBDiscountValue: discB.value || 0,
+            optionBTotal: isDual ? (q.totalsB ? q.totalsB.total : 0) : 0,
+            itemsAJson: JSON.stringify(q.itemsA || q.items || []),
+            itemsBJson: JSON.stringify(q.itemsB || []),
+            discountAJson: JSON.stringify(discA),
+            discountBJson: JSON.stringify(discB),
+            totalsAJson: JSON.stringify(q.totalsA || null),
+            totalsBJson: JSON.stringify(q.totalsB || null)
+        })
+    });
 }
 
 // Smart pull from server: MERGE instead of replace
 function autoSyncFromServer() {
     if (!isOnline()) return;
+    var url = getServerUrl();
+    if (!url) return;
 
-    // Pull products from Neon DB
-    pullProductsFromDB()
+    fetch(url + '/api/sync/products', { headers: { 'Content-Type': 'application/json' } })
+        .then(function(r) { return r.json(); })
         .then(function(serverProducts) {
             if (!Array.isArray(serverProducts)) return null;
 
@@ -5249,6 +5467,7 @@ function autoSyncFromServer() {
                 };
 
                 if (localMap[sp.id]) {
+                    // Exists locally — only update if server version is newer
                     var localUpdated = new Date(localMap[sp.id].updatedAt || 0).getTime();
                     var serverUpdated = new Date(sp.updatedAt || 0).getTime();
                     if (serverUpdated > localUpdated) {
@@ -5256,18 +5475,20 @@ function autoSyncFromServer() {
                         changed = true;
                     }
                 } else {
+                    // New product from server (another device added it)
                     localProducts.push(localEntry);
                     changed = true;
                 }
             }
             if (changed) saveProducts(localProducts);
 
-            // Pull store config from Neon DB
-            return pullStoreFromDB();
+            return fetch(url + '/api/sync/store', { headers: { 'Content-Type': 'application/json' } });
         })
+        .then(function(r) { return r.json(); })
         .then(function(storeData) {
             if (storeData) {
                 var cfg = getStoreConfig();
+                // Replace categories/brands/colors with server data (server is source of truth)
                 if (storeData.categories) {
                     try {
                         var sCats = typeof storeData.categories === 'string' ? JSON.parse(storeData.categories) : storeData.categories;
@@ -5299,9 +5520,9 @@ function autoSyncFromServer() {
                 renderBrands();
                 renderColors();
             }
-            // Pull quotations from Neon DB
-            return neonQuery('SELECT id, user_id as "userId", number, client_name as "clientName", customer_phone as "customerPhone", items_a as "itemsA", items_b as "itemsB", is_dual_mode as "isDualMode", discount_a as "discountA", discount_b as "discountB", notes, total, subtotal, valid_days as "validDays", status, created_at as "createdAt", updated_at as "updatedAt" FROM "Quotation" ORDER BY updated_at DESC');
+            return fetch(url + '/api/sync/quotations', { headers: { 'Content-Type': 'application/json' } });
         })
+        .then(function(r) { if (r) return r.json(); })
         .then(function(serverQuotations) {
             if (!Array.isArray(serverQuotations)) {
                 _lastSyncTime = new Date();
@@ -5933,9 +6154,10 @@ function shareQuotationQR(id) {
 
     document.body.appendChild(overlay);
 
-    // Push quotation to Neon DB in background (so QR can be scanned)
-    if (isOnline()) {
-        pushQuotationToDB(q).then(function() {
+    // Push quotation to server in background (so QR can be scanned)
+    var serverUrl = getServerUrl();
+    if (serverUrl && isOnline()) {
+        pushQuotationToServer(q, serverUrl).then(function() {
             var statusEl = document.getElementById('qrSyncStatus');
             if (statusEl) {
                 statusEl.style.color = '#10b981';
@@ -6127,11 +6349,19 @@ function downloadQuotationPDF(id) {
     applyTheme(savedTheme);
 
     // Save current version to localStorage (no redirect — avoids infinite loops)
-    var _appVer = 'v20260421i';
+    var _appVer = 'v20260421h';
     localStorage.setItem('inv_appVersion', _appVer);
 
-    // ALWAYS clear old server URL to force use of current server
-    localStorage.removeItem('inv_serverUrl');
+    // ALWAYS force the correct server URL — clear any old/wrong URL
+    // This fixes APK where inv_serverUrl may be set to a wrong vercel project
+    var _badUrl = localStorage.getItem('inv_serverUrl') || '';
+    var _correctUrl = 'https://inventario-tienda-three.vercel.app';
+    if (_badUrl !== _correctUrl) {
+        console.log('[INIT] Correcting server URL from', _badUrl, 'to', _correctUrl);
+        localStorage.removeItem('inv_serverUrl');
+        // Also force-set the correct one
+        localStorage.setItem('inv_serverUrl', _correctUrl);
+    }
 
     // Check if there's a logged in user
     var user = getCurrentUser();
