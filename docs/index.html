@@ -1870,17 +1870,46 @@ document.getElementById('loginForm').addEventListener('submit', function(e) {
                 setCurrentUser(serverUser);
                 addActivity('Inicio de sesión: ' + serverUser.name + ' (servidor)');
                 enterApp(serverUser);
+            } else if (data.error && (data.error.indexOf('not found') > -1 || data.error.indexOf('No existe') > -1 || data.error.indexOf('User not') > -1)) {
+                // User not found on server — AUTO-REGISTER and enter
+                console.log('[LOGIN] User not found on server, auto-registering...');
+                errEl.textContent = 'Creando tu cuenta...';
+                errEl.style.color = 'var(--info)';
+                errEl.style.background = 'var(--info-bg)';
+                errEl.style.display = 'block';
+                var regBody = JSON.stringify({ name: email.split('@')[0], email: email, password: pass, role: 'admin' });
+                var authUrl2 = getAuthUrl();
+                fetch(authUrl2 + '/api/auth/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: regBody
+                }).then(function(r2) { return r2.json(); }).then(function(regData) {
+                    if (regData.token && regData.user) {
+                        var su = { id: regData.user.id, name: regData.user.name, email: regData.user.email, role: regData.user.role, createdAt: regData.user.createdAt || new Date().toISOString(), _token: regData.token, _serverAuth: true };
+                        var users = getUsers(); users.push({ id: su.id, name: su.name, email: email, password: pass, role: su.role, createdAt: su.createdAt }); saveUsers(users);
+                        setCurrentUser(su);
+                        addActivity('Cuenta creada automaticamente: ' + su.name);
+                        enterApp(su);
+                    } else {
+                        // Register failed on server too — create LOCAL account
+                        console.log('[LOGIN] Server register failed:', regData.error);
+                        createLocalAccountAndEnter(email, pass, errEl);
+                    }
+                }).catch(function() {
+                    // Server unreachable for register — create LOCAL
+                    createLocalAccountAndEnter(email, pass, errEl);
+                });
             } else {
-                // Server rejected credentials — try local fallback
+                // Server rejected credentials (wrong password etc) — try local fallback
                 console.log('[LOGIN] Server rejected:', data.error);
                 tryLocalLogin(email, pass, errEl);
             }
         }).catch(function(err) {
-            // Server unreachable — try local fallback
-            console.log('[LOGIN] Server error:', err);
+            // Server unreachable — try local, if no local user CREATE ONE
+            console.log('[LOGIN] Server unreachable:', err.message || err);
             errEl.style.color = '';
             errEl.style.background = '';
-            tryLocalLogin(email, pass, errEl);
+            tryLocalLogin(email, pass, errEl, true);
         });
     } else {
         // Offline or no server — local login only
@@ -1889,7 +1918,7 @@ document.getElementById('loginForm').addEventListener('submit', function(e) {
     }
 });
 
-function tryLocalLogin(email, pass, errEl) {
+function tryLocalLogin(email, pass, errEl, canCreate) {
     console.log('[LOGIN] Trying local auth for:', email);
     var users = getUsers();
     console.log('[LOGIN] Local users count:', users.length);
@@ -1901,6 +1930,12 @@ function tryLocalLogin(email, pass, errEl) {
         }
     }
     if (!found) {
+        if (canCreate && email && pass && pass.length >= 4) {
+            // No local user and server was unreachable — CREATE LOCAL ACCOUNT
+            console.log('[LOGIN] No local user found, creating local account...');
+            createLocalAccountAndEnter(email, pass, errEl);
+            return;
+        }
         errEl.textContent = 'Correo o contraseña incorrectos (servidor y local)';
         errEl.style.display = 'block';
         errEl.style.color = '';
@@ -2070,6 +2105,32 @@ document.getElementById('registerForm').addEventListener('submit', function(e) {
         doLocalRegister(name, email, pass, role, users, errEl, sucEl);
     }
 });
+
+function createLocalAccountAndEnter(email, pass, errEl) {
+    var name = email.split('@')[0];
+    var newUser = { id: generateId(), name: name, email: email, password: pass, role: 'admin', createdAt: new Date().toISOString(), _needsSync: true };
+    var users = getUsers();
+    // Check if email already exists locally
+    for (var i = 0; i < users.length; i++) { if (users[i].email === email) { users[i].password = pass; saveUsers(users); setCurrentUser(users[i]); enterApp(users[i]); return; } }
+    users.push(newUser);
+    saveUsers(users);
+    setCurrentUser(newUser);
+    addActivity('Cuenta creada localmente: ' + name);
+    // Try to sync to server in background
+    if (isOnline()) {
+        var authUrl3 = getAuthUrl();
+        fetch(authUrl3 + '/api/auth/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: name, email: email, password: pass, role: 'admin' }) }).then(function(r) { return r.json(); }).then(function(rd) {
+            if (rd && rd.token && rd.user) {
+                newUser.id = rd.user.id; newUser.name = rd.user.name; newUser.role = rd.user.role; newUser._token = rd.token; newUser._serverAuth = true; newUser._needsSync = false;
+                setCurrentUser(newUser);
+                for (var j = 0; j < users.length; j++) { if (users[j].email === email) { users[j] = newUser; break; } }
+                saveUsers(users);
+                showToast('Cuenta sincronizada con el servidor', 'success');
+            }
+        }).catch(function() {});
+    }
+    enterApp(newUser);
+}
 
 function doLocalRegister(name, email, pass, role, users, errEl, sucEl) {
     var newUser = {
@@ -6349,7 +6410,7 @@ function downloadQuotationPDF(id) {
     applyTheme(savedTheme);
 
     // Save current version to localStorage (no redirect — avoids infinite loops)
-    var _appVer = 'v20260421h';
+    var _appVer = 'v20260422b';
     localStorage.setItem('inv_appVersion', _appVer);
 
     // ALWAYS force the correct server URL — clear any old/wrong URL
