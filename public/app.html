@@ -1587,17 +1587,10 @@ function syncFetchHandler(urlStr, opts) {
     return _realFetch(urlStr, opts);
 }
 
-// Fetch interceptor ENABLED — routes /api/* calls directly to Neon DB
-// This bypasses Vercel API stubs and talks to Neon directly
+// Fetch interceptor DISABLED — all calls go to Vercel server directly
+// Vercel API routes handle the correct Neon table names
 var _realFetch = window.fetch;
 window.fetch = function(url, opts) {
-    if (typeof url === 'string' && url.indexOf('/api/') !== -1) {
-        // Auth endpoints always go to real server
-        if (url.indexOf('/api/auth/') !== -1 || url.indexOf('/api/version') !== -1) {
-            return _realFetch(url, opts || {});
-        }
-        return syncFetchHandler(url, opts || {});
-    }
     return _realFetch(url, opts || {});
 };
 
