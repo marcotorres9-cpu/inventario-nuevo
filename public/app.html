@@ -5455,15 +5455,20 @@ function processOfflineQueue() {
     for (var i = 0; i < queue.length; i++) {
         (function(op) {
             chain = chain.then(function() {
-                if (op.type === 'product' && op.action === 'delete') {
-                    return fetch(url + '/api/sync/products?id=' + op.data.id, { method: 'DELETE' }).catch(function() {});
-                } else if (op.type === 'product' && op.action === 'upsert' && op.data) {
+                try {
+                    if (!op || !op.type || !op.action) return Promise.resolve();
+                    if (!op.data) op.data = {};
+                    if (op.type === 'product' && op.action === 'delete') {
+                        if (!op.data.id) return Promise.resolve();
+                        return fetch(url + '/api/sync/products?id=' + op.data.id, { method: 'DELETE' }).catch(function() {});
+                    } else if (op.type === 'product' && op.action === 'upsert' && op.data) {
                     return fetch(url + '/api/sync/products', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(op.data)
                     }).catch(function() {});
                 } else if (op.type === 'quotation' && op.action === 'delete') {
+                    if (!op.data.id) return Promise.resolve();
                     return fetch(url + '/api/sync/quotations?id=' + op.data.id, { method: 'DELETE' }).catch(function() {});
                 } else if (op.type === 'quotation' && op.action === 'create' && op.data) {
                     return pushQuotationToServer(op.data, url).catch(function() {});
@@ -5502,7 +5507,11 @@ function processOfflineQueue() {
                         }
                     }).catch(function() {});
                 }
-                return Promise.resolve();
+                    return Promise.resolve();
+                } catch(ex) {
+                    console.error('[QUEUE] Error processing op:', ex);
+                    return Promise.resolve();
+                }
             });
         })(queue[i]);
     }
@@ -5670,11 +5679,11 @@ function pushQuotationToServer(q, url) {
 
 // Smart pull from server: MERGE instead of replace
 function autoSyncFromServer() {
-    if (!isOnline()) return;
+    if (!isOnline()) return Promise.resolve();
     var url = getServerUrl();
-    if (!url) return;
+    if (!url) return Promise.resolve();
 
-    fetch(url + '/api/sync/products', { headers: { 'Content-Type': 'application/json' } })
+    return fetch(url + '/api/sync/products', { headers: { 'Content-Type': 'application/json' } })
         .then(function(r) { return r.json(); })
         .then(function(serverProducts) {
             if (!Array.isArray(serverProducts)) return null;
@@ -5934,6 +5943,7 @@ function autoSyncFromServer() {
         .catch(function(err) {
             console.error('Auto-sync error:', err);
             updateSyncStatusUI(false);
+            showToast('Error sync: ' + (err && err.message ? err.message.substring(0, 80) : 'Error de conexion'), 'error');
         });
 }
 
@@ -6001,7 +6011,15 @@ function forceSync() {
     updateSyncStatusUI(true);
     // Try sync directly — don't wait for ping (causes timeout issues in WebView)
     processOfflineQueue().then(function() {
-        autoSyncFromServer();
+        autoSyncFromServer().then(function() {
+            showToast('Sincronizacion completada', 'success');
+        }).catch(function(err) {
+            showToast('Error al sincronizar: ' + (err && err.message ? err.message : 'Desconocido'), 'error');
+            console.error('[FORCE_SYNC] Error:', err);
+        });
+    }).catch(function(err) {
+        showToast('Error en cola: ' + (err && err.message ? err.message : 'Desconocido'), 'error');
+        console.error('[FORCE_SYNC] Queue error:', err);
     });
 }
 

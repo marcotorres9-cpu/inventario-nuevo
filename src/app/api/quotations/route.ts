@@ -54,10 +54,13 @@ export async function POST(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
-    const body = await request.json();
-    const id = body?.id;
-    if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 });
-    await query('DELETE FROM "Quotation" WHERE id=$1', [id]);
+    const url = new URL(request.url);
+    const id = url.searchParams.get('id') || '';
+    let bodyId = '';
+    try { const b = await request.json(); bodyId = b?.id || ''; } catch {}
+    const finalId = id || bodyId;
+    if (!finalId) return NextResponse.json({ error: 'Missing id' }, { status: 400 });
+    await query('DELETE FROM "Quotation" WHERE id=$1', [finalId]);
     return NextResponse.json({ success: true }, { headers: { 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' } });
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500, headers: { 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' } });
