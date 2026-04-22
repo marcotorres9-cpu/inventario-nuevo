@@ -2232,35 +2232,123 @@ function enterApp(user) {
         usersSection.style.display = (user.role === 'admin') ? 'block' : 'none';
     }
 
-    // Initialize all views
+    // Show dashboard immediately with local data
     updateDashboard();
     populateAllSelects();
     renderCategories();
     renderBrands();
     renderColors();
     renderUsers();
-
-    // Start auto-sync with server
     startAutoSync();
     renderProductList();
     loadStoreInfoUI();
     loadServerConfigUI();
-
     switchSection('dashboard');
 
-    // AUTO-SYNC: Pull data from server when entering app
-    if (isOnline() && getServerUrl()) {
-        setTimeout(function() {
-            pullFromServer();
-        }, 1500);
-    } else if (isOnline() && !getServerUrl()) {
-        // Auto-set server URL for web version
-        var webUrl = window.location.origin;
-        saveServerUrl(webUrl);
-        setTimeout(function() {
-            pullFromServer();
-        }, 2000);
+    // CRITICAL FIX: Force pull from server FIRST, then refresh UI
+    if (navigator.onLine && getServerUrl()) {
+        _realOnlineStatus = true;
+        updateConnectionStatus();
+        // Immediately pull all data from server and refresh
+        forcePullAndRefresh();
     }
+}
+
+function forcePullAndRefresh() {
+    var url = getServerUrl();
+    if (!url) return;
+
+    console.log('[SYNC] Force pulling data from server...');
+    showToast('Descargando datos del servidor...', 'info');
+
+    // Step 1: Pull store config
+    fetch(url + '/api/store', { method: 'GET', headers: { 'Content-Type': 'application/json' } })
+    .then(function(r) { return r.json(); })
+    .then(function(storeData) {
+        if (storeData && storeData.name) {
+            var cfg = getStoreConfig();
+            if (storeData.name) cfg.storeName = storeData.name;
+            if (storeData.address) cfg.address = storeData.address;
+            if (storeData.phone) cfg.phone = storeData.phone;
+            if (storeData.email) cfg.email = storeData.email;
+            if (storeData.currency) cfg.currency = storeData.currency;
+            if (storeData.footer) cfg.footerText = storeData.footer;
+            if (storeData.logo) cfg.logo = storeData.logo;
+            if (storeData.categorySpecs) cfg.categorySpecs = storeData.categorySpecs;
+            saveStoreConfig(cfg);
+
+            // Update categories/brands/colors
+            try {
+                var cats = typeof storeData.categories === 'string' ? JSON.parse(storeData.categories) : (storeData.categories || []);
+                if (Array.isArray(cats)) setCategories(cats);
+            } catch(e) {}
+            try {
+                var brands = typeof storeData.brands === 'string' ? JSON.parse(storeData.brands) : (storeData.brands || []);
+                if (Array.isArray(brands)) setBrands(brands);
+            } catch(e) {}
+            try {
+                var colors = typeof storeData.colors === 'string' ? JSON.parse(storeData.colors) : (storeData.colors || []);
+                if (Array.isArray(colors)) setColors(colors);
+            } catch(e) {}
+
+            // Update header immediately
+            var headerName = document.getElementById('storeHeaderName');
+            if (headerName) headerName.textContent = storeData.name || 'Inventario Pro';
+            var storeLogo = document.getElementById('storeLogo');
+            if (storeLogo && storeData.logo) { storeLogo.src = storeData.logo; storeLogo.style.display = 'block'; }
+            console.log('[SYNC] Store pulled:', storeData.name);
+        }
+        return fetch(url + '/api/products', { method: 'GET', headers: { 'Content-Type': 'application/json' } });
+    })
+    .then(function(r) { if (r && typeof r.json === 'function') return r.json(); return []; })
+    .then(function(productsData) {
+        if (Array.isArray(productsData) && productsData.length > 0) {
+            // Replace ALL local products with server data
+            var serverProducts = productsData.map(function(rp) {
+                return {
+                    id: rp.id, name: rp.name || '', sku: rp.sku || '', barcode: rp.barcode || '',
+                    category: rp.category || '', brand: rp.brand || '', color: rp.color || '',
+                    costPrice: parseFloat(rp.costPrice) || 0,
+                    salePrice: parseFloat(rp.salePrice) || parseFloat(rp.price) || 0,
+                    price: parseFloat(rp.salePrice) || parseFloat(rp.price) || 0,
+                    stock: parseInt(rp.stock) || 0,
+                    minStock: parseInt(rp.minStock) || 5,
+                    description: rp.description || '',
+                    specifications: rp.specifications || null,
+                    createdAt: rp.createdAt || new Date().toISOString(),
+                    updatedAt: rp.updatedAt || new Date().toISOString()
+                };
+            });
+            saveProducts(serverProducts);
+            console.log('[SYNC] Products pulled:', serverProducts.length);
+        }
+        return fetch(url + '/api/quotations', { method: 'GET', headers: { 'Content-Type': 'application/json' } });
+    })
+    .then(function(r) { if (r && typeof r.json === 'function') return r.json(); return []; })
+    .then(function(quotData) {
+        if (Array.isArray(quotData) && quotData.length > 0) {
+            saveQuotations(quotData);
+            console.log('[SYNC] Quotations pulled:', quotData.length);
+        }
+
+        // NOW refresh the entire UI with the downloaded data
+        updateDashboard();
+        renderProductList();
+        populateAllSelects();
+        renderCategories();
+        renderBrands();
+        renderColors();
+        renderUsers();
+        loadStoreInfoUI();
+        showToast('Datos sincronizados con el servidor', 'success');
+        console.log('[SYNC] Force pull complete - UI refreshed');
+    })
+    .catch(function(err) {
+        console.error('[SYNC] Force pull error:', err);
+        showToast('Error de conexion al servidor', 'error');
+        _realOnlineStatus = false;
+        updateConnectionStatus();
+    });
 }
 
 function logout() {
@@ -5476,25 +5564,25 @@ function syncToServer(reason) {
 function doSyncToServer(url, reason) {
     if (_isSyncing) return;
 
-    // Push store config — only include categories/brands/colors when store config changed
-    // to avoid overwriting server-side changes with stale local data
-    var storeCfg = getStoreConfig();
-    var storePayload = {
-        name: storeCfg.storeName || 'Mi Tienda', address: storeCfg.address || '', phone: storeCfg.phone || '',
-        email: storeCfg.email || '', currency: storeCfg.currency || 'MXN', footer: storeCfg.footerText || '',
-        logo: storeCfg.logo || null
-    };
+    // Only push store config when explicitly requested (not on product/quotation sync)
+    // This prevents overwriting server store name "Zona Libre" with empty local data
     if (reason === 'store' || reason === 'specs') {
-        storePayload.categories = JSON.stringify(getCategories());
-        storePayload.brands = JSON.stringify(getBrands());
-        storePayload.colors = JSON.stringify(getColors());
-        storePayload.categorySpecs = storeCfg.categorySpecs || '{}';
+        var storeCfg = getStoreConfig();
+        var storePayload = {
+            name: storeCfg.storeName || 'Mi Tienda', address: storeCfg.address || '', phone: storeCfg.phone || '',
+            email: storeCfg.email || '', currency: storeCfg.currency || 'USD', footer: storeCfg.footerText || '',
+            logo: storeCfg.logo || null,
+            categories: JSON.stringify(getCategories()),
+            brands: JSON.stringify(getBrands()),
+            colors: JSON.stringify(getColors()),
+            categorySpecs: storeCfg.categorySpecs || '{}'
+        };
+        fetch(url + '/api/sync/store', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(storePayload)
+        }).then(function(r) { return r.json(); }).catch(function() {});
     }
-    fetch(url + '/api/sync/store', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(storePayload)
-    }).then(function(r) { return r.json(); }).catch(function() {});
 
     if (reason === 'product') {
         // Push only the most recently modified products (last 60 seconds)
