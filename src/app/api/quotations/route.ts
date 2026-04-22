@@ -17,17 +17,17 @@ async function query(sql: string, params: any[] = []) {
 
 export async function GET() {
   try {
-    const rows = await query('SELECT * FROM quotations ORDER BY updated_at DESC');
+    const rows = await query('SELECT id, "customerName", "customerPhone", "customerEmail", subtotal, total, notes, "createdAt", "updatedAt" FROM "Quotation" ORDER BY "updatedAt" DESC');
     const quotes = rows.map((r: any) => ({
-      id: r.id, clientName: r.client_name||'', clientPhone: r.client_phone||'',
-      clientEmail: r.client_email||'', items: r.items||'[]',
-      subtotal: r.subtotal||0, tax: r.tax||0, discount: r.discount||0,
-      total: r.total||0, status: r.status||'pendiente', notes: r.notes||'',
-      createdAt: r.created_at, updatedAt: r.updated_at
+      id: r.id, clientName: r.customerName||'', clientPhone: r.customerPhone||'',
+      clientEmail: r.customerEmail||'', items: '[]',
+      subtotal: r.subtotal||0, tax: 0, discount: 0,
+      total: r.total||0, status: '', notes: r.notes||'',
+      createdAt: r.createdAt, updatedAt: r.updatedAt
     }));
-    return NextResponse.json(quotes, { headers: { 'Cache-Control': 'no-store' } });
+    return NextResponse.json(quotes, { headers: { 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' } });
   } catch (e: any) {
-    return NextResponse.json([], { headers: { 'Cache-Control': 'no-store' } });
+    return NextResponse.json([], { headers: { 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' } });
   }
 }
 
@@ -39,28 +39,27 @@ export async function POST(request: Request) {
     for (const q of items) {
       if (!q || !q.id) continue;
       await query(
-        `INSERT INTO quotations (id,client_name,client_phone,client_email,items,subtotal,tax,discount,total,status,notes,created_at,updated_at)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,NOW())
-         ON CONFLICT (id) DO UPDATE SET client_name=$2,client_phone=$3,client_email=$4,items=$5,subtotal=$6,tax=$7,discount=$8,total=$9,status=$10,notes=$11,updated_at=NOW()`,
+        `INSERT INTO "Quotation" (id,"customerName","customerPhone","customerEmail",subtotal,total,notes,"createdAt","updatedAt")
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,NOW())
+         ON CONFLICT (id) DO UPDATE SET "customerName"=$2,"customerPhone"=$3,"customerEmail"=$4,subtotal=$5,total=$6,notes=$7,"updatedAt"=NOW()`,
         [q.id, q.clientName||q.customerName||'', q.clientPhone||q.customerPhone||'', q.clientEmail||q.customerEmail||'',
-         typeof q.items==='string'?q.items:JSON.stringify(q.items||[]),
-         q.subtotal||0, q.tax||0, q.discount||0, q.total||0, q.status||'pendiente', q.notes||'']
+         parseFloat(q.subtotal)||0, parseFloat(q.total)||0, q.notes||'']
       );
     }
-    return NextResponse.json({ success: true, count: items.length }, { headers: { 'Cache-Control': 'no-store' } });
+    return NextResponse.json({ success: true, count: items.length }, { headers: { 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' } });
   } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500, headers: { 'Cache-Control': 'no-store' } });
+    return NextResponse.json({ error: e.message }, { status: 500, headers: { 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' } });
   }
 }
 
 export async function DELETE(request: Request) {
   try {
-    const url = new URL(request.url);
-    const id = url.searchParams.get('id');
+    const body = await request.json();
+    const id = body?.id;
     if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 });
-    await query('DELETE FROM quotations WHERE id=$1', [id]);
-    return NextResponse.json({ success: true }, { headers: { 'Cache-Control': 'no-store' } });
+    await query('DELETE FROM "Quotation" WHERE id=$1', [id]);
+    return NextResponse.json({ success: true }, { headers: { 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' } });
   } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500, headers: { 'Cache-Control': 'no-store' } });
+    return NextResponse.json({ error: e.message }, { status: 500, headers: { 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' } });
   }
 }

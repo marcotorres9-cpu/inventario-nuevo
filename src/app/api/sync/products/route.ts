@@ -15,9 +15,21 @@ async function query(sql: string, params: any[] = []) {
   return d.rows || [];
 }
 
+export async function OPTIONS() {
+  return new Response(null, {
+    status: 200,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type,Authorization',
+      'Cache-Control': 'no-store'
+    }
+  });
+}
+
 export async function GET() {
   try {
-    const rows = await query('SELECT id, name, sku, barcode, category, brand, color, cost_price as "costPrice", sale_price as "salePrice", stock, min_stock as "minStock", description, specifications, created_at as "createdAt", updated_at as "updatedAt" FROM "Product" ORDER BY updated_at DESC');
+    const rows = await query('SELECT id, name, sku, barcode, category, brand, color, "costPrice", "salePrice", stock, "minStock", description, specifications, "createdAt", "updatedAt" FROM "Product" ORDER BY "updatedAt" DESC');
     const products = rows.map((r: any) => ({
       id: r.id, name: r.name || '', sku: r.sku || '', barcode: r.barcode || '',
       category: r.category || '', brand: r.brand || '', color: r.color || '',
@@ -29,7 +41,7 @@ export async function GET() {
     }));
     return NextResponse.json(products, { headers: { 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' } });
   } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500, headers: { 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' } });
+    return NextResponse.json([], { headers: { 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' } });
   }
 }
 
@@ -42,12 +54,12 @@ export async function POST(request: Request) {
       if (!p || !p.id) continue;
       const specs = p.specifications ? (typeof p.specifications === 'string' ? p.specifications : JSON.stringify(p.specifications)) : null;
       await query(
-        `INSERT INTO "Product" (id, name, sku, barcode, category, brand, color, cost_price, sale_price, stock, min_stock, description, specifications, created_at, updated_at, user_id)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
-         ON CONFLICT (id) DO UPDATE SET name=$2,sku=$3,barcode=$4,category=$5,brand=$6,color=$7,cost_price=$8,sale_price=$9,stock=$10,min_stock=$11,description=$12,specifications=$13,updated_at=$15,user_id=$16`,
+        `INSERT INTO "Product" (id, name, sku, barcode, category, brand, color, "costPrice", "salePrice", stock, "minStock", description, specifications, "createdAt", "updatedAt")
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,NOW())
+         ON CONFLICT (id) DO UPDATE SET name=$2,sku=$3,barcode=$4,category=$5,brand=$6,color=$7,"costPrice"=$8,"salePrice"=$9,stock=$10,"minStock"=$11,description=$12,specifications=$13,"updatedAt"=NOW()`,
         [p.id, p.name||'', p.sku||'', p.barcode||'', p.category||'', p.brand||'', p.color||'',
          parseFloat(p.costPrice)||0, parseFloat(p.salePrice)||0, parseInt(p.stock)||0, parseInt(p.minStock)||5,
-         p.description||'', specs, p.createdAt||new Date().toISOString(), p.updatedAt||new Date().toISOString(), p.userId||null]
+         p.description||'', specs, p.createdAt||new Date().toISOString()]
       );
     }
     return NextResponse.json({ success: true, count: items.length }, { headers: { 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' } });

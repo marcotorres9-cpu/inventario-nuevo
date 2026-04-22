@@ -17,17 +17,18 @@ async function query(sql: string, params: any[] = []) {
 
 export async function GET() {
   try {
-    const rows = await query('SELECT * FROM products ORDER BY updated_at DESC');
+    const rows = await query('SELECT id, name, sku, barcode, category, brand, color, "costPrice", "salePrice", stock, "minStock", description, specifications, "createdAt", "updatedAt" FROM "Product" ORDER BY "updatedAt" DESC');
     const prods = rows.map((r: any) => ({
       id: r.id, name: r.name||'', sku: r.sku||'', barcode: r.barcode||'',
       category: r.category||'', brand: r.brand||'', color: r.color||'',
-      costPrice: r.cost_price||0, salePrice: r.sale_price||0, price: r.price||0,
-      stock: r.stock||0, minStock: r.min_stock||5, description: r.description||'',
-      createdAt: r.created_at, updatedAt: r.updated_at
+      costPrice: parseFloat(r.costPrice)||0, salePrice: parseFloat(r.salePrice)||0,
+      stock: parseInt(r.stock)||0, minStock: parseInt(r.minStock)||5, description: r.description||'',
+      specifications: r.specifications||null,
+      createdAt: r.createdAt, updatedAt: r.updatedAt
     }));
-    return NextResponse.json(prods, { headers: { 'Cache-Control': 'no-store' } });
+    return NextResponse.json(prods, { headers: { 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' } });
   } catch (e: any) {
-    return NextResponse.json([], { headers: { 'Cache-Control': 'no-store' } });
+    return NextResponse.json([], { headers: { 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' } });
   }
 }
 
@@ -38,28 +39,30 @@ export async function POST(request: Request) {
     if (!Array.isArray(items)) items = [items];
     for (const p of items) {
       if (!p || !p.id) continue;
+      const specs = p.specifications ? (typeof p.specifications === 'string' ? p.specifications : JSON.stringify(p.specifications)) : null;
       await query(
-        `INSERT INTO products (id,name,sku,barcode,category,brand,color,cost_price,sale_price,price,stock,min_stock,description,created_at,updated_at)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,NOW())
-         ON CONFLICT (id) DO UPDATE SET name=$2,sku=$3,barcode=$4,category=$5,brand=$6,color=$7,cost_price=$8,sale_price=$9,price=$10,stock=$11,min_stock=$12,description=$13,updated_at=NOW()`,
+        `INSERT INTO "Product" (id,name,sku,barcode,category,brand,color,"costPrice","salePrice",stock,"minStock",description,specifications,"createdAt","updatedAt")
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,NOW())
+         ON CONFLICT (id) DO UPDATE SET name=$2,sku=$3,barcode=$4,category=$5,brand=$6,color=$7,"costPrice"=$8,"salePrice"=$9,stock=$10,"minStock"=$11,description=$12,specifications=$13,"updatedAt"=NOW()`,
         [p.id, p.name||'', p.sku||'', p.barcode||'', p.category||'', p.brand||'', p.color||'',
-         p.costPrice||0, p.salePrice||p.price||0, p.price||p.salePrice||0, p.stock||0, p.minStock||5, p.description||'']
+         parseFloat(p.costPrice)||0, parseFloat(p.salePrice)||0, parseInt(p.stock)||0, parseInt(p.minStock)||5,
+         p.description||'', specs, p.createdAt||new Date().toISOString()]
       );
     }
-    return NextResponse.json({ success: true, count: items.length }, { headers: { 'Cache-Control': 'no-store' } });
+    return NextResponse.json({ success: true, count: items.length }, { headers: { 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' } });
   } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500, headers: { 'Cache-Control': 'no-store' } });
+    return NextResponse.json({ error: e.message }, { status: 500, headers: { 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' } });
   }
 }
 
 export async function DELETE(request: Request) {
   try {
-    const url = new URL(request.url);
-    const id = url.searchParams.get('id');
+    const body = await request.json();
+    const id = body?.id;
     if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 });
-    await query('DELETE FROM products WHERE id=$1', [id]);
-    return NextResponse.json({ success: true }, { headers: { 'Cache-Control': 'no-store' } });
+    await query('DELETE FROM "Product" WHERE id=$1', [id]);
+    return NextResponse.json({ success: true }, { headers: { 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' } });
   } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500, headers: { 'Cache-Control': 'no-store' } });
+    return NextResponse.json({ error: e.message }, { status: 500, headers: { 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' } });
   }
 }
