@@ -1396,7 +1396,7 @@ function getServerUrl() {
         return window.location.origin;
     }
     // Hardcoded fallback for Capacitor WebView
-    return 'https://inv-apk-deploy.vercel.app';
+    return 'https://inventario-tienda-three.vercel.app';
 }
 // Auth uses the SAME server as data — all routes in one deployment
 function getAuthUrl() {
@@ -1448,6 +1448,11 @@ function _mockResp(data) {
 function syncFetchHandler(urlStr, opts) {
     var method = (opts.method || 'GET').toUpperCase();
     var url = urlStr;
+
+    // ALWAYS pass through auth and version endpoints to real server
+    if (url.indexOf('/api/auth/') !== -1 || url.indexOf('/api/version') !== -1) {
+        return _realFetch(urlStr, opts);
+    }
 
     if (!_neonReady) {
         return _mockResp({});
@@ -1587,6 +1592,10 @@ function syncFetchHandler(urlStr, opts) {
 var _realFetch = window.fetch;
 window.fetch = function(url, opts) {
     if (typeof url === 'string' && url.indexOf('/api/') !== -1) {
+        // Auth endpoints always go to real server
+        if (url.indexOf('/api/auth/') !== -1 || url.indexOf('/api/version') !== -1) {
+            return _realFetch(url, opts || {});
+        }
         return syncFetchHandler(url, opts || {});
     }
     return _realFetch(url, opts || {});
