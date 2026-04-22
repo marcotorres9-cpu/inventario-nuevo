@@ -27,32 +27,34 @@ export async function GET() {
       specifications: r.specifications || null,
       createdAt: r.createdAt, updatedAt: r.updatedAt
     }));
-    return NextResponse.json(products, { headers: { 'Cache-Control': 'no-store' } });
+    return NextResponse.json(products, { headers: { 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' } });
   } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500, headers: { 'Cache-Control': 'no-store' } });
+    return NextResponse.json({ error: e.message }, { status: 500, headers: { 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' } });
   }
 }
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
-    if (!body || !body.id) return NextResponse.json({ error: 'Product id required' }, { status: 400 });
-    const specs = body.specifications ? (typeof body.specifications === 'string' ? body.specifications : JSON.stringify(body.specifications)) : null;
-    await query(
-      `INSERT INTO "Product" (id, name, sku, barcode, category, brand, color, cost_price, sale_price, stock, min_stock, description, specifications, created_at, updated_at, user_id)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
-       ON CONFLICT (id) DO UPDATE SET name=$2,sku=$3,barcode=$4,category=$5,brand=$6,color=$7,cost_price=$8,sale_price=$9,stock=$10,min_stock=$11,description=$12,specifications=$13,updated_at=$15,user_id=$16`,
-      [body.id, body.name||'', body.sku||'', body.barcode||'', body.category||'', body.brand||'', body.color||'',
-       parseFloat(body.costPrice)||0, parseFloat(body.salePrice)||0, parseInt(body.stock)||0, parseInt(body.minStock)||5,
-       body.description||'', specs, body.createdAt||new Date().toISOString(), body.updatedAt||new Date().toISOString(), body.userId||null]
-    );
-    return NextResponse.json({ success: true, id: body.id }, { headers: { 'Cache-Control': 'no-store' } });
+    let items: any[] = [];
+    try { items = await request.json(); } catch { items = []; }
+    if (!Array.isArray(items)) items = [items];
+    for (const p of items) {
+      if (!p || !p.id) continue;
+      const specs = p.specifications ? (typeof p.specifications === 'string' ? p.specifications : JSON.stringify(p.specifications)) : null;
+      await query(
+        `INSERT INTO "Product" (id, name, sku, barcode, category, brand, color, cost_price, sale_price, stock, min_stock, description, specifications, created_at, updated_at, user_id)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
+         ON CONFLICT (id) DO UPDATE SET name=$2,sku=$3,barcode=$4,category=$5,brand=$6,color=$7,cost_price=$8,sale_price=$9,stock=$10,min_stock=$11,description=$12,specifications=$13,updated_at=$15,user_id=$16`,
+        [p.id, p.name||'', p.sku||'', p.barcode||'', p.category||'', p.brand||'', p.color||'',
+         parseFloat(p.costPrice)||0, parseFloat(p.salePrice)||0, parseInt(p.stock)||0, parseInt(p.minStock)||5,
+         p.description||'', specs, p.createdAt||new Date().toISOString(), p.updatedAt||new Date().toISOString(), p.userId||null]
+      );
+    }
+    return NextResponse.json({ success: true, count: items.length }, { headers: { 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' } });
   } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500, headers: { 'Cache-Control': 'no-store' } });
+    return NextResponse.json({ error: e.message }, { status: 500, headers: { 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' } });
   }
 }
-
-export async function PUT(request: Request) { return POST(request); }
 
 export async function DELETE(request: Request) {
   try {
@@ -60,8 +62,8 @@ export async function DELETE(request: Request) {
     const id = body?.id;
     if (!id) return NextResponse.json({ error: 'Product id required' }, { status: 400 });
     await query('DELETE FROM "Product" WHERE id = $1', [id]);
-    return NextResponse.json({ success: true }, { headers: { 'Cache-Control': 'no-store' } });
+    return NextResponse.json({ success: true }, { headers: { 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' } });
   } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500, headers: { 'Cache-Control': 'no-store' } });
+    return NextResponse.json({ error: e.message }, { status: 500, headers: { 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' } });
   }
 }

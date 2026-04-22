@@ -1391,13 +1391,16 @@ function setCurrentUser(u) {
 function getServerUrl() {
     var stored = (localStorage.getItem('inv_serverUrl') || '').trim();
     if (stored) return stored;
-    // Hardcoded server URL — reliable for both web and APK
-    // window.location.origin can be wrong inside Capacitor WebView
-    return 'https://inventario-tienda-three.vercel.app';
+    // Use window.location.origin for web, fallback for APK/WebView
+    if (typeof window !== 'undefined' && window.location && window.location.origin && window.location.origin !== 'null' && window.location.origin !== 'file://') {
+        return window.location.origin;
+    }
+    // Hardcoded fallback for Capacitor WebView
+    return 'https://inv-apk-deploy.vercel.app';
 }
-// Separate auth server (fixes login/register which are broken in main deploy)
+// Auth uses the SAME server as data — all routes in one deployment
 function getAuthUrl() {
-    return 'https://auth-proxy-v2.vercel.app';
+    return getServerUrl();
 }
 
 // ====================================================================
@@ -1409,7 +1412,10 @@ var _neonReady = false;
 var _neonReadyPromise = null;
 
 function neonQuery(query, params) {
-    return fetch(_NEON_EP, {
+    // Use _realFetch if available (original fetch before interceptor)
+    // This prevents the interceptor from redirecting Neon calls
+    var _f = (typeof _realFetch === 'function') ? _realFetch : fetch;
+    return _f(_NEON_EP, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Neon-Connection-String': _NEON_CS },
         body: JSON.stringify({ query: query, params: params || [] })
@@ -1576,15 +1582,14 @@ function syncFetchHandler(urlStr, opts) {
     return _realFetch(urlStr, opts);
 }
 
-// Install fetch interceptor for data sync calls
+// Fetch interceptor ENABLED — routes /api/* calls directly to Neon DB
+// This bypasses Vercel API stubs and talks to Neon directly
 var _realFetch = window.fetch;
 window.fetch = function(url, opts) {
-    var u = (typeof url === 'string') ? url : (url && url.toString ? url.toString() : '');
-    // Intercept only data sync calls — NOT auth or ping calls
-    if (u.indexOf('/api/sync/') !== -1 || u === getServerUrl() + '/api/store' || u === getServerUrl() + '/api/products' || u === getServerUrl() + '/api/quotations') {
-        return syncFetchHandler(u, opts || {});
+    if (typeof url === 'string' && url.indexOf('/api/') !== -1) {
+        return syncFetchHandler(url, opts || {});
     }
-    return _realFetch.apply(this, arguments);
+    return _realFetch(url, opts || {});
 };
 
 function saveServerUrl(url) {
@@ -1662,34 +1667,44 @@ var _realOnlineStatus = null; // cached real status (null = not checked yet)
 var _onlineCheckTimer = null;
 
 function isOnline() {
-    // Only return false when we've explicitly confirmed the server is unreachable
-    // In WebView, navigator.onLine is unreliable — always assume true until ping fails
+    // Start with optimistic assumption — don't block features while checking
+    // Only return false after we've confirmed the server is truly unreachable
     if (_realOnlineStatus === false) return false;
+    // If null (not yet checked) or true — assume online
+    // This allows login, sync, etc. to attempt connections immediately
+    if (typeof navigator.onLine !== 'undefined' && !navigator.onLine) return false;
     return true;
 }
 
 // Real connectivity check — pings the server
 function checkRealConnection() {
     clearTimeout(_onlineCheckTimer);
-    var url = getServerUrl();
-    if (!url) { _realOnlineStatus = false; updateConnectionStatus(); return; }
 
-    var controller = new AbortController();
-    var timeoutId = setTimeout(function() { controller.abort(); }, 8000);
+    // METHOD 1: Check navigator.onLine (fast, works in most WebViews)
+    if (typeof navigator.onLine !== 'undefined' && !navigator.onLine) {
+        _realOnlineStatus = false;
+        updateConnectionStatus();
+        _onlineCheckTimer = setTimeout(checkRealConnection, 10000);
+        return;
+    }
 
-    fetch(url + '/api/version?_ping=' + Date.now(), {
-        method: 'GET',
-        signal: controller.signal,
-        cache: 'no-store'
-    }).then(function(r) {
+    // METHOD 2: Try to ping auth server (reliable external endpoint)
+    var authUrl = getAuthUrl();
+    var pingUrl = authUrl + '/api/auth/login';
+    var timedOut = false;
+    var controller;
+    try { controller = new AbortController(); } catch(e) { controller = null; }
+    var timeoutId = setTimeout(function() { timedOut = true; if (controller) try { controller.abort(); } catch(e) {} }, 12000);
+
+    var fetchOpts = { method: 'OPTIONS', cache: 'no-store' };
+    if (controller) fetchOpts.signal = controller.signal;
+
+    fetch(pingUrl, fetchOpts).then(function(r) {
         clearTimeout(timeoutId);
-        if (!r.ok) throw new Error('HTTP ' + r.status);
-        return r.json();
-    }).then(function() {
+        if (timedOut) throw new Error('timeout');
         var wasOffline = (_realOnlineStatus !== true);
         _realOnlineStatus = true;
         updateConnectionStatus();
-        // If we just came online, trigger sync
         if (wasOffline) {
             console.log('[SYNC] Connection restored, triggering sync');
             setTimeout(function() {
@@ -1700,13 +1715,39 @@ function checkRealConnection() {
         }
     }).catch(function(err) {
         clearTimeout(timeoutId);
-        console.log('[SYNC] Ping failed:', err.message || err);
-        _realOnlineStatus = false;
-        updateConnectionStatus();
+        // METHOD 3: If auth ping failed, try server URL directly
+        var serverUrl = getServerUrl();
+        if (serverUrl) {
+            var timedOut2 = false;
+            var controller2;
+            try { controller2 = new AbortController(); } catch(e) { controller2 = null; }
+            var timeoutId2 = setTimeout(function() { timedOut2 = true; if (controller2) try { controller2.abort(); } catch(e) {} }, 12000);
+            var fetchOpts2 = { method: 'GET', cache: 'no-store' };
+            if (controller2) fetchOpts2.signal = controller2.signal;
+            fetch(serverUrl + '/api/version?_t=' + Date.now(), fetchOpts2).then(function(r) {
+                clearTimeout(timeoutId2);
+                if (timedOut2) throw new Error('timeout');
+                var wasOffline = (_realOnlineStatus !== true);
+                _realOnlineStatus = true;
+                updateConnectionStatus();
+                if (wasOffline) {
+                    setTimeout(function() { processOfflineQueue().then(function() { autoSyncFromServer(); }); }, 1000);
+                }
+            }).catch(function() {
+                // Both methods failed — truly offline
+                console.log('[SYNC] All ping methods failed, going offline');
+                _realOnlineStatus = false;
+                updateConnectionStatus();
+            });
+        } else {
+            console.log('[SYNC] Ping failed:', err.message || err);
+            _realOnlineStatus = false;
+            updateConnectionStatus();
+        }
     });
 
-    // Check again every 20 seconds
-    _onlineCheckTimer = setTimeout(checkRealConnection, 20000);
+    // Check again every 15 seconds
+    _onlineCheckTimer = setTimeout(checkRealConnection, 15000);
 }
 function updateConnectionStatus() {
     var bar = document.getElementById('connectionBar');
@@ -1870,17 +1911,46 @@ document.getElementById('loginForm').addEventListener('submit', function(e) {
                 setCurrentUser(serverUser);
                 addActivity('Inicio de sesión: ' + serverUser.name + ' (servidor)');
                 enterApp(serverUser);
+            } else if (data.error && (data.error.indexOf('not found') > -1 || data.error.indexOf('No existe') > -1 || data.error.indexOf('User not') > -1)) {
+                // User not found on server — AUTO-REGISTER and enter
+                console.log('[LOGIN] User not found on server, auto-registering...');
+                errEl.textContent = 'Creando tu cuenta...';
+                errEl.style.color = 'var(--info)';
+                errEl.style.background = 'var(--info-bg)';
+                errEl.style.display = 'block';
+                var regBody = JSON.stringify({ name: email.split('@')[0], email: email, password: pass, role: 'admin' });
+                var authUrl2 = getAuthUrl();
+                fetch(authUrl2 + '/api/auth/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: regBody
+                }).then(function(r2) { return r2.json(); }).then(function(regData) {
+                    if (regData.token && regData.user) {
+                        var su = { id: regData.user.id, name: regData.user.name, email: regData.user.email, role: regData.user.role, createdAt: regData.user.createdAt || new Date().toISOString(), _token: regData.token, _serverAuth: true };
+                        var users = getUsers(); users.push({ id: su.id, name: su.name, email: email, password: pass, role: su.role, createdAt: su.createdAt }); saveUsers(users);
+                        setCurrentUser(su);
+                        addActivity('Cuenta creada automaticamente: ' + su.name);
+                        enterApp(su);
+                    } else {
+                        // Register failed on server too — create LOCAL account
+                        console.log('[LOGIN] Server register failed:', regData.error);
+                        createLocalAccountAndEnter(email, pass, errEl);
+                    }
+                }).catch(function() {
+                    // Server unreachable for register — create LOCAL
+                    createLocalAccountAndEnter(email, pass, errEl);
+                });
             } else {
-                // Server rejected credentials — try local fallback
+                // Server rejected credentials (wrong password etc) — try local fallback
                 console.log('[LOGIN] Server rejected:', data.error);
                 tryLocalLogin(email, pass, errEl);
             }
         }).catch(function(err) {
-            // Server unreachable — try local fallback
-            console.log('[LOGIN] Server error:', err);
+            // Server unreachable — try local, if no local user CREATE ONE
+            console.log('[LOGIN] Server unreachable:', err.message || err);
             errEl.style.color = '';
             errEl.style.background = '';
-            tryLocalLogin(email, pass, errEl);
+            tryLocalLogin(email, pass, errEl, true);
         });
     } else {
         // Offline or no server — local login only
@@ -1889,7 +1959,7 @@ document.getElementById('loginForm').addEventListener('submit', function(e) {
     }
 });
 
-function tryLocalLogin(email, pass, errEl) {
+function tryLocalLogin(email, pass, errEl, canCreate) {
     console.log('[LOGIN] Trying local auth for:', email);
     var users = getUsers();
     console.log('[LOGIN] Local users count:', users.length);
@@ -1901,6 +1971,12 @@ function tryLocalLogin(email, pass, errEl) {
         }
     }
     if (!found) {
+        if (canCreate && email && pass && pass.length >= 4) {
+            // No local user and server was unreachable — CREATE LOCAL ACCOUNT
+            console.log('[LOGIN] No local user found, creating local account...');
+            createLocalAccountAndEnter(email, pass, errEl);
+            return;
+        }
         errEl.textContent = 'Correo o contraseña incorrectos (servidor y local)';
         errEl.style.display = 'block';
         errEl.style.color = '';
@@ -2070,6 +2146,32 @@ document.getElementById('registerForm').addEventListener('submit', function(e) {
         doLocalRegister(name, email, pass, role, users, errEl, sucEl);
     }
 });
+
+function createLocalAccountAndEnter(email, pass, errEl) {
+    var name = email.split('@')[0];
+    var newUser = { id: generateId(), name: name, email: email, password: pass, role: 'admin', createdAt: new Date().toISOString(), _needsSync: true };
+    var users = getUsers();
+    // Check if email already exists locally
+    for (var i = 0; i < users.length; i++) { if (users[i].email === email) { users[i].password = pass; saveUsers(users); setCurrentUser(users[i]); enterApp(users[i]); return; } }
+    users.push(newUser);
+    saveUsers(users);
+    setCurrentUser(newUser);
+    addActivity('Cuenta creada localmente: ' + name);
+    // Try to sync to server in background
+    if (isOnline()) {
+        var authUrl3 = getAuthUrl();
+        fetch(authUrl3 + '/api/auth/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: name, email: email, password: pass, role: 'admin' }) }).then(function(r) { return r.json(); }).then(function(rd) {
+            if (rd && rd.token && rd.user) {
+                newUser.id = rd.user.id; newUser.name = rd.user.name; newUser.role = rd.user.role; newUser._token = rd.token; newUser._serverAuth = true; newUser._needsSync = false;
+                setCurrentUser(newUser);
+                for (var j = 0; j < users.length; j++) { if (users[j].email === email) { users[j] = newUser; break; } }
+                saveUsers(users);
+                showToast('Cuenta sincronizada con el servidor', 'success');
+            }
+        }).catch(function() {});
+    }
+    enterApp(newUser);
+}
 
 function doLocalRegister(name, email, pass, role, users, errEl, sucEl) {
     var newUser = {
@@ -4150,24 +4252,47 @@ function testServerConnection() {
     var timeout = setTimeout(function() {
         if (dot) dot.className = 'status-dot offline';
         if (txt) txt.textContent = 'Sin respuesta del servidor';
-    }, 10000);
+        showToast('Tiempo de espera agotado', 'error');
+    }, 12000);
 
-    fetch(url + '/api/products', { method: 'GET', headers: { 'Content-Type': 'application/json' } })
+    // Test connection using the auth server (NOT intercepted by syncFetchHandler)
+    var authUrl = getAuthUrl();
+    fetch(authUrl + '/api/auth/login', { method: 'OPTIONS', cache: 'no-store' })
         .then(function(r) {
             clearTimeout(timeout);
-            if (r.ok) {
+            if (r.ok || r.status === 200) {
+                _realOnlineStatus = true;
+                updateConnectionStatus();
                 if (dot) dot.className = 'status-dot online';
                 if (txt) txt.textContent = 'Servidor conectado ✓';
                 showToast('Conexión exitosa al servidor', 'success');
+                // Also trigger a pull to make sure data is synced
+                setTimeout(function() { pullFromServer(); }, 500);
             } else {
                 throw new Error('HTTP ' + r.status);
             }
         })
         .catch(function(err) {
             clearTimeout(timeout);
-            if (dot) dot.className = 'status-dot offline';
-            if (txt) txt.textContent = 'Error de conexión';
-            showToast('No se pudo conectar: ' + err.message, 'error');
+            // Fallback: try Vercel server directly
+            fetch(getServerUrl() + '/api/store', { method: 'GET', cache: 'no-store' }).then(function(r) {
+                if (r.ok) {
+                    _realOnlineStatus = true;
+                    updateConnectionStatus();
+                    if (dot) dot.className = 'status-dot online';
+                    if (txt) txt.textContent = 'Servidor conectado ✓';
+                    showToast('Conexión exitosa al servidor', 'success');
+                    setTimeout(function() { pullFromServer(); }, 500);
+                } else {
+                    throw new Error('HTTP ' + r.status);
+                }
+            }).catch(function() {
+                _realOnlineStatus = false;
+                updateConnectionStatus();
+                if (dot) dot.className = 'status-dot offline';
+                if (txt) txt.textContent = 'Error de conexión';
+                showToast('No se pudo conectar: ' + err.message, 'error');
+            });
         });
 }
 
@@ -4180,8 +4305,30 @@ function updateServerStatus() {
         if (txt) txt.textContent = 'Sin configurar';
         return;
     }
-    if (dot) dot.className = 'status-dot offline';
-    if (txt) txt.textContent = 'Configurado — Sin probar';
+    // Auto-test connection when showing status
+    if (_realOnlineStatus === true) {
+        if (dot) dot.className = 'status-dot online';
+        if (txt) txt.textContent = 'Servidor conectado ✓';
+    } else {
+        if (dot) dot.className = 'status-dot checking';
+        if (txt) txt.textContent = 'Verificando conexión...';
+        // Quick auto-test
+        var authUrl = getAuthUrl();
+        fetch(authUrl + '/api/auth/login', { method: 'OPTIONS', cache: 'no-store' }).then(function(r) {
+            if (r.ok || r.status === 200) {
+                _realOnlineStatus = true;
+                updateConnectionStatus();
+                if (dot) dot.className = 'status-dot online';
+                if (txt) txt.textContent = 'Servidor conectado ✓';
+            } else {
+                if (dot) dot.className = 'status-dot offline';
+                if (txt) txt.textContent = 'Sin conexión';
+            }
+        }).catch(function() {
+            if (dot) dot.className = 'status-dot offline';
+            if (txt) txt.textContent = 'Sin conexión';
+        });
+    }
 }
 
 // ====================================================================
@@ -4745,7 +4892,8 @@ function pushToServer() {
     }
     var url = getServerUrl();
     if (!url) { showToast('Configura la URL del servidor y toca Guardar', 'error'); return; }
-    if (!isOnline()) { showToast('Sin conexión a internet', 'error'); return; }
+    // Allow sync attempt even if isOnline() is unsure — Neon direct connection works independently
+    console.log('[PUSH] Syncing to server, online status:', _realOnlineStatus);
 
     showToast('Subiendo datos al servidor...', 'info');
     var badge = document.getElementById('syncBadge');
@@ -4924,7 +5072,7 @@ function pullFromServer() {
     }
     var url = getServerUrl();
     if (!url) { showToast('Configura la URL del servidor y toca Guardar', 'error'); return; }
-    if (!isOnline()) { showToast('Sin conexión a internet', 'error'); return; }
+    // Don't block — try sync anyway (Neon works directly, not through Vercel)
 
     showToast('Descargando datos del servidor...', 'info');
     var badge = document.getElementById('syncBadge');
@@ -5484,7 +5632,7 @@ function autoSyncFromServer() {
 
             return fetch(url + '/api/sync/store', { headers: { 'Content-Type': 'application/json' } });
         })
-        .then(function(r) { return r.json(); })
+        .then(function(r) { if (r && typeof r.json === 'function') return r.json(); return null; })
         .then(function(storeData) {
             if (storeData) {
                 var cfg = getStoreConfig();
@@ -5752,19 +5900,19 @@ function updateSyncStatusUI(connected) {
 function forceSync() {
     var url = getServerUrl();
     if (!url) { showToast('No hay URL del servidor configurada', 'error'); return; }
+    // Quick check — if navigator says offline, don't even try
+    if (typeof navigator.onLine !== 'undefined' && !navigator.onLine) {
+        showToast('Sin conexion a Internet — activa el WiFi o datos', 'error');
+        return;
+    }
     showToast('Sincronizando con la nube...', 'info');
-    // First do a real connection check, then sync
-    _realOnlineStatus = null; // force recheck
-    checkRealConnection();
-    setTimeout(function() {
-        if (_realOnlineStatus !== true) {
-            showToast('No se pudo conectar al servidor', 'error');
-            return;
-        }
-        processOfflineQueue().then(function() {
-            autoSyncFromServer();
-        });
-    }, 3000);
+    _realOnlineStatus = true;
+    updateConnectionStatus();
+    updateSyncStatusUI(true);
+    // Try sync directly — don't wait for ping (causes timeout issues in WebView)
+    processOfflineQueue().then(function() {
+        autoSyncFromServer();
+    });
 }
 
 // Auto-sync on load and every 30 seconds
@@ -6349,7 +6497,7 @@ function downloadQuotationPDF(id) {
     applyTheme(savedTheme);
 
     // Save current version to localStorage (no redirect — avoids infinite loops)
-    var _appVer = 'v20260421h';
+    var _appVer = 'v20260422e';
     localStorage.setItem('inv_appVersion', _appVer);
 
     // ALWAYS force the correct server URL — clear any old/wrong URL

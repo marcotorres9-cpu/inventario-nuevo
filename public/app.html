@@ -1391,13 +1391,16 @@ function setCurrentUser(u) {
 function getServerUrl() {
     var stored = (localStorage.getItem('inv_serverUrl') || '').trim();
     if (stored) return stored;
-    // Hardcoded server URL — reliable for both web and APK
-    // window.location.origin can be wrong inside Capacitor WebView
-    return 'https://inventario-tienda-three.vercel.app';
+    // Use window.location.origin for web, fallback for APK/WebView
+    if (typeof window !== 'undefined' && window.location && window.location.origin && window.location.origin !== 'null' && window.location.origin !== 'file://') {
+        return window.location.origin;
+    }
+    // Hardcoded fallback for Capacitor WebView
+    return 'https://inv-apk-deploy.vercel.app';
 }
-// Separate auth server (fixes login/register which are broken in main deploy)
+// Auth uses the SAME server as data — all routes in one deployment
 function getAuthUrl() {
-    return 'https://auth-proxy-v2.vercel.app';
+    return getServerUrl();
 }
 
 // ====================================================================
