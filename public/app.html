@@ -4555,8 +4555,29 @@ function renderLocSpaceView(loc) {
             var pr = products[i];
             var pName = pr.name || 'Producto';
             if (pr.brand) pName += ' - ' + pr.brand;
-            prodHtml += '<div class="loc-product-row">' +
-                '<span class="loc-product-name">' + escapeHtml(pName) + '</span>' +
+
+            // Build spec tags for this product
+            var locSpecsHtml = '';
+            if (pr.specifications) {
+                try {
+                    var specObj = (typeof pr.specifications === 'string') ? JSON.parse(pr.specifications) : pr.specifications;
+                    if (specObj && typeof specObj === 'object') {
+                        var specKeys = Object.keys(specObj);
+                        for (var s = 0; s < specKeys.length; s++) {
+                            var sv = (specObj[specKeys[s]] || '').trim();
+                            if (sv) {
+                                locSpecsHtml += '<span class="product-spec-tag">' + escapeHtml(specKeys[s] + ': ' + sv) + '</span>';
+                            }
+                        }
+                    }
+                } catch(e) {}
+            }
+
+            prodHtml += '<div class="loc-product-row" style="flex-wrap:wrap;">' +
+                '<div style="flex:1;min-width:0;">' +
+                    '<span class="loc-product-name">' + escapeHtml(pName) + '</span>' +
+                    (locSpecsHtml ? '<div class="product-specs" style="margin-top:2px;">' + locSpecsHtml + '</div>' : '') +
+                '</div>' +
                 '<div class="loc-product-qty">' +
                     '<button class="loc-qty-btn" onclick="changeSpaceQty(\'' + loc.id + '\',' + currentIdx + ',' + i + ',-1)">−</button>' +
                     '<span class="loc-qty-num">' + pr.qty + '</span>' +
@@ -4749,13 +4770,15 @@ function confirmAddProductToSpace() {
     var locs = getLocations();
     var products = getProducts();
 
-    // Find product name
+    // Find product name and specs
     var prodName = '';
     var prodBrand = '';
+    var prodSpecs = null;
     for (var p = 0; p < products.length; p++) {
         if (products[p].id === _spSelectedProductId) {
             prodName = products[p].name || 'Producto';
             prodBrand = products[p].brand || '';
+            prodSpecs = products[p].specifications || null;
             break;
         }
     }
@@ -4768,12 +4791,14 @@ function confirmAddProductToSpace() {
             for (var j = 0; j < space.products.length; j++) {
                 if (space.products[j].productId === _spSelectedProductId) {
                     space.products[j].qty += qty;
+                    // Update specs if changed
+                    if (prodSpecs) space.products[j].specifications = prodSpecs;
                     found = true;
                     break;
                 }
             }
             if (!found) {
-                space.products.push({ productId: _spSelectedProductId, name: prodName, brand: prodBrand, qty: qty });
+                space.products.push({ productId: _spSelectedProductId, name: prodName, brand: prodBrand, qty: qty, specifications: prodSpecs });
             }
             locs[i].updatedAt = new Date().toISOString();
             break;
