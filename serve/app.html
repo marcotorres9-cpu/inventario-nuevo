@@ -185,13 +185,12 @@
         }
         .cs-trigger.open .cs-arrow { transform: rotate(180deg); }
         .cs-dropdown {
-            position: absolute; top: 100%; left: 0; right: 0;
             background: var(--card);
             border: 1px solid var(--border);
             border-top: 3px solid var(--primary);
             border-radius: 0 0 14px 14px;
             box-shadow: 0 16px 48px rgba(0,0,0,0.2), 0 4px 12px rgba(0,0,0,0.08);
-            z-index: 500; max-height: 220px; overflow: hidden; display: none;
+            z-index: 500; max-height: 220px; overflow: visible; display: none;
         }
         .cs-dropdown.open {
             display: flex; flex-direction: column;
@@ -210,6 +209,8 @@
         .cs-options {
             overflow-y: auto; max-height: 170px; flex: 1;
             -webkit-overflow-scrolling: touch;
+            background: var(--card);
+            border-radius: 0 0 14px 14px;
         }
         .cs-option {
             padding: 10px 14px; cursor: pointer; font-size: 13px; color: var(--text2);
@@ -1134,7 +1135,7 @@
                 <label class="input-label">📋 Copiar datos de producto existente</label>
                 <div style="position:relative;">
                     <input type="text" id="copyFromSearch" class="input" placeholder="🔍 Buscar producto para copiar..." oninput="searchProductsToCopy(this.value)" onfocus="searchProductsToCopy(this.value)">
-                    <div class="cs-dropdown" id="copyFromDropdown" style="position:absolute;top:100%;left:0;right:0;z-index:100;max-height:200px;overflow-y:auto;display:none;"></div>
+                    <div class="cs-dropdown" id="copyFromDropdown" style="z-index:100;max-height:200px;overflow-y:auto;display:none;"></div>
                 </div>
             </div>
 
@@ -2771,6 +2772,14 @@ function toggleCustomSelect(field) {
     if (dropdown.classList.contains('open')) {
         closeCustomSelect(field);
     } else {
+        // Use fixed positioning to avoid clipping by modal overflow
+        var rect = trigger.getBoundingClientRect();
+        dropdown.style.position = 'fixed';
+        dropdown.style.left = rect.left + 'px';
+        dropdown.style.top = rect.bottom + 'px';
+        dropdown.style.width = rect.width + 'px';
+        dropdown.style.zIndex = '9999';
+
         dropdown.classList.add('open');
         trigger.classList.add('open');
         openSelectField = field;
@@ -3438,7 +3447,15 @@ function populateChipDropdown(key, overlay) {
     values.sort();
 
     if (values.length === 0) {
-        overlay.innerHTML = '<div style="padding:14px;text-align:center;color:var(--text3);font-size:12px;">Sin opciones (' + products.length + ' productos)</div>';
+        // Debug: show why no options
+        var sampleProduct = products.length > 0 ? products[0] : null;
+        var debugInfo = products.length + ' productos';
+        if (sampleProduct) {
+            debugInfo += ' | Cat: ' + (sampleProduct.category || '(vacío)');
+            debugInfo += ' | Marca: ' + (sampleProduct.brand || '(vacío)');
+            debugInfo += ' | Tipo: ' + type + ' | Key: ' + key;
+        }
+        overlay.innerHTML = '<div style="padding:14px;text-align:center;color:var(--text3);font-size:11px;line-height:1.5;">Sin opciones<br><span style="font-size:10px;opacity:0.6;">' + debugInfo + '</span></div>';
         return;
     }
 
