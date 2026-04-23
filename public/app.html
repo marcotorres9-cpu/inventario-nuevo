@@ -829,8 +829,9 @@
                 <button class="btn btn-primary btn-sm" onclick="openLocModal()">+ Nuevo Local</button>
             </div>
             <div style="display:flex;gap:6px;margin-bottom:14px;">
-                <button class="btn btn-outline btn-sm" style="flex:1;font-size:12px;" onclick="openStockSummary()">📊 Resumen Stock</button>
-                <button class="btn btn-outline btn-sm" style="flex:1;font-size:12px;" onclick="exportLocaleExcel()">📥 Exportar Excel</button>
+                <button class="btn btn-outline btn-sm" style="flex:1;font-size:12px;" onclick="openStockSummary()">📊 Stock</button>
+                <button class="btn btn-outline btn-sm" style="flex:1;font-size:12px;" onclick="openAllMovements()">📋 Movimientos</button>
+                <button class="btn btn-outline btn-sm" style="flex:1;font-size:12px;" onclick="exportLocaleExcel()">📥 Excel</button>
             </div>
             <!-- Locations list container -->
             <div id="locationsList"></div>
@@ -1371,6 +1372,22 @@
         <div style="display:flex;gap:8px;margin-top:12px;">
             <button class="btn btn-primary btn-sm" style="flex:1;" onclick="exportLocaleExcel()">📥 Exportar Excel</button>
             <button class="btn btn-outline btn-sm" onclick="closeModal('stockSummaryModal')">Cerrar</button>
+        </div>
+    </div>
+</div>
+
+<!-- ===== MOVEMENTS HISTORY MODAL ===== -->
+<div id="movementsModal" class="modal-overlay">
+    <div class="modal-content" style="max-width:560px;max-height:90vh;display:flex;flex-direction:column;">
+        <div class="modal-handle"></div>
+        <div class="modal-header">
+            <h2 class="modal-title" id="movementsModalTitle">📋 Historial de Movimientos</h2>
+            <button class="modal-close" onclick="closeModal('movementsModal')">✕</button>
+        </div>
+        <div id="movementsContent" style="flex:1;overflow-y:auto;"></div>
+        <div style="display:flex;gap:8px;margin-top:12px;">
+            <button class="btn btn-primary btn-sm" style="flex:1;" onclick="exportMovementsExcel()">📥 Exportar Excel</button>
+            <button class="btn btn-outline btn-sm" onclick="closeModal('movementsModal')">Cerrar</button>
         </div>
     </div>
 </div>
@@ -5129,7 +5146,8 @@ function renderLocSpaceView(loc) {
         '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">' +
             '<h2 style="font-size:20px;font-weight:800;">🏪 ' + escapeHtml(loc.name) + '</h2>' +
             '<div style="display:flex;gap:6px;">' +
-                '<button class="btn btn-ghost btn-xs" onclick="openStockSummary()" style="font-size:11px;">📊 Resumen</button>' +
+                '<button class="btn btn-ghost btn-xs" onclick="openLocMovements(\'' + loc.id + '\')" style="font-size:11px;">📋 Movimientos</button>' +
+                '<button class="btn btn-ghost btn-xs" onclick="openStockSummary()" style="font-size:11px;">📊 Stock</button>' +
                 '<button class="btn btn-ghost btn-xs" onclick="openLocModal(\'' + loc.id + '\')">✏️ Editar</button>' +
             '</div>' +
         '</div>' +
@@ -5161,9 +5179,13 @@ function _findLocIdx(locId) {
 function sellFromSpace(locId, spaceIdx, prodIdx) {
     var locs = getLocations();
     var pr = null;
+    var locRef = null;
+    var spaceName = '';
     for (var i = 0; i < locs.length; i++) {
         if (locs[i].id === locId && locs[i].spaces && locs[i].spaces[spaceIdx]) {
             pr = locs[i].spaces[spaceIdx].products[prodIdx];
+            spaceName = locs[i].spaces[spaceIdx].name || '';
+            locRef = locs[i];
             break;
         }
     }
@@ -5171,18 +5193,36 @@ function sellFromSpace(locId, spaceIdx, prodIdx) {
     var qty = pr.qty || 0;
     var maxSell = qty;
     var msg = '¿Cuántas unidades de "' + (pr.name || 'Producto') + '" vendiste?\nActual: ' + qty + ' uds';
-    // Use a simple prompt for quantity
     var sellQty = prompt(msg, '1');
     if (sellQty === null) return;
     sellQty = parseInt(sellQty) || 0;
     if (sellQty < 1) { showToast('Cantidad inválida', 'error'); return; }
     if (sellQty > maxSell) sellQty = maxSell;
 
+    // Ask for sale price (optional, for daily totals)
+    var salePrice = prompt('¿Precio de venta por unidad? (deja vacío para solo registrar)', '');
+    salePrice = parseFloat(salePrice) || 0;
+
     var locs2 = getLocations();
     for (var j = 0; j < locs2.length; j++) {
         if (locs2[j].id === locId && locs2[j].spaces && locs2[j].spaces[spaceIdx]) {
             locs2[j].spaces[spaceIdx].products[prodIdx].qty -= sellQty;
             locs2[j].updatedAt = new Date().toISOString();
+            // Log movement (venta)
+            if (!locs2[j].movements) locs2[j].movements = [];
+            locs2[j].movements.push({
+                id: 'mov-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5),
+                date: new Date().toISOString(),
+                type: 'venta',
+                productId: locs2[j].spaces[spaceIdx].products[prodIdx].productId,
+                productName: locs2[j].spaces[spaceIdx].products[prodIdx].name || 'Producto',
+                productBrand: locs2[j].spaces[spaceIdx].products[prodIdx].brand || '',
+                spaceIdx: spaceIdx,
+                spaceName: spaceName,
+                qty: sellQty,
+                salePrice: salePrice,
+                totalSale: sellQty * salePrice
+            });
             break;
         }
     }
@@ -5193,7 +5233,8 @@ function sellFromSpace(locId, spaceIdx, prodIdx) {
         if (locs2[k].id === locId) { loc = locs2[k]; break; }
     }
     if (loc) renderLocSpaceView(loc);
-    showToast('Venta registrada: ' + sellQty + ' ud' + (sellQty > 1 ? 's' : ''), 'success');
+    var priceInfo = salePrice > 0 ? ' ($' + (sellQty * salePrice).toFixed(2) + ')' : '';
+    showToast('Venta registrada: -' + sellQty + ' ud' + (sellQty > 1 ? 's' : '') + priceInfo, 'success');
 }
 
 // ===== EDIT PRODUCT TARGET =====
@@ -5488,6 +5529,174 @@ function downloadExcelFile(rows, filename) {
     showToast('Archivo descargado: ' + filename + '.xls', 'success');
 }
 
+// ===== MOVEMENTS HISTORY =====
+var _movementsFilterLoc = null; // null = all locales
+
+function openAllMovements() {
+    _movementsFilterLoc = null;
+    document.getElementById('movementsModalTitle').textContent = '📋 Historial de Movimientos — Todos los Locales';
+    renderMovements();
+    openModal('movementsModal');
+}
+
+function openLocMovements(locId) {
+    _movementsFilterLoc = locId;
+    var locs = getLocations();
+    var locName = 'Local';
+    for (var i = 0; i < locs.length; i++) {
+        if (locs[i].id === locId) { locName = locs[i].name; break; }
+    }
+    document.getElementById('movementsModalTitle').textContent = '📋 Movimientos — ' + locName;
+    renderMovements();
+    openModal('movementsModal');
+}
+
+function renderMovements() {
+    var container = document.getElementById('movementsContent');
+    var locs = getLocations();
+
+    // Collect all movements
+    var allMovements = [];
+    for (var li = 0; li < locs.length; li++) {
+        if (_movementsFilterLoc && locs[li].id !== _movementsFilterLoc) continue;
+        var movs = locs[li].movements || [];
+        for (var mi = 0; mi < movs.length; mi++) {
+            allMovements.push({
+                locName: locs[li].name,
+                movement: movs[mi]
+            });
+        }
+    }
+
+    if (allMovements.length === 0) {
+        container.innerHTML = '<div style="text-align:center;padding:30px;color:var(--text3);">' +
+            '<div style="font-size:36px;margin-bottom:8px;">📋</div>' +
+            '<div>No hay movimientos registrados.<br><small>Los ingresos y ventas aparecerán aquí.</small></div></div>';
+        return;
+    }
+
+    // Sort by date descending
+    allMovements.sort(function(a, b) { return new Date(b.movement.date) - new Date(a.movement.date); });
+
+    // Group by day
+    var dayGroups = {};
+    for (var i = 0; i < allMovements.length; i++) {
+        var d = new Date(allMovements[i].movement.date);
+        var dayKey = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+        if (!dayGroups[dayKey]) dayGroups[dayKey] = [];
+        dayGroups[dayKey].push(allMovements[i]);
+    }
+
+    var dayKeys = Object.keys(dayGroups).sort().reverse();
+    var html = '';
+
+    for (var di = 0; di < dayKeys.length; di++) {
+        var dk = dayKeys[di];
+        var dayMovs = dayGroups[dk];
+        var dayTotalIn = 0, dayTotalOut = 0, dayTotalSale = 0;
+        for (var dm = 0; dm < dayMovs.length; dm++) {
+            if (dayMovs[dm].movement.type === 'ingreso') dayTotalIn += dayMovs[dm].movement.qty;
+            else {
+                dayTotalOut += dayMovs[dm].movement.qty;
+                dayTotalSale += (dayMovs[dm].movement.totalSale || 0);
+            }
+        }
+
+        // Format date header
+        var dayDate = new Date(dk + 'T12:00:00');
+        var dayNames = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+        var monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+        var dayLabel = dayNames[dayDate.getDay()] + ' ' + dayDate.getDate() + ' ' + monthNames[dayDate.getMonth()] + ' ' + dayDate.getFullYear();
+        var today = new Date();
+        var todayKey = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
+        var yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1);
+        var yesterdayKey = yesterday.getFullYear() + '-' + String(yesterday.getMonth() + 1).padStart(2, '0') + '-' + String(yesterday.getDate()).padStart(2, '0');
+        if (dk === todayKey) dayLabel += ' — HOY';
+        else if (dk === yesterdayKey) dayLabel += ' — AYER';
+
+        html += '<div style="background:var(--bg2);border-radius:12px;padding:12px;margin-bottom:10px;">';
+        // Day header with stats
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">' +
+            '<div style="font-weight:700;font-size:14px;">📅 ' + dayLabel + '</div>' +
+            '<div style="display:flex;gap:8px;font-size:11px;">' +
+                '<span style="color:#2ed573;">+' + dayTotalIn + ' ingreso' + (dayTotalIn !== 1 ? 's' : '') + '</span>' +
+                '<span style="color:#ff4757;">-' + dayTotalOut + ' venta' + (dayTotalOut !== 1 ? 's' : '') + '</span>' +
+                (dayTotalSale > 0 ? '<span style="color:var(--primary);font-weight:700;">$' + dayTotalSale.toFixed(2) + '</span>' : '') +
+            '</div></div>';
+
+        // Movements list for this day
+        for (var mj = 0; mj < dayMovs.length; mj++) {
+            var mov = dayMovs[mj].movement;
+            var locN = dayMovs[mj].locName;
+            var isVenta = mov.type === 'venta';
+            var movDate = new Date(mov.date);
+            var timeStr = String(movDate.getHours()).padStart(2, '0') + ':' + String(movDate.getMinutes()).padStart(2, '0');
+
+            html += '<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);' + (mj === dayMovs.length - 1 ? 'border-bottom:none;' : '') + '">' +
+                '<div style="width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;background:' +
+                (isVenta ? '#ff475720' : '#2ed57320') + ';">' + (isVenta ? '💰' : '📦') + '</div>' +
+                '<div style="flex:1;min-width:0;">' +
+                    '<div style="font-size:13px;font-weight:600;">' + escapeHtml(mov.productName || 'Producto') +
+                    (mov.productBrand ? ' — ' + escapeHtml(mov.productBrand) : '') + '</div>' +
+                    '<div style="font-size:10px;color:var(--text3);">' +
+                        escapeHtml(locN) +
+                        (mov.spaceName ? ' › ' + escapeHtml(mov.spaceName) : '') +
+                        ' · ' + timeStr +
+                    '</div>' +
+                '</div>' +
+                '<div style="text-align:right;flex-shrink:0;">' +
+                    '<div style="font-size:14px;font-weight:700;color:' + (isVenta ? '#ff4757' : '#2ed573') + ';">' +
+                    (isVenta ? '-' : '+') + mov.qty + ' ud' + (mov.qty > 1 ? 's' : '') + '</div>' +
+                    (mov.totalSale > 0 ? '<div style="font-size:10px;color:var(--primary);">$' + mov.totalSale.toFixed(2) + '</div>' : '') +
+                '</div>' +
+            '</div>';
+        }
+        html += '</div>';
+    }
+
+    container.innerHTML = html;
+}
+
+// ===== EXPORT MOVEMENTS TO EXCEL =====
+function exportMovementsExcel() {
+    var locs = getLocations();
+    var allMovements = [];
+
+    for (var li = 0; li < locs.length; li++) {
+        if (_movementsFilterLoc && locs[li].id !== _movementsFilterLoc) continue;
+        var movs = locs[li].movements || [];
+        for (var mi = 0; mi < movs.length; mi++) {
+            var m = movs[mi];
+            var d = new Date(m.date);
+            allMovements.push({
+                fecha: d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'),
+                hora: String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'),
+                tipo: m.type === 'ingreso' ? 'INGRESO' : 'VENTA',
+                local: locs[li].name,
+                espacio: m.spaceName || '',
+                producto: m.productName || '',
+                marca: m.productBrand || '',
+                cantidad: m.qty || 0,
+                precioUnitario: m.salePrice || 0,
+                totalVenta: m.totalSale || 0
+            });
+        }
+    }
+
+    if (allMovements.length === 0) { showToast('No hay movimientos para exportar', 'error'); return; }
+
+    // Sort by date descending
+    allMovements.sort(function(a, b) { return (b.fecha + b.hora).localeCompare(a.fecha + a.hora); });
+
+    var rows = [['FECHA', 'HORA', 'TIPO', 'LOCAL', 'ESPACIO', 'PRODUCTO', 'MARCA', 'CANTIDAD', 'PRECIO UNIT.', 'TOTAL VENTA']];
+    for (var i = 0; i < allMovements.length; i++) {
+        var r = allMovements[i];
+        rows.push([r.fecha, r.hora, r.tipo, r.local, r.espacio, r.producto, r.marca, r.cantidad, r.precioUnitario, r.totalVenta]);
+    }
+
+    downloadExcelFile(rows, 'Movimientos_' + new Date().toISOString().slice(0, 10));
+}
+
 // ===== LOC CRUD =====
 function openLocModal(locId) {
     var locs = getLocations();
@@ -5725,7 +5934,6 @@ function confirmAddProductToSpace() {
             for (var j = 0; j < space.products.length; j++) {
                 if (space.products[j].productId === _spSelectedProductId) {
                     space.products[j].qty += qty;
-                    // Update specs, target and min
                     if (prodSpecs) space.products[j].specifications = prodSpecs;
                     space.products[j].targetQty = targetQty;
                     space.products[j].minQty = minQty;
@@ -5740,6 +5948,21 @@ function confirmAddProductToSpace() {
                 });
             }
             locs[i].updatedAt = new Date().toISOString();
+            // Log movement (ingreso)
+            if (qty > 0) {
+                if (!locs[i].movements) locs[i].movements = [];
+                locs[i].movements.push({
+                    id: 'mov-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5),
+                    date: new Date().toISOString(),
+                    type: 'ingreso',
+                    productId: _spSelectedProductId,
+                    productName: prodName,
+                    productBrand: prodBrand,
+                    spaceIdx: spaceIdx,
+                    spaceName: space.name || '',
+                    qty: qty
+                });
+            }
             break;
         }
     }
@@ -5748,13 +5971,12 @@ function confirmAddProductToSpace() {
     syncLocationsToServer();
     closeModal('spaceProductModal');
 
-    // Refresh view
     var loc = null;
     for (var k = 0; k < locs.length; k++) {
         if (locs[k].id === locId) { loc = locs[k]; break; }
     }
     if (loc) renderLocSpaceView(loc);
-    showToast('Producto asignado al espacio', 'success');
+    showToast('Ingreso registrado: +' + qty + ' ud' + (qty > 1 ? 's' : ''), 'success');
 }
 
 function changeSpaceQty(locId, spaceIdx, prodIdx, delta) {
@@ -7588,7 +7810,7 @@ function downloadQuotationPDF(id) {
     applyTheme(savedTheme);
 
     // Save current version to localStorage (no redirect — avoids infinite loops)
-    var _appVer = 'v20260423b';
+    var _appVer = 'v20260423c';
     localStorage.setItem('inv_appVersion', _appVer);
 
     // ALWAYS force the correct server URL — clear any old/wrong URL
