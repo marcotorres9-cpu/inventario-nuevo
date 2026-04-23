@@ -432,32 +432,52 @@
         .nav-icon { font-size: 22px; margin-bottom: 2px; }
 
         /* ================================================================
-           MODALS
+           MODALS — refined, centered, smooth
            ================================================================ */
         .modal-overlay {
             position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0,0,0,0.6); display: none; z-index: 200;
-            align-items: flex-end; justify-content: center;
+            background: rgba(0,0,0,0.45);
+            backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+            z-index: 200;
+            display: flex; align-items: center; justify-content: center;
+            padding: 20px;
+            opacity: 0; visibility: hidden;
+            transition: opacity 0.28s ease, visibility 0.28s ease;
         }
-        .modal-overlay.open { display: flex; animation: fadeIn 0.15s ease; }
+        .modal-overlay.open { opacity: 1; visibility: visible; }
         .modal-content {
-            background: var(--card); border: 1px solid var(--border);
-            border-radius: var(--radius-xl) var(--radius-xl) 0 0;
-            width: 100%; max-width: 520px;
-            max-height: 92vh; overflow-y: auto; padding: 24px 20px 32px;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-xl);
+            width: 100%; max-width: 440px;
+            max-height: 78vh; overflow-y: auto; padding: 24px 20px 28px;
+            box-shadow: 0 25px 70px rgba(0,0,0,0.25), 0 8px 24px rgba(0,0,0,0.15);
+            transform: translateY(24px) scale(0.96);
+            transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
         }
+        .modal-overlay.open .modal-content {
+            transform: translateY(0) scale(1);
+        }
+        /* size variants */
+        .modal-sm { max-width: 340px; max-height: 50vh; }
+        .modal-md { max-width: 420px; max-height: 68vh; }
+        .modal-lg { max-width: 540px; max-height: 80vh; }
+        /* handle */
         .modal-handle {
             width: 36px; height: 4px; background: var(--bg4); border-radius: 2px;
-            margin: 0 auto 16px;
+            margin: 0 auto 14px;
         }
-        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-        .modal-title { font-size: 18px; font-weight: 700; }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+        .modal-title { font-size: 17px; font-weight: 700; }
         .modal-close {
-            width: 34px; height: 34px; border-radius: 50%; border: none;
-            background: var(--bg3); color: var(--text3); cursor: pointer; font-size: 16px;
+            width: 32px; height: 32px; border-radius: 50%; border: none;
+            background: var(--bg3); color: var(--text3); cursor: pointer; font-size: 15px;
             display: flex; align-items: center; justify-content: center;
+            transition: background 0.2s, transform 0.15s;
         }
-        .modal-close:active { background: var(--bg4); }
+        .modal-close:active { background: var(--bg4); transform: scale(0.9); }
+        /* scrollable inner content (stock summary, movements, etc.) */
+        .modal-scroll-inner { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
 
         /* ================================================================
            TOAST
@@ -1013,7 +1033,7 @@
 <!-- MODAL: ADD/EDIT PRODUCT                                      -->
 <!-- ============================================================ -->
 <div id="productModal" class="modal-overlay">
-    <div class="modal-content">
+    <div class="modal-content modal-md">
         <div class="modal-handle"></div>
         <div class="modal-header">
             <h2 class="modal-title" id="productModalTitle">Nuevo Producto</h2>
@@ -1134,7 +1154,7 @@
 <!-- MODAL: NEW QUOTATION                                         -->
 <!-- ============================================================ -->
 <div id="quotationModal" class="modal-overlay">
-    <div class="modal-content" style="max-height:92vh;overflow-y:auto;">
+    <div class="modal-content modal-md">
         <div class="modal-handle"></div>
         <div class="modal-header">
             <h2 class="modal-title" id="quotModalTitle">📝 Cotizador</h2>
@@ -1231,7 +1251,7 @@
 <!-- MODAL: VIEW QUOTATION                                        -->
 <!-- ============================================================ -->
 <div id="viewQuotationModal" class="modal-overlay">
-    <div class="modal-content">
+    <div class="modal-content modal-md">
         <div class="modal-handle"></div>
         <div class="modal-header">
             <h2 class="modal-title" id="viewQuotTitle">Cotización</h2>
@@ -1245,7 +1265,7 @@
 <!-- MODAL: ADD USER                                              -->
 <!-- ============================================================ -->
 <div id="userModal" class="modal-overlay">
-    <div class="modal-content">
+    <div class="modal-content modal-sm">
         <div class="modal-handle"></div>
         <div class="modal-header">
             <h2 class="modal-title">👤 Nuevo Usuario</h2>
@@ -1284,7 +1304,7 @@
 <!-- MODAL: CONFIRM DELETE                                        -->
 <!-- ============================================================ -->
 <div id="confirmModal" class="modal-overlay">
-    <div class="modal-content" style="max-width:380px;">
+    <div class="modal-content modal-sm">
         <div class="modal-handle"></div>
         <div style="text-align:center;padding:10px 0 20px;">
             <div style="font-size:48px;margin-bottom:12px;" id="confirmIcon">⚠️</div>
@@ -1300,7 +1320,7 @@
 
 <!-- ===== LOCATION MODAL ===== -->
 <div id="locModal" class="modal-overlay">
-    <div class="modal-content" style="max-width:440px;">
+    <div class="modal-content modal-sm">
         <div class="modal-handle"></div>
         <div class="modal-header">
             <h2 class="modal-title" id="locModalTitle">Nuevo Local</h2>
@@ -1327,7 +1347,7 @@
 
 <!-- ===== SPACE PRODUCT MODAL ===== -->
 <div id="spaceProductModal" class="modal-overlay">
-    <div class="modal-content" style="max-width:460px;">
+    <div class="modal-content modal-md">
         <div class="modal-handle"></div>
         <div class="modal-header">
             <h2 class="modal-title">Agregar Producto al Espacio</h2>
@@ -1380,13 +1400,13 @@
 
 <!-- ===== STOCK SUMMARY MODAL ===== -->
 <div id="stockSummaryModal" class="modal-overlay">
-    <div class="modal-content" style="max-width:560px;max-height:90vh;display:flex;flex-direction:column;">
+    <div class="modal-content modal-lg" style="display:flex;flex-direction:column;">
         <div class="modal-handle"></div>
         <div class="modal-header">
             <h2 class="modal-title">📊 Resumen de Stock en Locales</h2>
             <button class="modal-close" onclick="closeModal('stockSummaryModal')">✕</button>
         </div>
-        <div id="stockSummaryContent" style="flex:1;overflow-y:auto;"></div>
+        <div id="stockSummaryContent" class="modal-scroll-inner"></div>
         <div style="display:flex;gap:8px;margin-top:12px;">
             <button class="btn btn-primary btn-sm" style="flex:1;" onclick="exportLocaleExcel()">📥 Exportar Excel</button>
             <button class="btn btn-outline btn-sm" onclick="closeModal('stockSummaryModal')">Cerrar</button>
@@ -1396,13 +1416,13 @@
 
 <!-- ===== MOVEMENTS HISTORY MODAL ===== -->
 <div id="movementsModal" class="modal-overlay">
-    <div class="modal-content" style="max-width:560px;max-height:90vh;display:flex;flex-direction:column;">
+    <div class="modal-content modal-lg" style="display:flex;flex-direction:column;">
         <div class="modal-handle"></div>
         <div class="modal-header">
             <h2 class="modal-title" id="movementsModalTitle">📋 Historial de Movimientos</h2>
             <button class="modal-close" onclick="closeModal('movementsModal')">✕</button>
         </div>
-        <div id="movementsContent" style="flex:1;overflow-y:auto;"></div>
+        <div id="movementsContent" class="modal-scroll-inner"></div>
         <div style="display:flex;gap:8px;margin-top:12px;">
             <button class="btn btn-primary btn-sm" style="flex:1;" onclick="exportMovementsExcel()">📥 Exportar Excel</button>
             <button class="btn btn-outline btn-sm" onclick="closeModal('movementsModal')">Cerrar</button>
@@ -1740,10 +1760,18 @@ function showToast(msg, type) {
 // MODAL HELPERS
 // ====================================================================
 function openModal(id) {
-    document.getElementById(id).classList.add('open');
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.classList.add('open');
+    // close on backdrop tap (outside modal-content)
+    el.onclick = function(e) {
+        if (e.target === el) closeModal(id);
+    };
 }
 function closeModal(id) {
-    document.getElementById(id).classList.remove('open');
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.classList.remove('open');
 }
 
 // ====================================================================
@@ -7581,10 +7609,11 @@ function shareQuotationQR(id) {
     var overlay = document.createElement('div');
     overlay.className = 'modal-overlay open';
     overlay.id = 'qrModalOverlay';
-    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:center;z-index:400;overflow-y:auto;padding:20px;';
+    overlay.style.cssText = 'z-index:400;';
 
     var container = document.createElement('div');
-    container.style.cssText = 'background:#fff;border-radius:20px;padding:0;max-width:380px;width:95%;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.4);';
+    container.className = 'modal-content modal-sm';
+    container.style.cssText = 'padding:0;overflow:hidden;';
 
     // Header bar (store info)
     var header = document.createElement('div');
