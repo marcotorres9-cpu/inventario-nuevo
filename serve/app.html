@@ -798,6 +798,7 @@
             </div>
             <div style="display:flex;gap:8px;margin-bottom:14px;">
                 <button class="btn btn-primary btn-sm" onclick="openAddProduct()" style="flex:1;">➕ Nuevo Producto</button>
+                <button class="btn btn-outline btn-sm" onclick="exportProductsExcel()" style="white-space:nowrap;font-size:12px;">📥 Excel</button>
             </div>
             <div id="productList"></div>
         </div>
@@ -823,9 +824,13 @@
     <div id="locationsSection" class="section">
         <div class="main">
             <!-- Header: title + add button -->
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
                 <h2 style="font-size:22px;font-weight:800;">🏪 Mis Locales</h2>
                 <button class="btn btn-primary btn-sm" onclick="openLocModal()">+ Nuevo Local</button>
+            </div>
+            <div style="display:flex;gap:6px;margin-bottom:14px;">
+                <button class="btn btn-outline btn-sm" style="flex:1;font-size:12px;" onclick="openStockSummary()">📊 Resumen Stock</button>
+                <button class="btn btn-outline btn-sm" style="flex:1;font-size:12px;" onclick="exportLocaleExcel()">📥 Exportar Excel</button>
             </div>
             <!-- Locations list container -->
             <div id="locationsList"></div>
@@ -1332,14 +1337,40 @@
                 </select>
             </div>
             <div id="spResults" style="position:relative;"></div>
-            <div class="input-group">
-                <label class="input-label">Cantidad</label>
-                <input type="number" id="spQty" class="input" value="1" min="1" placeholder="Cantidad">
+            <div style="display:flex;gap:6px;">
+                <div class="input-group" style="flex:1;">
+                    <label class="input-label">Cantidad actual</label>
+                    <input type="number" id="spQty" class="input" value="1" min="0" placeholder="Uds">
+                </div>
+                <div class="input-group" style="flex:1;">
+                    <label class="input-label">Objetivo</label>
+                    <input type="number" id="spTargetQty" class="input" value="2" min="0" placeholder="Meta">
+                </div>
+                <div class="input-group" style="flex:1;">
+                    <label class="input-label">Mínimo alerta</label>
+                    <input type="number" id="spMinQty" class="input" value="1" min="0" placeholder="Mín">
+                </div>
             </div>
-            <div style="display:flex;gap:8px;">
+            <div style="display:flex;gap:8px;margin-top:4px;">
                 <button class="btn btn-primary" style="flex:1;" onclick="confirmAddProductToSpace()">➕ Agregar</button>
                 <button class="btn btn-outline" onclick="closeModal('spaceProductModal')">Cancelar</button>
             </div>
+        </div>
+    </div>
+</div>
+
+<!-- ===== STOCK SUMMARY MODAL ===== -->
+<div id="stockSummaryModal" class="modal-overlay">
+    <div class="modal-content" style="max-width:560px;max-height:90vh;display:flex;flex-direction:column;">
+        <div class="modal-handle"></div>
+        <div class="modal-header">
+            <h2 class="modal-title">📊 Resumen de Stock en Locales</h2>
+            <button class="modal-close" onclick="closeModal('stockSummaryModal')">✕</button>
+        </div>
+        <div id="stockSummaryContent" style="flex:1;overflow-y:auto;"></div>
+        <div style="display:flex;gap:8px;margin-top:12px;">
+            <button class="btn btn-primary btn-sm" style="flex:1;" onclick="exportLocaleExcel()">📥 Exportar Excel</button>
+            <button class="btn btn-outline btn-sm" onclick="closeModal('stockSummaryModal')">Cerrar</button>
         </div>
     </div>
 </div>
@@ -4975,17 +5006,39 @@ function renderLocSpaceView(loc) {
     // Count stats
     var totalQty = 0;
     var totalTypes = products.length;
-    for (var p = 0; p < products.length; p++) totalQty += (products[p].qty || 0);
+    var totalTarget = 0;
+    var totalMissing = 0;
+    var alertCount = 0;
+    for (var p = 0; p < products.length; p++) {
+        totalQty += (products[p].qty || 0);
+        totalTarget += (products[p].targetQty || 0);
+        var missing = (products[p].targetQty || 0) - (products[p].qty || 0);
+        if (missing > 0) totalMissing += missing;
+        if ((products[p].qty || 0) <= (products[p].minQty || 0)) alertCount++;
+    }
 
     // Space tabs
     var tabsHtml = '';
     for (var s = 0; s < spaces.length; s++) {
         var activeClass = s === currentIdx ? ' active' : '';
         var sCount = 0;
+        var sAlerts = 0;
         var sProds = (spaces[s].products || []);
-        for (var sp = 0; sp < sProds.length; sp++) sCount += (sProds[sp].qty || 0);
+        for (var sp = 0; sp < sProds.length; sp++) {
+            sCount += (sProds[sp].qty || 0);
+            if ((sProds[sp].qty || 0) <= (sProds[sp].minQty || 0)) sAlerts++;
+        }
+        var alertBadge = sAlerts > 0 ? ' <span style="background:#ff4757;color:#fff;font-size:9px;padding:1px 5px;border-radius:8px;">!</span>' : '';
         tabsHtml += '<span class="space-tab' + activeClass + '" onclick="_locCurrentSpace=' + s + ';renderLocSpaceView(getLocations()[' + _findLocIdx(loc.id) + '])">' +
-            escapeHtml(spaces[s].name) + ' <small>(' + sCount + ')</small></span>';
+            escapeHtml(spaces[s].name) + ' <small>(' + sCount + ')</small>' + alertBadge + '</span>';
+    }
+
+    // Alert banner
+    var alertBanner = '';
+    if (alertCount > 0) {
+        alertBanner = '<div style="background:#ff475720;border:1px solid #ff4757;border-radius:10px;padding:10px 14px;margin-bottom:10px;font-size:13px;color:#ff6b81;display:flex;align-items:center;gap:6px;">' +
+            '<span style="font-size:18px;">⚠️</span>' +
+            '<span><b>' + alertCount + ' producto' + (alertCount > 1 ? 's' : '') + '</b> por debajo del mínimo. Faltan <b>' + totalMissing + ' unidad' + (totalMissing !== 1 ? 'es' : '') + '</b> para completar objetivos.</span></div>';
     }
 
     // Product list
@@ -5000,7 +5053,7 @@ function renderLocSpaceView(loc) {
             var pName = pr.name || 'Producto';
             if (pr.brand) pName += ' - ' + pr.brand;
 
-            // Build spec tags for this product
+            // Build spec tags
             var locSpecsHtml = '';
             if (pr.specifications) {
                 try {
@@ -5017,15 +5070,54 @@ function renderLocSpaceView(loc) {
                 } catch(e) {}
             }
 
-            prodHtml += '<div class="loc-product-row" style="flex-wrap:wrap;">' +
+            var qty = pr.qty || 0;
+            var target = pr.targetQty || 2;
+            var min = pr.minQty || 1;
+            var missing = target - qty;
+            var isAlert = qty <= min;
+
+            // Status indicator
+            var statusColor = '#2ed573'; // green = ok
+            var statusIcon = '✅';
+            var statusText = 'OK';
+            if (isAlert && qty === 0) {
+                statusColor = '#ff4757'; statusIcon = '🚨'; statusText = 'AGOTADO';
+            } else if (isAlert) {
+                statusColor = '#ffa502'; statusIcon = '⚠️'; statusText = 'BAJO';
+            } else if (missing > 0) {
+                statusColor = '#1e90ff'; statusIcon = '➖'; statusText = 'Incompleto';
+            }
+
+            // Progress bar
+            var pct = target > 0 ? Math.min(100, Math.round((qty / target) * 100)) : 100;
+            var barColor = isAlert ? '#ff4757' : (missing > 0 ? '#1e90ff' : '#2ed573');
+
+            // Target and missing info
+            var targetInfo = '<div style="font-size:11px;color:var(--text3);margin-top:3px;">' +
+                '<span>Objetivo: <b>' + target + '</b></span> · <span>Mín: <b>' + min + '</b></span>';
+            if (missing > 0) {
+                targetInfo += ' · <span style="color:#ff4757;">Faltan: <b>' + missing + '</b></span>';
+            } else if (qty >= target) {
+                targetInfo += ' · <span style="color:#2ed573;">Completo ✓</span>';
+            }
+            targetInfo += '</div>';
+
+            prodHtml += '<div class="loc-product-row" style="flex-wrap:wrap;padding:10px 0;border-bottom:1px solid var(--border);' + (isAlert ? 'border-left:3px solid ' + statusColor + ';padding-left:11px;' : '') + '">' +
                 '<div style="flex:1;min-width:0;">' +
-                    '<span class="loc-product-name">' + escapeHtml(pName) + '</span>' +
+                    '<div style="display:flex;align-items:center;gap:4px;">' +
+                        '<span class="loc-product-name">' + escapeHtml(pName) + '</span>' +
+                        '<span style="font-size:11px;color:' + statusColor + ';">' + statusIcon + ' ' + statusText + '</span>' +
+                    '</div>' +
                     (locSpecsHtml ? '<div class="product-specs" style="margin-top:2px;">' + locSpecsHtml + '</div>' : '') +
+                    targetInfo +
+                    '<div style="background:var(--bg2);border-radius:4px;height:4px;margin-top:5px;overflow:hidden;"><div style="height:100%;width:' + pct + '%;background:' + barColor + ';border-radius:4px;"></div></div>' +
                 '</div>' +
-                '<div class="loc-product-qty">' +
+                '<div class="loc-product-qty" style="align-items:center;">' +
+                    '<button class="btn btn-ghost btn-xs" onclick="sellFromSpace(\'' + loc.id + '\',' + currentIdx + ',' + i + ')" style="color:#ff4757;font-size:11px;white-space:nowrap;padding:4px 6px;" title="Registrar venta">💰 Venta</button>' +
                     '<button class="loc-qty-btn" onclick="changeSpaceQty(\'' + loc.id + '\',' + currentIdx + ',' + i + ',-1)">−</button>' +
-                    '<span class="loc-qty-num">' + pr.qty + '</span>' +
+                    '<span class="loc-qty-num" style="' + (isAlert ? 'color:' + statusColor + ';font-weight:700;' : '') + '">' + qty + '</span>' +
                     '<button class="loc-qty-btn" onclick="changeSpaceQty(\'' + loc.id + '\',' + currentIdx + ',' + i + ',1)">+</button>' +
+                    '<button class="btn btn-ghost btn-xs" onclick="editProductTarget(\'' + loc.id + '\',' + currentIdx + ',' + i + ')" style="color:var(--primary);font-size:12px;" title="Editar objetivo">🎯</button>' +
                     '<button class="btn btn-ghost btn-xs" onclick="removeProductFromSpace(\'' + loc.id + '\',' + currentIdx + ',' + i + ')" style="color:var(--danger);font-size:14px;">✕</button>' +
                 '</div>' +
             '</div>';
@@ -5036,13 +5128,18 @@ function renderLocSpaceView(loc) {
         '<div class="loc-back" onclick="renderLocations()">← Volver a Locales</div>' +
         '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">' +
             '<h2 style="font-size:20px;font-weight:800;">🏪 ' + escapeHtml(loc.name) + '</h2>' +
-            '<button class="btn btn-ghost btn-xs" onclick="openLocModal(\'' + loc.id + '\')">✏️ Editar</button>' +
+            '<div style="display:flex;gap:6px;">' +
+                '<button class="btn btn-ghost btn-xs" onclick="openStockSummary()" style="font-size:11px;">📊 Resumen</button>' +
+                '<button class="btn btn-ghost btn-xs" onclick="openLocModal(\'' + loc.id + '\')">✏️ Editar</button>' +
+            '</div>' +
         '</div>' +
         '<div class="loc-stat-row">' +
             '<div class="loc-stat-item"><div class="loc-stat-num">' + spaces.length + '</div><div class="loc-stat-label">Espacios</div></div>' +
-            '<div class="loc-stat-item"><div class="loc-stat-num">' + totalTypes + '</div><div class="loc-stat-label">Tipos de prod.</div></div>' +
-            '<div class="loc-stat-item"><div class="loc-stat-num">' + totalQty + '</div><div class="loc-stat-label">Unidades total</div></div>' +
+            '<div class="loc-stat-item"><div class="loc-stat-num">' + totalTypes + '</div><div class="loc-stat-label">Tipos</div></div>' +
+            '<div class="loc-stat-item"><div class="loc-stat-num" style="color:var(--primary);">' + totalQty + '</div><div class="loc-stat-label">Unidades</div></div>' +
+            '<div class="loc-stat-item"><div class="loc-stat-num" style="color:' + (totalMissing > 0 ? '#ff4757' : '#2ed573') + ';">' + (totalTarget - totalQty > 0 ? '-' + (totalTarget - totalQty) : '✓') + '</div><div class="loc-stat-label">Faltantes</div></div>' +
         '</div>' +
+        alertBanner +
         '<div style="margin:14px 0 6px;font-size:13px;font-weight:700;color:var(--text2);">ESPACIOS</div>' +
         (tabsHtml || '<div style="color:var(--text3);font-size:13px;padding:8px 0;">Agrega espacios al editar el local</div>') +
         '<div style="margin:14px 0 10px;display:flex;align-items:center;justify-content:space-between;">' +
@@ -5058,6 +5155,337 @@ function _findLocIdx(locId) {
         if (locs[i].id === locId) return i;
     }
     return 0;
+}
+
+// ===== SELL FROM SPACE (register sale) =====
+function sellFromSpace(locId, spaceIdx, prodIdx) {
+    var locs = getLocations();
+    var pr = null;
+    for (var i = 0; i < locs.length; i++) {
+        if (locs[i].id === locId && locs[i].spaces && locs[i].spaces[spaceIdx]) {
+            pr = locs[i].spaces[spaceIdx].products[prodIdx];
+            break;
+        }
+    }
+    if (!pr) return;
+    var qty = pr.qty || 0;
+    var maxSell = qty;
+    var msg = '¿Cuántas unidades de "' + (pr.name || 'Producto') + '" vendiste?\nActual: ' + qty + ' uds';
+    // Use a simple prompt for quantity
+    var sellQty = prompt(msg, '1');
+    if (sellQty === null) return;
+    sellQty = parseInt(sellQty) || 0;
+    if (sellQty < 1) { showToast('Cantidad inválida', 'error'); return; }
+    if (sellQty > maxSell) sellQty = maxSell;
+
+    var locs2 = getLocations();
+    for (var j = 0; j < locs2.length; j++) {
+        if (locs2[j].id === locId && locs2[j].spaces && locs2[j].spaces[spaceIdx]) {
+            locs2[j].spaces[spaceIdx].products[prodIdx].qty -= sellQty;
+            locs2[j].updatedAt = new Date().toISOString();
+            break;
+        }
+    }
+    saveLocations(locs2);
+    syncLocationsToServer();
+    var loc = null;
+    for (var k = 0; k < locs2.length; k++) {
+        if (locs2[k].id === locId) { loc = locs2[k]; break; }
+    }
+    if (loc) renderLocSpaceView(loc);
+    showToast('Venta registrada: ' + sellQty + ' ud' + (sellQty > 1 ? 's' : ''), 'success');
+}
+
+// ===== EDIT PRODUCT TARGET =====
+function editProductTarget(locId, spaceIdx, prodIdx) {
+    var locs = getLocations();
+    var pr = null;
+    for (var i = 0; i < locs.length; i++) {
+        if (locs[i].id === locId && locs[i].spaces && locs[i].spaces[spaceIdx]) {
+            pr = locs[i].spaces[spaceIdx].products[prodIdx];
+            break;
+        }
+    }
+    if (!pr) return;
+    var curTarget = pr.targetQty || 2;
+    var curMin = pr.minQty || 1;
+    var msg = 'Producto: ' + (pr.name || '') + '\nObjetivo actual: ' + curTarget + '\nMínimo actual: ' + curMin;
+    var newTarget = prompt(msg + '\n\nNuevo OBJETIVO:', curTarget);
+    if (newTarget === null) return;
+    newTarget = parseInt(newTarget) || 0;
+    var newMin = prompt(msg + '\n\nNuevo MÍNIMO para alerta:', curMin);
+    if (newMin === null) return;
+    newMin = parseInt(newMin) || 0;
+
+    var locs2 = getLocations();
+    for (var j = 0; j < locs2.length; j++) {
+        if (locs2[j].id === locId && locs2[j].spaces && locs2[j].spaces[spaceIdx]) {
+            locs2[j].spaces[spaceIdx].products[prodIdx].targetQty = newTarget;
+            locs2[j].spaces[spaceIdx].products[prodIdx].minQty = newMin;
+            locs2[j].updatedAt = new Date().toISOString();
+            break;
+        }
+    }
+    saveLocations(locs2);
+    syncLocationsToServer();
+    var loc = null;
+    for (var k = 0; k < locs2.length; k++) {
+        if (locs2[k].id === locId) { loc = locs2[k]; break; }
+    }
+    if (loc) renderLocSpaceView(loc);
+    showToast('Objetivo actualizado: ' + newTarget + ' / Mín: ' + newMin, 'success');
+}
+
+// ===== STOCK SUMMARY =====
+function openStockSummary() {
+    renderStockSummary();
+    openModal('stockSummaryModal');
+}
+
+function renderStockSummary() {
+    var container = document.getElementById('stockSummaryContent');
+    var locs = getLocations();
+
+    if (!locs || locs.length === 0) {
+        container.innerHTML = '<div style="text-align:center;padding:30px;color:var(--text3);">No hay locales registrados</div>';
+        return;
+    }
+
+    // Build a consolidated table of all products across all locales/spaces
+    var productMap = {}; // key: productId, value: { name, brand, specs, locations: [{locName, spaceName, qty, target, min}] }
+    var grandTotal = 0;
+    var grandTarget = 0;
+    var grandMissing = 0;
+    var grandAlerts = 0;
+
+    for (var li = 0; li < locs.length; li++) {
+        var loc = locs[li];
+        var spaces = loc.spaces || [];
+        for (var si = 0; si < spaces.length; si++) {
+            var space = spaces[si];
+            var prods = space.products || [];
+            for (var pi = 0; pi < prods.length; pi++) {
+                var pr = prods[pi];
+                var key = pr.productId;
+                if (!productMap[key]) {
+                    productMap[key] = { name: pr.name || 'Producto', brand: pr.brand || '', specifications: pr.specifications || null, entries: [] };
+                }
+                productMap[key].entries.push({
+                    locName: loc.name, spaceName: space.name,
+                    qty: pr.qty || 0, targetQty: pr.targetQty || 2, minQty: pr.minQty || 1
+                });
+            }
+        }
+    }
+
+    var keys = Object.keys(productMap);
+    if (keys.length === 0) {
+        container.innerHTML = '<div style="text-align:center;padding:30px;color:var(--text3);">No hay productos en los locales</div>';
+        return;
+    }
+
+    // Build summary
+    var html = '';
+
+    // Stats header
+    var totalModels = keys.length;
+    for (var ki = 0; ki < keys.length; ki++) {
+        var pm = productMap[keys[ki]];
+        for (var ei = 0; ei < pm.entries.length; ei++) {
+            var entry = pm.entries[ei];
+            grandTotal += entry.qty;
+            grandTarget += entry.targetQty;
+            var m = entry.targetQty - entry.qty;
+            if (m > 0) grandMissing += m;
+            if (entry.qty <= entry.minQty) grandAlerts++;
+        }
+    }
+
+    html += '<div style="display:flex;gap:8px;margin-bottom:16px;">' +
+        '<div style="flex:1;background:var(--bg2);border-radius:10px;padding:10px;text-align:center;">' +
+            '<div style="font-size:20px;font-weight:800;color:var(--primary);">' + totalModels + '</div>' +
+            '<div style="font-size:11px;color:var(--text3);">Modelos</div></div>' +
+        '<div style="flex:1;background:var(--bg2);border-radius:10px;padding:10px;text-align:center;">' +
+            '<div style="font-size:20px;font-weight:800;">' + grandTotal + '</div>' +
+            '<div style="font-size:11px;color:var(--text3);">Total uds</div></div>' +
+        '<div style="flex:1;background:' + (grandMissing > 0 ? '#ff475715' : '#2ed57315') + ';border-radius:10px;padding:10px;text-align:center;">' +
+            '<div style="font-size:20px;font-weight:800;color:' + (grandMissing > 0 ? '#ff4757' : '#2ed573') + ';">' + (grandMissing > 0 ? '-' + grandMissing : '✓') + '</div>' +
+            '<div style="font-size:11px;color:var(--text3);">Faltantes</div></div>' +
+        '<div style="flex:1;background:' + (grandAlerts > 0 ? '#ffa50215' : 'var(--bg2)') + ';border-radius:10px;padding:10px;text-align:center;">' +
+            '<div style="font-size:20px;font-weight:800;color:' + (grandAlerts > 0 ? '#ffa502' : 'var(--text)') + ';">' + grandAlerts + '</div>' +
+            '<div style="font-size:11px;color:var(--text3);">Alertas</div></div>' +
+    '</div>';
+
+    // Product list
+    for (var ki2 = 0; ki2 < keys.length; ki2++) {
+        var pm2 = productMap[keys[ki2]];
+        var pTotal = 0, pTarget = 0;
+        var pAlert = false;
+        var pSpecsHtml = '';
+        if (pm2.specifications) {
+            try {
+                var sObj = (typeof pm2.specifications === 'string') ? JSON.parse(pm2.specifications) : pm2.specifications;
+                if (sObj && typeof sObj === 'object') {
+                    var sk = Object.keys(sObj);
+                    for (var ski = 0; ski < sk.length; ski++) {
+                        var sv = (sObj[sk[ski]] || '').trim();
+                        if (sv) pSpecsHtml += '<span style="display:inline-block;background:var(--primary-bg);color:var(--primary);font-size:9px;padding:1px 4px;border-radius:3px;margin:0 1px;">' + escapeHtml(sk[ski] + ': ' + sv) + '</span>';
+                    }
+                }
+            } catch(e) {}
+        }
+
+        for (var ei2 = 0; ei2 < pm2.entries.length; ei2++) {
+            pTotal += pm2.entries[ei2].qty;
+            pTarget += pm2.entries[ei2].targetQty;
+            if (pm2.entries[ei2].qty <= pm2.entries[ei2].minQty) pAlert = true;
+        }
+        var pMissing = pTarget - pTotal;
+        var pStatus = pTotal === 0 ? '#ff4757' : (pAlert ? '#ffa502' : (pMissing > 0 ? '#1e90ff' : '#2ed573'));
+        var pPct = pTarget > 0 ? Math.min(100, Math.round((pTotal / pTarget) * 100)) : 100;
+
+        html += '<div style="background:var(--bg2);border-radius:10px;padding:12px;margin-bottom:8px;border-left:3px solid ' + pStatus + ';">' +
+            '<div style="display:flex;justify-content:space-between;align-items:center;">' +
+                '<div style="flex:1;min-width:0;">' +
+                    '<div style="font-weight:700;font-size:14px;">' + escapeHtml(pm2.name) + (pm2.brand ? ' — ' + escapeHtml(pm2.brand) : '') + '</div>' +
+                    (pSpecsHtml ? '<div style="margin-top:3px;">' + pSpecsHtml + '</div>' : '') +
+                '</div>' +
+                '<div style="text-align:right;flex-shrink:0;margin-left:8px;">' +
+                    '<div style="font-size:18px;font-weight:800;color:' + pStatus + ';">' + pTotal + '<span style="font-size:11px;color:var(--text3);"> / ' + pTarget + '</span></div>' +
+                    '<div style="font-size:10px;color:var(--text3);">' + pPct + '%' + (pMissing > 0 ? ' · Faltan ' + pMissing : ' · Completo') + '</div>' +
+                '</div>' +
+            '</div>' +
+            '<div style="background:var(--bg3);border-radius:4px;height:3px;margin-top:6px;overflow:hidden;"><div style="height:100%;width:' + pPct + '%;background:' + pStatus + ';border-radius:4px;"></div></div>';
+
+        // Detail per locale/space
+        html += '<div style="margin-top:8px;font-size:11px;">';
+        for (var ei3 = 0; ei3 < pm2.entries.length; ei3++) {
+            var e = pm2.entries[ei3];
+            var eMissing = e.targetQty - e.qty;
+            var eAlert = e.qty <= e.minQty;
+            html += '<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid var(--border);">' +
+                '<span style="color:var(--text3);">' + escapeHtml(e.locName) + ' › ' + escapeHtml(e.spaceName) + '</span>' +
+                '<span>' +
+                    '<b style="color:' + (eAlert ? '#ff4757' : 'var(--text)') + ';">' + e.qty + '</b>' +
+                    '<span style="color:var(--text3);"> / ' + e.targetQty + ' (mín:' + e.minQty + ')</span>' +
+                    (eMissing > 0 ? ' <span style="color:#ff4757;">-' + eMissing + '</span>' : '') +
+                '</span></div>';
+        }
+        html += '</div></div>';
+    }
+
+    container.innerHTML = html;
+}
+
+// ===== EXCEL EXPORT — LOCALES INVENTORY =====
+function exportLocaleExcel() {
+    var locs = getLocations();
+    if (!locs || locs.length === 0) { showToast('No hay locales registrados', 'error'); return; }
+
+    var rows = [['LOCAL', 'ESPACIO', 'PRODUCTO', 'MARCA', 'ESPECIFICACIONES', 'CANTIDAD', 'OBJETIVO', 'MÍNIMO', 'FALTANTES', 'ESTADO']];
+
+    for (var li = 0; li < locs.length; li++) {
+        var loc = locs[li];
+        var spaces = loc.spaces || [];
+        for (var si = 0; si < spaces.length; si++) {
+            var space = spaces[si];
+            var prods = space.products || [];
+            for (var pi = 0; pi < prods.length; pi++) {
+                var pr = prods[pi];
+                var qty = pr.qty || 0;
+                var target = pr.targetQty || 2;
+                var min = pr.minQty || 1;
+                var missing = target - qty;
+                var status = qty === 0 ? 'AGOTADO' : (qty <= min ? 'BAJO' : (missing > 0 ? 'Incompleto' : 'OK'));
+
+                // Build specs string
+                var specsStr = '';
+                if (pr.specifications) {
+                    try {
+                        var sObj = (typeof pr.specifications === 'string') ? JSON.parse(pr.specifications) : pr.specifications;
+                        if (sObj && typeof sObj === 'object') {
+                            var sk = Object.keys(sObj);
+                            for (var ski = 0; ski < sk.length; ski++) {
+                                var sv = (sObj[sk[ski]] || '').trim();
+                                if (sv) specsStr += (specsStr ? ', ' : '') + sk[ski] + ': ' + sv;
+                            }
+                        }
+                    } catch(e) {}
+                }
+
+                rows.push([loc.name, space.name, pr.name || '', pr.brand || '', specsStr, qty, target, min, missing > 0 ? missing : 0, status]);
+            }
+        }
+    }
+
+    downloadExcelFile(rows, 'Inventario_Locales');
+}
+
+// ===== EXCEL EXPORT — GENERAL PRODUCTS =====
+function exportProductsExcel() {
+    var products = getProducts();
+    if (!products || products.length === 0) { showToast('No hay productos', 'error'); return; }
+
+    var rows = [['NOMBRE', 'SKU', 'CATEGORÍA', 'MARCA', 'COLOR', 'ESPECIFICACIONES', 'PRECIO COSTO', 'PRECIO VENTA', 'STOCK', 'STOCK MÍNIMO', 'DESCRIPCIÓN']];
+
+    for (var i = 0; i < products.length; i++) {
+        var pr = products[i];
+
+        // Build specs string
+        var specsStr = '';
+        if (pr.specifications) {
+            try {
+                var sObj = (typeof pr.specifications === 'string') ? JSON.parse(pr.specifications) : pr.specifications;
+                if (sObj && typeof sObj === 'object') {
+                    var sk = Object.keys(sObj);
+                    for (var ski = 0; ski < sk.length; ski++) {
+                        var sv = (sObj[sk[ski]] || '').trim();
+                        if (sv) specsStr += (specsStr ? ', ' : '') + sk[ski] + ': ' + sv;
+                    }
+                }
+            } catch(e) {}
+        }
+
+        rows.push([
+            pr.name || '', pr.sku || '', pr.category || '', pr.brand || '', pr.color || '',
+            specsStr,
+            parseFloat(pr.costPrice) || 0,
+            parseFloat(pr.salePrice) || parseFloat(pr.price) || 0,
+            parseInt(pr.stock) || 0,
+            parseInt(pr.minStock) || 5,
+            pr.description || ''
+        ]);
+    }
+
+    downloadExcelFile(rows, 'Productos_Generales');
+}
+
+// ===== EXCEL FILE DOWNLOAD HELPER =====
+function downloadExcelFile(rows, filename) {
+    // Build HTML table for Excel compatibility
+    var html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="UTF-8"></head><body>' +
+        '<table border="1" style="border-collapse:collapse;">';
+    for (var r = 0; r < rows.length; r++) {
+        html += '<tr>';
+        for (var c = 0; c < rows[r].length; c++) {
+            var tag = r === 0 ? 'th' : 'td';
+            var style = r === 0 ? ' style="background:#2ed573;color:#fff;font-weight:bold;padding:6px 10px;"' : ' style="padding:4px 10px;"';
+            html += '<' + tag + style + '>' + escapeHtml(String(rows[r][c])) + '</' + tag + '>';
+        }
+        html += '</tr>';
+    }
+    html += '</table></body></html>';
+
+    var blob = new Blob(['\uFEFF' + html], { type: 'application/vnd.ms-excel;charset=utf-8' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = filename + '.xls';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast('Archivo descargado: ' + filename + '.xls', 'success');
 }
 
 // ===== LOC CRUD =====
@@ -5158,6 +5586,8 @@ function openSpaceProductModal(locId, spaceIdx) {
     document.getElementById('spSpaceIdx').value = spaceIdx;
     document.getElementById('spSearch').value = '';
     document.getElementById('spQty').value = '1';
+    document.getElementById('spTargetQty').value = '2';
+    document.getElementById('spMinQty').value = '1';
     document.getElementById('spResults').innerHTML = '';
     populateSpFilterDropdowns();
     openModal('spaceProductModal');
@@ -5266,8 +5696,10 @@ function confirmAddProductToSpace() {
     if (!_spSelectedProductId) { showToast('Selecciona un producto', 'error'); return; }
     var locId = document.getElementById('spLocId').value;
     var spaceIdx = parseInt(document.getElementById('spSpaceIdx').value);
-    var qty = parseInt(document.getElementById('spQty').value) || 1;
-    if (qty < 1) qty = 1;
+    var qty = parseInt(document.getElementById('spQty').value) || 0;
+    var targetQty = parseInt(document.getElementById('spTargetQty').value) || 2;
+    var minQty = parseInt(document.getElementById('spMinQty').value) || 1;
+    if (qty < 0) qty = 0;
 
     var locs = getLocations();
     var products = getProducts();
@@ -5293,14 +5725,19 @@ function confirmAddProductToSpace() {
             for (var j = 0; j < space.products.length; j++) {
                 if (space.products[j].productId === _spSelectedProductId) {
                     space.products[j].qty += qty;
-                    // Update specs if changed
+                    // Update specs, target and min
                     if (prodSpecs) space.products[j].specifications = prodSpecs;
+                    space.products[j].targetQty = targetQty;
+                    space.products[j].minQty = minQty;
                     found = true;
                     break;
                 }
             }
             if (!found) {
-                space.products.push({ productId: _spSelectedProductId, name: prodName, brand: prodBrand, qty: qty, specifications: prodSpecs });
+                space.products.push({
+                    productId: _spSelectedProductId, name: prodName, brand: prodBrand,
+                    qty: qty, specifications: prodSpecs, targetQty: targetQty, minQty: minQty
+                });
             }
             locs[i].updatedAt = new Date().toISOString();
             break;
@@ -7151,7 +7588,7 @@ function downloadQuotationPDF(id) {
     applyTheme(savedTheme);
 
     // Save current version to localStorage (no redirect — avoids infinite loops)
-    var _appVer = 'v20260423a';
+    var _appVer = 'v20260423b';
     localStorage.setItem('inv_appVersion', _appVer);
 
     // ALWAYS force the correct server URL — clear any old/wrong URL

@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">InventarioPro</string>
+    <string name="title_activity_main">InventarioPro</string>
+    <string name="package_name">com.inventariopro.app</string>
+    <string name="custom_url_scheme">com.inventariopro.app</string>
+</resources>

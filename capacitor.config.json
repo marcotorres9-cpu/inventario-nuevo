@@ -1,0 +1,16 @@
+{
+  "appId": "com.inventariopro.app",
+  "appName": "InventarioPro",
+  "webDir": "public",
+  "server": {
+    "url": "https://inventario-tienda-three.vercel.app",
+    "androidScheme": "https"
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 2000,
+      "backgroundColor": "#1a1a2e",
+      "showSpinner": false
+    }
+  }
+}
