@@ -796,6 +796,24 @@
                 </select>
                 <button class="btn btn-ghost btn-xs" onclick="clearProductFilters()" style="white-space:nowrap;font-size:11px;">✕ Limpiar</button>
             </div>
+            <!-- Sort bar -->
+            <div id="productSortBar" style="display:flex;gap:6px;margin-bottom:10px;align-items:center;flex-wrap:wrap;">
+                <span style="font-size:11px;color:#888;white-space:nowrap;">⬇️ Ordenar:</span>
+                <select id="sortField" class="input" style="flex:1;min-width:100px;font-size:12px;padding:6px 8px;" onchange="renderProductList()">
+                    <option value="">Sin ordenar</option>
+                    <option value="price_asc">Precio: menor a mayor</option>
+                    <option value="price_desc">Precio: mayor a menor</option>
+                    <option value="name_asc">Nombre: A-Z</option>
+                    <option value="name_desc">Nombre: Z-A</option>
+                    <option value="brand_asc">Marca: A-Z</option>
+                    <option value="category_asc">Categoría: A-Z</option>
+                    <option value="stock_asc">Stock: menor a mayor</option>
+                    <option value="stock_desc">Stock: mayor a menor</option>
+                    <option value="color_asc">Color: A-Z</option>
+                    <option value="cost_asc">Costo: menor a mayor</option>
+                    <option value="cost_desc">Costo: mayor a menor</option>
+                </select>
+            </div>
             <div style="display:flex;gap:8px;margin-bottom:14px;">
                 <button class="btn btn-primary btn-sm" onclick="openAddProduct()" style="flex:1;">➕ Nuevo Producto</button>
                 <button class="btn btn-outline btn-sm" onclick="exportProductsExcel()" style="white-space:nowrap;font-size:12px;">📥 Excel</button>
@@ -3073,6 +3091,48 @@ function renderProductList() {
         filtered.push(p);
     }
 
+    // ===== SORT LOGIC =====
+    var sortField = document.getElementById('sortField') ? document.getElementById('sortField').value : '';
+    if (sortField) {
+        filtered.sort(function(a, b) {
+            var va, vb;
+            switch(sortField) {
+                case 'price_asc':
+                    va = parseFloat(a.salePrice) || parseFloat(a.price) || 0;
+                    vb = parseFloat(b.salePrice) || parseFloat(b.price) || 0;
+                    return va - vb;
+                case 'price_desc':
+                    va = parseFloat(a.salePrice) || parseFloat(a.price) || 0;
+                    vb = parseFloat(b.salePrice) || parseFloat(b.price) || 0;
+                    return vb - va;
+                case 'name_asc':
+                    return (a.name || '').toLowerCase().localeCompare((b.name || '').toLowerCase());
+                case 'name_desc':
+                    return (b.name || '').toLowerCase().localeCompare((a.name || '').toLowerCase());
+                case 'brand_asc':
+                    return (a.brand || '').toLowerCase().localeCompare((b.brand || '').toLowerCase());
+                case 'category_asc':
+                    return (a.category || '').toLowerCase().localeCompare((b.category || '').toLowerCase());
+                case 'stock_asc':
+                    return (parseInt(a.stock) || 0) - (parseInt(b.stock) || 0);
+                case 'stock_desc':
+                    return (parseInt(b.stock) || 0) - (parseInt(a.stock) || 0);
+                case 'color_asc':
+                    return (a.color || '').toLowerCase().localeCompare((b.color || '').toLowerCase());
+                case 'cost_asc':
+                    va = parseFloat(a.costPrice) || 0;
+                    vb = parseFloat(b.costPrice) || 0;
+                    return va - vb;
+                case 'cost_desc':
+                    va = parseFloat(a.costPrice) || 0;
+                    vb = parseFloat(b.costPrice) || 0;
+                    return vb - va;
+                default:
+                    return 0;
+            }
+        });
+    }
+
     if (filtered.length === 0) {
         container.innerHTML = '<div class="empty-state">' +
             '<div class="empty-icon">📦</div>' +
@@ -3334,10 +3394,12 @@ function clearProductFilters() {
     var brandSel = document.getElementById('filterBrand');
     var colorSel = document.getElementById('filterColor');
     var specSel = document.getElementById('filterSpec');
+    var sortSel = document.getElementById('sortField');
     if (catSel) catSel.value = '';
     if (brandSel) brandSel.value = '';
     if (colorSel) colorSel.value = '';
     if (specSel) specSel.value = '';
+    if (sortSel) sortSel.value = '';
     populateProductFilterDropdowns();
     renderProductList();
 }
