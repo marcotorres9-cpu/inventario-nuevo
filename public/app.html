@@ -780,6 +780,22 @@
             <div class="search-bar">
                 <input type="text" id="searchInput" class="search-input" placeholder="🔍 Buscar producto..." oninput="renderProductList()">
             </div>
+            <!-- Cascading filter bar -->
+            <div id="productFilterBar" style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;">
+                <select id="filterCategory" class="input" style="flex:1;min-width:0;font-size:12px;padding:6px 8px;" onchange="onFilterChange()">
+                    <option value="">Categoría</option>
+                </select>
+                <select id="filterBrand" class="input" style="flex:1;min-width:0;font-size:12px;padding:6px 8px;" onchange="onFilterChange()">
+                    <option value="">Marca</option>
+                </select>
+                <select id="filterColor" class="input" style="flex:1;min-width:0;font-size:12px;padding:6px 8px;" onchange="onFilterChange()">
+                    <option value="">Color</option>
+                </select>
+                <select id="filterSpec" class="input" style="flex:1;min-width:0;font-size:12px;padding:6px 8px;" onchange="onFilterChange()">
+                    <option value="">Especificación</option>
+                </select>
+                <button class="btn btn-ghost btn-xs" onclick="clearProductFilters()" style="white-space:nowrap;font-size:11px;">✕ Limpiar</button>
+            </div>
             <div style="display:flex;gap:8px;margin-bottom:14px;">
                 <button class="btn btn-primary btn-sm" onclick="openAddProduct()" style="flex:1;">➕ Nuevo Producto</button>
             </div>
@@ -1287,7 +1303,7 @@
 
 <!-- ===== SPACE PRODUCT MODAL ===== -->
 <div id="spaceProductModal" class="modal-overlay">
-    <div class="modal-content" style="max-width:440px;">
+    <div class="modal-content" style="max-width:460px;">
         <div class="modal-handle"></div>
         <div class="modal-header">
             <h2 class="modal-title">Agregar Producto al Espacio</h2>
@@ -1299,8 +1315,23 @@
             <div class="input-group">
                 <label class="input-label">Buscar Producto *</label>
                 <input type="text" id="spSearch" class="input" placeholder="🔍 Buscar producto por nombre..." oninput="searchProductsForSpace(this.value)">
-                <div id="spResults" style="position:relative;"></div>
             </div>
+            <!-- Cascading filter row for space product modal -->
+            <div style="display:flex;gap:5px;margin-bottom:8px;flex-wrap:wrap;">
+                <select id="spFilterCategory" class="input" style="flex:1;min-width:0;font-size:11px;padding:5px 6px;" onchange="onSpFilterChange()">
+                    <option value="">Categoría</option>
+                </select>
+                <select id="spFilterBrand" class="input" style="flex:1;min-width:0;font-size:11px;padding:5px 6px;" onchange="onSpFilterChange()">
+                    <option value="">Marca</option>
+                </select>
+                <select id="spFilterColor" class="input" style="flex:1;min-width:0;font-size:11px;padding:5px 6px;" onchange="onSpFilterChange()">
+                    <option value="">Color</option>
+                </select>
+                <select id="spFilterSpec" class="input" style="flex:1;min-width:0;font-size:11px;padding:5px 6px;" onchange="onSpFilterChange()">
+                    <option value="">Especificación</option>
+                </select>
+            </div>
+            <div id="spResults" style="position:relative;"></div>
             <div class="input-group">
                 <label class="input-label">Cantidad</label>
                 <input type="number" id="spQty" class="input" value="1" min="1" placeholder="Cantidad">
@@ -1824,7 +1855,7 @@ function switchSection(name) {
     if (navBtn) navBtn.classList.add('active');
 
     if (name === 'dashboard') updateDashboard();
-    if (name === 'products') renderProductList();
+    if (name === 'products') { renderProductList(); populateProductFilterDropdowns(); }
     if (name === 'locations') renderLocations();
     if (name === 'config') { renderCategories(); renderBrands(); renderColors(); renderUsers(); loadServerConfigUI(); }
 }
@@ -2236,7 +2267,7 @@ function enterApp(user) {
     renderUsers();
     startAutoSync();
     renderProductList();
-    loadStoreInfoUI();
+    populateProductFilterDropdowns();
     loadServerConfigUI();
     switchSection('dashboard');
 
@@ -2890,6 +2921,7 @@ function saveProduct(e) {
     closeModal('productModal');
     updateDashboard();
     renderProductList();
+    populateProductFilterDropdowns();
 }
 
 function confirmDeleteProduct(id) {
@@ -2946,17 +2978,51 @@ function renderProductList() {
     var products = getProducts();
     var search = (document.getElementById('searchInput') ? document.getElementById('searchInput').value : '').toLowerCase();
 
+    // Get cascading filter values
+    var fCat = document.getElementById('filterCategory') ? document.getElementById('filterCategory').value : '';
+    var fBrand = document.getElementById('filterBrand') ? document.getElementById('filterBrand').value : '';
+    var fColor = document.getElementById('filterColor') ? document.getElementById('filterColor').value : '';
+    var fSpec = document.getElementById('filterSpec') ? document.getElementById('filterSpec').value : '';
+
     var filtered = [];
     for (var i = 0; i < products.length; i++) {
         var p = products[i];
-        if (!search) {
-            filtered.push(p);
-        } else {
+        // Apply text search
+        var matchSearch = !search;
+        if (!matchSearch) {
             var haystack = (p.name + ' ' + p.brand + ' ' + p.sku + ' ' + p.barcode + ' ' + p.category + ' ' + p.color + ' ' + (p.description || '') + ' ' + (p.specifications || '')).toLowerCase();
-            if (haystack.indexOf(search) >= 0) {
-                filtered.push(p);
-            }
+            matchSearch = haystack.indexOf(search) >= 0;
         }
+        if (!matchSearch) continue;
+
+        // Apply category filter
+        if (fCat && (p.category || '') !== fCat) continue;
+        // Apply brand filter
+        if (fBrand && (p.brand || '') !== fBrand) continue;
+        // Apply color filter
+        if (fColor && (p.color || '') !== fColor) continue;
+        // Apply spec filter
+        if (fSpec) {
+            var specMatch = false;
+            if (p.specifications) {
+                try {
+                    var specObj = (typeof p.specifications === 'string') ? JSON.parse(p.specifications) : p.specifications;
+                    if (specObj && typeof specObj === 'object') {
+                        var specKeys = Object.keys(specObj);
+                        for (var si = 0; si < specKeys.length; si++) {
+                            var svFull = (specKeys[si] + ': ' + (specObj[specKeys[si]] || '')).toLowerCase();
+                            var svVal = (specObj[specKeys[si]] || '').toLowerCase();
+                            if (svFull.indexOf(fSpec.toLowerCase()) >= 0 || svVal.indexOf(fSpec.toLowerCase()) >= 0) {
+                                specMatch = true;
+                                break;
+                            }
+                        }
+                    }
+                } catch(e) {}
+            }
+            if (!specMatch) continue;
+        }
+        filtered.push(p);
     }
 
     if (filtered.length === 0) {
@@ -3016,6 +3082,364 @@ function renderProductList() {
             '</div>';
     }
     container.innerHTML = html;
+}
+
+// ====================================================================
+// CASCADING PRODUCT FILTERS (main product list)
+// ====================================================================
+function populateProductFilterDropdowns() {
+    var categories = getCategories();
+    var brands = getBrands();
+    var colors = getColors();
+    var products = getProducts();
+
+    // Populate category dropdown
+    var catSel = document.getElementById('filterCategory');
+    if (catSel) {
+        var curCat = catSel.value;
+        var html = '<option value="">Categoría</option>';
+        // Only show categories that have products
+        var usedCats = {};
+        for (var i = 0; i < products.length; i++) {
+            if (products[i].category) usedCats[products[i].category] = true;
+        }
+        for (var c = 0; c < categories.length; c++) {
+            var catName = (typeof categories[c] === 'object') ? (categories[c].name || '') : categories[c];
+            if (catName && usedCats[catName]) {
+                html += '<option value="' + escapeHtml(catName) + '"' + (curCat === catName ? ' selected' : '') + '>' + escapeHtml(catName) + '</option>';
+            }
+        }
+        catSel.innerHTML = html;
+    }
+
+    // Populate brand dropdown
+    var brandSel = document.getElementById('filterBrand');
+    if (brandSel) {
+        var curBrand = brandSel.value;
+        var html = '<option value="">Marca</option>';
+        var usedBrands = {};
+        for (var i = 0; i < products.length; i++) {
+            if (products[i].brand) usedBrands[products[i].brand] = true;
+        }
+        for (var b = 0; b < brands.length; b++) {
+            var brandName = (typeof brands[b] === 'object') ? (brands[b].name || '') : brands[b];
+            if (brandName && usedBrands[brandName]) {
+                html += '<option value="' + escapeHtml(brandName) + '"' + (curBrand === brandName ? ' selected' : '') + '>' + escapeHtml(brandName) + '</option>';
+            }
+        }
+        brandSel.innerHTML = html;
+    }
+
+    // Populate color dropdown
+    var colorSel = document.getElementById('filterColor');
+    if (colorSel) {
+        var curColor = colorSel.value;
+        var html = '<option value="">Color</option>';
+        var usedColors = {};
+        for (var i = 0; i < products.length; i++) {
+            if (products[i].color) usedColors[products[i].color] = true;
+        }
+        for (var cl = 0; cl < colors.length; cl++) {
+            var colorName = (typeof colors[cl] === 'object') ? (colors[cl].name || '') : colors[cl];
+            if (colorName && usedColors[colorName]) {
+                html += '<option value="' + escapeHtml(colorName) + '"' + (curColor === colorName ? ' selected' : '') + '>' + escapeHtml(colorName) + '</option>';
+            }
+        }
+        colorSel.innerHTML = html;
+    }
+
+    // Populate spec dropdown (unique spec values from all products)
+    var specSel = document.getElementById('filterSpec');
+    if (specSel) {
+        var curSpec = specSel.value;
+        var specValues = {};
+        for (var i = 0; i < products.length; i++) {
+            if (products[i].specifications) {
+                try {
+                    var sObj = (typeof products[i].specifications === 'string') ? JSON.parse(products[i].specifications) : products[i].specifications;
+                    if (sObj && typeof sObj === 'object') {
+                        var sk = Object.keys(sObj);
+                        for (var si = 0; si < sk.length; si++) {
+                            var sv = (sObj[sk[si]] || '').trim();
+                            if (sv) specValues[sv] = true;
+                        }
+                    }
+                } catch(e) {}
+            }
+        }
+        var html = '<option value="">Especificación</option>';
+        var specArr = Object.keys(specValues).sort();
+        for (var sp = 0; sp < specArr.length; sp++) {
+            html += '<option value="' + escapeHtml(specArr[sp]) + '"' + (curSpec === specArr[sp] ? ' selected' : '') + '>' + escapeHtml(specArr[sp]) + '</option>';
+        }
+        specSel.innerHTML = html;
+    }
+}
+
+function onFilterChange() {
+    // When category changes, update brand/color/spec to show only matching
+    var fCat = document.getElementById('filterCategory').value;
+    var fBrand = document.getElementById('filterBrand').value;
+    var products = getProducts();
+
+    // Collect products matching current category selection
+    var catProducts = products;
+    if (fCat) {
+        catProducts = [];
+        for (var i = 0; i < products.length; i++) {
+            if (products[i].category === fCat) catProducts.push(products[i]);
+        }
+    }
+
+    // Update brand options based on filtered products
+    var brandSel = document.getElementById('filterBrand');
+    if (brandSel) {
+        var curBrand = brandSel.value;
+        var usedBrands = {};
+        for (var b = 0; b < catProducts.length; b++) {
+            if (catProducts[b].brand) usedBrands[catProducts[b].brand] = true;
+        }
+        var html = '<option value="">Marca</option>';
+        var allBrands = getBrands();
+        for (var bi = 0; bi < allBrands.length; bi++) {
+            var bn = (typeof allBrands[bi] === 'object') ? (allBrands[bi].name || '') : allBrands[bi];
+            if (bn && usedBrands[bn]) {
+                html += '<option value="' + escapeHtml(bn) + '"' + (curBrand === bn ? ' selected' : '') + '>' + escapeHtml(bn) + '</option>';
+            }
+        }
+        brandSel.innerHTML = html;
+    }
+
+    // Update color options based on filtered products
+    var colorSel = document.getElementById('filterColor');
+    if (colorSel) {
+        var curColor = colorSel.value;
+        // Further filter by brand if selected
+        var brandProducts = catProducts;
+        var selBrand = brandSel ? brandSel.value : '';
+        if (selBrand) {
+            brandProducts = [];
+            for (var ci = 0; ci < catProducts.length; ci++) {
+                if (catProducts[ci].brand === selBrand) brandProducts.push(catProducts[ci]);
+            }
+        }
+        var usedColors = {};
+        for (var co = 0; co < brandProducts.length; co++) {
+            if (brandProducts[co].color) usedColors[brandProducts[co].color] = true;
+        }
+        var html = '<option value="">Color</option>';
+        var allColors = getColors();
+        for (var cli = 0; cli < allColors.length; cli++) {
+            var cn = (typeof allColors[cli] === 'object') ? (allColors[cli].name || '') : allColors[cli];
+            if (cn && usedColors[cn]) {
+                html += '<option value="' + escapeHtml(cn) + '"' + (curColor === cn ? ' selected' : '') + '>' + escapeHtml(cn) + '</option>';
+            }
+        }
+        colorSel.innerHTML = html;
+    }
+
+    // Update spec options based on current filtered products
+    var specSel = document.getElementById('filterSpec');
+    if (specSel) {
+        var curSpec = specSel.value;
+        // Filter products by cat + brand + color
+        var specProducts = catProducts;
+        var selBrand2 = brandSel ? brandSel.value : '';
+        var selColor = colorSel ? colorSel.value : '';
+        if (selBrand2 || selColor) {
+            specProducts = [];
+            for (var pi = 0; pi < catProducts.length; pi++) {
+                var pp = catProducts[pi];
+                if (selBrand2 && pp.brand !== selBrand2) continue;
+                if (selColor && pp.color !== selColor) continue;
+                specProducts.push(pp);
+            }
+        }
+        var specValues = {};
+        for (var spi = 0; spi < specProducts.length; spi++) {
+            if (specProducts[spi].specifications) {
+                try {
+                    var sObj = (typeof specProducts[spi].specifications === 'string') ? JSON.parse(specProducts[spi].specifications) : specProducts[spi].specifications;
+                    if (sObj && typeof sObj === 'object') {
+                        var sks = Object.keys(sObj);
+                        for (var ski = 0; ski < sks.length; ski++) {
+                            var svt = (sObj[sks[ski]] || '').trim();
+                            if (svt) specValues[svt] = true;
+                        }
+                    }
+                } catch(e) {}
+            }
+        }
+        var html = '<option value="">Especificación</option>';
+        var specArr = Object.keys(specValues).sort();
+        for (var spa = 0; spa < specArr.length; spa++) {
+            html += '<option value="' + escapeHtml(specArr[spa]) + '"' + (curSpec === specArr[spa] ? ' selected' : '') + '>' + escapeHtml(specArr[spa]) + '</option>';
+        }
+        specSel.innerHTML = html;
+    }
+
+    renderProductList();
+}
+
+function clearProductFilters() {
+    var catSel = document.getElementById('filterCategory');
+    var brandSel = document.getElementById('filterBrand');
+    var colorSel = document.getElementById('filterColor');
+    var specSel = document.getElementById('filterSpec');
+    if (catSel) catSel.value = '';
+    if (brandSel) brandSel.value = '';
+    if (colorSel) colorSel.value = '';
+    if (specSel) specSel.value = '';
+    populateProductFilterDropdowns();
+    renderProductList();
+}
+
+// ====================================================================
+// CASCADING FILTERS FOR SPACE PRODUCT MODAL (locales)
+// ====================================================================
+function populateSpFilterDropdowns() {
+    var categories = getCategories();
+    var brands = getBrands();
+    var colors = getColors();
+    var products = getProducts();
+
+    var catSel = document.getElementById('spFilterCategory');
+    if (catSel) {
+        var usedCats = {};
+        for (var i = 0; i < products.length; i++) { if (products[i].category) usedCats[products[i].category] = true; }
+        var html = '<option value="">Categoría</option>';
+        for (var c = 0; c < categories.length; c++) {
+            var cn = (typeof categories[c] === 'object') ? (categories[c].name || '') : categories[c];
+            if (cn && usedCats[cn]) html += '<option value="' + escapeHtml(cn) + '">' + escapeHtml(cn) + '</option>';
+        }
+        catSel.innerHTML = html;
+    }
+    var brandSel = document.getElementById('spFilterBrand');
+    if (brandSel) {
+        var usedBrands = {};
+        for (var i = 0; i < products.length; i++) { if (products[i].brand) usedBrands[products[i].brand] = true; }
+        var html = '<option value="">Marca</option>';
+        for (var b = 0; b < brands.length; b++) {
+            var bn = (typeof brands[b] === 'object') ? (brands[b].name || '') : brands[b];
+            if (bn && usedBrands[bn]) html += '<option value="' + escapeHtml(bn) + '">' + escapeHtml(bn) + '</option>';
+        }
+        brandSel.innerHTML = html;
+    }
+    var colorSel = document.getElementById('spFilterColor');
+    if (colorSel) {
+        var usedColors = {};
+        for (var i = 0; i < products.length; i++) { if (products[i].color) usedColors[products[i].color] = true; }
+        var html = '<option value="">Color</option>';
+        for (var cl = 0; cl < colors.length; cl++) {
+            var cn = (typeof colors[cl] === 'object') ? (colors[cl].name || '') : colors[cl];
+            if (cn && usedColors[cn]) html += '<option value="' + escapeHtml(cn) + '">' + escapeHtml(cn) + '</option>';
+        }
+        colorSel.innerHTML = html;
+    }
+    var specSel = document.getElementById('spFilterSpec');
+    if (specSel) {
+        var specValues = {};
+        for (var i = 0; i < products.length; i++) {
+            if (products[i].specifications) {
+                try {
+                    var sObj = (typeof products[i].specifications === 'string') ? JSON.parse(products[i].specifications) : products[i].specifications;
+                    if (sObj && typeof sObj === 'object') {
+                        var sk = Object.keys(sObj);
+                        for (var si = 0; si < sk.length; si++) { var sv = (sObj[sk[si]] || '').trim(); if (sv) specValues[sv] = true; }
+                    }
+                } catch(e) {}
+            }
+        }
+        var html = '<option value="">Especificación</option>';
+        var specArr = Object.keys(specValues).sort();
+        for (var sp = 0; sp < specArr.length; sp++) html += '<option value="' + escapeHtml(specArr[sp]) + '">' + escapeHtml(specArr[sp]) + '</option>';
+        specSel.innerHTML = html;
+    }
+}
+
+function onSpFilterChange() {
+    var fCat = document.getElementById('spFilterCategory').value;
+    var fBrand = document.getElementById('spFilterBrand').value;
+    var products = getProducts();
+
+    // Cascade: filter brands by category
+    var catProducts = products;
+    if (fCat) {
+        catProducts = [];
+        for (var i = 0; i < products.length; i++) { if (products[i].category === fCat) catProducts.push(products[i]); }
+    }
+
+    var brandSel = document.getElementById('spFilterBrand');
+    if (brandSel) {
+        var curBrand = brandSel.value;
+        var usedBrands = {};
+        for (var b = 0; b < catProducts.length; b++) { if (catProducts[b].brand) usedBrands[catProducts[b].brand] = true; }
+        var html = '<option value="">Marca</option>';
+        var allBrands = getBrands();
+        for (var bi = 0; bi < allBrands.length; bi++) {
+            var bn = (typeof allBrands[bi] === 'object') ? (allBrands[bi].name || '') : allBrands[bi];
+            if (bn && usedBrands[bn]) html += '<option value="' + escapeHtml(bn) + '"' + (curBrand === bn ? ' selected' : '') + '>' + escapeHtml(bn) + '</option>';
+        }
+        brandSel.innerHTML = html;
+    }
+
+    // Cascade: filter colors by category + brand
+    var brandProducts = catProducts;
+    var selBrand = brandSel ? brandSel.value : '';
+    if (selBrand) {
+        brandProducts = [];
+        for (var ci = 0; ci < catProducts.length; ci++) { if (catProducts[ci].brand === selBrand) brandProducts.push(catProducts[ci]); }
+    }
+    var colorSel = document.getElementById('spFilterColor');
+    if (colorSel) {
+        var curColor = colorSel.value;
+        var usedColors = {};
+        for (var co = 0; co < brandProducts.length; co++) { if (brandProducts[co].color) usedColors[brandProducts[co].color] = true; }
+        var html = '<option value="">Color</option>';
+        var allColors = getColors();
+        for (var cli = 0; cli < allColors.length; cli++) {
+            var cn = (typeof allColors[cli] === 'object') ? (allColors[cli].name || '') : allColors[cli];
+            if (cn && usedColors[cn]) html += '<option value="' + escapeHtml(cn) + '"' + (curColor === cn ? ' selected' : '') + '>' + escapeHtml(cn) + '</option>';
+        }
+        colorSel.innerHTML = html;
+    }
+
+    // Cascade: filter specs by category + brand + color
+    var specProducts = catProducts;
+    var selBrand2 = brandSel ? brandSel.value : '';
+    var selColor = colorSel ? colorSel.value : '';
+    if (selBrand2 || selColor) {
+        specProducts = [];
+        for (var pi = 0; pi < catProducts.length; pi++) {
+            var pp = catProducts[pi];
+            if (selBrand2 && pp.brand !== selBrand2) continue;
+            if (selColor && pp.color !== selColor) continue;
+            specProducts.push(pp);
+        }
+    }
+    var specSel = document.getElementById('spFilterSpec');
+    if (specSel) {
+        var curSpec = specSel.value;
+        var specValues = {};
+        for (var spi = 0; spi < specProducts.length; spi++) {
+            if (specProducts[spi].specifications) {
+                try {
+                    var sObj = (typeof specProducts[spi].specifications === 'string') ? JSON.parse(specProducts[spi].specifications) : specProducts[spi].specifications;
+                    if (sObj && typeof sObj === 'object') {
+                        var sks = Object.keys(sObj);
+                        for (var ski = 0; ski < sks.length; ski++) { var svt = (sObj[sks[ski]] || '').trim(); if (svt) specValues[svt] = true; }
+                    }
+                } catch(e) {}
+            }
+        }
+        var html = '<option value="">Especificación</option>';
+        var specArr = Object.keys(specValues).sort();
+        for (var spa = 0; spa < specArr.length; spa++) html += '<option value="' + escapeHtml(specArr[spa]) + '"' + (curSpec === specArr[spa] ? ' selected' : '') + '>' + escapeHtml(specArr[spa]) + '</option>';
+        specSel.innerHTML = html;
+    }
+
+    // Re-run search with filters
+    searchProductsForSpace(document.getElementById('spSearch').value);
 }
 
 // ====================================================================
@@ -3313,10 +3737,30 @@ function filterPickerProducts() {
     var h = '';
     for (var k = 0; k < filtered.length; k++) {
         var pr = filtered[k];
+
+        // Build spec tags for quotation picker
+        var qSpecTags = '';
+        if (pr.specifications) {
+            try {
+                var qObj = (typeof pr.specifications === 'string') ? JSON.parse(pr.specifications) : pr.specifications;
+                if (qObj && typeof qObj === 'object') {
+                    var qKeys = Object.keys(qObj);
+                    for (var qi = 0; qi < qKeys.length; qi++) {
+                        var qv = (qObj[qKeys[qi]] || '').trim();
+                        if (qv) {
+                            qSpecTags += '<span style="display:inline-block;background:var(--primary-bg);color:var(--primary);font-size:9px;padding:1px 4px;border-radius:3px;margin-right:2px;">' + escapeHtml(qKeys[qi] + ': ' + qv) + '</span>';
+                        }
+                    }
+                }
+            } catch(e) {}
+        }
+        var qSpecLine = qSpecTags ? '<div style="margin-top:2px;">' + qSpecTags + '</div>' : '';
+
         h += '<div onclick="addProductToQuotation(\'' + pr.id + '\')" style="display:flex;justify-content:space-between;align-items:center;padding:10px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;margin-bottom:6px;cursor:pointer;">' +
             '<div style="flex:1;min-width:0;">' +
                 '<div style="font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(pr.name) + '</div>' +
                 '<div style="font-size:11px;color:var(--text3);">' + escapeHtml(pr.brand || '') + ' ' + escapeHtml(pr.model || '') + '</div>' +
+                qSpecLine +
             '</div>' +
             '<div style="text-align:right;flex-shrink:0;margin-left:8px;">' +
                 '<div style="font-weight:700;font-size:13px;color:var(--primary);">$' + (pr.salePrice || pr.price || 0).toFixed(2) + '</div>' +
@@ -4715,6 +5159,7 @@ function openSpaceProductModal(locId, spaceIdx) {
     document.getElementById('spSearch').value = '';
     document.getElementById('spQty').value = '1';
     document.getElementById('spResults').innerHTML = '';
+    populateSpFilterDropdowns();
     openModal('spaceProductModal');
     setTimeout(function() { document.getElementById('spSearch').focus(); }, 300);
 }
@@ -4722,27 +5167,84 @@ function openSpaceProductModal(locId, spaceIdx) {
 function searchProductsForSpace(query) {
     var products = getProducts();
     query = (query || '').toLowerCase();
+
+    // Get filter values
+    var fCat = document.getElementById('spFilterCategory') ? document.getElementById('spFilterCategory').value : '';
+    var fBrand = document.getElementById('spFilterBrand') ? document.getElementById('spFilterBrand').value : '';
+    var fColor = document.getElementById('spFilterColor') ? document.getElementById('spFilterColor').value : '';
+    var fSpec = document.getElementById('spFilterSpec') ? document.getElementById('spFilterSpec').value : '';
+
     var results = [];
     for (var i = 0; i < products.length; i++) {
-        if (!query || products[i].name.toLowerCase().indexOf(query) >= 0 || (products[i].sku && products[i].sku.toLowerCase().indexOf(query) >= 0)) {
-            results.push(products[i]);
+        var pr = products[i];
+        // Text search
+        var matchSearch = !query;
+        if (!matchSearch) {
+            matchSearch = pr.name.toLowerCase().indexOf(query) >= 0 || (pr.sku && pr.sku.toLowerCase().indexOf(query) >= 0);
         }
+        if (!matchSearch) continue;
+        // Cascading filters
+        if (fCat && (pr.category || '') !== fCat) continue;
+        if (fBrand && (pr.brand || '') !== fBrand) continue;
+        if (fColor && (pr.color || '') !== fColor) continue;
+        if (fSpec) {
+            var specMatch = false;
+            if (pr.specifications) {
+                try {
+                    var specObj = (typeof pr.specifications === 'string') ? JSON.parse(pr.specifications) : pr.specifications;
+                    if (specObj && typeof specObj === 'object') {
+                        var specKeys = Object.keys(specObj);
+                        for (var si = 0; si < specKeys.length; si++) {
+                            var svFull = (specKeys[si] + ': ' + (specObj[specKeys[si]] || '')).toLowerCase();
+                            var svVal = (specObj[specKeys[si]] || '').toLowerCase();
+                            if (svFull.indexOf(fSpec.toLowerCase()) >= 0 || svVal.indexOf(fSpec.toLowerCase()) >= 0) {
+                                specMatch = true; break;
+                            }
+                        }
+                    }
+                } catch(e) {}
+            }
+            if (!specMatch) continue;
+        }
+        results.push(pr);
     }
     var container = document.getElementById('spResults');
     if (results.length === 0) {
         container.innerHTML = '<div style="padding:8px;color:var(--text3);font-size:13px;">Sin resultados</div>';
         return;
     }
-    var html = '<div style="max-height:200px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius);margin-top:6px;">';
-    for (var j = 0; j < Math.min(results.length, 15); j++) {
+    var html = '<div style="max-height:250px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius);margin-top:6px;">';
+    for (var j = 0; j < Math.min(results.length, 30); j++) {
         var rp = results[j];
         var label = rp.name;
         if (rp.brand) label += ' - ' + rp.brand;
         if (rp.category) label += ' [' + rp.category + ']';
         var stock = rp.stock !== undefined ? ' — Stock: ' + rp.stock : '';
+
+        // Build spec tags
+        var specTags = '';
+        if (rp.specifications) {
+            try {
+                var spObj = (typeof rp.specifications === 'string') ? JSON.parse(rp.specifications) : rp.specifications;
+                if (spObj && typeof spObj === 'object') {
+                    var spKeys = Object.keys(spObj);
+                    for (var sk = 0; sk < spKeys.length; sk++) {
+                        var spv = (spObj[spKeys[sk]] || '').trim();
+                        if (spv) {
+                            specTags += '<span style="display:inline-block;background:var(--primary-bg);color:var(--primary);font-size:10px;padding:1px 5px;border-radius:4px;margin:1px 2px;">' + escapeHtml(spKeys[sk] + ': ' + spv) + '</span>';
+                        }
+                    }
+                }
+            } catch(e) {}
+        }
+
+        var specLine = specTags ? '<div style="margin-top:3px;">' + specTags + '</div>' : '';
         html += '<div style="padding:10px 12px;cursor:pointer;border-bottom:1px solid var(--border);font-size:13px;color:var(--text);' +
             '" onclick="selectProductForSpace(\'' + rp.id + '\',this)" onmouseover="this.style.background=\'var(--bg2)\'" onmouseout="this.style.background=\'transparent\'">' +
-            escapeHtml(label) + '<span style="color:var(--text3);font-size:11px;margin-left:4px;">' + escapeHtml(stock) + '</span></div>';
+            escapeHtml(label) + '<span style="color:var(--text3);font-size:11px;margin-left:4px;">' + escapeHtml(stock) + '</span>' + specLine + '</div>';
+    }
+    if (results.length > 30) {
+        html += '<div style="padding:8px;text-align:center;color:var(--text3);font-size:12px;">...y ' + (results.length - 30) + ' más. Usa filtros para refinar.</div>';
     }
     html += '</div>';
     container.innerHTML = html;
@@ -5310,6 +5812,7 @@ function pullFromServer() {
                     stock: parseInt(rp.stock) || 0,
                     minStock: parseInt(rp.minStock) || 5,
                     description: rp.description || '',
+                    specifications: rp.specifications || null,
                     createdAt: rp.createdAt || new Date().toISOString(),
                     updatedAt: rp.updatedAt || new Date().toISOString()
                 };
@@ -5327,6 +5830,8 @@ function pullFromServer() {
             }
             saveProducts(existing);
             showToast('Productos: ' + added + ' nuevos, ' + updated + ' actualizados', 'success');
+            populateProductFilterDropdowns();
+            renderProductList();
         } else {
             showToast('No hay productos en el servidor', 'info');
         }
@@ -6646,7 +7151,7 @@ function downloadQuotationPDF(id) {
     applyTheme(savedTheme);
 
     // Save current version to localStorage (no redirect — avoids infinite loops)
-    var _appVer = 'v20260422e';
+    var _appVer = 'v20260423a';
     localStorage.setItem('inv_appVersion', _appVer);
 
     // ALWAYS force the correct server URL — clear any old/wrong URL
