@@ -53,6 +53,8 @@
             --radius-lg: 16px;
             --radius-xl: 20px;
             --shadow: 0 4px 24px rgba(0,0,0,0.4);
+            --accent: #10b981;
+            --accent-text: #ecfdf5;
         }
         /* LIGHT THEME */
         [data-theme="light"] {
@@ -82,6 +84,8 @@
             --radius-lg: 16px;
             --radius-xl: 20px;
             --shadow: 0 4px 24px rgba(0,0,0,0.08);
+            --accent: #059669;
+            --accent-text: #ecfdf5;
         }
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -154,51 +158,70 @@
         .password-toggle:active { background: var(--bg3); }
 
         /* ================================================================
-           CUSTOM DROPDOWN SELECT (shadcn/ui style)
+           CUSTOM DROPDOWN SELECT — refined modal style
            ================================================================ */
         .cs-wrap { position: relative; margin-bottom: 16px; }
         .cs-trigger {
-            width: 100%; padding: 11px 14px; padding-right: 38px;
-            border: 1px solid var(--border); border-radius: var(--radius);
-            font-size: 15px; background: var(--bg2); color: var(--text);
+            width: 100%; padding: 10px 14px; padding-right: 36px;
+            border: 1px solid var(--border); border-radius: 10px;
+            font-size: 14px; background: var(--bg2); color: var(--text);
             cursor: pointer; text-align: left; position: relative;
-            transition: border-color 0.2s, box-shadow 0.2s;
+            transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
             -webkit-tap-highlight-color: transparent;
             -webkit-appearance: none; appearance: none;
             display: flex; align-items: center; justify-content: space-between;
         }
-        .cs-trigger.open { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-bg); background: var(--bg3); }
+        .cs-trigger.open {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px var(--primary-bg);
+            background: var(--bg3);
+            border-radius: 10px 10px 0 0;
+        }
         .cs-trigger .cs-placeholder { color: var(--text3); }
         .cs-trigger .cs-value { color: var(--text); }
         .cs-trigger .cs-arrow {
-            font-size: 12px; color: var(--text3); transition: transform 0.2s;
+            font-size: 11px; color: var(--text3); transition: transform 0.25s;
             flex-shrink: 0; margin-left: 8px;
         }
         .cs-trigger.open .cs-arrow { transform: rotate(180deg); }
         .cs-dropdown {
-            position: absolute; top: calc(100% + 4px); left: 0; right: 0;
-            background: var(--card); border: 1px solid var(--border2);
-            border-radius: var(--radius); box-shadow: var(--shadow);
-            z-index: 500; max-height: 240px; overflow: hidden; display: none;
+            position: absolute; top: 100%; left: 0; right: 0;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-top: 3px solid var(--primary);
+            border-radius: 0 0 14px 14px;
+            box-shadow: 0 16px 48px rgba(0,0,0,0.2), 0 4px 12px rgba(0,0,0,0.08);
+            z-index: 500; max-height: 220px; overflow: hidden; display: none;
         }
-        .cs-dropdown.open { display: flex; flex-direction: column; animation: csIn 0.15s ease; }
-        @keyframes csIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+        .cs-dropdown.open {
+            display: flex; flex-direction: column;
+            animation: csSlide 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        @keyframes csSlide {
+            from { opacity: 0; transform: translateY(-6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
         .cs-search {
             width: 100%; padding: 10px 14px; border: none; border-bottom: 1px solid var(--border);
-            font-size: 14px; background: var(--bg2); border-radius: var(--radius) var(--radius) 0 0;
+            font-size: 13px; background: var(--bg2); border-radius: 0;
             outline: none; color: var(--text); flex-shrink: 0;
         }
         .cs-search::placeholder { color: var(--text3); }
         .cs-options {
-            overflow-y: auto; max-height: 190px; flex: 1;
+            overflow-y: auto; max-height: 170px; flex: 1;
+            -webkit-overflow-scrolling: touch;
         }
         .cs-option {
-            padding: 10px 14px; cursor: pointer; font-size: 14px; color: var(--text2);
-            transition: background 0.1s; display: flex; align-items: center;
-            justify-content: space-between;
+            padding: 10px 14px; cursor: pointer; font-size: 13px; color: var(--text2);
+            transition: background 0.12s, padding-left 0.12s;
+            display: flex; align-items: center; justify-content: space-between;
+            border-bottom: 1px solid var(--border);
         }
-        .cs-option:active, .cs-option:hover { background: var(--bg3); }
-        .cs-option.selected { background: var(--primary-bg); color: var(--primary); font-weight: 600; }
+        .cs-option:last-child { border-bottom: none; }
+        .cs-option:active { background: var(--primary-bg); padding-left: 18px; }
+        .cs-option.selected {
+            background: var(--primary-bg); color: var(--primary); font-weight: 600;
+        }
         .cs-option .cs-check { font-size: 13px; opacity: 0; }
         .cs-option.selected .cs-check { opacity: 1; }
         .cs-no-results { padding: 16px; text-align: center; font-size: 13px; color: var(--text3); }
@@ -389,7 +412,7 @@
         .product-info { flex: 1; min-width: 0; }
         .product-name { font-weight: 600; font-size: 14px; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .product-specs { font-size: 11px; color: var(--primary); font-weight: 500; margin-bottom: 2px; display: flex; flex-wrap: wrap; gap: 4px; }
-        .product-spec-tag { background: var(--accent); color: #fff; padding: 1px 7px; border-radius: 4px; font-size: 10px; font-weight: 600; letter-spacing: 0.3px; }
+        .product-spec-tag { background: var(--accent); color: var(--accent-text); padding: 2px 8px; border-radius: 6px; font-size: 10px; font-weight: 700; letter-spacing: 0.3px; border: 1px solid rgba(0,0,0,0.08); box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
         .product-meta { font-size: 11px; color: var(--text3); display: flex; gap: 10px; }
         .product-right { text-align: right; flex-shrink: 0; margin-left: 10px; }
         .product-price { font-weight: 700; font-size: 14px; color: var(--primary); }
@@ -432,32 +455,108 @@
         .nav-icon { font-size: 22px; margin-bottom: 2px; }
 
         /* ================================================================
-           MODALS
+           MODALS — polished, compact, smooth
            ================================================================ */
         .modal-overlay {
             position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0,0,0,0.6); display: none; z-index: 200;
-            align-items: flex-end; justify-content: center;
-        }
-        .modal-overlay.open { display: flex; animation: fadeIn 0.15s ease; }
-        .modal-content {
-            background: var(--card); border: 1px solid var(--border);
-            border-radius: var(--radius-xl) var(--radius-xl) 0 0;
-            width: 100%; max-width: 520px;
-            max-height: 92vh; overflow-y: auto; padding: 24px 20px 32px;
-        }
-        .modal-handle {
-            width: 36px; height: 4px; background: var(--bg4); border-radius: 2px;
-            margin: 0 auto 16px;
-        }
-        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-        .modal-title { font-size: 18px; font-weight: 700; }
-        .modal-close {
-            width: 34px; height: 34px; border-radius: 50%; border: none;
-            background: var(--bg3); color: var(--text3); cursor: pointer; font-size: 16px;
+            background: rgba(0,0,0,0.4);
+            backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+            z-index: 200;
             display: flex; align-items: center; justify-content: center;
+            padding: 16px;
+            opacity: 0; visibility: hidden;
+            transition: opacity 0.25s ease, visibility 0.25s ease;
         }
-        .modal-close:active { background: var(--bg4); }
+        .modal-overlay.open { opacity: 1; visibility: visible; }
+        .modal-content {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            width: 100%; max-width: 400px;
+            max-height: 72vh; overflow-y: auto; display: flex; flex-direction: column;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.22), 0 4px 16px rgba(0,0,0,0.1);
+            transform: translateY(20px) scale(0.97);
+            transition: transform 0.32s cubic-bezier(0.16, 1, 0.3, 1);
+            position: relative;
+            -webkit-overflow-scrolling: touch;
+        }
+        .modal-overlay.open .modal-content {
+            transform: translateY(0) scale(1);
+        }
+        /* top gradient accent bar */
+        .modal-content::before {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 4px;
+            background: linear-gradient(90deg, var(--primary), var(--info), var(--purple));
+            border-radius: 18px 18px 0 0;
+        }
+        .modal-body { padding: 4px 18px 24px; flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+        /* size variants */
+        .modal-sm { max-width: 320px; max-height: 48vh; }
+        .modal-md { max-width: 380px; max-height: 62vh; }
+        .modal-lg { max-width: 480px; max-height: 74vh; }
+        /* handle */
+        .modal-handle {
+            width: 32px; height: 3px; background: var(--bg4); border-radius: 2px;
+            margin: 14px auto 10px;
+        }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+        .modal-title { font-size: 16px; font-weight: 700; }
+        .modal-close {
+            width: 28px; height: 28px; border-radius: 50%; border: none;
+            background: var(--bg3); color: var(--text3); cursor: pointer; font-size: 13px;
+            display: flex; align-items: center; justify-content: center;
+            transition: background 0.2s, transform 0.15s;
+            flex-shrink: 0;
+        }
+        .modal-close:active { background: var(--bg4); transform: scale(0.88); }
+        /* scrollable inner content (stock summary, movements, etc.) */
+        .modal-scroll-inner { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+
+        /* ================================================================
+           FILTER CHIPS — beautiful replacement for native <select>
+           ================================================================ */
+        .filter-chip-wrap { position: relative; }
+        .filter-chip {
+            display: inline-flex; align-items: center; gap: 4px;
+            padding: 6px 12px; font-size: 12px; font-weight: 600;
+            border: 1px solid var(--border); border-radius: 20px;
+            background: var(--bg2); color: var(--text2);
+            cursor: pointer; white-space: nowrap;
+            transition: all 0.2s ease;
+        }
+        .filter-chip:active { transform: scale(0.96); }
+        .filter-chip.active {
+            background: var(--primary-bg); color: var(--primary);
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px var(--primary-bg);
+        }
+        .filter-chip-dropdown {
+            display: none; position: absolute; top: calc(100% + 6px); left: 0;
+            z-index: 350;
+            background: var(--card); border: 1px solid var(--border);
+            border-top: 3px solid var(--primary);
+            border-radius: 14px; box-shadow: 0 12px 40px rgba(0,0,0,0.25), 0 4px 12px rgba(0,0,0,0.1);
+            min-width: 160px; max-width: 220px; max-height: 220px; overflow-y: auto;
+        }
+        .filter-chip-dropdown.open {
+            display: flex; flex-direction: column;
+            animation: chipDrop 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        @keyframes chipDrop {
+            from { opacity: 0; transform: translateY(-8px) scale(0.95); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .filter-chip-opt {
+            padding: 9px 14px; cursor: pointer; font-size: 13px; color: var(--text2);
+            transition: background 0.12s, color 0.12s;
+            border-bottom: 1px solid var(--border);
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .filter-chip-opt:last-child { border-bottom: none; }
+        .filter-chip-opt:active { background: var(--primary-bg); }
+        .filter-chip-opt.selected { background: var(--primary-bg); color: var(--primary); font-weight: 600; }
+        .filter-chip-opt .chip-check { font-size: 12px; opacity: 0; color: var(--primary); }
+        .filter-chip-opt.selected .chip-check { opacity: 1; }
 
         /* ================================================================
            TOAST
@@ -782,19 +881,41 @@
             </div>
             <!-- Cascading filter bar -->
             <div id="productFilterBar" style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;">
-                <select id="filterCategory" class="input" style="flex:1;min-width:0;font-size:12px;padding:6px 8px;" onchange="onFilterChange()">
-                    <option value="">Categoría</option>
+                <div class="filter-chip-wrap">
+                    <button class="filter-chip" id="chipFilterCat" onclick="toggleFilterDropdown('fcat')">📂 Categoría</button>
+                    <div class="filter-chip-dropdown" id="ddFcat"></div>
+                </div>
+                <div class="filter-chip-wrap">
+                    <button class="filter-chip" id="chipFilterBrand" onclick="toggleFilterDropdown('fbrand')">🏷️ Marca</button>
+                    <div class="filter-chip-dropdown" id="ddFbrand"></div>
+                </div>
+                <div class="filter-chip-wrap">
+                    <button class="filter-chip" id="chipFilterColor" onclick="toggleFilterDropdown('fcolor')">🎨 Color</button>
+                    <div class="filter-chip-dropdown" id="ddFcolor"></div>
+                </div>
+                <div class="filter-chip-wrap">
+                    <button class="filter-chip" id="chipFilterSpec" onclick="toggleFilterDropdown('fspec')">⚙️ Specs</button>
+                    <div class="filter-chip-dropdown" id="ddFspec"></div>
+                </div>
+                <button class="filter-chip" onclick="clearProductFilters()" style="color:var(--danger);font-weight:700;">✕</button>
+            </div>
+            <!-- Sort bar -->
+            <div id="productSortBar" style="display:flex;gap:6px;margin-bottom:10px;align-items:center;flex-wrap:wrap;">
+                <span style="font-size:11px;color:#888;white-space:nowrap;">⬇️ Ordenar:</span>
+                <select id="sortField" class="input" style="flex:1;min-width:100px;font-size:12px;padding:6px 8px;" onchange="renderProductList()">
+                    <option value="">Sin ordenar</option>
+                    <option value="price_asc">Precio: menor a mayor</option>
+                    <option value="price_desc">Precio: mayor a menor</option>
+                    <option value="name_asc">Nombre: A-Z</option>
+                    <option value="name_desc">Nombre: Z-A</option>
+                    <option value="brand_asc">Marca: A-Z</option>
+                    <option value="category_asc">Categoría: A-Z</option>
+                    <option value="stock_asc">Stock: menor a mayor</option>
+                    <option value="stock_desc">Stock: mayor a menor</option>
+                    <option value="color_asc">Color: A-Z</option>
+                    <option value="cost_asc">Costo: menor a mayor</option>
+                    <option value="cost_desc">Costo: mayor a menor</option>
                 </select>
-                <select id="filterBrand" class="input" style="flex:1;min-width:0;font-size:12px;padding:6px 8px;" onchange="onFilterChange()">
-                    <option value="">Marca</option>
-                </select>
-                <select id="filterColor" class="input" style="flex:1;min-width:0;font-size:12px;padding:6px 8px;" onchange="onFilterChange()">
-                    <option value="">Color</option>
-                </select>
-                <select id="filterSpec" class="input" style="flex:1;min-width:0;font-size:12px;padding:6px 8px;" onchange="onFilterChange()">
-                    <option value="">Especificación</option>
-                </select>
-                <button class="btn btn-ghost btn-xs" onclick="clearProductFilters()" style="white-space:nowrap;font-size:11px;">✕ Limpiar</button>
             </div>
             <div style="display:flex;gap:8px;margin-bottom:14px;">
                 <button class="btn btn-primary btn-sm" onclick="openAddProduct()" style="flex:1;">➕ Nuevo Producto</button>
@@ -827,6 +948,9 @@
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
                 <h2 style="font-size:22px;font-weight:800;">🏪 Mis Locales</h2>
                 <button class="btn btn-primary btn-sm" onclick="openLocModal()">+ Nuevo Local</button>
+            </div>
+            <!-- Global target banner -->
+            <div id="globalTargetBanner" style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;margin-bottom:10px;">
             </div>
             <div style="display:flex;gap:6px;margin-bottom:14px;">
                 <button class="btn btn-outline btn-sm" style="flex:1;font-size:12px;" onclick="openStockSummary()">📊 Stock</button>
@@ -995,7 +1119,7 @@
 <!-- MODAL: ADD/EDIT PRODUCT                                      -->
 <!-- ============================================================ -->
 <div id="productModal" class="modal-overlay">
-    <div class="modal-content">
+    <div class="modal-content modal-md">
         <div class="modal-handle"></div>
         <div class="modal-header">
             <h2 class="modal-title" id="productModalTitle">Nuevo Producto</h2>
@@ -1116,7 +1240,7 @@
 <!-- MODAL: NEW QUOTATION                                         -->
 <!-- ============================================================ -->
 <div id="quotationModal" class="modal-overlay">
-    <div class="modal-content" style="max-height:92vh;overflow-y:auto;">
+    <div class="modal-content modal-md">
         <div class="modal-handle"></div>
         <div class="modal-header">
             <h2 class="modal-title" id="quotModalTitle">📝 Cotizador</h2>
@@ -1213,7 +1337,7 @@
 <!-- MODAL: VIEW QUOTATION                                        -->
 <!-- ============================================================ -->
 <div id="viewQuotationModal" class="modal-overlay">
-    <div class="modal-content">
+    <div class="modal-content modal-md">
         <div class="modal-handle"></div>
         <div class="modal-header">
             <h2 class="modal-title" id="viewQuotTitle">Cotización</h2>
@@ -1227,7 +1351,7 @@
 <!-- MODAL: ADD USER                                              -->
 <!-- ============================================================ -->
 <div id="userModal" class="modal-overlay">
-    <div class="modal-content">
+    <div class="modal-content modal-sm">
         <div class="modal-handle"></div>
         <div class="modal-header">
             <h2 class="modal-title">👤 Nuevo Usuario</h2>
@@ -1266,7 +1390,7 @@
 <!-- MODAL: CONFIRM DELETE                                        -->
 <!-- ============================================================ -->
 <div id="confirmModal" class="modal-overlay">
-    <div class="modal-content" style="max-width:380px;">
+    <div class="modal-content modal-sm">
         <div class="modal-handle"></div>
         <div style="text-align:center;padding:10px 0 20px;">
             <div style="font-size:48px;margin-bottom:12px;" id="confirmIcon">⚠️</div>
@@ -1282,7 +1406,7 @@
 
 <!-- ===== LOCATION MODAL ===== -->
 <div id="locModal" class="modal-overlay">
-    <div class="modal-content" style="max-width:440px;">
+    <div class="modal-content modal-sm">
         <div class="modal-handle"></div>
         <div class="modal-header">
             <h2 class="modal-title" id="locModalTitle">Nuevo Local</h2>
@@ -1309,7 +1433,7 @@
 
 <!-- ===== SPACE PRODUCT MODAL ===== -->
 <div id="spaceProductModal" class="modal-overlay">
-    <div class="modal-content" style="max-width:460px;">
+    <div class="modal-content modal-md">
         <div class="modal-handle"></div>
         <div class="modal-header">
             <h2 class="modal-title">Agregar Producto al Espacio</h2>
@@ -1324,18 +1448,22 @@
             </div>
             <!-- Cascading filter row for space product modal -->
             <div style="display:flex;gap:5px;margin-bottom:8px;flex-wrap:wrap;">
-                <select id="spFilterCategory" class="input" style="flex:1;min-width:0;font-size:11px;padding:5px 6px;" onchange="onSpFilterChange()">
-                    <option value="">Categoría</option>
-                </select>
-                <select id="spFilterBrand" class="input" style="flex:1;min-width:0;font-size:11px;padding:5px 6px;" onchange="onSpFilterChange()">
-                    <option value="">Marca</option>
-                </select>
-                <select id="spFilterColor" class="input" style="flex:1;min-width:0;font-size:11px;padding:5px 6px;" onchange="onSpFilterChange()">
-                    <option value="">Color</option>
-                </select>
-                <select id="spFilterSpec" class="input" style="flex:1;min-width:0;font-size:11px;padding:5px 6px;" onchange="onSpFilterChange()">
-                    <option value="">Especificación</option>
-                </select>
+                <div class="filter-chip-wrap">
+                    <button class="filter-chip" id="chipSpCat" onclick="toggleFilterDropdown('spcat')" style="font-size:11px;padding:5px 8px;">📂 Cat.</button>
+                    <div class="filter-chip-dropdown" id="ddSpcat"></div>
+                </div>
+                <div class="filter-chip-wrap">
+                    <button class="filter-chip" id="chipSpBrand" onclick="toggleFilterDropdown('spbrand')" style="font-size:11px;padding:5px 8px;">🏷️ Marca</button>
+                    <div class="filter-chip-dropdown" id="ddSpbrand"></div>
+                </div>
+                <div class="filter-chip-wrap">
+                    <button class="filter-chip" id="chipSpColor" onclick="toggleFilterDropdown('spcolor')" style="font-size:11px;padding:5px 8px;">🎨 Color</button>
+                    <div class="filter-chip-dropdown" id="ddSpcolor"></div>
+                </div>
+                <div class="filter-chip-wrap">
+                    <button class="filter-chip" id="chipSpSpec" onclick="toggleFilterDropdown('spspec')" style="font-size:11px;padding:5px 8px;">⚙️ Specs</button>
+                    <div class="filter-chip-dropdown" id="ddSpspec"></div>
+                </div>
             </div>
             <div id="spResults" style="position:relative;"></div>
             <div style="display:flex;gap:6px;">
@@ -1362,13 +1490,13 @@
 
 <!-- ===== STOCK SUMMARY MODAL ===== -->
 <div id="stockSummaryModal" class="modal-overlay">
-    <div class="modal-content" style="max-width:560px;max-height:90vh;display:flex;flex-direction:column;">
+    <div class="modal-content modal-lg">
         <div class="modal-handle"></div>
         <div class="modal-header">
             <h2 class="modal-title">📊 Resumen de Stock en Locales</h2>
             <button class="modal-close" onclick="closeModal('stockSummaryModal')">✕</button>
         </div>
-        <div id="stockSummaryContent" style="flex:1;overflow-y:auto;"></div>
+        <div id="stockSummaryContent" class="modal-scroll-inner"></div>
         <div style="display:flex;gap:8px;margin-top:12px;">
             <button class="btn btn-primary btn-sm" style="flex:1;" onclick="exportLocaleExcel()">📥 Exportar Excel</button>
             <button class="btn btn-outline btn-sm" onclick="closeModal('stockSummaryModal')">Cerrar</button>
@@ -1378,13 +1506,13 @@
 
 <!-- ===== MOVEMENTS HISTORY MODAL ===== -->
 <div id="movementsModal" class="modal-overlay">
-    <div class="modal-content" style="max-width:560px;max-height:90vh;display:flex;flex-direction:column;">
+    <div class="modal-content modal-lg">
         <div class="modal-handle"></div>
         <div class="modal-header">
             <h2 class="modal-title" id="movementsModalTitle">📋 Historial de Movimientos</h2>
             <button class="modal-close" onclick="closeModal('movementsModal')">✕</button>
         </div>
-        <div id="movementsContent" style="flex:1;overflow-y:auto;"></div>
+        <div id="movementsContent" class="modal-scroll-inner"></div>
         <div style="display:flex;gap:8px;margin-top:12px;">
             <button class="btn btn-primary btn-sm" style="flex:1;" onclick="exportMovementsExcel()">📥 Exportar Excel</button>
             <button class="btn btn-outline btn-sm" onclick="closeModal('movementsModal')">Cerrar</button>
@@ -1456,6 +1584,26 @@ function getLocations() {
 }
 function saveLocations(arr) {
     localStorage.setItem('inv_locations', JSON.stringify(arr));
+}
+function getGlobalTarget() {
+    try { return parseInt(localStorage.getItem('inv_globalTarget')) || 0; } catch(e) { return 0; }
+}
+function setGlobalTarget(val) {
+    localStorage.setItem('inv_globalTarget', val);
+}
+function calcGlobalStock() {
+    var locs = getLocations();
+    var total = 0;
+    for (var i = 0; i < locs.length; i++) {
+        var spaces = locs[i].spaces || [];
+        for (var s = 0; s < spaces.length; s++) {
+            var prods = spaces[s].products || [];
+            for (var p = 0; p < prods.length; p++) {
+                total += (prods[p].qty || 0);
+            }
+        }
+    }
+    return total;
 }
 function getUsers() {
     try { return JSON.parse(localStorage.getItem('inv_users') || '[]'); } catch(e) { return []; }
@@ -1722,10 +1870,18 @@ function showToast(msg, type) {
 // MODAL HELPERS
 // ====================================================================
 function openModal(id) {
-    document.getElementById(id).classList.add('open');
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.classList.add('open');
+    // close on backdrop tap (outside modal-content)
+    el.onclick = function(e) {
+        if (e.target === el) closeModal(id);
+    };
 }
 function closeModal(id) {
-    document.getElementById(id).classList.remove('open');
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.classList.remove('open');
 }
 
 // ====================================================================
@@ -3026,11 +3182,12 @@ function renderProductList() {
     var products = getProducts();
     var search = (document.getElementById('searchInput') ? document.getElementById('searchInput').value : '').toLowerCase();
 
-    // Get cascading filter values
-    var fCat = document.getElementById('filterCategory') ? document.getElementById('filterCategory').value : '';
-    var fBrand = document.getElementById('filterBrand') ? document.getElementById('filterBrand').value : '';
-    var fColor = document.getElementById('filterColor') ? document.getElementById('filterColor').value : '';
-    var fSpec = document.getElementById('filterSpec') ? document.getElementById('filterSpec').value : '';
+    // Get filter values from chips
+    var fv = getProductFilterValues();
+    var fCat = fv.cat;
+    var fBrand = fv.brand;
+    var fColor = fv.color;
+    var fSpec = fv.spec;
 
     var filtered = [];
     for (var i = 0; i < products.length; i++) {
@@ -3071,6 +3228,48 @@ function renderProductList() {
             if (!specMatch) continue;
         }
         filtered.push(p);
+    }
+
+    // ===== SORT LOGIC =====
+    var sortField = document.getElementById('sortField') ? document.getElementById('sortField').value : '';
+    if (sortField) {
+        filtered.sort(function(a, b) {
+            var va, vb;
+            switch(sortField) {
+                case 'price_asc':
+                    va = parseFloat(a.salePrice) || parseFloat(a.price) || 0;
+                    vb = parseFloat(b.salePrice) || parseFloat(b.price) || 0;
+                    return va - vb;
+                case 'price_desc':
+                    va = parseFloat(a.salePrice) || parseFloat(a.price) || 0;
+                    vb = parseFloat(b.salePrice) || parseFloat(b.price) || 0;
+                    return vb - va;
+                case 'name_asc':
+                    return (a.name || '').toLowerCase().localeCompare((b.name || '').toLowerCase());
+                case 'name_desc':
+                    return (b.name || '').toLowerCase().localeCompare((a.name || '').toLowerCase());
+                case 'brand_asc':
+                    return (a.brand || '').toLowerCase().localeCompare((b.brand || '').toLowerCase());
+                case 'category_asc':
+                    return (a.category || '').toLowerCase().localeCompare((b.category || '').toLowerCase());
+                case 'stock_asc':
+                    return (parseInt(a.stock) || 0) - (parseInt(b.stock) || 0);
+                case 'stock_desc':
+                    return (parseInt(b.stock) || 0) - (parseInt(a.stock) || 0);
+                case 'color_asc':
+                    return (a.color || '').toLowerCase().localeCompare((b.color || '').toLowerCase());
+                case 'cost_asc':
+                    va = parseFloat(a.costPrice) || 0;
+                    vb = parseFloat(b.costPrice) || 0;
+                    return va - vb;
+                case 'cost_desc':
+                    va = parseFloat(a.costPrice) || 0;
+                    vb = parseFloat(b.costPrice) || 0;
+                    return vb - va;
+                default:
+                    return 0;
+            }
+        });
     }
 
     if (filtered.length === 0) {
@@ -3135,360 +3334,177 @@ function renderProductList() {
 // ====================================================================
 // CASCADING PRODUCT FILTERS (main product list)
 // ====================================================================
-function populateProductFilterDropdowns() {
-    var categories = getCategories();
-    var brands = getBrands();
-    var colors = getColors();
-    var products = getProducts();
+// ====================================================================
+// FILTER CHIP SYSTEM — replaces native <select> in filter bars
+// ====================================================================
+var _filterChipState = { fcat: '', fbrand: '', fcolor: '', fspec: '', spcat: '', spbrand: '', spcolor: '', spspec: '' };
+var _openChipDropdown = null;
 
-    // Populate category dropdown
-    var catSel = document.getElementById('filterCategory');
-    if (catSel) {
-        var curCat = catSel.value;
-        var html = '<option value="">Categoría</option>';
-        // Only show categories that have products
-        var usedCats = {};
-        for (var i = 0; i < products.length; i++) {
-            if (products[i].category) usedCats[products[i].category] = true;
-        }
-        for (var c = 0; c < categories.length; c++) {
-            var catName = (typeof categories[c] === 'object') ? (categories[c].name || '') : categories[c];
-            if (catName && usedCats[catName]) {
-                html += '<option value="' + escapeHtml(catName) + '"' + (curCat === catName ? ' selected' : '') + '>' + escapeHtml(catName) + '</option>';
-            }
-        }
-        catSel.innerHTML = html;
+function toggleFilterDropdown(key) {
+    // Close any other open dropdown
+    if (_openChipDropdown && _openChipDropdown !== key) {
+        var prevDd = document.getElementById('dd' + capitalize(_openChipDropdown));
+        if (prevDd) prevDd.classList.remove('open');
     }
-
-    // Populate brand dropdown
-    var brandSel = document.getElementById('filterBrand');
-    if (brandSel) {
-        var curBrand = brandSel.value;
-        var html = '<option value="">Marca</option>';
-        var usedBrands = {};
-        for (var i = 0; i < products.length; i++) {
-            if (products[i].brand) usedBrands[products[i].brand] = true;
-        }
-        for (var b = 0; b < brands.length; b++) {
-            var brandName = (typeof brands[b] === 'object') ? (brands[b].name || '') : brands[b];
-            if (brandName && usedBrands[brandName]) {
-                html += '<option value="' + escapeHtml(brandName) + '"' + (curBrand === brandName ? ' selected' : '') + '>' + escapeHtml(brandName) + '</option>';
-            }
-        }
-        brandSel.innerHTML = html;
-    }
-
-    // Populate color dropdown
-    var colorSel = document.getElementById('filterColor');
-    if (colorSel) {
-        var curColor = colorSel.value;
-        var html = '<option value="">Color</option>';
-        var usedColors = {};
-        for (var i = 0; i < products.length; i++) {
-            if (products[i].color) usedColors[products[i].color] = true;
-        }
-        for (var cl = 0; cl < colors.length; cl++) {
-            var colorName = (typeof colors[cl] === 'object') ? (colors[cl].name || '') : colors[cl];
-            if (colorName && usedColors[colorName]) {
-                html += '<option value="' + escapeHtml(colorName) + '"' + (curColor === colorName ? ' selected' : '') + '>' + escapeHtml(colorName) + '</option>';
-            }
-        }
-        colorSel.innerHTML = html;
-    }
-
-    // Populate spec dropdown (unique spec values from all products)
-    var specSel = document.getElementById('filterSpec');
-    if (specSel) {
-        var curSpec = specSel.value;
-        var specValues = {};
-        for (var i = 0; i < products.length; i++) {
-            if (products[i].specifications) {
-                try {
-                    var sObj = (typeof products[i].specifications === 'string') ? JSON.parse(products[i].specifications) : products[i].specifications;
-                    if (sObj && typeof sObj === 'object') {
-                        var sk = Object.keys(sObj);
-                        for (var si = 0; si < sk.length; si++) {
-                            var sv = (sObj[sk[si]] || '').trim();
-                            if (sv) specValues[sv] = true;
-                        }
-                    }
-                } catch(e) {}
-            }
-        }
-        var html = '<option value="">Especificación</option>';
-        var specArr = Object.keys(specValues).sort();
-        for (var sp = 0; sp < specArr.length; sp++) {
-            html += '<option value="' + escapeHtml(specArr[sp]) + '"' + (curSpec === specArr[sp] ? ' selected' : '') + '>' + escapeHtml(specArr[sp]) + '</option>';
-        }
-        specSel.innerHTML = html;
+    var dd = document.getElementById('dd' + capitalize(key));
+    if (!dd) return;
+    if (dd.classList.contains('open')) {
+        dd.classList.remove('open');
+        _openChipDropdown = null;
+    } else {
+        // Populate options
+        populateChipDropdown(key);
+        dd.classList.add('open');
+        _openChipDropdown = key;
     }
 }
 
-function onFilterChange() {
-    // When category changes, update brand/color/spec to show only matching
-    var fCat = document.getElementById('filterCategory').value;
-    var fBrand = document.getElementById('filterBrand').value;
+function capitalize(s) {
+    // fcat -> Fcat, spcat -> Spcat, etc.
+    return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function populateChipDropdown(key) {
+    var dd = document.getElementById('dd' + capitalize(key));
+    if (!dd) return;
     var products = getProducts();
+    var current = _filterChipState[key] || '';
+    var isSp = key.indexOf('sp') === 0;
+    var type = isSp ? key.substring(2) : key.substring(1); // fcat→cat, spcat→cat
 
-    // Collect products matching current category selection
-    var catProducts = products;
-    if (fCat) {
-        catProducts = [];
-        for (var i = 0; i < products.length; i++) {
-            if (products[i].category === fCat) catProducts.push(products[i]);
+    // Apply cascading: get base products filtered by sibling chips
+    var baseProducts = products;
+    if (!isSp) {
+        if (_filterChipState.fcat) baseProducts = baseProducts.filter(function(p){ return p.category === _filterChipState.fcat; });
+    } else {
+        if (_filterChipState.spcat) baseProducts = baseProducts.filter(function(p){ return p.category === _filterChipState.spcat; });
+    }
+    if (type === 'brand' || type === 'color' || type === 'spec') {
+        var parentKey = isSp ? 'spcat' : 'fcat';
+        if (_filterChipState[parentKey]) baseProducts = products.filter(function(p){ return p.category === _filterChipState[parentKey]; });
+        var brandKey = isSp ? 'spbrand' : 'fbrand';
+        if (type === 'color' || type === 'spec') {
+            if (_filterChipState[brandKey]) baseProducts = baseProducts.filter(function(p){ return p.brand === _filterChipState[brandKey]; });
+        }
+        if (type === 'spec') {
+            var colorKey = isSp ? 'spcolor' : 'fcolor';
+            if (_filterChipState[colorKey]) baseProducts = baseProducts.filter(function(p){ return p.color === _filterChipState[colorKey]; });
         }
     }
 
-    // Update brand options based on filtered products
-    var brandSel = document.getElementById('filterBrand');
-    if (brandSel) {
-        var curBrand = brandSel.value;
-        var usedBrands = {};
-        for (var b = 0; b < catProducts.length; b++) {
-            if (catProducts[b].brand) usedBrands[catProducts[b].brand] = true;
-        }
-        var html = '<option value="">Marca</option>';
-        var allBrands = getBrands();
-        for (var bi = 0; bi < allBrands.length; bi++) {
-            var bn = (typeof allBrands[bi] === 'object') ? (allBrands[bi].name || '') : allBrands[bi];
-            if (bn && usedBrands[bn]) {
-                html += '<option value="' + escapeHtml(bn) + '"' + (curBrand === bn ? ' selected' : '') + '>' + escapeHtml(bn) + '</option>';
-            }
-        }
-        brandSel.innerHTML = html;
-    }
-
-    // Update color options based on filtered products
-    var colorSel = document.getElementById('filterColor');
-    if (colorSel) {
-        var curColor = colorSel.value;
-        // Further filter by brand if selected
-        var brandProducts = catProducts;
-        var selBrand = brandSel ? brandSel.value : '';
-        if (selBrand) {
-            brandProducts = [];
-            for (var ci = 0; ci < catProducts.length; ci++) {
-                if (catProducts[ci].brand === selBrand) brandProducts.push(catProducts[ci]);
-            }
-        }
-        var usedColors = {};
-        for (var co = 0; co < brandProducts.length; co++) {
-            if (brandProducts[co].color) usedColors[brandProducts[co].color] = true;
-        }
-        var html = '<option value="">Color</option>';
-        var allColors = getColors();
-        for (var cli = 0; cli < allColors.length; cli++) {
-            var cn = (typeof allColors[cli] === 'object') ? (allColors[cli].name || '') : allColors[cli];
-            if (cn && usedColors[cn]) {
-                html += '<option value="' + escapeHtml(cn) + '"' + (curColor === cn ? ' selected' : '') + '>' + escapeHtml(cn) + '</option>';
-            }
-        }
-        colorSel.innerHTML = html;
-    }
-
-    // Update spec options based on current filtered products
-    var specSel = document.getElementById('filterSpec');
-    if (specSel) {
-        var curSpec = specSel.value;
-        // Filter products by cat + brand + color
-        var specProducts = catProducts;
-        var selBrand2 = brandSel ? brandSel.value : '';
-        var selColor = colorSel ? colorSel.value : '';
-        if (selBrand2 || selColor) {
-            specProducts = [];
-            for (var pi = 0; pi < catProducts.length; pi++) {
-                var pp = catProducts[pi];
-                if (selBrand2 && pp.brand !== selBrand2) continue;
-                if (selColor && pp.color !== selColor) continue;
-                specProducts.push(pp);
-            }
-        }
-        var specValues = {};
-        for (var spi = 0; spi < specProducts.length; spi++) {
-            if (specProducts[spi].specifications) {
-                try {
-                    var sObj = (typeof specProducts[spi].specifications === 'string') ? JSON.parse(specProducts[spi].specifications) : specProducts[spi].specifications;
-                    if (sObj && typeof sObj === 'object') {
-                        var sks = Object.keys(sObj);
-                        for (var ski = 0; ski < sks.length; ski++) {
-                            var svt = (sObj[sks[ski]] || '').trim();
-                            if (svt) specValues[svt] = true;
-                        }
+    // Collect unique values
+    var values = [];
+    var seen = {};
+    for (var i = 0; i < baseProducts.length; i++) {
+        var val = '';
+        if (type === 'cat') val = baseProducts[i].category || '';
+        else if (type === 'brand') val = baseProducts[i].brand || '';
+        else if (type === 'color') val = baseProducts[i].color || '';
+        else if (type === 'spec' && baseProducts[i].specifications) {
+            try {
+                var sObj = (typeof baseProducts[i].specifications === 'string') ? JSON.parse(baseProducts[i].specifications) : baseProducts[i].specifications;
+                if (sObj && typeof sObj === 'object') {
+                    var sks = Object.keys(sObj);
+                    for (var si = 0; si < sks.length; si++) {
+                        var sv = (sObj[sks[si]] || '').trim();
+                        if (sv && !seen[sv]) { values.push(sv); seen[sv] = true; }
                     }
-                } catch(e) {}
-            }
+                }
+            } catch(e) {}
+            continue;
         }
-        var html = '<option value="">Especificación</option>';
-        var specArr = Object.keys(specValues).sort();
-        for (var spa = 0; spa < specArr.length; spa++) {
-            html += '<option value="' + escapeHtml(specArr[spa]) + '"' + (curSpec === specArr[spa] ? ' selected' : '') + '>' + escapeHtml(specArr[spa]) + '</option>';
-        }
-        specSel.innerHTML = html;
+        if (val && !seen[val]) { values.push(val); seen[val] = true; }
+    }
+    values.sort();
+
+    if (values.length === 0) {
+        dd.innerHTML = '<div style="padding:14px;text-align:center;color:var(--text3);font-size:12px;">Sin opciones</div>';
+        return;
     }
 
-    renderProductList();
+    var html = '';
+    for (var j = 0; j < values.length; j++) {
+        var sel = current === values[j] ? ' selected' : '';
+        html += '<div class="filter-chip-opt' + sel + '" data-val="' + escapeHtml(values[j]) + '" onclick="selectChipValue(\'' + key + '\',\'' + escapeHtml(values[j]).replace(/'/g, "\\'") + '\')">' +
+            escapeHtml(values[j]) + '<span class="chip-check">✓</span></div>';
+    }
+    dd.innerHTML = html;
+}
+
+function selectChipValue(key, value) {
+    _filterChipState[key] = value;
+
+    // Update chip button appearance
+    var chipMap = { fcat: 'chipFilterCat', fbrand: 'chipFilterBrand', fcolor: 'chipFilterColor', fspec: 'chipFilterSpec',
+                    spcat: 'chipSpCat', spbrand: 'chipSpBrand', spcolor: 'chipSpColor', spspec: 'chipSpSpec' };
+    var labelMap = { fcat: '📂 Categoría', fbrand: '🏷️ Marca', fcolor: '🎨 Color', fspec: '⚙️ Specs',
+                     spcat: '📂 Cat.', spbrand: '🏷️ Marca', spcolor: '🎨 Color', spspec: '⚙️ Specs' };
+    var chip = document.getElementById(chipMap[key]);
+    if (chip) {
+        chip.textContent = (labelMap[key] || '') + ': ' + value;
+        chip.classList.add('active');
+    }
+
+    // Close dropdown
+    var dd = document.getElementById('dd' + capitalize(key));
+    if (dd) dd.classList.remove('open');
+    _openChipDropdown = null;
+
+    // Cascading: reset downstream filters
+    var isSp = key.indexOf('sp') === 0;
+    var type = isSp ? key.substring(2) : key;
+    var downstream = { cat: ['brand','color','spec'], brand: ['color','spec'], color: ['spec'], spec: [] };
+    var downstreamKeys = downstream[type] || [];
+    var prefix = isSp ? 'sp' : 'f';
+    for (var d = 0; d < downstreamKeys.length; d++) {
+        var dk = prefix + downstreamKeys[d];
+        _filterChipState[dk] = '';
+        var dchip = document.getElementById(chipMap[dk]);
+        if (dchip) { dchip.textContent = labelMap[dk] || ''; dchip.classList.remove('active'); }
+    }
+
+    // Trigger re-render
+    if (!isSp) renderProductList();
+    else {
+        var searchEl = document.getElementById('spSearch');
+        if (searchEl) searchProductsForSpace(searchEl.value);
+    }
 }
 
 function clearProductFilters() {
-    var catSel = document.getElementById('filterCategory');
-    var brandSel = document.getElementById('filterBrand');
-    var colorSel = document.getElementById('filterColor');
-    var specSel = document.getElementById('filterSpec');
-    if (catSel) catSel.value = '';
-    if (brandSel) brandSel.value = '';
-    if (colorSel) colorSel.value = '';
-    if (specSel) specSel.value = '';
-    populateProductFilterDropdowns();
+    var keys = ['fcat','fbrand','fcolor','fspec'];
+    var chipMap = { fcat: 'chipFilterCat', fbrand: 'chipFilterBrand', fcolor: 'chipFilterColor', fspec: 'chipFilterSpec' };
+    var labelMap = { fcat: '📂 Categoría', fbrand: '🏷️ Marca', fcolor: '🎨 Color', fspec: '⚙️ Specs' };
+    for (var i = 0; i < keys.length; i++) {
+        _filterChipState[keys[i]] = '';
+        var chip = document.getElementById(chipMap[keys[i]]);
+        if (chip) { chip.textContent = labelMap[keys[i]]; chip.classList.remove('active'); }
+    }
+    var sortSel = document.getElementById('sortField');
+    if (sortSel) sortSel.value = '';
     renderProductList();
 }
 
-// ====================================================================
-// CASCADING FILTERS FOR SPACE PRODUCT MODAL (locales)
-// ====================================================================
-function populateSpFilterDropdowns() {
-    var categories = getCategories();
-    var brands = getBrands();
-    var colors = getColors();
-    var products = getProducts();
+// Compatibility: onFilterChange and populateProductFilterDropdowns now no-ops
+function populateProductFilterDropdowns() { /* handled by chip system */ }
+function onFilterChange() { /* handled by chip system */ }
 
-    var catSel = document.getElementById('spFilterCategory');
-    if (catSel) {
-        var usedCats = {};
-        for (var i = 0; i < products.length; i++) { if (products[i].category) usedCats[products[i].category] = true; }
-        var html = '<option value="">Categoría</option>';
-        for (var c = 0; c < categories.length; c++) {
-            var cn = (typeof categories[c] === 'object') ? (categories[c].name || '') : categories[c];
-            if (cn && usedCats[cn]) html += '<option value="' + escapeHtml(cn) + '">' + escapeHtml(cn) + '</option>';
-        }
-        catSel.innerHTML = html;
-    }
-    var brandSel = document.getElementById('spFilterBrand');
-    if (brandSel) {
-        var usedBrands = {};
-        for (var i = 0; i < products.length; i++) { if (products[i].brand) usedBrands[products[i].brand] = true; }
-        var html = '<option value="">Marca</option>';
-        for (var b = 0; b < brands.length; b++) {
-            var bn = (typeof brands[b] === 'object') ? (brands[b].name || '') : brands[b];
-            if (bn && usedBrands[bn]) html += '<option value="' + escapeHtml(bn) + '">' + escapeHtml(bn) + '</option>';
-        }
-        brandSel.innerHTML = html;
-    }
-    var colorSel = document.getElementById('spFilterColor');
-    if (colorSel) {
-        var usedColors = {};
-        for (var i = 0; i < products.length; i++) { if (products[i].color) usedColors[products[i].color] = true; }
-        var html = '<option value="">Color</option>';
-        for (var cl = 0; cl < colors.length; cl++) {
-            var cn = (typeof colors[cl] === 'object') ? (colors[cl].name || '') : colors[cl];
-            if (cn && usedColors[cn]) html += '<option value="' + escapeHtml(cn) + '">' + escapeHtml(cn) + '</option>';
-        }
-        colorSel.innerHTML = html;
-    }
-    var specSel = document.getElementById('spFilterSpec');
-    if (specSel) {
-        var specValues = {};
-        for (var i = 0; i < products.length; i++) {
-            if (products[i].specifications) {
-                try {
-                    var sObj = (typeof products[i].specifications === 'string') ? JSON.parse(products[i].specifications) : products[i].specifications;
-                    if (sObj && typeof sObj === 'object') {
-                        var sk = Object.keys(sObj);
-                        for (var si = 0; si < sk.length; si++) { var sv = (sObj[sk[si]] || '').trim(); if (sv) specValues[sv] = true; }
-                    }
-                } catch(e) {}
-            }
-        }
-        var html = '<option value="">Especificación</option>';
-        var specArr = Object.keys(specValues).sort();
-        for (var sp = 0; sp < specArr.length; sp++) html += '<option value="' + escapeHtml(specArr[sp]) + '">' + escapeHtml(specArr[sp]) + '</option>';
-        specSel.innerHTML = html;
-    }
+// Get filter values for product list rendering
+function getProductFilterValues() {
+    return { cat: _filterChipState.fcat || '', brand: _filterChipState.fbrand || '', color: _filterChipState.fcolor || '', spec: _filterChipState.fspec || '' };
+}
+function getSpFilterValues() {
+    return { cat: _filterChipState.spcat || '', brand: _filterChipState.spbrand || '', color: _filterChipState.spcolor || '', spec: _filterChipState.spspec || '' };
 }
 
-function onSpFilterChange() {
-    var fCat = document.getElementById('spFilterCategory').value;
-    var fBrand = document.getElementById('spFilterBrand').value;
-    var products = getProducts();
-
-    // Cascade: filter brands by category
-    var catProducts = products;
-    if (fCat) {
-        catProducts = [];
-        for (var i = 0; i < products.length; i++) { if (products[i].category === fCat) catProducts.push(products[i]); }
+// Close dropdowns on outside tap
+document.addEventListener('click', function(e) {
+    if (_openChipDropdown && !e.target.closest('.filter-chip-wrap')) {
+        var dd = document.getElementById('dd' + capitalize(_openChipDropdown));
+        if (dd) dd.classList.remove('open');
+        _openChipDropdown = null;
     }
-
-    var brandSel = document.getElementById('spFilterBrand');
-    if (brandSel) {
-        var curBrand = brandSel.value;
-        var usedBrands = {};
-        for (var b = 0; b < catProducts.length; b++) { if (catProducts[b].brand) usedBrands[catProducts[b].brand] = true; }
-        var html = '<option value="">Marca</option>';
-        var allBrands = getBrands();
-        for (var bi = 0; bi < allBrands.length; bi++) {
-            var bn = (typeof allBrands[bi] === 'object') ? (allBrands[bi].name || '') : allBrands[bi];
-            if (bn && usedBrands[bn]) html += '<option value="' + escapeHtml(bn) + '"' + (curBrand === bn ? ' selected' : '') + '>' + escapeHtml(bn) + '</option>';
-        }
-        brandSel.innerHTML = html;
-    }
-
-    // Cascade: filter colors by category + brand
-    var brandProducts = catProducts;
-    var selBrand = brandSel ? brandSel.value : '';
-    if (selBrand) {
-        brandProducts = [];
-        for (var ci = 0; ci < catProducts.length; ci++) { if (catProducts[ci].brand === selBrand) brandProducts.push(catProducts[ci]); }
-    }
-    var colorSel = document.getElementById('spFilterColor');
-    if (colorSel) {
-        var curColor = colorSel.value;
-        var usedColors = {};
-        for (var co = 0; co < brandProducts.length; co++) { if (brandProducts[co].color) usedColors[brandProducts[co].color] = true; }
-        var html = '<option value="">Color</option>';
-        var allColors = getColors();
-        for (var cli = 0; cli < allColors.length; cli++) {
-            var cn = (typeof allColors[cli] === 'object') ? (allColors[cli].name || '') : allColors[cli];
-            if (cn && usedColors[cn]) html += '<option value="' + escapeHtml(cn) + '"' + (curColor === cn ? ' selected' : '') + '>' + escapeHtml(cn) + '</option>';
-        }
-        colorSel.innerHTML = html;
-    }
-
-    // Cascade: filter specs by category + brand + color
-    var specProducts = catProducts;
-    var selBrand2 = brandSel ? brandSel.value : '';
-    var selColor = colorSel ? colorSel.value : '';
-    if (selBrand2 || selColor) {
-        specProducts = [];
-        for (var pi = 0; pi < catProducts.length; pi++) {
-            var pp = catProducts[pi];
-            if (selBrand2 && pp.brand !== selBrand2) continue;
-            if (selColor && pp.color !== selColor) continue;
-            specProducts.push(pp);
-        }
-    }
-    var specSel = document.getElementById('spFilterSpec');
-    if (specSel) {
-        var curSpec = specSel.value;
-        var specValues = {};
-        for (var spi = 0; spi < specProducts.length; spi++) {
-            if (specProducts[spi].specifications) {
-                try {
-                    var sObj = (typeof specProducts[spi].specifications === 'string') ? JSON.parse(specProducts[spi].specifications) : specProducts[spi].specifications;
-                    if (sObj && typeof sObj === 'object') {
-                        var sks = Object.keys(sObj);
-                        for (var ski = 0; ski < sks.length; ski++) { var svt = (sObj[sks[ski]] || '').trim(); if (svt) specValues[svt] = true; }
-                    }
-                } catch(e) {}
-            }
-        }
-        var html = '<option value="">Especificación</option>';
-        var specArr = Object.keys(specValues).sort();
-        for (var spa = 0; spa < specArr.length; spa++) html += '<option value="' + escapeHtml(specArr[spa]) + '"' + (curSpec === specArr[spa] ? ' selected' : '') + '>' + escapeHtml(specArr[spa]) + '</option>';
-        specSel.innerHTML = html;
-    }
-
-    // Re-run search with filters
-    searchProductsForSpace(document.getElementById('spSearch').value);
-}
+});
 
 // ====================================================================
 // QUOTATIONS — DualQuotationBuilder: Simple / Dual mode
@@ -3699,26 +3715,27 @@ function showQuotProductPicker() {
     var products = getProducts();
     var overlay = document.createElement('div');
     overlay.id = 'quotProductPicker';
-    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:400;display:flex;align-items:flex-end;justify-content:center;';
+    overlay.className = 'modal-overlay open';
+    overlay.style.cssText = 'z-index:300;';
 
     var content = document.createElement('div');
-    content.style.cssText = 'background:var(--card);border-radius:16px 16px 0 0;width:100%;max-width:520px;max-height:80vh;display:flex;flex-direction:column;';
+    content.className = 'modal-content modal-md';
+    content.style.cssText = '';
 
-    content.innerHTML = '<div style="padding:16px 16px 8px;">' +
-        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">' +
-            '<h3 style="font-size:16px;font-weight:700;">📦 Seleccionar Producto</h3>' +
-            '<button onclick="document.body.removeChild(document.getElementById(\'quotProductPicker\'))" style="background:var(--bg3);border:none;color:var(--text3);width:30px;height:30px;border-radius:50%;cursor:pointer;font-size:14px;">✕</button>' +
+    content.innerHTML = '<div class="modal-handle"></div>' +
+        '<div class="modal-header">' +
+            '<h3 class="modal-title">📦 Seleccionar Producto</h3>' +
+            '<button class="modal-close" onclick="document.body.removeChild(document.getElementById(\'quotProductPicker\'))">✕</button>' +
         '</div>' +
         '<div style="display:flex;gap:6px;margin-bottom:10px;">' +
             '<button class="btn btn-sm" id="pickerInvBtn" style="flex:1;" onclick="switchPickerTab(\'inv\')">📦 Inventario</button>' +
             '<button class="btn btn-sm btn-outline" id="pickerNewBtn" style="flex:1;" onclick="switchPickerTab(\'new\')">➕ Nuevo</button>' +
         '</div>' +
         '<input type="text" id="pickerSearch" class="input" placeholder="🔍 Buscar producto..." oninput="filterPickerProducts()" style="font-size:13px;">' +
-    '</div>' +
-    '<div id="pickerList" style="flex:1;overflow-y:auto;padding:0 16px 16px;"></div>';
+    '<div id="pickerList" class="modal-scroll-inner" style="margin-top:8px;"></div>';
 
     overlay.appendChild(content);
-    overlay.addEventListener('click', function(e) { if (e.target === overlay) document.body.removeChild(overlay); });
+    overlay.addEventListener('click', function(e) { if (e.target === overlay) { closeModal('quotProductPicker'); document.body.removeChild(overlay); } });
     document.body.appendChild(overlay);
 
     switchPickerTab('inv');
@@ -4936,6 +4953,56 @@ var _locCurrentLocId = null; // Currently viewing location
 var _locCurrentSpace = 0;    // Currently viewing space index
 var _spSelectedProductId = null; // Selected product for space assignment
 
+function renderGlobalTargetBanner() {
+    var banner = document.getElementById('globalTargetBanner');
+    if (!banner) return;
+    var target = getGlobalTarget();
+    var current = calcGlobalStock();
+    var missing = Math.max(0, target - current);
+    var pct = target > 0 ? Math.min(100, Math.round((current / target) * 100)) : 0;
+
+    if (target === 0) {
+        banner.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between;">' +
+            '<div style="display:flex;align-items:center;gap:8px;">' +
+                '<span style="font-size:16px;">📺</span>' +
+                '<span style="font-size:13px;color:var(--text2);">Define el total global de televisores que debes mantener</span>' +
+            '</div>' +
+            '<button class="btn btn-outline btn-xs" onclick="editGlobalTarget()">🎯 Configurar</button>' +
+        '</div>';
+    } else {
+        var barColor = missing > 0 ? '#ff4757' : '#2ed573';
+        var alertMsg = missing > 0
+            ? '⚠️ Faltan <b>' + missing + ' TV' + (missing !== 1 ? 's' : '') + '</b> para completar el objetivo global'
+            : '✅ Objetivo global cumplido';
+        banner.style.background = missing > 0 ? '#ff475715' : '#2ed57315';
+        banner.style.borderColor = missing > 0 ? '#ff475740' : '#2ed57340';
+        banner.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">' +
+            '<div style="display:flex;align-items:center;gap:8px;">' +
+                '<span style="font-size:16px;">📺</span>' +
+                '<span style="font-size:13px;font-weight:600;">Total Global: <b>' + current + '</b> / ' + target + '</span>' +
+            '</div>' +
+            '<button class="btn btn-ghost btn-xs" onclick="editGlobalTarget()" style="font-size:11px;">✏️</button>' +
+        '</div>' +
+        '<div style="display:flex;align-items:center;gap:8px;">' +
+            '<div style="flex:1;background:var(--bg2);border-radius:4px;height:6px;overflow:hidden;">' +
+                '<div style="height:100%;width:' + pct + '%;background:' + barColor + ';border-radius:4px;transition:width 0.4s ease;"></div>' +
+            '</div>' +
+            '<span style="font-size:11px;color:' + (missing > 0 ? '#ff4757' : '#2ed573') + ';white-space:nowrap;">' + alertMsg + '</span>' +
+        '</div>';
+    }
+}
+
+function editGlobalTarget() {
+    var current = getGlobalTarget();
+    var val = prompt('📺 Total global de televisores que debes mantener en todos los locales:', current || '');
+    if (val === null) return;
+    val = parseInt(val) || 0;
+    if (val < 0) val = 0;
+    setGlobalTarget(val);
+    renderGlobalTargetBanner();
+    showToast('Objetivo global actualizado: ' + val + ' TVs', 'success');
+}
+
 function renderLocations() {
     var locs = getLocations();
     var container = document.getElementById('locationsList');
@@ -4951,6 +5018,9 @@ function renderLocations() {
     // Show/hide header
     var header = container.parentElement.querySelector('div[style*="align-items:center"]');
     if (header) header.style.display = 'flex';
+
+    // Render global target banner
+    renderGlobalTargetBanner();
 
     if (locs.length === 0) { container.innerHTML = ''; return; }
 
@@ -5052,8 +5122,22 @@ function renderLocSpaceView(loc) {
 
     // Alert banner
     var alertBanner = '';
+
+    // Global target alert
+    var globalTarget = getGlobalTarget();
+    if (globalTarget > 0) {
+        var globalCurrent = calcGlobalStock();
+        var globalMissing = Math.max(0, globalTarget - globalCurrent);
+        if (globalMissing > 0) {
+            alertBanner += '<div style="background:#ff475715;border:1px solid #ff475740;border-radius:10px;padding:10px 14px;margin-bottom:10px;font-size:13px;color:#ff6b81;display:flex;align-items:center;gap:6px;">' +
+                '<span style="font-size:18px;">📺</span>' +
+                '<span><b>Objetivo Global:</b> Faltan <b>' + globalMissing + ' TV' + (globalMissing !== 1 ? 's' : '') + '</b> (' + globalCurrent + '/' + globalTarget + ')</span></div>';
+        }
+    }
+
+    // Per-space alert
     if (alertCount > 0) {
-        alertBanner = '<div style="background:#ff475720;border:1px solid #ff4757;border-radius:10px;padding:10px 14px;margin-bottom:10px;font-size:13px;color:#ff6b81;display:flex;align-items:center;gap:6px;">' +
+        alertBanner += '<div style="background:#ff475720;border:1px solid #ff4757;border-radius:10px;padding:10px 14px;margin-bottom:10px;font-size:13px;color:#ff6b81;display:flex;align-items:center;gap:6px;">' +
             '<span style="font-size:18px;">⚠️</span>' +
             '<span><b>' + alertCount + ' producto' + (alertCount > 1 ? 's' : '') + '</b> por debajo del mínimo. Faltan <b>' + totalMissing + ' unidad' + (totalMissing !== 1 ? 'es' : '') + '</b> para completar objetivos.</span></div>';
     }
@@ -5798,7 +5882,6 @@ function openSpaceProductModal(locId, spaceIdx) {
     document.getElementById('spTargetQty').value = '2';
     document.getElementById('spMinQty').value = '1';
     document.getElementById('spResults').innerHTML = '';
-    populateSpFilterDropdowns();
     openModal('spaceProductModal');
     setTimeout(function() { document.getElementById('spSearch').focus(); }, 300);
 }
@@ -5807,11 +5890,12 @@ function searchProductsForSpace(query) {
     var products = getProducts();
     query = (query || '').toLowerCase();
 
-    // Get filter values
-    var fCat = document.getElementById('spFilterCategory') ? document.getElementById('spFilterCategory').value : '';
-    var fBrand = document.getElementById('spFilterBrand') ? document.getElementById('spFilterBrand').value : '';
-    var fColor = document.getElementById('spFilterColor') ? document.getElementById('spFilterColor').value : '';
-    var fSpec = document.getElementById('spFilterSpec') ? document.getElementById('spFilterSpec').value : '';
+    // Get filter values from chips
+    var spf = getSpFilterValues();
+    var fCat = spf.cat;
+    var fBrand = spf.brand;
+    var fColor = spf.color;
+    var fSpec = spf.spec;
 
     var results = [];
     for (var i = 0; i < products.length; i++) {
@@ -6888,6 +6972,9 @@ function autoSyncFromServer() {
     var url = getServerUrl();
     if (!url) return Promise.resolve();
 
+    // Track changes for notification
+    var syncChanges = { productsAdded: 0, productsUpdated: 0, quotesAdded: 0, quotesRemoved: 0, locationsChanged: 0 };
+
     return fetch(url + '/api/sync/products', { headers: { 'Content-Type': 'application/json' } })
         .then(function(r) { return r.json(); })
         .then(function(serverProducts) {
@@ -6925,11 +7012,13 @@ function autoSyncFromServer() {
                     if (serverUpdated > localUpdated) {
                         localMap[sp.id] = localEntry;
                         changed = true;
+                        syncChanges.productsUpdated++;
                     }
                 } else {
                     // New product from server (another device added it)
                     localProducts.push(localEntry);
                     changed = true;
+                    syncChanges.productsAdded++;
                 }
             }
             if (changed) saveProducts(localProducts);
@@ -6987,6 +7076,7 @@ function autoSyncFromServer() {
             var localQMap = {};
             for (var i = 0; i < localQ.length; i++) localQMap[localQ[i].id] = true;
 
+            var prevQCount = localQ.length;
             for (var j = 0; j < serverQuotations.length; j++) {
                 var rq = serverQuotations[j];
                 if (!rq || !rq.id || localQMap[rq.id]) continue;
@@ -7055,6 +7145,9 @@ function autoSyncFromServer() {
             localQ = localQ.filter(function(lq) {
                 return serverQIds[lq.id] || pendingCreateIds[lq.id];
             });
+            syncChanges.quotesAdded = Math.max(0, localQ.length - prevQCount); // approximate
+            var removedCount = prevQCount - (localQ.length - syncChanges.quotesAdded);
+            if (removedCount > 0) syncChanges.quotesRemoved = removedCount;
             saveQuotations(localQ);
 
             // Sync locations from server
@@ -7067,6 +7160,7 @@ function autoSyncFromServer() {
                 if (localLocs.length === 0) {
                     // No local locations — accept server data
                     saveLocations(locData.locations);
+                    syncChanges.locationsChanged = locData.locations.length;
                 } else {
                     // Smart merge: server wins on conflict (newer updatedAt)
                     var localLocMap = {};
@@ -7100,6 +7194,18 @@ function autoSyncFromServer() {
             updateSyncStatusUI(true);
             updatePendingBadge();
             updateDashboard();
+
+            // Show sync change notification
+            var totalChanges = syncChanges.productsAdded + syncChanges.productsUpdated + syncChanges.quotesAdded + syncChanges.quotesRemoved + syncChanges.locationsChanged;
+            if (totalChanges > 0) {
+                var parts = [];
+                if (syncChanges.productsAdded > 0) parts.push(syncChanges.productsAdded + ' producto' + (syncChanges.productsAdded > 1 ? 's' : '') + ' nuevo' + (syncChanges.productsAdded > 1 ? 's' : ''));
+                if (syncChanges.productsUpdated > 0) parts.push(syncChanges.productsUpdated + ' producto' + (syncChanges.productsUpdated > 1 ? 's' : '') + ' actualizado' + (syncChanges.productsUpdated > 1 ? 's' : ''));
+                if (syncChanges.quotesAdded > 0) parts.push(syncChanges.quotesAdded + ' cotizacion' + (syncChanges.quotesAdded > 1 ? 'es' : '') + ' nueva' + (syncChanges.quotesAdded > 1 ? 's' : ''));
+                if (syncChanges.quotesRemoved > 0) parts.push(syncChanges.quotesRemoved + ' cotizacion' + (syncChanges.quotesRemoved > 1 ? 'es' : '') + ' eliminada' + (syncChanges.quotesRemoved > 1 ? 's' : ''));
+                if (syncChanges.locationsChanged > 0) parts.push(syncChanges.locationsChanged + ' local' + (syncChanges.locationsChanged > 1 ? 'es' : '') + ' actualizado' + (syncChanges.locationsChanged > 1 ? 's' : ''));
+                showToast('Sync: ' + parts.join(', '), 'success');
+            }
 
             // Sync users from server (update local cache with roles, names, etc.)
             return fetch(url + '/api/sync/users', { headers: { 'Content-Type': 'application/json' } });
@@ -7519,10 +7625,11 @@ function shareQuotationQR(id) {
     var overlay = document.createElement('div');
     overlay.className = 'modal-overlay open';
     overlay.id = 'qrModalOverlay';
-    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:center;z-index:400;overflow-y:auto;padding:20px;';
+    overlay.style.cssText = 'z-index:400;';
 
     var container = document.createElement('div');
-    container.style.cssText = 'background:#fff;border-radius:20px;padding:0;max-width:380px;width:95%;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.4);';
+    container.className = 'modal-content modal-sm';
+    container.style.cssText = 'padding:0;overflow:hidden;';
 
     // Header bar (store info)
     var header = document.createElement('div');
