@@ -2575,19 +2575,19 @@ function selectCustomOption(field, value) {
 
     closeCustomSelect(field);
 
-    // CASCADING FILTERS — skip during programmatic bulk-set (copyFromProduct / openEditProduct)
-    if (window._skipCascading) return;
-
+    // NO cascading filters — always show ALL brands and colors so user can change freely
     if (field === 'category') {
-        updateBrandOptionsForCategory(value);
+        // Show all brands (no filter)
+        populateCustomSelectOptions('brand', getBrands());
         clearSelectValue('brand');
-        // Reset color options to all available colors
+        // Show all colors (no filter)
         populateCustomSelectOptions('color', getColors());
         clearSelectValue('color');
         // Show spec fields for this category
         renderProductSpecFields(value, null);
     } else if (field === 'brand') {
-        updateColorOptionsForBrandCategory(value);
+        // Show all colors (no filter by brand)
+        populateCustomSelectOptions('color', getColors());
         clearSelectValue('color');
     }
 }
@@ -2793,21 +2793,13 @@ function openEditProduct(id) {
     document.getElementById('prodMinStock').value = product.minStock || 5;
     document.getElementById('prodDesc').value = product.description || '';
 
-    // Populate all selects first, then set values quietly (no selectCustomOption side effects)
+    // Populate all selects first, then set values quietly
     populateAllSelects();
 
-    // --- Quiet bulk-set ---
+    // --- Set values ---
     if (product.category) setCustomSelectValue('category', product.category);
     if (product.brand)   setCustomSelectValue('brand', product.brand);
     if (product.color)   setCustomSelectValue('color', product.color);
-
-    // Apply correct filtered dropdown options
-    if (product.category) updateBrandOptionsForCategory(product.category);
-    if (product.brand)   updateColorOptionsForBrandCategory(product.brand);
-
-    // Re-mark selected options in the rebuilt dropdown HTML
-    if (product.brand) setCustomSelectValue('brand', product.brand);
-    if (product.color) setCustomSelectValue('color', product.color);
 
     // Ensure no dropdown stuck open
     closeCustomSelect('category');
@@ -3856,7 +3848,11 @@ function removeCategory(idx) {
 function getCategorySpecs() {
     try {
         var cfg = getStoreConfig();
-        return JSON.parse(cfg.categorySpecs || '{}');
+        var specs = cfg.categorySpecs;
+        // categorySpecs can be a string (saved locally) or an object (from server sync)
+        if (specs && typeof specs === 'object') return specs;
+        if (typeof specs === 'string' && specs.trim()) return JSON.parse(specs);
+        return {};
     } catch(e) { return {}; }
 }
 
@@ -4954,9 +4950,9 @@ function copyFromProduct(productId) {
     }
     openSelectField = null;
 
-    // Update filtered dropdown options so brand/color show correct items
-    if (source.category) updateBrandOptionsForCategory(source.category);
-    if (source.brand) updateColorOptionsForBrandCategory(source.brand);
+    // Show ALL brands and colors (no cascade filter) so user can change freely
+    populateCustomSelectOptions('brand', getBrands());
+    populateCustomSelectOptions('color', getColors());
 
     // Show spec fields for the copied category
     if (source.category) renderProductSpecFields(source.category, source.specifications || null);
