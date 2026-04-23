@@ -53,6 +53,8 @@
             --radius-lg: 16px;
             --radius-xl: 20px;
             --shadow: 0 4px 24px rgba(0,0,0,0.4);
+            --accent: #10b981;
+            --accent-text: #ecfdf5;
         }
         /* LIGHT THEME */
         [data-theme="light"] {
@@ -82,6 +84,8 @@
             --radius-lg: 16px;
             --radius-xl: 20px;
             --shadow: 0 4px 24px rgba(0,0,0,0.08);
+            --accent: #059669;
+            --accent-text: #ecfdf5;
         }
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -389,7 +393,7 @@
         .product-info { flex: 1; min-width: 0; }
         .product-name { font-weight: 600; font-size: 14px; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .product-specs { font-size: 11px; color: var(--primary); font-weight: 500; margin-bottom: 2px; display: flex; flex-wrap: wrap; gap: 4px; }
-        .product-spec-tag { background: var(--accent); color: #fff; padding: 1px 7px; border-radius: 4px; font-size: 10px; font-weight: 600; letter-spacing: 0.3px; }
+        .product-spec-tag { background: var(--accent); color: var(--accent-text); padding: 2px 8px; border-radius: 6px; font-size: 10px; font-weight: 700; letter-spacing: 0.3px; border: 1px solid rgba(0,0,0,0.08); box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
         .product-meta { font-size: 11px; color: var(--text3); display: flex; gap: 10px; }
         .product-right { text-align: right; flex-shrink: 0; margin-left: 10px; }
         .product-price { font-weight: 700; font-size: 14px; color: var(--primary); }
@@ -432,50 +436,60 @@
         .nav-icon { font-size: 22px; margin-bottom: 2px; }
 
         /* ================================================================
-           MODALS — refined, centered, smooth
+           MODALS — polished, compact, smooth
            ================================================================ */
         .modal-overlay {
             position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0,0,0,0.45);
-            backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+            background: rgba(0,0,0,0.4);
+            backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
             z-index: 200;
             display: flex; align-items: center; justify-content: center;
-            padding: 20px;
+            padding: 16px;
             opacity: 0; visibility: hidden;
-            transition: opacity 0.28s ease, visibility 0.28s ease;
+            transition: opacity 0.25s ease, visibility 0.25s ease;
         }
         .modal-overlay.open { opacity: 1; visibility: visible; }
         .modal-content {
             background: var(--card);
             border: 1px solid var(--border);
-            border-radius: var(--radius-xl);
-            width: 100%; max-width: 440px;
-            max-height: 78vh; overflow-y: auto; padding: 24px 20px 28px;
-            box-shadow: 0 25px 70px rgba(0,0,0,0.25), 0 8px 24px rgba(0,0,0,0.15);
-            transform: translateY(24px) scale(0.96);
-            transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+            border-radius: 18px;
+            width: 100%; max-width: 400px;
+            max-height: 72vh; overflow-y: auto; display: flex; flex-direction: column;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.22), 0 4px 16px rgba(0,0,0,0.1);
+            transform: translateY(20px) scale(0.97);
+            transition: transform 0.32s cubic-bezier(0.16, 1, 0.3, 1);
+            position: relative;
+            -webkit-overflow-scrolling: touch;
         }
         .modal-overlay.open .modal-content {
             transform: translateY(0) scale(1);
         }
+        /* top gradient accent bar */
+        .modal-content::before {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 4px;
+            background: linear-gradient(90deg, var(--primary), var(--info), var(--purple));
+            border-radius: 18px 18px 0 0;
+        }
+        .modal-body { padding: 4px 18px 24px; flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
         /* size variants */
-        .modal-sm { max-width: 340px; max-height: 50vh; }
-        .modal-md { max-width: 420px; max-height: 68vh; }
-        .modal-lg { max-width: 540px; max-height: 80vh; }
+        .modal-sm { max-width: 320px; max-height: 48vh; }
+        .modal-md { max-width: 380px; max-height: 62vh; }
+        .modal-lg { max-width: 480px; max-height: 74vh; }
         /* handle */
         .modal-handle {
-            width: 36px; height: 4px; background: var(--bg4); border-radius: 2px;
-            margin: 0 auto 14px;
+            width: 32px; height: 3px; background: var(--bg4); border-radius: 2px;
+            margin: 14px auto 10px;
         }
-        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
-        .modal-title { font-size: 17px; font-weight: 700; }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+        .modal-title { font-size: 16px; font-weight: 700; }
         .modal-close {
-            width: 32px; height: 32px; border-radius: 50%; border: none;
-            background: var(--bg3); color: var(--text3); cursor: pointer; font-size: 15px;
+            width: 28px; height: 28px; border-radius: 50%; border: none;
+            background: var(--bg3); color: var(--text3); cursor: pointer; font-size: 13px;
             display: flex; align-items: center; justify-content: center;
             transition: background 0.2s, transform 0.15s;
+            flex-shrink: 0;
         }
-        .modal-close:active { background: var(--bg4); transform: scale(0.9); }
+        .modal-close:active { background: var(--bg4); transform: scale(0.88); }
         /* scrollable inner content (stock summary, movements, etc.) */
         .modal-scroll-inner { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
 
@@ -1403,7 +1417,7 @@
 
 <!-- ===== STOCK SUMMARY MODAL ===== -->
 <div id="stockSummaryModal" class="modal-overlay">
-    <div class="modal-content modal-lg" style="display:flex;flex-direction:column;">
+    <div class="modal-content modal-lg">
         <div class="modal-handle"></div>
         <div class="modal-header">
             <h2 class="modal-title">📊 Resumen de Stock en Locales</h2>
@@ -1419,7 +1433,7 @@
 
 <!-- ===== MOVEMENTS HISTORY MODAL ===== -->
 <div id="movementsModal" class="modal-overlay">
-    <div class="modal-content modal-lg" style="display:flex;flex-direction:column;">
+    <div class="modal-content modal-lg">
         <div class="modal-handle"></div>
         <div class="modal-header">
             <h2 class="modal-title" id="movementsModalTitle">📋 Historial de Movimientos</h2>
@@ -3817,7 +3831,7 @@ function showQuotProductPicker() {
 
     var content = document.createElement('div');
     content.className = 'modal-content modal-md';
-    content.style.cssText = 'display:flex;flex-direction:column;';
+    content.style.cssText = '';
 
     content.innerHTML = '<div class="modal-handle"></div>' +
         '<div class="modal-header">' +
