@@ -866,6 +866,9 @@
                 <h2 style="font-size:22px;font-weight:800;">🏪 Mis Locales</h2>
                 <button class="btn btn-primary btn-sm" onclick="openLocModal()">+ Nuevo Local</button>
             </div>
+            <!-- Global target banner -->
+            <div id="globalTargetBanner" style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;margin-bottom:10px;">
+            </div>
             <div style="display:flex;gap:6px;margin-bottom:14px;">
                 <button class="btn btn-outline btn-sm" style="flex:1;font-size:12px;" onclick="openStockSummary()">📊 Stock</button>
                 <button class="btn btn-outline btn-sm" style="flex:1;font-size:12px;" onclick="openAllMovements()">📋 Movimientos</button>
@@ -1494,6 +1497,26 @@ function getLocations() {
 }
 function saveLocations(arr) {
     localStorage.setItem('inv_locations', JSON.stringify(arr));
+}
+function getGlobalTarget() {
+    try { return parseInt(localStorage.getItem('inv_globalTarget')) || 0; } catch(e) { return 0; }
+}
+function setGlobalTarget(val) {
+    localStorage.setItem('inv_globalTarget', val);
+}
+function calcGlobalStock() {
+    var locs = getLocations();
+    var total = 0;
+    for (var i = 0; i < locs.length; i++) {
+        var spaces = locs[i].spaces || [];
+        for (var s = 0; s < spaces.length; s++) {
+            var prods = spaces[s].products || [];
+            for (var p = 0; p < prods.length; p++) {
+                total += (prods[p].qty || 0);
+            }
+        }
+    }
+    return total;
 }
 function getUsers() {
     try { return JSON.parse(localStorage.getItem('inv_users') || '[]'); } catch(e) { return []; }
@@ -3789,26 +3812,27 @@ function showQuotProductPicker() {
     var products = getProducts();
     var overlay = document.createElement('div');
     overlay.id = 'quotProductPicker';
-    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:400;display:flex;align-items:flex-end;justify-content:center;';
+    overlay.className = 'modal-overlay open';
+    overlay.style.cssText = 'z-index:300;';
 
     var content = document.createElement('div');
-    content.style.cssText = 'background:var(--card);border-radius:16px 16px 0 0;width:100%;max-width:520px;max-height:80vh;display:flex;flex-direction:column;';
+    content.className = 'modal-content modal-md';
+    content.style.cssText = 'display:flex;flex-direction:column;';
 
-    content.innerHTML = '<div style="padding:16px 16px 8px;">' +
-        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">' +
-            '<h3 style="font-size:16px;font-weight:700;">📦 Seleccionar Producto</h3>' +
-            '<button onclick="document.body.removeChild(document.getElementById(\'quotProductPicker\'))" style="background:var(--bg3);border:none;color:var(--text3);width:30px;height:30px;border-radius:50%;cursor:pointer;font-size:14px;">✕</button>' +
+    content.innerHTML = '<div class="modal-handle"></div>' +
+        '<div class="modal-header">' +
+            '<h3 class="modal-title">📦 Seleccionar Producto</h3>' +
+            '<button class="modal-close" onclick="document.body.removeChild(document.getElementById(\'quotProductPicker\'))">✕</button>' +
         '</div>' +
         '<div style="display:flex;gap:6px;margin-bottom:10px;">' +
             '<button class="btn btn-sm" id="pickerInvBtn" style="flex:1;" onclick="switchPickerTab(\'inv\')">📦 Inventario</button>' +
             '<button class="btn btn-sm btn-outline" id="pickerNewBtn" style="flex:1;" onclick="switchPickerTab(\'new\')">➕ Nuevo</button>' +
         '</div>' +
         '<input type="text" id="pickerSearch" class="input" placeholder="🔍 Buscar producto..." oninput="filterPickerProducts()" style="font-size:13px;">' +
-    '</div>' +
-    '<div id="pickerList" style="flex:1;overflow-y:auto;padding:0 16px 16px;"></div>';
+    '<div id="pickerList" class="modal-scroll-inner" style="margin-top:8px;"></div>';
 
     overlay.appendChild(content);
-    overlay.addEventListener('click', function(e) { if (e.target === overlay) document.body.removeChild(overlay); });
+    overlay.addEventListener('click', function(e) { if (e.target === overlay) { closeModal('quotProductPicker'); document.body.removeChild(overlay); } });
     document.body.appendChild(overlay);
 
     switchPickerTab('inv');
@@ -5026,6 +5050,56 @@ var _locCurrentLocId = null; // Currently viewing location
 var _locCurrentSpace = 0;    // Currently viewing space index
 var _spSelectedProductId = null; // Selected product for space assignment
 
+function renderGlobalTargetBanner() {
+    var banner = document.getElementById('globalTargetBanner');
+    if (!banner) return;
+    var target = getGlobalTarget();
+    var current = calcGlobalStock();
+    var missing = Math.max(0, target - current);
+    var pct = target > 0 ? Math.min(100, Math.round((current / target) * 100)) : 0;
+
+    if (target === 0) {
+        banner.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between;">' +
+            '<div style="display:flex;align-items:center;gap:8px;">' +
+                '<span style="font-size:16px;">📺</span>' +
+                '<span style="font-size:13px;color:var(--text2);">Define el total global de televisores que debes mantener</span>' +
+            '</div>' +
+            '<button class="btn btn-outline btn-xs" onclick="editGlobalTarget()">🎯 Configurar</button>' +
+        '</div>';
+    } else {
+        var barColor = missing > 0 ? '#ff4757' : '#2ed573';
+        var alertMsg = missing > 0
+            ? '⚠️ Faltan <b>' + missing + ' TV' + (missing !== 1 ? 's' : '') + '</b> para completar el objetivo global'
+            : '✅ Objetivo global cumplido';
+        banner.style.background = missing > 0 ? '#ff475715' : '#2ed57315';
+        banner.style.borderColor = missing > 0 ? '#ff475740' : '#2ed57340';
+        banner.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">' +
+            '<div style="display:flex;align-items:center;gap:8px;">' +
+                '<span style="font-size:16px;">📺</span>' +
+                '<span style="font-size:13px;font-weight:600;">Total Global: <b>' + current + '</b> / ' + target + '</span>' +
+            '</div>' +
+            '<button class="btn btn-ghost btn-xs" onclick="editGlobalTarget()" style="font-size:11px;">✏️</button>' +
+        '</div>' +
+        '<div style="display:flex;align-items:center;gap:8px;">' +
+            '<div style="flex:1;background:var(--bg2);border-radius:4px;height:6px;overflow:hidden;">' +
+                '<div style="height:100%;width:' + pct + '%;background:' + barColor + ';border-radius:4px;transition:width 0.4s ease;"></div>' +
+            '</div>' +
+            '<span style="font-size:11px;color:' + (missing > 0 ? '#ff4757' : '#2ed573') + ';white-space:nowrap;">' + alertMsg + '</span>' +
+        '</div>';
+    }
+}
+
+function editGlobalTarget() {
+    var current = getGlobalTarget();
+    var val = prompt('📺 Total global de televisores que debes mantener en todos los locales:', current || '');
+    if (val === null) return;
+    val = parseInt(val) || 0;
+    if (val < 0) val = 0;
+    setGlobalTarget(val);
+    renderGlobalTargetBanner();
+    showToast('Objetivo global actualizado: ' + val + ' TVs', 'success');
+}
+
 function renderLocations() {
     var locs = getLocations();
     var container = document.getElementById('locationsList');
@@ -5041,6 +5115,9 @@ function renderLocations() {
     // Show/hide header
     var header = container.parentElement.querySelector('div[style*="align-items:center"]');
     if (header) header.style.display = 'flex';
+
+    // Render global target banner
+    renderGlobalTargetBanner();
 
     if (locs.length === 0) { container.innerHTML = ''; return; }
 
@@ -5142,8 +5219,22 @@ function renderLocSpaceView(loc) {
 
     // Alert banner
     var alertBanner = '';
+
+    // Global target alert
+    var globalTarget = getGlobalTarget();
+    if (globalTarget > 0) {
+        var globalCurrent = calcGlobalStock();
+        var globalMissing = Math.max(0, globalTarget - globalCurrent);
+        if (globalMissing > 0) {
+            alertBanner += '<div style="background:#ff475715;border:1px solid #ff475740;border-radius:10px;padding:10px 14px;margin-bottom:10px;font-size:13px;color:#ff6b81;display:flex;align-items:center;gap:6px;">' +
+                '<span style="font-size:18px;">📺</span>' +
+                '<span><b>Objetivo Global:</b> Faltan <b>' + globalMissing + ' TV' + (globalMissing !== 1 ? 's' : '') + '</b> (' + globalCurrent + '/' + globalTarget + ')</span></div>';
+        }
+    }
+
+    // Per-space alert
     if (alertCount > 0) {
-        alertBanner = '<div style="background:#ff475720;border:1px solid #ff4757;border-radius:10px;padding:10px 14px;margin-bottom:10px;font-size:13px;color:#ff6b81;display:flex;align-items:center;gap:6px;">' +
+        alertBanner += '<div style="background:#ff475720;border:1px solid #ff4757;border-radius:10px;padding:10px 14px;margin-bottom:10px;font-size:13px;color:#ff6b81;display:flex;align-items:center;gap:6px;">' +
             '<span style="font-size:18px;">⚠️</span>' +
             '<span><b>' + alertCount + ' producto' + (alertCount > 1 ? 's' : '') + '</b> por debajo del mínimo. Faltan <b>' + totalMissing + ' unidad' + (totalMissing !== 1 ? 'es' : '') + '</b> para completar objetivos.</span></div>';
     }
