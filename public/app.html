@@ -951,14 +951,8 @@
                 <h2 style="font-size:22px;font-weight:800;">🏪 Mis Locales</h2>
                 <button class="btn btn-primary btn-sm" onclick="openLocModal()">+ Nuevo Local</button>
             </div>
-            <!-- Global target banner -->
-            <div id="globalTargetBanner" style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;margin-bottom:10px;">
-            </div>
-            <div style="display:flex;gap:6px;margin-bottom:14px;">
-                <button class="btn btn-outline btn-sm" style="flex:1;font-size:12px;" onclick="openStockSummary()">📊 Stock</button>
-                <button class="btn btn-outline btn-sm" style="flex:1;font-size:12px;" onclick="openAllMovements()">📋 Movimientos</button>
-                <button class="btn btn-outline btn-sm" style="flex:1;font-size:12px;" onclick="exportLocaleExcel()">📥 Excel</button>
-            </div>
+            <!-- Global target banner (compact) -->
+            <div id="globalTargetBanner" style="margin-bottom:10px;"></div>
             <!-- Locations list container -->
             <div id="locationsList"></div>
             <!-- Empty state -->
@@ -1502,6 +1496,20 @@
         <div style="display:flex;gap:8px;margin-top:12px;">
             <button class="btn btn-primary btn-sm" style="flex:1;" onclick="exportLocaleExcel()">📥 Exportar Excel</button>
             <button class="btn btn-outline btn-sm" onclick="closeModal('stockSummaryModal')">Cerrar</button>
+        </div>
+    </div>
+</div>
+
+<!-- ===== LOC CONTROL PANEL MODAL ===== -->
+<div id="locControlModal" class="modal-overlay">
+    <div class="modal-content modal-md">
+        <div class="modal-handle"></div>
+        <div class="modal-header">
+            <h3 style="font-size:16px;font-weight:800;">⚙️ Control del Local</h3>
+            <button class="modal-close" onclick="closeModal('locControlModal')">✕</button>
+        </div>
+        <div>
+            <div id="locControlContent"></div>
         </div>
     </div>
 </div>
@@ -4991,6 +4999,8 @@ function updateServerStatus() {
 var _locCurrentLocId = null; // Currently viewing location
 var _locCurrentSpace = 0;    // Currently viewing space index
 var _spSelectedProductId = null; // Selected product for space assignment
+var _locControlLocId = null; // Control panel context
+var _locControlSpaceIdx = 0;
 
 function renderGlobalTargetBanner() {
     var banner = document.getElementById('globalTargetBanner');
@@ -4998,37 +5008,25 @@ function renderGlobalTargetBanner() {
     var target = getGlobalTarget();
     var current = calcGlobalStock();
     var missing = Math.max(0, target - current);
-    var pct = target > 0 ? Math.min(100, Math.round((current / target) * 100)) : 0;
 
     if (target === 0) {
-        banner.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between;">' +
-            '<div style="display:flex;align-items:center;gap:8px;">' +
-                '<span style="font-size:16px;">📺</span>' +
-                '<span style="font-size:13px;color:var(--text2);">Define el total global de televisores que debes mantener</span>' +
-            '</div>' +
-            '<button class="btn btn-outline btn-xs" onclick="editGlobalTarget()">🎯 Configurar</button>' +
-        '</div>';
-    } else {
-        var barColor = missing > 0 ? '#ff4757' : '#2ed573';
-        var alertMsg = missing > 0
-            ? '⚠️ Faltan <b>' + missing + ' TV' + (missing !== 1 ? 's' : '') + '</b> para completar el objetivo global'
-            : '✅ Objetivo global cumplido';
-        banner.style.background = missing > 0 ? '#ff475715' : '#2ed57315';
-        banner.style.borderColor = missing > 0 ? '#ff475740' : '#2ed57340';
-        banner.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">' +
-            '<div style="display:flex;align-items:center;gap:8px;">' +
-                '<span style="font-size:16px;">📺</span>' +
-                '<span style="font-size:13px;font-weight:600;">Total Global: <b>' + current + '</b> / ' + target + '</span>' +
-            '</div>' +
-            '<button class="btn btn-ghost btn-xs" onclick="editGlobalTarget()" style="font-size:11px;">✏️</button>' +
-        '</div>' +
-        '<div style="display:flex;align-items:center;gap:8px;">' +
-            '<div style="flex:1;background:var(--bg2);border-radius:4px;height:6px;overflow:hidden;">' +
-                '<div style="height:100%;width:' + pct + '%;background:' + barColor + ';border-radius:4px;transition:width 0.4s ease;"></div>' +
-            '</div>' +
-            '<span style="font-size:11px;color:' + (missing > 0 ? '#ff4757' : '#2ed573') + ';white-space:nowrap;">' + alertMsg + '</span>' +
-        '</div>';
+        banner.innerHTML = '';
+        return;
     }
+
+    var pct = Math.min(100, Math.round((current / target) * 100));
+    var isOk = missing <= 0;
+    var barColor = isOk ? '#2ed573' : '#ff4757';
+
+    banner.innerHTML = '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:10px 14px;">' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">' +
+            '<span style="font-size:12px;color:var(--text2);">📺 Global: <b>' + current + '</b>/' + target + (isOk ? ' ✅' : ' <span style="color:#ff4757;">(-' + missing + ')</span>') + '</span>' +
+            '<button class="btn btn-ghost btn-xs" onclick="editGlobalTarget()" style="font-size:10px;padding:2px 6px;">✏️</button>' +
+        '</div>' +
+        '<div style="background:var(--bg);border-radius:4px;height:5px;overflow:hidden;">' +
+            '<div style="height:100%;width:' + pct + '%;background:' + barColor + ';border-radius:4px;transition:width 0.4s;"></div>' +
+        '</div>' +
+    '</div>';
 }
 
 function editGlobalTarget() {
@@ -5058,7 +5056,7 @@ function renderLocations() {
     var header = container.parentElement.querySelector('div[style*="align-items:center"]');
     if (header) header.style.display = 'flex';
 
-    // Render global target banner
+    // Render compact global target banner
     renderGlobalTargetBanner();
 
     if (locs.length === 0) { container.innerHTML = ''; return; }
@@ -5068,31 +5066,41 @@ function renderLocations() {
         var loc = locs[i];
         var totalProducts = 0;
         var totalSpaces = (loc.spaces || []).length;
+        var totalTypes = 0;
         for (var s = 0; s < totalSpaces; s++) {
             var products = (loc.spaces[s].products || []);
             for (var p = 0; p < products.length; p++) {
                 totalProducts += (products[p].qty || 0);
+                if (products[p].qty > 0) totalTypes++;
             }
         }
-        var spaceBadges = '';
+
+        // Check for alerts
+        var alertCount = 0;
         for (var s2 = 0; s2 < totalSpaces; s2++) {
-            var spaceName = loc.spaces[s2].name || ('Espacio ' + (s2+1));
+            var prods = (loc.spaces[s2].products || []);
+            for (var p2 = 0; p2 < prods.length; p2++) {
+                if ((prods[p2].qty || 0) <= (prods[p2].minQty || 0)) alertCount++;
+            }
+        }
+        var alertBadge = alertCount > 0 ? ' <span style="background:#ff4757;color:#fff;font-size:9px;padding:1px 6px;border-radius:8px;margin-left:4px;">' + alertCount + ' ⚠️</span>' : '';
+
+        // Space chips
+        var spaceChips = '';
+        for (var s3 = 0; s3 < totalSpaces; s3++) {
+            var spaceName = loc.spaces[s3].name || ('Espacio ' + (s3+1));
             var spaceCount = 0;
-            var spaceProds = (loc.spaces[s2].products || []);
-            for (var p2 = 0; p2 < spaceProds.length; p2++) spaceCount += (spaceProds[p2].qty || 0);
-            spaceBadges += '<span class="loc-space-badge">' + escapeHtml(spaceName) + ' (' + spaceCount + ')</span>';
+            var spaceProds = (loc.spaces[s3].products || []);
+            for (var p3 = 0; p3 < spaceProds.length; p3++) spaceCount += (spaceProds[p3].qty || 0);
+            spaceChips += '<span class="loc-space-badge">' + escapeHtml(spaceName) + ' (' + spaceCount + ')</span>';
         }
 
-        html += '<div class="loc-card" onclick="openLocDetail(\'' + loc.id + '\')">' +
+        html += '<div class="loc-card" onclick="openLocDetail(\'' + loc.id + '\')" style="cursor:pointer;">' +
             '<div class="loc-card-header">' +
                 '<span class="loc-card-title">🏪 ' + escapeHtml(loc.name) + '</span>' +
-                '<span class="loc-card-count">' + totalProducts + ' productos</span>' +
+                '<span class="loc-card-count">' + totalProducts + ' uds' + alertBadge + '</span>' +
             '</div>' +
-            '<div class="loc-spaces">' + (spaceBadges || '<span style="font-size:12px;color:var(--text3);">Sin espacios</span>') + '</div>' +
-            '<div style="display:flex;justify-content:flex-end;gap:6px;">' +
-                '<button class="btn btn-ghost btn-xs" onclick="event.stopPropagation();openLocModal(\'' + loc.id + '\')">✏️ Editar</button>' +
-                '<button class="btn btn-ghost btn-xs" onclick="event.stopPropagation();deleteLoc(\'' + loc.id + '\')" style="color:var(--danger);">🗑️</button>' +
-            '</div>' +
+            (totalSpaces > 0 ? '<div class="loc-spaces">' + spaceChips + '</div>' : '') +
         '</div>';
     }
     container.innerHTML = html;
@@ -5132,15 +5140,12 @@ function renderLocSpaceView(loc) {
     // Count stats
     var totalQty = 0;
     var totalTypes = products.length;
-    var totalTarget = 0;
-    var totalMissing = 0;
     var alertCount = 0;
+    var lowCount = 0;
     for (var p = 0; p < products.length; p++) {
         totalQty += (products[p].qty || 0);
-        totalTarget += (products[p].targetQty || 0);
-        var missing = (products[p].targetQty || 0) - (products[p].qty || 0);
-        if (missing > 0) totalMissing += missing;
-        if ((products[p].qty || 0) <= (products[p].minQty || 0)) alertCount++;
+        if ((products[p].qty || 0) === 0) alertCount++;
+        else if ((products[p].qty || 0) <= (products[p].minQty || 0)) lowCount++;
     }
 
     // Space tabs
@@ -5159,41 +5164,38 @@ function renderLocSpaceView(loc) {
             escapeHtml(spaces[s].name) + ' <small>(' + sCount + ')</small>' + alertBadge + '</span>';
     }
 
-    // Alert banner
-    var alertBanner = '';
-
-    // Global target alert
-    var globalTarget = getGlobalTarget();
-    if (globalTarget > 0) {
-        var globalCurrent = calcGlobalStock();
-        var globalMissing = Math.max(0, globalTarget - globalCurrent);
-        if (globalMissing > 0) {
-            alertBanner += '<div style="background:#ff475715;border:1px solid #ff475740;border-radius:10px;padding:10px 14px;margin-bottom:10px;font-size:13px;color:#ff6b81;display:flex;align-items:center;gap:6px;">' +
-                '<span style="font-size:18px;">📺</span>' +
-                '<span><b>Objetivo Global:</b> Faltan <b>' + globalMissing + ' TV' + (globalMissing !== 1 ? 's' : '') + '</b> (' + globalCurrent + '/' + globalTarget + ')</span></div>';
-        }
-    }
-
-    // Per-space alert
+    // Compact alert (only if there are problems)
+    var alertHtml = '';
     if (alertCount > 0) {
-        alertBanner += '<div style="background:#ff475720;border:1px solid #ff4757;border-radius:10px;padding:10px 14px;margin-bottom:10px;font-size:13px;color:#ff6b81;display:flex;align-items:center;gap:6px;">' +
-            '<span style="font-size:18px;">⚠️</span>' +
-            '<span><b>' + alertCount + ' producto' + (alertCount > 1 ? 's' : '') + '</b> por debajo del mínimo. Faltan <b>' + totalMissing + ' unidad' + (totalMissing !== 1 ? 'es' : '') + '</b> para completar objetivos.</span></div>';
+        alertHtml = '<div style="background:#ff475715;border:1px solid #ff475730;border-radius:10px;padding:8px 14px;margin-bottom:10px;font-size:12px;color:#ff6b81;">' +
+            '🚨 <b>' + alertCount + '</b> producto' + (alertCount > 1 ? 's' : '') + ' agotado' + (alertCount > 1 ? 's' : '') + '</div>';
+    } else if (lowCount > 0) {
+        alertHtml = '<div style="background:#ffa50215;border:1px solid #ffa50230;border-radius:10px;padding:8px 14px;margin-bottom:10px;font-size:12px;color:#ffa502;">' +
+            '⚠️ <b>' + lowCount + '</b> producto' + (lowCount > 1 ? 's' : '') + ' bajo' + (lowCount > 1 ? 's' : '') + ' mínimo</div>';
     }
 
-    // Product list
+    // Read-only product list (no controls)
     var prodHtml = '';
     if (products.length === 0) {
-        prodHtml = '<div style="text-align:center;padding:30px 20px;color:var(--text2);">' +
-            '<div style="font-size:36px;margin-bottom:8px;">📦</div>' +
+        prodHtml = '<div style="text-align:center;padding:24px 20px;color:var(--text3);">' +
+            '<div style="font-size:32px;margin-bottom:6px;">📦</div>' +
             '<div style="font-size:13px;">Sin productos en este espacio</div></div>';
     } else {
         for (var i = 0; i < products.length; i++) {
             var pr = products[i];
             var pName = pr.name || 'Producto';
-            if (pr.brand) pName += ' - ' + pr.brand;
+            if (pr.brand) pName += ' · ' + pr.brand;
+            var qty = pr.qty || 0;
+            var target = pr.targetQty || 2;
+            var min = pr.minQty || 1;
 
-            // Build spec tags
+            // Status
+            var statusColor = '#2ed573';
+            var statusIcon = '✅';
+            if (qty === 0) { statusColor = '#ff4757'; statusIcon = '🚨'; }
+            else if (qty <= min) { statusColor = '#ffa502'; statusIcon = '⚠️'; }
+
+            // Spec tags (compact)
             var locSpecsHtml = '';
             if (pr.specifications) {
                 try {
@@ -5203,91 +5205,96 @@ function renderLocSpaceView(loc) {
                         for (var s = 0; s < specKeys.length; s++) {
                             var sv = (specObj[specKeys[s]] || '').trim();
                             if (sv) {
-                                locSpecsHtml += '<span class="product-spec-tag">' + escapeHtml(specKeys[s] + ': ' + sv) + '</span>';
+                                locSpecsHtml += '<span class="product-spec-tag">' + escapeHtml(sv) + '</span>';
                             }
                         }
                     }
                 } catch(e) {}
             }
 
-            var qty = pr.qty || 0;
-            var target = pr.targetQty || 2;
-            var min = pr.minQty || 1;
-            var missing = target - qty;
-            var isAlert = qty <= min;
-
-            // Status indicator
-            var statusColor = '#2ed573'; // green = ok
-            var statusIcon = '✅';
-            var statusText = 'OK';
-            if (isAlert && qty === 0) {
-                statusColor = '#ff4757'; statusIcon = '🚨'; statusText = 'AGOTADO';
-            } else if (isAlert) {
-                statusColor = '#ffa502'; statusIcon = '⚠️'; statusText = 'BAJO';
-            } else if (missing > 0) {
-                statusColor = '#1e90ff'; statusIcon = '➖'; statusText = 'Incompleto';
-            }
-
-            // Progress bar
+            // Progress bar (subtle)
             var pct = target > 0 ? Math.min(100, Math.round((qty / target) * 100)) : 100;
-            var barColor = isAlert ? '#ff4757' : (missing > 0 ? '#1e90ff' : '#2ed573');
+            var barColor = qty === 0 ? '#ff4757' : (qty <= min ? '#ffa502' : '#2ed573');
 
-            // Target and missing info
-            var targetInfo = '<div style="font-size:11px;color:var(--text3);margin-top:3px;">' +
-                '<span>Objetivo: <b>' + target + '</b></span> · <span>Mín: <b>' + min + '</b></span>';
-            if (missing > 0) {
-                targetInfo += ' · <span style="color:#ff4757;">Faltan: <b>' + missing + '</b></span>';
-            } else if (qty >= target) {
-                targetInfo += ' · <span style="color:#2ed573;">Completo ✓</span>';
-            }
-            targetInfo += '</div>';
-
-            prodHtml += '<div class="loc-product-row" style="flex-wrap:wrap;padding:10px 0;border-bottom:1px solid var(--border);' + (isAlert ? 'border-left:3px solid ' + statusColor + ';padding-left:11px;' : '') + '">' +
+            prodHtml += '<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);' + (qty <= min ? 'border-left:3px solid ' + statusColor + ';padding-left:9px;' : '') + '">' +
+                '<span style="font-size:11px;color:' + statusColor + ';flex-shrink:0;">' + statusIcon + '</span>' +
                 '<div style="flex:1;min-width:0;">' +
-                    '<div style="display:flex;align-items:center;gap:4px;">' +
-                        '<span class="loc-product-name">' + escapeHtml(pName) + '</span>' +
-                        '<span style="font-size:11px;color:' + statusColor + ';">' + statusIcon + ' ' + statusText + '</span>' +
-                    '</div>' +
+                    '<div style="font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(pName) + '</div>' +
                     (locSpecsHtml ? '<div class="product-specs" style="margin-top:2px;">' + locSpecsHtml + '</div>' : '') +
-                    targetInfo +
-                    '<div style="background:var(--bg2);border-radius:4px;height:4px;margin-top:5px;overflow:hidden;"><div style="height:100%;width:' + pct + '%;background:' + barColor + ';border-radius:4px;"></div></div>' +
                 '</div>' +
-                '<div class="loc-product-qty" style="align-items:center;">' +
-                    '<button class="btn btn-ghost btn-xs" onclick="sellFromSpace(\'' + loc.id + '\',' + currentIdx + ',' + i + ')" style="color:#ff4757;font-size:11px;white-space:nowrap;padding:4px 6px;" title="Registrar venta">💰 Venta</button>' +
-                    '<button class="loc-qty-btn" onclick="changeSpaceQty(\'' + loc.id + '\',' + currentIdx + ',' + i + ',-1)">−</button>' +
-                    '<span class="loc-qty-num" style="' + (isAlert ? 'color:' + statusColor + ';font-weight:700;' : '') + '">' + qty + '</span>' +
-                    '<button class="loc-qty-btn" onclick="changeSpaceQty(\'' + loc.id + '\',' + currentIdx + ',' + i + ',1)">+</button>' +
-                    '<button class="btn btn-ghost btn-xs" onclick="editProductTarget(\'' + loc.id + '\',' + currentIdx + ',' + i + ')" style="color:var(--primary);font-size:12px;" title="Editar objetivo">🎯</button>' +
-                    '<button class="btn btn-ghost btn-xs" onclick="removeProductFromSpace(\'' + loc.id + '\',' + currentIdx + ',' + i + ')" style="color:var(--danger);font-size:14px;">✕</button>' +
+                '<div style="text-align:right;flex-shrink:0;">' +
+                    '<div style="font-size:16px;font-weight:700;color:' + statusColor + ';">' + qty + '</div>' +
+                    '<div style="background:var(--bg2);border-radius:3px;height:3px;width:40px;margin-top:3px;overflow:hidden;"><div style="height:100%;width:' + pct + '%;background:' + barColor + ';border-radius:3px;"></div></div>' +
                 '</div>' +
             '</div>';
         }
     }
 
     spaceView.innerHTML =
-        '<div class="loc-back" onclick="renderLocations()">← Volver a Locales</div>' +
-        '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">' +
+        '<div class="loc-back" onclick="renderLocations()">← Volver</div>' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">' +
             '<h2 style="font-size:20px;font-weight:800;">🏪 ' + escapeHtml(loc.name) + '</h2>' +
-            '<div style="display:flex;gap:6px;">' +
-                '<button class="btn btn-ghost btn-xs" onclick="openLocMovements(\'' + loc.id + '\')" style="font-size:11px;">📋 Movimientos</button>' +
-                '<button class="btn btn-ghost btn-xs" onclick="openStockSummary()" style="font-size:11px;">📊 Stock</button>' +
-                '<button class="btn btn-ghost btn-xs" onclick="openLocModal(\'' + loc.id + '\')">✏️ Editar</button>' +
-            '</div>' +
+            '<button class="btn btn-primary btn-sm" onclick="openLocControlPanel(\'' + loc.id + '\',' + currentIdx + ')">⚙️ Control</button>' +
         '</div>' +
         '<div class="loc-stat-row">' +
             '<div class="loc-stat-item"><div class="loc-stat-num">' + spaces.length + '</div><div class="loc-stat-label">Espacios</div></div>' +
             '<div class="loc-stat-item"><div class="loc-stat-num">' + totalTypes + '</div><div class="loc-stat-label">Tipos</div></div>' +
             '<div class="loc-stat-item"><div class="loc-stat-num" style="color:var(--primary);">' + totalQty + '</div><div class="loc-stat-label">Unidades</div></div>' +
-            '<div class="loc-stat-item"><div class="loc-stat-num" style="color:' + (totalMissing > 0 ? '#ff4757' : '#2ed573') + ';">' + (totalTarget - totalQty > 0 ? '-' + (totalTarget - totalQty) : '✓') + '</div><div class="loc-stat-label">Faltantes</div></div>' +
         '</div>' +
-        alertBanner +
-        '<div style="margin:14px 0 6px;font-size:13px;font-weight:700;color:var(--text2);">ESPACIOS</div>' +
-        (tabsHtml || '<div style="color:var(--text3);font-size:13px;padding:8px 0;">Agrega espacios al editar el local</div>') +
-        '<div style="margin:14px 0 10px;display:flex;align-items:center;justify-content:space-between;">' +
-            '<div style="font-size:15px;font-weight:700;">📦 ' + escapeHtml(currentSpace.name) + '</div>' +
-            '<button class="btn btn-primary btn-sm" onclick="openSpaceProductModal(\'' + loc.id + '\',' + currentIdx + ')">+ Producto</button>' +
-        '</div>' +
+        alertHtml +
+        '<div style="margin:12px 0 6px;font-size:12px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;">Espacios</div>' +
+        (tabsHtml || '<div style="color:var(--text3);font-size:13px;padding:8px 0;">Sin espacios definidos</div>') +
+        '<div style="margin:12px 0 8px;font-size:14px;font-weight:700;">📦 ' + escapeHtml(currentSpace.name) + '</div>' +
         '<div class="card" style="padding:4px 14px;">' + prodHtml + '</div>';
+}
+
+// CONTROL PANEL: Opens a modal with all locale management actions
+function openLocControlPanel(locId, spaceIdx) {
+    var loc = null;
+    var locs = getLocations();
+    for (var i = 0; i < locs.length; i++) {
+        if (locs[i].id === locId) { loc = locs[i]; break; }
+    }
+    if (!loc) return;
+    _locControlLocId = locId;
+    _locControlSpaceIdx = spaceIdx || 0;
+
+    var html = '<div style="padding:4px 0;">';
+
+    // Section: Local settings
+    html += '<div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Local</div>';
+    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:14px;">' +
+        '<button class="btn btn-outline btn-sm" onclick="closeModal(\'locControlModal\');openLocModal(\'' + loc.id + '\')" style="font-size:12px;">✏️ Editar Local</button>' +
+        '<button class="btn btn-outline btn-sm" onclick="closeModal(\'locControlModal\');if(confirm(\'Eliminar este local?\'))deleteLoc(\'' + loc.id + '\')" style="font-size:12px;color:var(--danger);">🗑️ Eliminar</button>' +
+    '</div>';
+
+    // Section: Espacio actual
+    var spaceName = (loc.spaces && loc.spaces[spaceIdx]) ? (loc.spaces[spaceIdx].name || 'Espacio') : 'Espacio';
+    html += '<div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">' + escapeHtml(spaceName) + '</div>';
+    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:14px;">' +
+        '<button class="btn btn-primary btn-sm" onclick="closeModal(\'locControlModal\');openSpaceProductModal(\'' + loc.id + '\',' + spaceIdx + ')" style="font-size:12px;">📦 Agregar Producto</button>' +
+        '<button class="btn btn-outline btn-sm" onclick="closeModal(\'locControlModal\');openLocMovements(\'' + loc.id + '\')" style="font-size:12px;">📋 Movimientos</button>' +
+    '</div>';
+
+    // Section: Global settings
+    html += '<div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Global</div>';
+    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:14px;">' +
+        '<button class="btn btn-outline btn-sm" onclick="closeModal(\'locControlModal\');editGlobalTarget()" style="font-size:12px;">🎯 Objetivo Global</button>' +
+        '<button class="btn btn-outline btn-sm" onclick="closeModal(\'locControlModal\');openStockSummary()" style="font-size:12px;">📊 Resumen Stock</button>' +
+    '</div>';
+
+    // Section: Exports
+    html += '<div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Exportar</div>';
+    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">' +
+        '<button class="btn btn-outline btn-sm" onclick="closeModal(\'locControlModal\');exportLocaleExcel()" style="font-size:12px;">📥 Excel Locales</button>' +
+        '<button class="btn btn-outline btn-sm" onclick="closeModal(\'locControlModal\');openAllMovements()" style="font-size:12px;">📋 Todos Mov.</button>' +
+    '</div>';
+
+    html += '</div>';
+
+    var content = document.getElementById('locControlContent');
+    if (content) content.innerHTML = html;
+    openModal('locControlModal');
 }
 
 function _findLocIdx(locId) {
