@@ -158,51 +158,70 @@
         .password-toggle:active { background: var(--bg3); }
 
         /* ================================================================
-           CUSTOM DROPDOWN SELECT (shadcn/ui style)
+           CUSTOM DROPDOWN SELECT — refined modal style
            ================================================================ */
         .cs-wrap { position: relative; margin-bottom: 16px; }
         .cs-trigger {
-            width: 100%; padding: 11px 14px; padding-right: 38px;
-            border: 1px solid var(--border); border-radius: var(--radius);
-            font-size: 15px; background: var(--bg2); color: var(--text);
+            width: 100%; padding: 10px 14px; padding-right: 36px;
+            border: 1px solid var(--border); border-radius: 10px;
+            font-size: 14px; background: var(--bg2); color: var(--text);
             cursor: pointer; text-align: left; position: relative;
-            transition: border-color 0.2s, box-shadow 0.2s;
+            transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
             -webkit-tap-highlight-color: transparent;
             -webkit-appearance: none; appearance: none;
             display: flex; align-items: center; justify-content: space-between;
         }
-        .cs-trigger.open { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-bg); background: var(--bg3); }
+        .cs-trigger.open {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px var(--primary-bg);
+            background: var(--bg3);
+            border-radius: 10px 10px 0 0;
+        }
         .cs-trigger .cs-placeholder { color: var(--text3); }
         .cs-trigger .cs-value { color: var(--text); }
         .cs-trigger .cs-arrow {
-            font-size: 12px; color: var(--text3); transition: transform 0.2s;
+            font-size: 11px; color: var(--text3); transition: transform 0.25s;
             flex-shrink: 0; margin-left: 8px;
         }
         .cs-trigger.open .cs-arrow { transform: rotate(180deg); }
         .cs-dropdown {
-            position: absolute; top: calc(100% + 4px); left: 0; right: 0;
-            background: var(--card); border: 1px solid var(--border2);
-            border-radius: var(--radius); box-shadow: var(--shadow);
-            z-index: 500; max-height: 240px; overflow: hidden; display: none;
+            position: absolute; top: 100%; left: 0; right: 0;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-top: 3px solid var(--primary);
+            border-radius: 0 0 14px 14px;
+            box-shadow: 0 16px 48px rgba(0,0,0,0.2), 0 4px 12px rgba(0,0,0,0.08);
+            z-index: 500; max-height: 220px; overflow: hidden; display: none;
         }
-        .cs-dropdown.open { display: flex; flex-direction: column; animation: csIn 0.15s ease; }
-        @keyframes csIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+        .cs-dropdown.open {
+            display: flex; flex-direction: column;
+            animation: csSlide 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        @keyframes csSlide {
+            from { opacity: 0; transform: translateY(-6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
         .cs-search {
             width: 100%; padding: 10px 14px; border: none; border-bottom: 1px solid var(--border);
-            font-size: 14px; background: var(--bg2); border-radius: var(--radius) var(--radius) 0 0;
+            font-size: 13px; background: var(--bg2); border-radius: 0;
             outline: none; color: var(--text); flex-shrink: 0;
         }
         .cs-search::placeholder { color: var(--text3); }
         .cs-options {
-            overflow-y: auto; max-height: 190px; flex: 1;
+            overflow-y: auto; max-height: 170px; flex: 1;
+            -webkit-overflow-scrolling: touch;
         }
         .cs-option {
-            padding: 10px 14px; cursor: pointer; font-size: 14px; color: var(--text2);
-            transition: background 0.1s; display: flex; align-items: center;
-            justify-content: space-between;
+            padding: 10px 14px; cursor: pointer; font-size: 13px; color: var(--text2);
+            transition: background 0.12s, padding-left 0.12s;
+            display: flex; align-items: center; justify-content: space-between;
+            border-bottom: 1px solid var(--border);
         }
-        .cs-option:active, .cs-option:hover { background: var(--bg3); }
-        .cs-option.selected { background: var(--primary-bg); color: var(--primary); font-weight: 600; }
+        .cs-option:last-child { border-bottom: none; }
+        .cs-option:active { background: var(--primary-bg); padding-left: 18px; }
+        .cs-option.selected {
+            background: var(--primary-bg); color: var(--primary); font-weight: 600;
+        }
         .cs-option .cs-check { font-size: 13px; opacity: 0; }
         .cs-option.selected .cs-check { opacity: 1; }
         .cs-no-results { padding: 16px; text-align: center; font-size: 13px; color: var(--text3); }
