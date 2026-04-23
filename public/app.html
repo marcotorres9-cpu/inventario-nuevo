@@ -388,6 +388,8 @@
         }
         .product-info { flex: 1; min-width: 0; }
         .product-name { font-weight: 600; font-size: 14px; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .product-specs { font-size: 11px; color: var(--primary); font-weight: 500; margin-bottom: 2px; display: flex; flex-wrap: wrap; gap: 4px; }
+        .product-spec-tag { background: var(--accent); color: #fff; padding: 1px 7px; border-radius: 4px; font-size: 10px; font-weight: 600; letter-spacing: 0.3px; }
         .product-meta { font-size: 11px; color: var(--text3); display: flex; gap: 10px; }
         .product-right { text-align: right; flex-shrink: 0; margin-left: 10px; }
         .product-price { font-weight: 700; font-size: 14px; color: var(--primary); }
@@ -2950,7 +2952,7 @@ function renderProductList() {
         if (!search) {
             filtered.push(p);
         } else {
-            var haystack = (p.name + ' ' + p.brand + ' ' + p.sku + ' ' + p.barcode + ' ' + p.category + ' ' + p.color + ' ' + (p.description || '')).toLowerCase();
+            var haystack = (p.name + ' ' + p.brand + ' ' + p.sku + ' ' + p.barcode + ' ' + p.category + ' ' + p.color + ' ' + (p.description || '') + ' ' + (p.specifications || '')).toLowerCase();
             if (haystack.indexOf(search) >= 0) {
                 filtered.push(p);
             }
@@ -2977,9 +2979,27 @@ function renderProductList() {
 
         var price = parseFloat(pr.salePrice) || parseFloat(pr.price) || 0;
 
+        // Build spec tags from specifications JSON
+        var specsHtml = '';
+        if (pr.specifications) {
+            try {
+                var specObj = (typeof pr.specifications === 'string') ? JSON.parse(pr.specifications) : pr.specifications;
+                if (specObj && typeof specObj === 'object') {
+                    var specKeys = Object.keys(specObj);
+                    for (var s = 0; s < specKeys.length; s++) {
+                        var sv = (specObj[specKeys[s]] || '').trim();
+                        if (sv) {
+                            specsHtml += '<span class="product-spec-tag">' + escapeHtml(specKeys[s] + ': ' + sv) + '</span>';
+                        }
+                    }
+                }
+            } catch(e) {}
+        }
+
         html += '<div class="product-item">' +
             '<div class="product-info" onclick="openEditProduct(\'' + pr.id + '\')">' +
                 '<div class="product-name">' + escapeHtml(pr.name) + '</div>' +
+                (specsHtml ? '<div class="product-specs">' + specsHtml + '</div>' : '') +
                 '<div class="product-meta">' +
                     '<span>' + escapeHtml(pr.brand || '—') + '</span>' +
                     '<span>' + escapeHtml(pr.category || '—') + '</span>' +
