@@ -530,30 +530,31 @@
             border-color: var(--primary);
             box-shadow: 0 0 0 2px var(--primary-bg);
         }
-        .filter-chip-dropdown {
-            display: none; position: absolute; top: calc(100% + 6px); left: 0;
-            z-index: 350;
+        /* Global dropdown: rendered at body level so nothing clips it */
+        #chipDropdownOverlay {
+            display: none; position: fixed; z-index: 9999;
             background: var(--card); border: 1px solid var(--border);
             border-top: 3px solid var(--primary);
-            border-radius: 14px; box-shadow: 0 12px 40px rgba(0,0,0,0.25), 0 4px 12px rgba(0,0,0,0.1);
-            min-width: 160px; max-width: 220px; max-height: 220px; overflow-y: auto;
+            border-radius: 14px; box-shadow: 0 16px 48px rgba(0,0,0,0.3), 0 4px 12px rgba(0,0,0,0.1);
+            min-width: 170px; max-width: 250px; max-height: 240px; overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
         }
-        .filter-chip-dropdown.open {
+        #chipDropdownOverlay.open {
             display: flex; flex-direction: column;
-            animation: chipDrop 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+            animation: chipDropFixed 0.22s cubic-bezier(0.16, 1, 0.3, 1);
         }
-        @keyframes chipDrop {
-            from { opacity: 0; transform: translateY(-8px) scale(0.95); }
+        @keyframes chipDropFixed {
+            from { opacity: 0; transform: translateY(-6px) scale(0.96); }
             to { opacity: 1; transform: translateY(0) scale(1); }
         }
         .filter-chip-opt {
-            padding: 9px 14px; cursor: pointer; font-size: 13px; color: var(--text2);
-            transition: background 0.12s, color 0.12s;
+            padding: 10px 14px; cursor: pointer; font-size: 13px; color: var(--text2);
+            transition: background 0.12s, color 0.12s, padding-left 0.12s;
             border-bottom: 1px solid var(--border);
             display: flex; align-items: center; justify-content: space-between;
         }
         .filter-chip-opt:last-child { border-bottom: none; }
-        .filter-chip-opt:active { background: var(--primary-bg); }
+        .filter-chip-opt:active { background: var(--primary); color: #fff; padding-left: 18px; }
         .filter-chip-opt.selected { background: var(--primary-bg); color: var(--primary); font-weight: 600; }
         .filter-chip-opt .chip-check { font-size: 12px; opacity: 0; color: var(--primary); }
         .filter-chip-opt.selected .chip-check { opacity: 1; }
@@ -3341,22 +3342,42 @@ var _filterChipState = { fcat: '', fbrand: '', fcolor: '', fspec: '', spcat: '',
 var _openChipDropdown = null;
 
 function toggleFilterDropdown(key) {
-    // Close any other open dropdown
-    if (_openChipDropdown && _openChipDropdown !== key) {
-        var prevDd = document.getElementById('dd' + capitalize(_openChipDropdown));
-        if (prevDd) prevDd.classList.remove('open');
-    }
-    var dd = document.getElementById('dd' + capitalize(key));
-    if (!dd) return;
-    if (dd.classList.contains('open')) {
-        dd.classList.remove('open');
+    var overlay = document.getElementById('chipDropdownOverlay');
+    if (!overlay) return;
+
+    // If already open for this key, just close
+    if (_openChipDropdown === key) {
+        overlay.classList.remove('open');
         _openChipDropdown = null;
-    } else {
-        // Populate options
-        populateChipDropdown(key);
-        dd.classList.add('open');
-        _openChipDropdown = key;
+        return;
     }
+
+    // Find the button that was clicked to position the dropdown
+    var chipMap = { fcat: 'chipFilterCat', fbrand: 'chipFilterBrand', fcolor: 'chipFilterColor', fspec: 'chipFilterSpec',
+                    spcat: 'chipSpCat', spbrand: 'chipSpBrand', spcolor: 'chipSpColor', spspec: 'chipSpSpec' };
+    var btn = document.getElementById(chipMap[key]);
+    if (!btn) return;
+
+    // Populate options into overlay
+    populateChipDropdown(key, overlay);
+
+    // Position overlay below the button using fixed positioning
+    var rect = btn.getBoundingClientRect();
+    var ddWidth = Math.min(220, window.innerWidth - 24);
+    var left = Math.max(12, Math.min(rect.left, window.innerWidth - ddWidth - 12));
+    var top = rect.bottom + 4;
+
+    // Ensure dropdown doesn't go off bottom of screen
+    var estHeight = Math.min(240, window.innerHeight * 0.4);
+    if (top + estHeight > window.innerHeight - 20) {
+        top = rect.top - estHeight - 4; // show above button instead
+    }
+
+    overlay.style.left = left + 'px';
+    overlay.style.top = top + 'px';
+    overlay.style.width = ddWidth + 'px';
+    overlay.classList.add('open');
+    _openChipDropdown = key;
 }
 
 function capitalize(s) {
@@ -3364,9 +3385,8 @@ function capitalize(s) {
     return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-function populateChipDropdown(key) {
-    var dd = document.getElementById('dd' + capitalize(key));
-    if (!dd) return;
+function populateChipDropdown(key, overlay) {
+    if (!overlay) return;
     var products = getProducts();
     var current = _filterChipState[key] || '';
     var isSp = key.indexOf('sp') === 0;
@@ -3418,7 +3438,7 @@ function populateChipDropdown(key) {
     values.sort();
 
     if (values.length === 0) {
-        dd.innerHTML = '<div style="padding:14px;text-align:center;color:var(--text3);font-size:12px;">Sin opciones</div>';
+        overlay.innerHTML = '<div style="padding:14px;text-align:center;color:var(--text3);font-size:12px;">Sin opciones (' + products.length + ' productos)</div>';
         return;
     }
 
@@ -3428,7 +3448,7 @@ function populateChipDropdown(key) {
         html += '<div class="filter-chip-opt' + sel + '" data-val="' + escapeHtml(values[j]) + '" onclick="selectChipValue(\'' + key + '\',\'' + escapeHtml(values[j]).replace(/'/g, "\\'") + '\')">' +
             escapeHtml(values[j]) + '<span class="chip-check">✓</span></div>';
     }
-    dd.innerHTML = html;
+    overlay.innerHTML = html;
 }
 
 function selectChipValue(key, value) {
@@ -3446,8 +3466,8 @@ function selectChipValue(key, value) {
     }
 
     // Close dropdown
-    var dd = document.getElementById('dd' + capitalize(key));
-    if (dd) dd.classList.remove('open');
+    var overlay = document.getElementById('chipDropdownOverlay');
+    if (overlay) overlay.classList.remove('open');
     _openChipDropdown = null;
 
     // Cascading: reset downstream filters
@@ -3497,12 +3517,14 @@ function getSpFilterValues() {
     return { cat: _filterChipState.spcat || '', brand: _filterChipState.spbrand || '', color: _filterChipState.spcolor || '', spec: _filterChipState.spspec || '' };
 }
 
-// Close dropdowns on outside tap
+// Close dropdown on outside tap
 document.addEventListener('click', function(e) {
-    if (_openChipDropdown && !e.target.closest('.filter-chip-wrap')) {
-        var dd = document.getElementById('dd' + capitalize(_openChipDropdown));
-        if (dd) dd.classList.remove('open');
-        _openChipDropdown = null;
+    if (_openChipDropdown) {
+        var overlay = document.getElementById('chipDropdownOverlay');
+        if (!e.target.closest('.filter-chip') && !e.target.closest('#chipDropdownOverlay')) {
+            if (overlay) overlay.classList.remove('open');
+            _openChipDropdown = null;
+        }
     }
 });
 
@@ -8127,6 +8149,9 @@ document.getElementById('resetForm').addEventListener('submit', function(e) {
     });
 });
 </script>
+
+<!-- Global chip dropdown (at body level to avoid clipping) -->
+<div id="chipDropdownOverlay"></div>
 
 </body>
 </html>
