@@ -7,6 +7,20 @@ export const metadata: Metadata = {
   description: 'Ver cotización',
 };
 
+const DB_HOST = 'ep-little-queen-anghflli.c-6.us-east-1.aws.neon.tech';
+const DB_URL = 'postgresql://neondb_owner:npg_GBoFNmzL9vW2@ep-little-queen-anghflli.c-6.us-east-1.aws.neon.tech/neondb?sslmode=require';
+
+async function query(sql: string, params: any[] = []) {
+  const r = await fetch(`https://${DB_HOST}/sql`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Neon-Connection-String': DB_URL },
+    body: JSON.stringify({ query: sql, params })
+  });
+  if (!r.ok) throw new Error(await r.text());
+  const d = await r.json();
+  return d.rows || [];
+}
+
 export default async function QRPage({ searchParams }: { searchParams: Promise<{ id?: string }> }) {
   const { id } = await searchParams;
   const qid = id || '';
@@ -23,26 +37,21 @@ export default async function QRPage({ searchParams }: { searchParams: Promise<{
     );
   }
 
-  // Fetch quotation data from API
-  let data: any = null;
+  // Fetch quotation data directly from database
+  let r: any = null;
   let error = false;
 
   try {
-    const baseUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://inventario-nuevo.vercel.app';
-    const res = await fetch(`${baseUrl}/api/quotations/${encodeURIComponent(qid)}`, {
-      cache: 'no-store',
-      headers: { 'Content-Type': 'application/json' }
-    });
-    if (res.ok) {
-      data = await res.json();
-    } else {
-      error = true;
-    }
+    const rows = await query(
+      `SELECT * FROM "Quotation" WHERE id=$1`,
+      [qid]
+    );
+    r = rows.length > 0 ? rows[0] : null;
   } catch {
     error = true;
   }
 
-  if (error || !data || data.error) {
+  if (error || !r) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', fontFamily: 'Arial, sans-serif', background: '#f9fafb' }}>
         <div style={{ textAlign: 'center', padding: 40 }}>
@@ -54,23 +63,57 @@ export default async function QRPage({ searchParams }: { searchParams: Promise<{
     );
   }
 
-  const store = data.store || {};
-  const isDual = data.isDualMode && data.itemsB && data.itemsB.length > 0;
-  const currency = store.currency || '$';
-  const createdDate = data.createdAt ? new Date(data.createdAt).toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' }) : '';
-  const validDays = data.validDays || 15;
-  const validDate = data.createdAt
-    ? new Date(new Date(data.createdAt).getTime() + validDays * 86400000).toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' })
+  // Fetch store info
+  let store: any = {};
+  try {
+    const storeRows = await query(
+      `SELECT name, address, phone, email, logo, footer, currency FROM "Store" LIMIT 1`
+    );
+    store = storeRows.length > 0 ? storeRows[0] : {};
+  } catch {}
+
+  // Parse quotation data
+  let itemsA: any[] = [];
+  let itemsB: any[] = [];
+  let discountA: any = { type: 'percentage', value: 0 };
+  let discountB: any = { type: 'percentage', value: 0 };
+  let totalsA: any = null;
+  let totalsB: any = null;
+
+  try { itemsA = JSON.parse(r.itemsAJson || '[]'); } catch {}
+  try { itemsB = JSON.parse(r.itemsBJson || '[]'); } catch {}
+  try { discountA = JSON.parse(r.discountAJson || '{}'); } catch {}
+  try { discountB = JSON.parse(r.discountBJson || '{}'); } catch {}
+  try { totalsA = JSON.parse(r.totalsAJson || 'null'); } catch {}
+  try { totalsB = JSON.parse(r.totalsBJson || 'null'); } catch {}
+
+  const isDual = r.mode === 'dual' && itemsB && itemsB.length > 0;
+  const currency = '$';
+  const createdDate = r.createdAt ? new Date(r.createdAt).toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' }) : '';
+  const validDays = parseInt(r.validDays) || 15;
+  const validDate = r.createdAt
+    ? new Date(new Date(r.createdAt).getTime() + validDays * 86400000).toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' })
     : '';
 
-  // Parse sections
+  const qNumber = r.number || 'COT-001';
+  const clientName = r.customerName || '';
+  const customerPhone = r.customerPhone || '';
+  const customerEmail = r.customerEmail || '';
+  const total = parseFloat(r.total) || 0;
+  const notes = r.notes || '';
+  const storeName = store.name || 'Mi Tienda';
+  const storeAddr = store.address || '';
+  const storePhone = store.phone || '';
+  const storeEmail = store.email || '';
+  const footerText = store.footer || 'Gracias por su preferencia';
+
   const sections = isDual
     ? [
-        { title: data.optionTitleA || 'Opción A', items: data.itemsA || [], discount: data.discountA, totals: data.totalsA, color: '#22c55e' },
-        { title: data.optionTitleB || 'Opción B', items: data.itemsB || [], discount: data.discountB, totals: data.totalsB, color: '#3b82f6' }
+        { title: r.optionATitle || 'Opción A', items: itemsA, discount: discountA, totals: totalsA, color: '#22c55e' },
+        { title: r.optionBTitle || 'Opción B', items: itemsB, discount: discountB, totals: totalsB, color: '#3b82f6' }
       ]
     : [
-        { title: null, items: data.itemsA || [], discount: data.discountA, totals: data.totalsA, color: '#22c55e' }
+        { title: null, items: itemsA, discount: discountA, totals: totalsA, color: '#22c55e' }
       ];
 
   return (
@@ -78,7 +121,7 @@ export default async function QRPage({ searchParams }: { searchParams: Promise<{
       <head>
         <meta charSet="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>Cotización {data.number || ''}</title>
+        <title>Cotización {qNumber}</title>
         <style dangerouslySetInnerHTML={{ __html: `
           * { box-sizing: border-box; margin: 0; padding: 0; }
           body { font-family: 'Segoe UI', Arial, Helvetica, sans-serif; color: #222; font-size: 14px; line-height: 1.5; background: #f3f4f6; }
@@ -125,33 +168,33 @@ export default async function QRPage({ searchParams }: { searchParams: Promise<{
         <div className="container">
           {/* Header */}
           <div className="header">
-            <h1>{store.name || 'Mi Tienda'}</h1>
+            <h1>{storeName}</h1>
             <div className="info">
-              {store.address && <span>{store.address}</span>}
-              {(store.phone || store.email) && <><br />{store.phone && <span>Tel: {store.phone}</span>}{store.phone && store.email && <span> | </span>}{store.email && <span>{store.email}</span>}</>}
+              {storeAddr && <span>{storeAddr}</span>}
+              {(storePhone || storeEmail) && <><br />{storePhone && <span>Tel: {storePhone}</span>}{storePhone && storeEmail && <span> | </span>}{storeEmail && <span>{storeEmail}</span>}</>}
             </div>
           </div>
 
           {/* Meta */}
           <div className="meta">
-            <div><strong>Cotización:</strong> {data.number || 'COT-001'}</div>
+            <div><strong>Cotización:</strong> {qNumber}</div>
             <div><strong>Fecha:</strong> {createdDate}</div>
           </div>
 
           {/* Client */}
-          {(data.clientName || data.customerPhone) && (
+          {(clientName || customerPhone) && (
             <div className="client">
               <div className="client-label">Cliente</div>
-              <div className="client-name">{data.clientName || 'Sin nombre'}</div>
-              {data.customerPhone && <div className="client-info">Tel: {data.customerPhone}</div>}
-              {data.customerEmail && <div className="client-info">{data.customerEmail}</div>}
+              <div className="client-name">{clientName || 'Sin nombre'}</div>
+              {customerPhone && <div className="client-info">Tel: {customerPhone}</div>}
+              {customerEmail && <div className="client-info">{customerEmail}</div>}
             </div>
           )}
 
           {/* Notes */}
-          {data.notes && (
+          {notes && (
             <div className="notes">
-              <strong>Notas:</strong> {data.notes}
+              <strong>Notas:</strong> {notes}
             </div>
           )}
 
@@ -203,7 +246,7 @@ export default async function QRPage({ searchParams }: { searchParams: Promise<{
                 <div className="total-box">
                   <div className="total-box-inner" style={{ borderColor: sec.color, background: sec.color + '11' }}>
                     <div className="total-label">Total {sec.title}</div>
-                    <div className="total-value" style={{ color: sec.color }}>{currency}{(sec.totals.total || data.total || 0).toFixed(2)}</div>
+                    <div className="total-value" style={{ color: sec.color }}>{currency}{(sec.totals.total || total).toFixed(2)}</div>
                   </div>
                 </div>
               )}
@@ -214,13 +257,13 @@ export default async function QRPage({ searchParams }: { searchParams: Promise<{
           {isDual ? (
             <div className="dual-total">
               <div style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', color: '#6b7280', marginBottom: 4 }}>Total Combinado</div>
-              <div style={{ fontSize: 30, fontWeight: 800, color: '#16a34a' }}>{currency}{(data.total || 0).toFixed(2)}</div>
+              <div style={{ fontSize: 30, fontWeight: 800, color: '#16a34a' }}>{currency}{total.toFixed(2)}</div>
             </div>
           ) : (
             <div className="total-box">
               <div className="total-box-inner">
                 <div className="total-label">Total</div>
-                <div className="total-value">{currency}{(data.total || 0).toFixed(2)}</div>
+                <div className="total-value">{currency}{total.toFixed(2)}</div>
               </div>
             </div>
           )}
@@ -234,7 +277,7 @@ export default async function QRPage({ searchParams }: { searchParams: Promise<{
 
           {/* Footer */}
           <div className="footer">
-            {store.footer || 'Gracias por su preferencia'}
+            {footerText}
           </div>
         </div>
 
