@@ -5470,16 +5470,57 @@ function openLocControlPanel(locId, spaceIdx) {
     var spaceName = (loc.spaces && loc.spaces[spaceIdx]) ? (loc.spaces[spaceIdx].name || 'Espacio') : 'Espacio';
     html += '<div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">' + escapeHtml(spaceName) + '</div>';
     html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:14px;">' +
-        '<button class="btn btn-primary btn-sm" onclick="closeModal(\'locControlModal\');openSpaceProductModal(\'' + loc.id + '\',' + spaceIdx + ')" style="font-size:12px;">📦 Agregar Producto</button>' +
+        '<button class="btn btn-primary btn-sm" onclick="closeModal(\'locControlModal\');openSpaceProductModal(\'' + loc.id + '\',' + spaceIdx + ')" style="font-size:12px;">📥 Ingreso Stock</button>' +
         '<button class="btn btn-outline btn-sm" onclick="closeModal(\'locControlModal\');openLocMovements(\'' + loc.id + '\')" style="font-size:12px;">📋 Movimientos</button>' +
     '</div>';
 
-    // Section: Mín/Máx por tipo de producto en este espacio
+    // Section: Baja por Venta (sell from space) + Ingreso rápido
     if (loc.spaces && loc.spaces[spaceIdx] && (loc.spaces[spaceIdx].products || []).length > 0) {
         var currentProducts = loc.spaces[spaceIdx].products || [];
-        html += '<div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">📺 Mín / Máx por Producto</div>';
+        html += '<div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">💰 Ventas e Inventario</div>';
         html += '<div style="background:var(--bg2);border-radius:10px;padding:10px;margin-bottom:14px;">';
-        html += '<p style="font-size:11px;color:var(--text2);margin-bottom:8px;">Define mínimo, máximo y objetivo por cada tipo de tele en ' + escapeHtml(spaceName) + '.</p>';
+        html += '<p style="font-size:11px;color:var(--text2);margin-bottom:8px;">Registra ventas (baja) o ingresos rápidos de cada producto en ' + escapeHtml(spaceName) + '.</p>';
+        for (var pi = 0; pi < currentProducts.length; pi++) {
+            var cp = currentProducts[pi];
+            var cpName = (cp.name || 'Producto') + (cp.brand ? ' · ' + cp.brand : '');
+            var cpQty = cp.qty || 0;
+            var cpTarget = cp.targetQty || 0;
+            var cpStatus = '';
+            if (cpQty === 0) cpStatus = '🚨';
+            else if (cpTarget > 0 && cpQty >= cpTarget) cpStatus = '✅';
+            else cpStatus = '⚠️';
+
+            html += '<div style="margin-bottom:' + (pi < currentProducts.length - 1 ? '8px' : '0') + ';padding-bottom:' + (pi < currentProducts.length - 1 ? '8px' : '0') + ';border-bottom:' + (pi < currentProducts.length - 1 ? '1px solid var(--border)' : 'none') + ';">';
+            html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">';
+            html += '<div style="font-size:12px;font-weight:700;color:var(--text);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + cpStatus + ' ' + escapeHtml(cpName) + '</div>';
+            html += '<div style="font-size:11px;color:var(--text3);flex-shrink:0;">Stock: <b style="color:var(--primary);">' + cpQty + '</b></div>';
+            html += '</div>';
+            html += '<div style="display:flex;gap:6px;">';
+            html += '<button class="btn btn-outline btn-sm" onclick="sellFromSpace(\'' + loc.id + '\',' + spaceIdx + ',' + pi + ')" style="flex:1;font-size:11px;' + (cpQty === 0 ? 'opacity:0.4;pointer-events:none;' : '') + '">🏷️ Vender</button>';
+            html += '<button class="btn btn-primary btn-sm" onclick="quickIngress(\'' + loc.id + '\',' + spaceIdx + ',' + pi + ')" style="flex:1;font-size:11px;">📥 +Ingreso</button>';
+            html += '</div></div>';
+        }
+        html += '</div>';
+    }
+
+    // Section: Objetivos por Producto (target se cumple sumando todos los espacios)
+    if (loc.spaces && loc.spaces[spaceIdx] && (loc.spaces[spaceIdx].products || []).length > 0) {
+        var currentProducts = loc.spaces[spaceIdx].products || [];
+
+        // Calculate totals across ALL spaces for this local
+        var crossSpaceTotals = {};
+        for (var cs = 0; cs < loc.spaces.length; cs++) {
+            var csProds = loc.spaces[cs].products || [];
+            for (var csp = 0; csp < csProds.length; csp++) {
+                var csKey = csProds[csp].productId || (csProds[csp].name + '|' + csProds[csp].brand);
+                if (!crossSpaceTotals[csKey]) crossSpaceTotals[csKey] = 0;
+                crossSpaceTotals[csKey] += (csProds[csp].qty || 0);
+            }
+        }
+
+        html += '<div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">🎯 Objetivos por Modelo</div>';
+        html += '<div style="background:var(--bg2);border-radius:10px;padding:10px;margin-bottom:14px;">';
+        html += '<p style="font-size:11px;color:var(--text2);margin-bottom:8px;">El objetivo se cumple sumando todos los espacios del local.</p>';
         for (var pi = 0; pi < currentProducts.length; pi++) {
             var cp = currentProducts[pi];
             var cpName = (cp.name || 'Producto') + (cp.brand ? ' · ' + cp.brand : '');
@@ -5487,16 +5528,17 @@ function openLocControlPanel(locId, spaceIdx) {
             var cpMin = cp.minQty || 0;
             var cpMax = cp.maxQty || 0;
             var cpTarget = cp.targetQty || 0;
+            var cpKey = cp.productId || (cp.name + '|' + cp.brand);
+            var cpTotalAllSpaces = crossSpaceTotals[cpKey] || 0;
             var cpStatus = '';
-            if (cpQty === 0) cpStatus = '🚨';
-            else if (cpMin > 0 && cpQty <= cpMin) cpStatus = '⚠️';
-            else if (cpMax > 0 && cpQty > cpMax) cpStatus = '📈';
-            else cpStatus = '✅';
+            if (cpTotalAllSpaces === 0) cpStatus = '🚨';
+            else if (cpTarget > 0 && cpTotalAllSpaces >= cpTarget) cpStatus = '✅';
+            else cpStatus = '⚠️';
 
             html += '<div style="margin-bottom:' + (pi < currentProducts.length - 1 ? '10px' : '0') + ';padding-bottom:' + (pi < currentProducts.length - 1 ? '10px' : '0') + ';border-bottom:' + (pi < currentProducts.length - 1 ? '1px solid var(--border)' : 'none') + ';">';
             html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">';
             html += '<div style="font-size:12px;font-weight:700;color:var(--text);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + cpStatus + ' ' + escapeHtml(cpName) + '</div>';
-            html += '<div style="font-size:11px;color:var(--text3);flex-shrink:0;">Actual: <b style="color:var(--primary);">' + cpQty + '</b></div>';
+            html += '<div style="font-size:10px;color:var(--text3);flex-shrink:0;">Total local: <b style="color:var(--primary);">' + cpTotalAllSpaces + '</b></div>';
             html += '</div>';
             html += '<div style="display:flex;gap:6px;align-items:center;">';
             html += '<div style="flex:1;">' +
@@ -5513,7 +5555,7 @@ function openLocControlPanel(locId, spaceIdx) {
             '</div>';
             html += '</div></div>';
         }
-        html += '<button class="btn btn-primary btn-sm" onclick="saveProductLimits(\'' + loc.id + '\',' + spaceIdx + ')" style="width:100%;margin-top:8px;font-size:12px;">💾 Guardar Límites por Producto</button>';
+        html += '<button class="btn btn-primary btn-sm" onclick="saveProductLimits(\'' + loc.id + '\',' + spaceIdx + ')" style="width:100%;margin-top:8px;font-size:12px;">💾 Guardar Objetivos</button>';
         html += '</div>';
     }
 
@@ -5687,6 +5729,57 @@ function sellFromSpace(locId, spaceIdx, prodIdx) {
     if (loc) renderLocSpaceView(loc);
     var priceInfo = salePrice > 0 ? ' ($' + (sellQty * salePrice).toFixed(2) + ')' : '';
     showToast('Venta registrada: -' + sellQty + ' ud' + (sellQty > 1 ? 's' : '') + priceInfo, 'success');
+}
+
+// ===== QUICK INGRESS (add stock to existing product in space) =====
+function quickIngress(locId, spaceIdx, prodIdx) {
+    var locs = getLocations();
+    var pr = null;
+    var spaceName = '';
+    for (var i = 0; i < locs.length; i++) {
+        if (locs[i].id === locId && locs[i].spaces && locs[i].spaces[spaceIdx]) {
+            pr = locs[i].spaces[spaceIdx].products[prodIdx];
+            spaceName = locs[i].spaces[spaceIdx].name || '';
+            break;
+        }
+    }
+    if (!pr) return;
+    var qty = pr.qty || 0;
+    var msg = '¿Cuántas unidades de "' + (pr.name || 'Producto') + '" ingresan?\nActual: ' + qty + ' uds';
+    var addQty = prompt(msg, '1');
+    if (addQty === null) return;
+    addQty = parseInt(addQty) || 0;
+    if (addQty < 1) { showToast('Cantidad inválida', 'error'); return; }
+
+    var locs2 = getLocations();
+    for (var j = 0; j < locs2.length; j++) {
+        if (locs2[j].id === locId && locs2[j].spaces && locs2[j].spaces[spaceIdx]) {
+            locs2[j].spaces[spaceIdx].products[prodIdx].qty += addQty;
+            locs2[j].updatedAt = new Date().toISOString();
+            // Log movement (ingreso)
+            if (!locs2[j].movements) locs2[j].movements = [];
+            locs2[j].movements.push({
+                id: 'mov-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5),
+                date: new Date().toISOString(),
+                type: 'ingreso',
+                productId: locs2[j].spaces[spaceIdx].products[prodIdx].productId,
+                productName: locs2[j].spaces[spaceIdx].products[prodIdx].name || 'Producto',
+                productBrand: locs2[j].spaces[spaceIdx].products[prodIdx].brand || '',
+                spaceIdx: spaceIdx,
+                spaceName: spaceName,
+                qty: addQty
+            });
+            break;
+        }
+    }
+    saveLocations(locs2);
+    syncLocationsToServer();
+    var loc = null;
+    for (var k = 0; k < locs2.length; k++) {
+        if (locs2[k].id === locId) { loc = locs2[k]; break; }
+    }
+    if (loc) renderLocSpaceView(loc);
+    showToast('Ingreso registrado: +' + addQty + ' ud' + (addQty > 1 ? 's' : ''), 'success');
 }
 
 // ===== EDIT PRODUCT TARGET =====
