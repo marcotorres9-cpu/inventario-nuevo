@@ -6790,20 +6790,25 @@ function renderStockDetailPage() {
         '</div>' +
     '</div>';
 
-    // Quick stats — "Faltantes" scrolls to missing section, "Sin stock" scrolls too
+    // Quick stats — all 3 cards are clickable and scroll to their section
+    var hasMissing = missingModels.length > 0;
+    var hasEmpty = emptyModels.length > 0;
+    var hasExist = existModels.length > 0;
     html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px;">' +
-        '<div style="background:#2ed57318;border:1px solid #2ed57330;border-radius:10px;padding:10px;text-align:center;">' +
+        '<div onclick="scrollToSection(\'sectionExistencia\')" style="background:#2ed57318;border:1px solid #2ed57330;border-radius:10px;padding:10px;text-align:center;cursor:pointer;transition:transform 0.15s;" onmousedown="this.style.transform=\'scale(0.97)\'" onmouseup="this.style.transform=\'\'" onmouseleave="this.style.transform=\'\'">' +
             '<div style="font-size:22px;font-weight:800;color:#2ed573;">' + grandTotal + '</div>' +
-            '<div style="font-size:10px;color:var(--text3);">En existencia</div></div>' +
-        '<div id="statMissingCard" onclick="scrollToSection(\'sectionFaltantes\')" style="background:' + (globalMissing > 0 ? '#ff475718' : '#2ed57318') + ';border:1px solid ' + (globalMissing > 0 ? '#ff475730' : '#2ed57330') + ';border-radius:10px;padding:10px;text-align:center;' + (globalMissing > 0 ? 'cursor:pointer;transition:transform 0.15s,box-shadow 0.15s;' : '') + '" ' + (globalMissing > 0 ? 'onmousedown="this.style.transform=\'scale(0.97)\'" onmouseup="this.style.transform=\'\'" onmouseleave="this.style.transform=\'\'"' : '') + '>' +
-            '<div style="font-size:22px;font-weight:800;color:' + (globalMissing > 0 ? '#ff4757' : '#2ed573') + ';">' + globalMissing + '</div>' +
-            '<div style="font-size:10px;color:var(--text3);">Faltantes</div>' +
-            (globalMissing > 0 ? '<div style="font-size:9px;font-weight:700;color:#ff4757;margin-top:4px;">👇 Ver dónde</div>' : '') +
+            '<div style="font-size:10px;color:var(--text3);">En existencia</div>' +
+            '<div style="font-size:9px;font-weight:700;color:#2ed573;margin-top:4px;">👇 Ver</div>' +
         '</div>' +
-        '<div id="statEmptyCard" onclick="scrollToSection(\'sectionSinStock\')" style="background:' + (emptyModels.length > 0 ? '#ffa50218' : 'var(--bg2)') + ';border:1px solid ' + (emptyModels.length > 0 ? '#ffa50230' : 'var(--border)') + ';border-radius:10px;padding:10px;text-align:center;' + (emptyModels.length > 0 ? 'cursor:pointer;transition:transform 0.15s,box-shadow 0.15s;' : '') + '" ' + (emptyModels.length > 0 ? 'onmousedown="this.style.transform=\'scale(0.97)\'" onmouseup="this.style.transform=\'\'" onmouseleave="this.style.transform=\'\'"' : '') + '>' +
-            '<div style="font-size:22px;font-weight:800;color:' + (emptyModels.length > 0 ? '#ffa502' : 'var(--text)') + ';">' + emptyModels.length + '</div>' +
+        '<div onclick="scrollToSection(\'sectionFaltantes\')" style="background:' + hasMissing ? '#ff475718' : '#2ed57318' + ';border:1px solid ' + (hasMissing ? '#ff475730' : '#2ed57330') + ';border-radius:10px;padding:10px;text-align:center;cursor:pointer;transition:transform 0.15s;" onmousedown="this.style.transform=\'scale(0.97)\'" onmouseup="this.style.transform=\'\'" onmouseleave="this.style.transform=\'\'">' +
+            '<div style="font-size:22px;font-weight:800;color:' + (hasMissing ? '#ff4757' : '#2ed573') + ';">' + (missingModels.length > 0 ? missingModels.length : globalMissing) + '</div>' +
+            '<div style="font-size:10px;color:var(--text3);">Faltantes</div>' +
+            (hasMissing ? '<div style="font-size:9px;font-weight:700;color:#ff4757;margin-top:4px;">👇 Ver dónde</div>' : '') +
+        '</div>' +
+        '<div onclick="scrollToSection(\'sectionSinStock\')" style="background:' + (hasEmpty ? '#ffa50218' : 'var(--bg2)') + ';border:1px solid ' + (hasEmpty ? '#ffa50230' : 'var(--border)') + ';border-radius:10px;padding:10px;text-align:center;cursor:pointer;transition:transform 0.15s;" onmousedown="this.style.transform=\'scale(0.97)\'" onmouseup="this.style.transform=\'\'" onmouseleave="this.style.transform=\'\'">' +
+            '<div style="font-size:22px;font-weight:800;color:' + (hasEmpty ? '#ffa502' : 'var(--text)') + ';">' + emptyModels.length + '</div>' +
             '<div style="font-size:10px;color:var(--text3);">Sin stock</div>' +
-            (emptyModels.length > 0 ? '<div style="font-size:9px;font-weight:700;color:#ffa502;margin-top:4px;">👇 Ver cuáles</div>' : '') +
+            (hasEmpty ? '<div style="font-size:9px;font-weight:700;color:#ffa502;margin-top:4px;">👇 Ver cuáles</div>' : '') +
         '</div>' +
     '</div>';
 
@@ -6999,7 +7004,7 @@ function renderStockDetailPage() {
 
     // ===== EN EXISTENCIA SECTION =====
     if (existModels.length > 0) {
-        html += '<div style="font-size:12px;font-weight:800;color:#2ed573;margin:14px 0 8px;text-transform:uppercase;letter-spacing:0.5px;">✅ En Existencia</div>';
+        html += '<div id="sectionExistencia" style="font-size:12px;font-weight:800;color:#2ed573;margin:14px 0 8px;text-transform:uppercase;letter-spacing:0.5px;">✅ En Existencia</div>';
         for (var ei2 = 0; ei2 < existModels.length; ei2++) {
             var ex = existModels[ei2];
             var exLabel = ex.name + (ex.brand ? ' · ' + ex.brand : '');
@@ -7058,18 +7063,39 @@ function renderStockDetailPage() {
     spaceView.innerHTML = html;
 }
 
-// Smooth-scroll to a section by element id within locSpaceView
+// Smooth-scroll to a section by element id
 function scrollToSection(sectionId) {
     var el = document.getElementById(sectionId);
     if (!el) return;
-    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    // Find the closest scrollable parent
+    var container = document.getElementById('locSpaceView');
+    if (container) {
+        var containerRect = container.getBoundingClientRect();
+        var elRect = el.getBoundingClientRect();
+        var scrollParent = container.parentElement;
+        while (scrollParent && scrollParent.scrollHeight <= scrollParent.clientHeight) {
+            scrollParent = scrollParent.parentElement;
+        }
+        if (scrollParent) {
+            scrollParent.scrollTo({
+                top: scrollParent.scrollTop + (elRect.top - containerRect.top) - 10,
+                behavior: 'smooth'
+            });
+        } else {
+            el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    } else {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
     // Brief highlight flash
-    el.style.transition = 'background 0.3s';
-    el.style.background = 'rgba(255,255,255,0.15)';
-    el.style.borderRadius = '6px';
+    var origBg = el.style.background;
+    var origColor = el.style.color;
+    el.style.transition = 'all 0.3s';
+    el.style.background = 'rgba(255,255,255,0.2)';
     setTimeout(function() {
-        el.style.background = 'transparent';
-    }, 800);
+        el.style.background = origBg || 'transparent';
+        el.style.color = origColor || '';
+    }, 1000);
 }
 
 // Navigate from stock detail to a specific locale + space and optionally open action
