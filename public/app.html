@@ -5067,32 +5067,10 @@ var _locControlSpaceIdx = 0;
 function renderGlobalTargetBanner() {
     var banner = document.getElementById('globalTargetBanner');
     if (!banner) return;
-    var target = getGlobalTarget();
-    var current = calcGlobalStock();
-    var missing = Math.max(0, target - current);
-    var over = Math.max(0, current - target);
-
-    if (target === 0) {
-        // Show prompt to set target
-        banner.innerHTML = '<div style="background:var(--primary-bg);border:1px solid var(--primary);border-radius:12px;padding:12px 14px;text-align:center;">' +
-            '<div style="font-size:13px;font-weight:700;color:var(--primary);margin-bottom:4px;">📺 Define tu objetivo total</div>' +
-            '<div style="font-size:11px;color:var(--text2);margin-bottom:8px;">¿Cuántas TVs deben existir en total en todos los locales?</div>' +
-            '<button class="btn btn-primary btn-sm" onclick="editGlobalTarget()" style="font-size:12px;">🎯 Establecer Objetivo</button>' +
-        '</div>';
-        return;
-    }
-
-    var pct = Math.min(100, Math.round((current / target) * 100));
-    var isOk = missing <= 0;
-    var barColor = isOk ? '#2ed573' : '#ff4757';
-
-    // Build per-model quick breakdown
     var locs = getLocations();
+
+    // Build per-model totals across ALL locales
     var modelMap = {};
-    var totalModels = 0;
-    var modelsOk = 0;
-    var modelsMissing = 0;
-    var modelsEmpty = 0;
     for (var i = 0; i < locs.length; i++) {
         var spaces = locs[i].spaces || [];
         for (var s = 0; s < spaces.length; s++) {
@@ -5101,45 +5079,88 @@ function renderGlobalTargetBanner() {
                 var pr = prods[p];
                 var key = pr.productId || (pr.name + '|' + pr.brand);
                 if (!modelMap[key]) {
-                    modelMap[key] = { name: pr.name || 'TV', brand: pr.brand || '', qty: 0, target: 0, min: 0 };
-                    totalModels++;
+                    modelMap[key] = { name: pr.name || 'TV', brand: pr.brand || '', qty: 0 };
                 }
                 modelMap[key].qty += (pr.qty || 0);
-                modelMap[key].target += (pr.targetQty || 0);
-                modelMap[key].min += (pr.minQty || 0);
             }
         }
     }
 
-    // Count status — target met = OK, even if qty == min
+    // Sum targets from all locales' modelTargets
+    var grandTarget = 0;
+    var grandCurrent = 0;
+    var modelsOk = 0;
+    var modelsMissing = 0;
+    var modelsEmpty = 0;
+
+    // Collect model targets from all locales
+    var allModelTargets = {}; // key: productId -> { name, brand, target, min }
+    for (var li = 0; li < locs.length; li++) {
+        var mt = locs[li].modelTargets || [];
+        for (var ti = 0; ti < mt.length; ti++) {
+            var t = mt[ti];
+            var tKey = t.productId || (t.name + '|' + t.brand);
+            if (!allModelTargets[tKey]) {
+                allModelTargets[tKey] = { name: t.name || 'TV', brand: t.brand || '', target: 0, min: 0 };
+            }
+            allModelTargets[tKey].target += (t.target || 0);
+            allModelTargets[tKey].min += (t.min || 0);
+        }
+    }
+
     var mKeys = Object.keys(modelMap);
-    for (var m = 0; m < mKeys.length; m++) {
-        var md = modelMap[mKeys[m]];
-        if (md.qty === 0) modelsEmpty++;
-        else if (md.target > 0 && md.qty >= md.target) modelsOk++;
-        else if (md.min > 0 && md.qty < md.min) modelsMissing++;
-        else if (md.target > 0 && md.qty < md.target) modelsMissing++;
+    var atKeys = Object.keys(allModelTargets);
+
+    // Count status using model targets from locales
+    for (var ai = 0; ai < atKeys.length; ai++) {
+        var at = allModelTargets[atKeys[ai]];
+        var mQty = modelMap[atKeys[ai]] ? modelMap[atKeys[ai]].qty : 0;
+        grandTarget += at.target;
+        grandCurrent += mQty;
+        if (mQty === 0) modelsEmpty++;
+        else if (at.target > 0 && mQty >= at.target) modelsOk++;
+        else if (at.min > 0 && mQty < at.min) modelsMissing++;
+        else if (at.target > 0 && mQty < at.target) modelsMissing++;
         else modelsOk++;
     }
 
-    // Build compact model pills (top missing ones)
-    var missingModels = [];
-    var okModels = [];
-    for (var m2 = 0; m2 < mKeys.length; m2++) {
-        var md2 = modelMap[mKeys[m2]];
-        var label = md2.name + (md2.brand ? ' ' + md2.brand : '');
-        if (md2.qty === 0) missingModels.push({ label: label, qty: 0, status: 'empty' });
-        else if (md2.target > 0 && md2.qty < md2.target) missingModels.push({ label: label, qty: md2.qty, target: md2.target, status: 'low' });
-        else okModels.push({ label: label, qty: md2.qty, status: 'ok' });
+    // Also count models that exist in inventory but have no target set
+    for (var mi = 0; mi < mKeys.length; mi++) {
+        if (!allModelTargets[mKeys[mi]]) {
+            grandCurrent += modelMap[mKeys[mi]].qty;
+        }
     }
-    // Sort: empty first, then by missing qty
+
+    var missing = Math.max(0, grandTarget - grandCurrent);
+
+    if (grandTarget === 0) {
+        banner.innerHTML = '<div style="background:var(--primary-bg);border:1px solid var(--primary);border-radius:12px;padding:12px 14px;text-align:center;">' +
+            '<div style="font-size:13px;font-weight:700;color:var(--primary);margin-bottom:4px;">📺 Define objetivos por modelo</div>' +
+            '<div style="font-size:11px;color:var(--text2);margin-bottom:8px;">Entra a un local → ⚙️ Control para configurar</div>' +
+        '</div>';
+        return;
+    }
+
+    var pct = Math.min(100, Math.round((grandCurrent / grandTarget) * 100));
+    var isOk = missing <= 0;
+    var barColor = isOk ? '#2ed573' : '#ff4757';
+
+    // Build pills for missing models
+    var missingModels = [];
+    for (var ai2 = 0; ai2 < atKeys.length; ai2++) {
+        var at2 = allModelTargets[atKeys[ai2]];
+        var mQty2 = modelMap[atKeys[ai2]] ? modelMap[atKeys[ai2]].qty : 0;
+        var label = at2.name + (at2.brand ? ' ' + at2.brand : '');
+        if (mQty2 === 0) missingModels.push({ label: label, qty: 0, target: at2.target, status: 'empty' });
+        else if (at2.target > 0 && mQty2 < at2.target) missingModels.push({ label: label, qty: mQty2, target: at2.target, status: 'low' });
+    }
     missingModels.sort(function(a, b) { return (a.qty - a.target) - (b.qty - b.target); });
 
     var pillsHtml = '';
     if (missingModels.length > 0) {
         pillsHtml = '<div style="margin-top:8px;">';
-        for (var mi = 0; mi < missingModels.length; mi++) {
-            var mm = missingModels[mi];
+        for (var mpi = 0; mpi < missingModels.length; mpi++) {
+            var mm = missingModels[mpi];
             var mColor = mm.status === 'empty' ? '#ff4757' : '#ffa502';
             var mIcon = mm.status === 'empty' ? '🚨' : '⚠️';
             pillsHtml += '<span onclick="openStockSummary()" style="display:inline-flex;align-items:center;gap:3px;background:' + mColor + '18;color:' + mColor + ';font-size:10px;padding:3px 7px;border-radius:6px;margin:0 3px 3px 0;cursor:pointer;border:1px solid ' + mColor + '30;">' +
@@ -5150,29 +5171,23 @@ function renderGlobalTargetBanner() {
     }
 
     banner.innerHTML = '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:12px 14px;">' +
-        // Top row: big numbers
         '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">' +
             '<div style="display:flex;align-items:baseline;gap:6px;">' +
-                '<span style="font-size:11px;color:var(--text3);">📺 Objetivo:</span>' +
-                '<span style="font-size:22px;font-weight:800;color:var(--primary);">' + current + '</span>' +
-                '<span style="font-size:14px;color:var(--text3);">/ ' + target + '</span>' +
+                '<span style="font-size:11px;color:var(--text3);">📺 Total:</span>' +
+                '<span style="font-size:22px;font-weight:800;color:var(--primary);">' + grandCurrent + '</span>' +
+                '<span style="font-size:14px;color:var(--text3);">/ ' + grandTarget + '</span>' +
                 (isOk ? '<span style="font-size:12px;color:#2ed573;">✅</span>' : '<span style="font-size:12px;color:#ff4757;font-weight:700;">Faltan ' + missing + '</span>') +
             '</div>' +
-            '<button class="btn btn-ghost btn-xs" onclick="editGlobalTarget()" style="font-size:10px;padding:2px 6px;">✏️</button>' +
         '</div>' +
-        // Progress bar
         '<div style="background:var(--bg);border-radius:4px;height:6px;overflow:hidden;">' +
             '<div style="height:100%;width:' + pct + '%;background:' + barColor + ';border-radius:4px;transition:width 0.4s;"></div>' +
         '</div>' +
-        // Quick stats row
         '<div style="display:flex;gap:12px;margin-top:8px;font-size:11px;">' +
             '<span style="color:var(--text2);">✅ Completos: <b>' + modelsOk + '</b></span>' +
             (modelsMissing > 0 ? '<span style="color:#ffa502;">⚠️ Bajo mín: <b>' + modelsMissing + '</b></span>' : '') +
             (modelsEmpty > 0 ? '<span style="color:#ff4757;">🚨 Sin stock: <b>' + modelsEmpty + '</b></span>' : '') +
         '</div>' +
-        // Missing model pills
         pillsHtml +
-        // Tap to see detail
         (missingModels.length > 0 ? '<div onclick="openStockSummary()" style="text-align:center;margin-top:8px;font-size:11px;color:var(--primary);cursor:pointer;font-weight:600;">Ver detalle completo →</div>' : '') +
     '</div>';
 }
@@ -5503,61 +5518,102 @@ function openLocControlPanel(locId, spaceIdx) {
         html += '</div>';
     }
 
-    // Section: Objetivos por Producto (target se cumple sumando todos los espacios)
-    if (loc.spaces && loc.spaces[spaceIdx] && (loc.spaces[spaceIdx].products || []).length > 0) {
-        var currentProducts = loc.spaces[spaceIdx].products || [];
+    // Section: Objetivo del Local por tipo de TV (modelTargets)
+    html += '<div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">🎯 Objetivo del Local</div>';
+    html += '<div style="background:var(--bg2);border-radius:10px;padding:10px;margin-bottom:14px;">';
 
-        // Calculate totals across ALL spaces for this local
-        var crossSpaceTotals = {};
-        for (var cs = 0; cs < loc.spaces.length; cs++) {
-            var csProds = loc.spaces[cs].products || [];
-            for (var csp = 0; csp < csProds.length; csp++) {
-                var csKey = csProds[csp].productId || (csProds[csp].name + '|' + csProds[csp].brand);
-                if (!crossSpaceTotals[csKey]) crossSpaceTotals[csKey] = 0;
-                crossSpaceTotals[csKey] += (csProds[csp].qty || 0);
-            }
+    // Calculate current totals per model across ALL spaces
+    var localModelMap = {};
+    var localGrandTotal = 0;
+    for (var ls = 0; ls < loc.spaces.length; ls++) {
+        var lsProds = loc.spaces[ls].products || [];
+        for (var lsp = 0; lsp < lsProds.length; lsp++) {
+            var lp = lsProds[lsp];
+            var lk = lp.productId || (lp.name + '|' + lp.brand);
+            if (!localModelMap[lk]) localModelMap[lk] = { name: lp.name, brand: lp.brand, qty: 0 };
+            localModelMap[lk].qty += (lp.qty || 0);
+            localGrandTotal += (lp.qty || 0);
         }
-
-        html += '<div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">🎯 Objetivos por Modelo</div>';
-        html += '<div style="background:var(--bg2);border-radius:10px;padding:10px;margin-bottom:14px;">';
-        html += '<p style="font-size:11px;color:var(--text2);margin-bottom:8px;">El objetivo se cumple sumando todos los espacios del local.</p>';
-        for (var pi = 0; pi < currentProducts.length; pi++) {
-            var cp = currentProducts[pi];
-            var cpName = (cp.name || 'Producto') + (cp.brand ? ' · ' + cp.brand : '');
-            var cpQty = cp.qty || 0;
-            var cpMin = cp.minQty || 0;
-            var cpMax = cp.maxQty || 0;
-            var cpTarget = cp.targetQty || 0;
-            var cpKey = cp.productId || (cp.name + '|' + cp.brand);
-            var cpTotalAllSpaces = crossSpaceTotals[cpKey] || 0;
-            var cpStatus = '';
-            if (cpTotalAllSpaces === 0) cpStatus = '🚨';
-            else if (cpTarget > 0 && cpTotalAllSpaces >= cpTarget) cpStatus = '✅';
-            else cpStatus = '⚠️';
-
-            html += '<div style="margin-bottom:' + (pi < currentProducts.length - 1 ? '10px' : '0') + ';padding-bottom:' + (pi < currentProducts.length - 1 ? '10px' : '0') + ';border-bottom:' + (pi < currentProducts.length - 1 ? '1px solid var(--border)' : 'none') + ';">';
-            html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">';
-            html += '<div style="font-size:12px;font-weight:700;color:var(--text);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + cpStatus + ' ' + escapeHtml(cpName) + '</div>';
-            html += '<div style="font-size:10px;color:var(--text3);flex-shrink:0;">Total local: <b style="color:var(--primary);">' + cpTotalAllSpaces + '</b></div>';
-            html += '</div>';
-            html += '<div style="display:flex;gap:6px;align-items:center;">';
-            html += '<div style="flex:1;">' +
-                '<label style="font-size:10px;color:var(--text3);">Mínimo</label>' +
-                '<input type="number" class="input" id="prodLimMin_' + pi + '" value="' + cpMin + '" min="0" placeholder="0" style="font-size:12px;padding:5px 8px;">' +
-            '</div>';
-            html += '<div style="flex:1;">' +
-                '<label style="font-size:10px;color:var(--text3);">Máximo</label>' +
-                '<input type="number" class="input" id="prodLimMax_' + pi + '" value="' + cpMax + '" min="0" placeholder="0" style="font-size:12px;padding:5px 8px;">' +
-            '</div>';
-            html += '<div style="flex:1;">' +
-                '<label style="font-size:10px;color:var(--text3);">Objetivo</label>' +
-                '<input type="number" class="input" id="prodLimTarget_' + pi + '" value="' + cpTarget + '" min="0" placeholder="0" style="font-size:12px;padding:5px 8px;">' +
-            '</div>';
-            html += '</div></div>';
-        }
-        html += '<button class="btn btn-primary btn-sm" onclick="saveProductLimits(\'' + loc.id + '\',' + spaceIdx + ')" style="width:100%;margin-top:8px;font-size:12px;">💾 Guardar Objetivos</button>';
-        html += '</div>';
     }
+
+    // Get existing modelTargets for this local
+    var existingTargets = loc.modelTargets || [];
+    var existingTargetMap = {};
+    for (var eti = 0; eti < existingTargets.length; eti++) {
+        var et = existingTargets[eti];
+        var etKey = et.productId || (et.name + '|' + et.brand);
+        existingTargetMap[etKey] = et;
+    }
+
+    // Merge: show all models that exist in inventory OR have a target
+    var allModelKeys = {};
+    var lmKeys = Object.keys(localModelMap);
+    for (var lmi = 0; lmi < lmKeys.length; lmi++) allModelKeys[lmKeys[lmi]] = true;
+    for (var eti2 = 0; eti2 < existingTargets.length; eti2++) {
+        var etKey2 = existingTargets[eti2].productId || (existingTargets[eti2].name + '|' + existingTargets[eti2].brand);
+        allModelKeys[etKey2] = true;
+    }
+    var amKeys = Object.keys(allModelKeys);
+
+    // Calculate local target sum
+    var localTargetSum = 0;
+    for (var aei = 0; aei < amKeys.length; aei++) {
+        var aet = existingTargetMap[amKeys[aei]];
+        if (aet) localTargetSum += (aet.target || 0);
+    }
+
+    html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">';
+    html += '<div style="font-size:12px;color:var(--text2);">Total local: <b style="color:var(--primary);font-size:16px;">' + localGrandTotal + '</b> / <b style="font-size:16px;">' + localTargetSum + '</b></div>';
+    if (localTargetSum > 0) {
+        var lPct = Math.min(100, Math.round((localGrandTotal / localTargetSum) * 100));
+        var lOk = localGrandTotal >= localTargetSum;
+        html += '<span style="font-size:11px;font-weight:700;color:' + (lOk ? '#2ed573' : '#ff4757') + ';">' + lPct + '% ' + (lOk ? '✅' : '⚠️') + '</span>';
+    }
+    html += '</div>';
+    html += '<div style="background:var(--bg);border-radius:3px;height:4px;margin-bottom:10px;overflow:hidden;"><div style="height:100%;width:' + (localTargetSum > 0 ? Math.min(100, Math.round((localGrandTotal / localTargetSum) * 100)) : 0) + '%;background:' + (localGrandTotal >= localTargetSum ? '#2ed573' : '#ff4757') + ';border-radius:3px;"></div></div>';
+
+    html += '<p style="font-size:10px;color:var(--text3);margin-bottom:6px;">Define cuántas unidades de cada modelo debe haber en total (sumando todos los espacios).</p>';
+
+    for (var ai = 0; ai < amKeys.length; ai++) {
+        var ak = amKeys[ai];
+        var aTarget = existingTargetMap[ak];
+        var aName = (aTarget ? aTarget.name : (localModelMap[ak] ? localModelMap[ak].name : 'TV'));
+        var aBrand = aTarget ? aTarget.brand : (localModelMap[ak] ? localModelMap[ak].brand : '');
+        var aQty = localModelMap[ak] ? localModelMap[ak].qty : 0;
+        var aTargetVal = aTarget ? (aTarget.target || 0) : 0;
+        var aMinVal = aTarget ? (aTarget.min || 0) : 0;
+        var aStatus = '';
+        if (aQty === 0 && aTargetVal > 0) aStatus = '🚨';
+        else if (aTargetVal > 0 && aQty >= aTargetVal) aStatus = '✅';
+        else if (aTargetVal > 0 && aQty < aTargetVal) aStatus = '⚠️';
+        else aStatus = '📦';
+
+        // Store productId for saving
+        var aProductId = aTarget ? (aTarget.productId || '') : ak;
+
+        html += '<div style="margin-bottom:' + (ai < amKeys.length - 1 ? '8px' : '0') + ';padding-bottom:' + (ai < amKeys.length - 1 ? '8px' : '0') + ';border-bottom:' + (ai < amKeys.length - 1 ? '1px solid var(--border)' : 'none') + ';">';
+        html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">';
+        html += '<div style="font-size:12px;font-weight:700;color:var(--text);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + aStatus + ' ' + escapeHtml(aName + (aBrand ? ' · ' + aBrand : '')) + '</div>';
+        html += '<div style="font-size:10px;color:var(--text3);flex-shrink:0;">Existen: <b style="color:var(--primary);">' + aQty + '</b></div>';
+        html += '</div>';
+        html += '<div style="display:flex;gap:6px;align-items:center;">';
+        html += '<div style="flex:1;">' +
+            '<label style="font-size:10px;color:var(--text3);">Mínimo</label>' +
+            '<input type="number" class="input" data-mkey="' + escapeHtml(ak) + '" data-pid="' + escapeHtml(aProductId) + '" data-mname="' + escapeHtml(aName) + '" data-mbrand="' + escapeHtml(aBrand) + '" id="mtMin_' + ai + '" value="' + aMinVal + '" min="0" placeholder="0" style="font-size:12px;padding:5px 8px;">' +
+        '</div>';
+        html += '<div style="flex:1;">' +
+            '<label style="font-size:10px;color:var(--text3);">Objetivo</label>' +
+            '<input type="number" class="input" id="mtTarget_' + ai + '" value="' + aTargetVal + '" min="0" placeholder="0" style="font-size:12px;padding:5px 8px;">' +
+        '</div>';
+        html += '</div></div>';
+    }
+
+    if (amKeys.length === 0) {
+        html += '<p style="font-size:11px;color:var(--text3);text-align:center;padding:8px 0;">Primero agrega productos a los espacios</p>';
+    }
+
+    html += '<button class="btn btn-primary btn-sm" onclick="saveModelTargets(\'' + loc.id + '\',' + amKeys.length + ')" style="width:100%;margin-top:8px;font-size:12px;">💾 Guardar Objetivos del Local</button>';
+    html += '</div>';
 
     // Section: Capacidad por Espacio (minUnits / maxUnits)
     if (loc.spaces && loc.spaces.length > 0) {
@@ -5634,6 +5690,51 @@ function saveProductLimits(locId, spaceIdx) {
     for (var k = 0; k < locs.length; k++) {
         if (locs[k].id === locId) { renderLocSpaceView(locs[k]); break; }
     }
+}
+
+// Save model targets at local level
+function saveModelTargets(locId, count) {
+    var locs = getLocations();
+    for (var i = 0; i < locs.length; i++) {
+        if (locs[i].id === locId) {
+            var targets = [];
+            for (var ai = 0; ai < count; ai++) {
+                var minEl = document.getElementById('mtMin_' + ai);
+                var targetEl = document.getElementById('mtTarget_' + ai);
+                var keyEl = minEl ? minEl.getAttribute('data-mkey') : null;
+                var pidEl = minEl ? minEl.getAttribute('data-pid') : '';
+                var nameEl = minEl ? minEl.getAttribute('data-mname') : 'TV';
+                var brandEl = minEl ? minEl.getAttribute('data-mbrand') : '';
+                if (keyEl) {
+                    targets.push({
+                        key: keyEl,
+                        productId: pidEl || '',
+                        name: nameEl,
+                        brand: brandEl,
+                        min: minEl ? (parseInt(minEl.value) || 0) : 0,
+                        target: targetEl ? (parseInt(targetEl.value) || 0) : 0
+                    });
+                }
+            }
+            locs[i].modelTargets = targets;
+            locs[i].updatedAt = new Date().toISOString();
+            break;
+        }
+    }
+    saveLocations(locs);
+    syncLocationsToServer();
+    // Calculate target sum for toast
+    var sum = 0;
+    for (var j = 0; j < locs.length; j++) {
+        if (locs[j].id === locId) {
+            var mt = locs[j].modelTargets || [];
+            for (var t = 0; t < mt.length; t++) sum += (mt[t].target || 0);
+            break;
+        }
+    }
+    showToast('Objetivo del local guardado: ' + sum + ' TVs en total', 'success');
+    // Refresh views
+    renderLocations();
 }
 
 // Save space minUnits/maxUnits
@@ -5836,14 +5937,13 @@ function openStockSummary() {
 function renderStockSummary() {
     var container = document.getElementById('stockSummaryContent');
     var locs = getLocations();
-    var globalTarget = getGlobalTarget();
 
     if (!locs || locs.length === 0) {
         container.innerHTML = '<div style="text-align:center;padding:30px;color:var(--text3);">No hay locales registrados</div>';
         return;
     }
 
-    // Build consolidated product map
+    // Build consolidated product map with actual stock
     var productMap = {};
     var grandTotal = 0;
 
@@ -5857,19 +5957,44 @@ function renderStockSummary() {
                 var pr = prods[pi];
                 var key = pr.productId || (pr.name + '|' + pr.brand);
                 if (!productMap[key]) {
-                    productMap[key] = { name: pr.name || 'Producto', brand: pr.brand || '', specifications: pr.specifications || null, entries: [], totalQty: 0, totalTarget: 0, totalMin: 0 };
+                    productMap[key] = { name: pr.name || 'Producto', brand: pr.brand || '', specifications: pr.specifications || null, entries: [], totalQty: 0, modelTarget: 0, modelMin: 0 };
                 }
                 var qty = pr.qty || 0;
-                var tgt = pr.targetQty || 0;
-                var mn = pr.minQty || 0;
                 productMap[key].entries.push({
-                    locName: loc.name, spaceName: space.name, qty: qty, targetQty: tgt, minQty: mn
+                    locName: loc.name, spaceName: space.name, qty: qty
                 });
                 productMap[key].totalQty += qty;
-                productMap[key].totalTarget += tgt;
-                productMap[key].totalMin += mn;
                 grandTotal += qty;
             }
+        }
+    }
+
+    // Collect model targets from all locales' modelTargets
+    var allModelTargets = {};
+    var grandTarget = 0;
+    for (var li2 = 0; li2 < locs.length; li2++) {
+        var mt = locs[li2].modelTargets || [];
+        for (var ti = 0; ti < mt.length; ti++) {
+            var t = mt[ti];
+            var tKey = t.productId || (t.name + '|' + t.brand);
+            if (!allModelTargets[tKey]) {
+                allModelTargets[tKey] = { name: t.name || 'TV', brand: t.brand || '', target: 0, min: 0 };
+            }
+            allModelTargets[tKey].target += (t.target || 0);
+            allModelTargets[tKey].min += (t.min || 0);
+            grandTarget += (t.target || 0);
+        }
+    }
+
+    // Merge targets into productMap
+    var atKeys = Object.keys(allModelTargets);
+    for (var ati = 0; ati < atKeys.length; ati++) {
+        if (productMap[atKeys[ati]]) {
+            productMap[atKeys[ati]].modelTarget = allModelTargets[atKeys[ati]].target;
+            productMap[atKeys[ati]].modelMin = allModelTargets[atKeys[ati]].min;
+        } else {
+            // Target exists but no stock yet
+            productMap[atKeys[ati]] = { name: allModelTargets[atKeys[ati]].name, brand: allModelTargets[atKeys[ati]].brand, specifications: null, entries: [], totalQty: 0, modelTarget: allModelTargets[atKeys[ati]].target, modelMin: allModelTargets[atKeys[ati]].min };
         }
     }
 
@@ -5879,26 +6004,21 @@ function renderStockSummary() {
         return;
     }
 
-    // Calculate global missing based on target per product (sum of all targets) or global target
-    var sumTargets = 0;
-    for (var k = 0; k < keys.length; k++) sumTargets += productMap[keys[k]].totalTarget;
-    var effectiveTarget = globalTarget > 0 ? globalTarget : sumTargets;
-    var globalMissing = Math.max(0, effectiveTarget - grandTotal);
-    var globalPct = effectiveTarget > 0 ? Math.min(100, Math.round((grandTotal / effectiveTarget) * 100)) : 100;
+    var globalMissing = Math.max(0, grandTarget - grandTotal);
+    var globalPct = grandTarget > 0 ? Math.min(100, Math.round((grandTotal / grandTarget) * 100)) : 100;
     var isComplete = globalMissing <= 0;
 
-    // Classify models
+    // Classify models using model-level targets
     var existModels = []; // meeting target
     var missingModels = []; // below target or empty
     var emptyModels = []; // zero qty
     for (var ki = 0; ki < keys.length; ki++) {
         var pm = productMap[keys[ki]];
-        var obj = { key: keys[ki], name: pm.name, brand: pm.brand, specifications: pm.specifications, totalQty: pm.totalQty, totalTarget: pm.totalTarget, totalMin: pm.totalMin, entries: pm.entries };
-        // target met = complete, even if qty == min
+        var obj = { key: keys[ki], name: pm.name, brand: pm.brand, specifications: pm.specifications, totalQty: pm.totalQty, modelTarget: pm.modelTarget, modelMin: pm.modelMin, entries: pm.entries };
         if (pm.totalQty === 0) emptyModels.push(obj);
-        else if (pm.totalTarget > 0 && pm.totalQty >= pm.totalTarget) existModels.push(obj);
-        else if (pm.totalMin > 0 && pm.totalQty < pm.totalMin) missingModels.push(obj);
-        else if (pm.totalTarget > 0 && pm.totalQty < pm.totalTarget) missingModels.push(obj);
+        else if (pm.modelTarget > 0 && pm.totalQty >= pm.modelTarget) existModels.push(obj);
+        else if (pm.modelMin > 0 && pm.totalQty < pm.modelMin) missingModels.push(obj);
+        else if (pm.modelTarget > 0 && pm.totalQty < pm.modelTarget) missingModels.push(obj);
         else existModels.push(obj);
     }
 
@@ -5908,7 +6028,7 @@ function renderStockSummary() {
     html += '<div style="background:linear-gradient(135deg, var(--primary), #6c5ce7);border-radius:14px;padding:16px;margin-bottom:14px;color:#fff;">' +
         '<div style="text-align:center;margin-bottom:12px;">' +
             '<div style="font-size:11px;opacity:0.8;">Resumen de Stock en Locales</div>' +
-            '<div style="font-size:36px;font-weight:900;line-height:1.1;margin:4px 0;">' + grandTotal + ' <span style="font-size:16px;font-weight:400;opacity:0.8;">de ' + effectiveTarget + '</span></div>' +
+            '<div style="font-size:36px;font-weight:900;line-height:1.1;margin:4px 0;">' + grandTotal + ' <span style="font-size:16px;font-weight:400;opacity:0.8;">de ' + grandTarget + '</span></div>' +
             (isComplete
                 ? '<div style="font-size:13px;font-weight:700;color:#2ed573;">Stock completo</div>'
                 : '<div style="font-size:13px;font-weight:700;color:#ff6b81;">Faltan ' + globalMissing + ' unidades</div>'
@@ -5943,7 +6063,7 @@ function renderStockSummary() {
         for (var mi = 0; mi < allMissing.length; mi++) {
             var m = allMissing[mi];
             var mQty = m.totalQty;
-            var mTarget = m.totalTarget > 0 ? m.totalTarget : m.totalMin;
+            var mTarget = m.modelTarget > 0 ? m.modelTarget : m.modelMin;
             var mDeficit = Math.max(0, mTarget - mQty);
             var mPct = mTarget > 0 ? Math.min(100, Math.round((mQty / mTarget) * 100)) : 0;
             var isEmpty = mQty === 0;
@@ -5984,14 +6104,10 @@ function renderStockSummary() {
             html += '<div style="margin-top:6px;font-size:10px;">';
             for (var ei = 0; ei < m.entries.length; ei++) {
                 var e = m.entries[ei];
-                var eMissing = e.targetQty - e.qty;
-                var eColor = e.qty === 0 ? '#ff4757' : (e.qty <= e.minQty ? '#ffa502' : '#2ed573');
+                var eColor = e.qty === 0 ? '#ff4757' : '#2ed573';
                 html += '<div style="display:flex;justify-content:space-between;padding:2px 0;">' +
                     '<span style="color:var(--text3);">🏪 ' + escapeHtml(e.locName) + ' › ' + escapeHtml(e.spaceName) + '</span>' +
-                    '<span><b style="color:' + eColor + ';">' + e.qty + '</b>' +
-                    (e.targetQty > 0 ? '<span style="color:var(--text3);"> / ' + e.targetQty + '</span>' : '') +
-                    (eMissing > 0 ? ' <span style="color:#ff4757;">(-' + eMissing + ')</span>' : '') +
-                    '</span></div>';
+                    '<span><b style="color:' + eColor + ';">' + e.qty + '</b></span></div>';
             }
             html += '</div></div>';
         }
