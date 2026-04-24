@@ -1474,7 +1474,12 @@
                 </div>
             </div>
             <div id="spResults" style="position:relative;"></div>
-            <div style="display:flex;gap:6px;">
+            <!-- Cart for multi-select -->
+            <div id="spCartSection" style="display:none;">
+                <div style="font-size:11px;font-weight:700;color:var(--text3);margin:8px 0 4px;text-transform:uppercase;letter-spacing:0.5px;">🛒 Seleccionados (<span id="spCartCount">0</span>)</div>
+                <div id="spCartItems" style="max-height:120px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:4px;"></div>
+            </div>
+            <div id="spSingleFields" style="display:flex;gap:6px;">
                 <div class="input-group" style="flex:1;">
                     <label class="input-label">Cantidad</label>
                     <input type="number" id="spQty" class="input" value="1" min="0" placeholder="Uds">
@@ -5100,6 +5105,7 @@ function updateServerStatus() {
 var _locCurrentLocId = null; // Currently viewing location
 var _locCurrentSpace = 0;    // Currently viewing space index
 var _spSelectedProductId = null; // Selected product for space assignment
+var _spCart = {}; // Multi-select cart for batch product addition: { productId: qty }
 var _locControlLocId = null; // Control panel context
 var _locControlSpaceIdx = 0;
 var _groupSelectMode = false; // Group selection mode for stock edit
@@ -6703,7 +6709,7 @@ function renderStockDetailPage() {
                     productMap[key] = { name: pr.name || 'Producto', brand: pr.brand || '', specifications: pr.specifications || null, entries: [], totalQty: 0 };
                 }
                 var qty = pr.qty || 0;
-                productMap[key].entries.push({ locId: loc.id, locName: loc.name, spaceIdx: si, spaceName: space.name, qty: qty });
+                productMap[key].entries.push({ locId: loc.id, locName: loc.name, spaceIdx: si, spaceName: space.name, qty: qty, productId: pr.productId || key });
                 productMap[key].totalQty += qty;
                 grandTotal += qty;
             }
@@ -6892,14 +6898,17 @@ function renderStockDetailPage() {
                     '<div style="height:100%;width:' + mPct + '%;background:' + mColor + ';border-radius:3px;"></div>' +
                 '</div>';
 
-            // Distribution per locale - clickable entries
+            // Distribution per locale - clickable entries with direct action
             html += '<div style="margin-top:6px;font-size:10px;">';
             for (var ei = 0; ei < m.entries.length; ei++) {
                 var e = m.entries[ei];
                 var eColor = e.qty === 0 ? '#ff4757' : '#2ed573';
-                html += '<div onclick="goToLocFromStock(\'' + e.locId + '\',' + e.spaceIdx + ')" style="display:flex;justify-content:space-between;padding:3px 4px;border-radius:4px;cursor:pointer;' + (e.qty > 0 ? '' : 'background:#ff475710;') + '" onmousedown="this.style.opacity=\'0.7\'" onmouseup="this.style.opacity=\'1\'">' +
+                var eAction = e.qty === 0 ? 'add' : 'ingress';
+                var eActionLabel = e.qty === 0 ? '📥 Agregar' : '📥 Stockear';
+                var ePid = (e.productId || '').replace(/'/g, "\\'");
+                html += '<div onclick="goToLocFromStock(\'' + e.locId + '\',' + e.spaceIdx + ',\'' + ePid + '\',\'' + eAction + '\')" style="display:flex;justify-content:space-between;align-items:center;padding:3px 4px;border-radius:4px;cursor:pointer;' + (e.qty > 0 ? '' : 'background:#ff475710;') + '" onmousedown="this.style.opacity=\'0.7\'" onmouseup="this.style.opacity=\'1\'">' +
                     '<span style="color:var(--text2);">🏪 ' + escapeHtml(e.locName) + ' › ' + escapeHtml(e.spaceName) + '</span>' +
-                    '<span><b style="color:' + eColor + ';">' + e.qty + '</b> <span style="color:var(--text3);">→</span></span></div>';
+                    '<span style="display:flex;align-items:center;gap:4px;"><b style="color:' + eColor + ';">' + e.qty + '</b> <span style="color:var(--primary);font-size:9px;font-weight:700;">' + eActionLabel + '</span></span></div>';
             }
             html += '</div></div>';
         }
@@ -6951,8 +6960,8 @@ function renderStockDetailPage() {
     spaceView.innerHTML = html;
 }
 
-// Navigate from stock detail to a specific locale + space
-function goToLocFromStock(locId, spaceIdx) {
+// Navigate from stock detail to a specific locale + space and optionally open action
+function goToLocFromStock(locId, spaceIdx, productId, action) {
     _locCurrentLocId = locId;
     _locCurrentSpace = spaceIdx || 0;
     _groupSelectMode = false;
@@ -6966,6 +6975,46 @@ function goToLocFromStock(locId, spaceIdx) {
     if (!loc) return;
 
     renderLocSpaceView(loc);
+
+    // If a productId and action specified, open the action after render
+    if (productId && action) {
+        setTimeout(function() {
+            var space = loc.spaces[_locCurrentSpace];
+            if (!space) return;
+            var prods = space.products || [];
+            var prodIdx = -1;
+            for (var pi = 0; pi < prods.length; pi++) {
+                if (prods[pi].productId === productId) { prodIdx = pi; break; }
+            }
+            if (action === 'add' && prodIdx === -1) {
+                // Product not in space — open product search modal pre-filtered
+                openSpaceProductModal(locId, _locCurrentSpace);
+                setTimeout(function() {
+                    var searchEl = document.getElementById('spSearch');
+                    if (searchEl && productId) {
+                        // Try to find the product name for search
+                        var products = getProducts();
+                        for (var p = 0; p < products.length; p++) {
+                            if (products[p].id === productId) {
+                                searchEl.value = products[p].name || '';
+                                searchProductsForSpace(products[p].name || '');
+                                break;
+                            }
+                        }
+                    }
+                }, 400);
+            } else if (action === 'ingress' && prodIdx >= 0) {
+                // Product exists but needs more — open stock edit
+                openStockEdit(locId, _locCurrentSpace, prodIdx);
+            } else if (prodIdx >= 0) {
+                // Default: open stock edit
+                openStockEdit(locId, _locCurrentSpace, prodIdx);
+            } else {
+                // Not found, open add modal
+                openSpaceProductModal(locId, _locCurrentSpace);
+            }
+        }, 200);
+    }
 }
 
 // ===== EXCEL EXPORT — LOCALES INVENTORY =====
@@ -7341,6 +7390,7 @@ function deleteLoc(locId) {
 // ===== SPACE PRODUCT MANAGEMENT =====
 function openSpaceProductModal(locId, spaceIdx) {
     _spSelectedProductId = null;
+    _spCart = {};
     document.getElementById('spLocId').value = locId;
     document.getElementById('spSpaceIdx').value = spaceIdx;
     document.getElementById('spSearch').value = '';
@@ -7348,6 +7398,8 @@ function openSpaceProductModal(locId, spaceIdx) {
     document.getElementById('spTargetQty').value = '2';
     document.getElementById('spMinQty').value = '1';
     document.getElementById('spResults').innerHTML = '';
+    document.getElementById('spCartSection').style.display = 'none';
+    document.getElementById('spSingleFields').style.display = 'flex';
     openModal('spaceProductModal');
     setTimeout(function() { document.getElementById('spSearch').focus(); }, 300);
 }
@@ -7440,21 +7492,125 @@ function searchProductsForSpace(query) {
 }
 
 function selectProductForSpace(productId, el) {
+    // Toggle in cart: first click = add to cart, second click on same = remove
+    var products = getProducts();
+    var prodName = '';
+    for (var p = 0; p < products.length; p++) {
+        if (products[p].id === productId) { prodName = products[p].name || 'Producto'; break; }
+    }
+
+    if (_spCart[productId]) {
+        // Already in cart - remove
+        delete _spCart[productId];
+        el.style.background = 'transparent';
+        el.style.color = 'var(--text)';
+        el.style.borderLeft = 'none';
+    } else {
+        // Add to cart
+        _spCart[productId] = { qty: parseInt(document.getElementById('spQty').value) || 1, name: prodName };
+        el.style.background = 'var(--primary-bg)';
+        el.style.color = 'var(--primary)';
+        el.style.borderLeft = '3px solid var(--primary)';
+    }
+
+    // Update single selection
     _spSelectedProductId = productId;
-    // Highlight selected
-    var items = el.parentElement.querySelectorAll('div');
+
+    // Update cart display
+    updateSpCart();
+}
+
+function updateSpCart() {
+    var cartKeys = Object.keys(_spCart);
+    var cartSection = document.getElementById('spCartSection');
+    var cartItems = document.getElementById('spCartItems');
+    var singleFields = document.getElementById('spSingleFields');
+    var cartCount = document.getElementById('spCartCount');
+
+    if (cartKeys.length === 0) {
+        cartSection.style.display = 'none';
+        singleFields.style.display = 'flex';
+        return;
+    }
+
+    cartSection.style.display = 'block';
+    singleFields.style.display = 'none';
+    cartCount.textContent = cartKeys.length;
+
+    var products = getProducts();
+    var html = '';
+    for (var i = 0; i < cartKeys.length; i++) {
+        var pid = cartKeys[i];
+        var item = _spCart[pid];
+        var pName = item.name || pid;
+        // Get full name from products catalog
+        for (var p = 0; p < products.length; p++) {
+            if (products[p].id === pid) {
+                pName = products[p].name || 'Producto';
+                if (products[p].brand) pName += ' · ' + products[p].brand;
+                break;
+            }
+        }
+        html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:4px 6px;border-bottom:1px solid var(--border);font-size:12px;">' +
+            '<div style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(pName) + '</div>' +
+            '<div style="display:flex;align-items:center;gap:4px;flex-shrink:0;margin-left:6px;">' +
+                '<input type="number" id="spCartQty_' + pid + '" class="input" value="' + item.qty + '" min="0" style="width:44px;font-size:12px;text-align:center;padding:3px;" onchange="_spCart[\'' + pid + '\'].qty=parseInt(this.value)||0">' +
+                '<button onclick="removeFromSpCart(\'' + pid + '\')" style="width:22px;height:22px;border-radius:6px;border:none;background:#ff475720;color:#ff4757;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;">✕</button>' +
+            '</div>' +
+        '</div>';
+    }
+    html += '<div style="padding:6px;text-align:center;">' +
+        '<button class="btn btn-outline btn-sm" onclick="clearSpCart()" style="font-size:10px;">Limpiar todo</button>' +
+    '</div>';
+    cartItems.innerHTML = html;
+}
+
+function removeFromSpCart(productId) {
+    delete _spCart[productId];
+    updateSpCart();
+    // Re-highlight search results
+    var items = document.getElementById('spResults').querySelectorAll('div[onclick*="selectProductForSpace"]');
+    for (var i = 0; i < items.length; i++) {
+        var onclick = items[i].getAttribute('onclick') || '';
+        var pid = onclick.match(/selectProductForSpace\('([^']+)'/);
+        if (pid && _spCart[pid[1]]) {
+            items[i].style.background = 'var(--primary-bg)';
+            items[i].style.color = 'var(--primary)';
+        } else {
+            items[i].style.background = 'transparent';
+            items[i].style.color = 'var(--text)';
+        }
+    }
+}
+
+function clearSpCart() {
+    _spCart = {};
+    updateSpCart();
+    var items = document.getElementById('spResults').querySelectorAll('div[onclick*="selectProductForSpace"]');
     for (var i = 0; i < items.length; i++) {
         items[i].style.background = 'transparent';
         items[i].style.color = 'var(--text)';
     }
-    el.style.background = 'var(--primary-bg)';
-    el.style.color = 'var(--primary)';
 }
 
 function confirmAddProductToSpace() {
-    if (!_spSelectedProductId) { showToast('Selecciona un producto', 'error'); return; }
     var locId = document.getElementById('spLocId').value;
     var spaceIdx = parseInt(document.getElementById('spSpaceIdx').value);
+    var cartKeys = Object.keys(_spCart);
+
+    // If cart has items, process all of them (batch mode)
+    if (cartKeys.length > 0) {
+        // Read updated quantities from cart inputs
+        for (var ci = 0; ci < cartKeys.length; ci++) {
+            var qtyInput = document.getElementById('spCartQty_' + cartKeys[ci]);
+            if (qtyInput) _spCart[cartKeys[ci]].qty = parseInt(qtyInput.value) || 0;
+        }
+        addCartToSpace(locId, spaceIdx);
+        return;
+    }
+
+    // Single mode: require selection
+    if (!_spSelectedProductId) { showToast('Selecciona un producto', 'error'); return; }
     var qty = parseInt(document.getElementById('spQty').value) || 0;
     var targetQty = parseInt(document.getElementById('spTargetQty').value) || 2;
     var minQty = parseInt(document.getElementById('spMinQty').value) || 1;
@@ -7464,24 +7620,17 @@ function confirmAddProductToSpace() {
 
     var locs = getLocations();
     var products = getProducts();
-
-    // Find product name and specs
-    var prodName = '';
-    var prodBrand = '';
-    var prodSpecs = null;
+    var prodName = ''; var prodBrand = ''; var prodSpecs = null;
     for (var p = 0; p < products.length; p++) {
         if (products[p].id === _spSelectedProductId) {
-            prodName = products[p].name || 'Producto';
-            prodBrand = products[p].brand || '';
-            prodSpecs = products[p].specifications || null;
-            break;
+            prodName = products[p].name || 'Producto'; prodBrand = products[p].brand || '';
+            prodSpecs = products[p].specifications || null; break;
         }
     }
 
     for (var i = 0; i < locs.length; i++) {
         if (locs[i].id === locId && locs[i].spaces && locs[i].spaces[spaceIdx]) {
             var space = locs[i].spaces[spaceIdx];
-            // Check if product already exists in this space
             var found = false;
             for (var j = 0; j < space.products.length; j++) {
                 if (space.products[j].productId === _spSelectedProductId) {
@@ -7490,8 +7639,7 @@ function confirmAddProductToSpace() {
                     space.products[j].targetQty = targetQty;
                     space.products[j].minQty = minQty;
                     space.products[j].maxQty = maxQty;
-                    found = true;
-                    break;
+                    found = true; break;
                 }
             }
             if (!found) {
@@ -7501,35 +7649,86 @@ function confirmAddProductToSpace() {
                 });
             }
             locs[i].updatedAt = new Date().toISOString();
-            // Log movement (ingreso)
             if (qty > 0) {
                 if (!locs[i].movements) locs[i].movements = [];
                 locs[i].movements.push({
                     id: 'mov-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5),
-                    date: new Date().toISOString(),
-                    type: 'ingreso',
-                    productId: _spSelectedProductId,
-                    productName: prodName,
-                    productBrand: prodBrand,
-                    spaceIdx: spaceIdx,
-                    spaceName: space.name || '',
-                    qty: qty
+                    date: new Date().toISOString(), type: 'ingreso',
+                    productId: _spSelectedProductId, productName: prodName, productBrand: prodBrand,
+                    spaceIdx: spaceIdx, spaceName: space.name || '', qty: qty
                 });
             }
             break;
         }
     }
-
-    saveLocations(locs);
-    syncLocationsToServer();
-    closeModal('spaceProductModal');
-
+    saveLocations(locs); syncLocationsToServer(); closeModal('spaceProductModal');
     var loc = null;
-    for (var k = 0; k < locs.length; k++) {
-        if (locs[k].id === locId) { loc = locs[k]; break; }
-    }
+    for (var k = 0; k < locs.length; k++) { if (locs[k].id === locId) { loc = locs[k]; break; } }
     if (loc) renderLocSpaceView(loc);
     showToast('Ingreso registrado: +' + qty + ' ud' + (qty > 1 ? 's' : ''), 'success');
+}
+
+function addCartToSpace(locId, spaceIdx) {
+    var cartKeys = Object.keys(_spCart);
+    if (cartKeys.length === 0) return;
+
+    var locs = getLocations();
+    var products = getProducts();
+    var totalAdded = 0;
+    var locIdx = -1;
+
+    for (var i = 0; i < locs.length; i++) {
+        if (locs[i].id === locId && locs[i].spaces && locs[i].spaces[spaceIdx]) {
+            locIdx = i;
+            var space = locs[i].spaces[spaceIdx];
+
+            for (var ci = 0; ci < cartKeys.length; ci++) {
+                var pid = cartKeys[ci];
+                var cartQty = _spCart[pid].qty || 0;
+                if (cartQty < 1) continue;
+
+                var prodName = ''; var prodBrand = ''; var prodSpecs = null;
+                for (var p = 0; p < products.length; p++) {
+                    if (products[p].id === pid) {
+                        prodName = products[p].name || 'Producto'; prodBrand = products[p].brand || '';
+                        prodSpecs = products[p].specifications || null; break;
+                    }
+                }
+
+                var found = false;
+                for (var j = 0; j < space.products.length; j++) {
+                    if (space.products[j].productId === pid) {
+                        space.products[j].qty += cartQty;
+                        if (prodSpecs) space.products[j].specifications = prodSpecs;
+                        found = true; break;
+                    }
+                }
+                if (!found) {
+                    space.products.push({
+                        productId: pid, name: prodName, brand: prodBrand,
+                        qty: cartQty, specifications: prodSpecs, targetQty: 0, minQty: 0, maxQty: 0
+                    });
+                }
+                totalAdded += cartQty;
+
+                // Log movement
+                if (!locs[i].movements) locs[i].movements = [];
+                locs[i].movements.push({
+                    id: 'mov-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5),
+                    date: new Date().toISOString(), type: 'ingreso',
+                    productId: pid, productName: prodName, productBrand: prodBrand,
+                    spaceIdx: spaceIdx, spaceName: space.name || '', qty: cartQty
+                });
+            }
+            locs[i].updatedAt = new Date().toISOString();
+            break;
+        }
+    }
+
+    saveLocations(locs); syncLocationsToServer(); closeModal('spaceProductModal');
+    _spCart = {};
+    if (locIdx >= 0) renderLocSpaceView(locs[locIdx]);
+    showToast('Ingreso por grupo: +' + totalAdded + ' uds en ' + cartKeys.length + ' productos', 'success');
 }
 
 function changeSpaceQty(locId, spaceIdx, prodIdx, delta) {
