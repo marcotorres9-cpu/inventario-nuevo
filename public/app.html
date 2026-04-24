@@ -5183,7 +5183,8 @@ function editGlobalTarget() {
     val = parseInt(val) || 0;
     if (val < 0) val = 0;
     setGlobalTarget(val);
-    renderGlobalTargetBanner();
+    // Always return to list view when editing global target
+    renderLocations();
     showToast('Objetivo global actualizado: ' + val + ' TVs', 'success');
 }
 
@@ -5199,9 +5200,11 @@ function renderLocations() {
     spaceView.style.display = 'none';
     _locCurrentLocId = null;
 
-    // Show/hide header
+    // Show header and banner
     var header = container.parentElement.querySelector('div[style*="align-items:center"]');
     if (header) header.style.display = 'flex';
+    var banner = document.getElementById('globalTargetBanner');
+    if (banner) banner.style.display = 'block';
 
     // Render compact global target banner
     renderGlobalTargetBanner();
@@ -5269,9 +5272,11 @@ function openLocDetail(locId) {
     container.style.display = 'none';
     document.getElementById('locationsEmpty').style.display = 'none';
 
-    // Hide header with add button
+    // Hide header with add button and global banner
     var header = spaceView.parentElement.querySelector('div[style*="align-items:center"]');
     if (header) header.style.display = 'none';
+    var banner = document.getElementById('globalTargetBanner');
+    if (banner) banner.style.display = 'none';
 
     renderLocSpaceView(loc);
     spaceView.style.display = 'block';
@@ -5529,18 +5534,11 @@ function openLocControlPanel(locId, spaceIdx) {
         html += '</div>';
     }
 
-    // Section: Global settings
-    html += '<div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Global</div>';
-    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:14px;">' +
-        '<button class="btn btn-outline btn-sm" onclick="closeModal(\'locControlModal\');editGlobalTarget()" style="font-size:12px;">🎯 Objetivo Global</button>' +
-        '<button class="btn btn-outline btn-sm" onclick="closeModal(\'locControlModal\');openStockSummary()" style="font-size:12px;">📊 Resumen Stock</button>' +
-    '</div>';
-
-    // Section: Exports
-    html += '<div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Exportar</div>';
+    // Section: Exportar y herramientas
+    html += '<div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Herramientas</div>';
     html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">' +
-        '<button class="btn btn-outline btn-sm" onclick="closeModal(\'locControlModal\');exportLocaleExcel()" style="font-size:12px;">📥 Excel Locales</button>' +
-        '<button class="btn btn-outline btn-sm" onclick="closeModal(\'locControlModal\');openAllMovements()" style="font-size:12px;">📋 Todos Mov.</button>' +
+        '<button class="btn btn-outline btn-sm" onclick="closeModal(\'locControlModal\');openStockSummary()" style="font-size:12px;">📊 Resumen Stock</button>' +
+        '<button class="btn btn-outline btn-sm" onclick="closeModal(\'locControlModal\');exportLocaleExcel()" style="font-size:12px;">📥 Excel</button>' +
     '</div>';
 
     html += '</div>';
