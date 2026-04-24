@@ -1464,16 +1464,20 @@
             <div id="spResults" style="position:relative;"></div>
             <div style="display:flex;gap:6px;">
                 <div class="input-group" style="flex:1;">
-                    <label class="input-label">Cantidad actual</label>
+                    <label class="input-label">Cantidad</label>
                     <input type="number" id="spQty" class="input" value="1" min="0" placeholder="Uds">
+                </div>
+                <div class="input-group" style="flex:1;">
+                    <label class="input-label">Mínimo</label>
+                    <input type="number" id="spMinQty" class="input" value="1" min="0" placeholder="Mín">
+                </div>
+                <div class="input-group" style="flex:1;">
+                    <label class="input-label">Máximo</label>
+                    <input type="number" id="spMaxQty" class="input" value="0" min="0" placeholder="0=sin lím">
                 </div>
                 <div class="input-group" style="flex:1;">
                     <label class="input-label">Objetivo</label>
                     <input type="number" id="spTargetQty" class="input" value="2" min="0" placeholder="Meta">
-                </div>
-                <div class="input-group" style="flex:1;">
-                    <label class="input-label">Mínimo alerta</label>
-                    <input type="number" id="spMinQty" class="input" value="1" min="0" placeholder="Mín">
                 </div>
             </div>
             <div style="display:flex;gap:8px;margin-top:4px;">
@@ -3497,7 +3501,7 @@ function selectChipValue(key, value) {
 
     // Cascading: reset downstream filters
     var isSp = key.indexOf('sp') === 0;
-    var type = isSp ? key.substring(2) : key;
+    var type = isSp ? key.substring(2) : key.substring(1);
     var downstream = { cat: ['brand','color','spec'], brand: ['color','spec'], color: ['spec'], spec: [] };
     var downstreamKeys = downstream[type] || [];
     var prefix = isSp ? 'sp' : 'f';
@@ -5148,7 +5152,7 @@ function renderLocSpaceView(loc) {
         else if ((products[p].qty || 0) <= (products[p].minQty || 0)) lowCount++;
     }
 
-    // Space tabs
+    // Space tabs with capacity indicators
     var tabsHtml = '';
     for (var s = 0; s < spaces.length; s++) {
         var activeClass = s === currentIdx ? ' active' : '';
@@ -5159,18 +5163,35 @@ function renderLocSpaceView(loc) {
             sCount += (sProds[sp].qty || 0);
             if ((sProds[sp].qty || 0) <= (sProds[sp].minQty || 0)) sAlerts++;
         }
+        // Check space-level capacity
+        var spMinU = spaces[s].minUnits || 0;
+        var spMaxU = spaces[s].maxUnits || 0;
+        var capBadge = '';
+        if (spMinU > 0 && sCount < spMinU) capBadge = ' <span style="color:#ff4757;font-size:9px;">↓</span>';
+        else if (spMaxU > 0 && sCount > spMaxU) capBadge = ' <span style="color:#ffa502;font-size:9px;">↑</span>';
         var alertBadge = sAlerts > 0 ? ' <span style="background:#ff4757;color:#fff;font-size:9px;padding:1px 5px;border-radius:8px;">!</span>' : '';
         tabsHtml += '<span class="space-tab' + activeClass + '" onclick="_locCurrentSpace=' + s + ';renderLocSpaceView(getLocations()[' + _findLocIdx(loc.id) + '])">' +
-            escapeHtml(spaces[s].name) + ' <small>(' + sCount + ')</small>' + alertBadge + '</span>';
+            escapeHtml(spaces[s].name) + ' <small>(' + sCount + ')</small>' + capBadge + alertBadge + '</span>';
     }
 
     // Compact alert (only if there are problems)
     var alertHtml = '';
+    // Space-level capacity alert
+    var curMinU = currentSpace.minUnits || 0;
+    var curMaxU = currentSpace.maxUnits || 0;
+    if (curMinU > 0 && totalQty < curMinU) {
+        alertHtml += '<div style="background:#ff475715;border:1px solid #ff475730;border-radius:10px;padding:8px 14px;margin-bottom:10px;font-size:12px;color:#ff6b81;">' +
+            '📉 Espacio por debajo del mínimo: <b>' + totalQty + '</b>/' + curMinU + ' unidades</div>';
+    } else if (curMaxU > 0 && totalQty > curMaxU) {
+        alertHtml += '<div style="background:#ffa50215;border:1px solid #ffa50230;border-radius:10px;padding:8px 14px;margin-bottom:10px;font-size:12px;color:#ffa502;">' +
+            '📈 Espacio sobre máximo: <b>' + totalQty + '</b>/' + curMaxU + ' unidades</div>';
+    }
+    // Product-level alerts
     if (alertCount > 0) {
-        alertHtml = '<div style="background:#ff475715;border:1px solid #ff475730;border-radius:10px;padding:8px 14px;margin-bottom:10px;font-size:12px;color:#ff6b81;">' +
+        alertHtml += '<div style="background:#ff475715;border:1px solid #ff475730;border-radius:10px;padding:8px 14px;margin-bottom:10px;font-size:12px;color:#ff6b81;">' +
             '🚨 <b>' + alertCount + '</b> producto' + (alertCount > 1 ? 's' : '') + ' agotado' + (alertCount > 1 ? 's' : '') + '</div>';
     } else if (lowCount > 0) {
-        alertHtml = '<div style="background:#ffa50215;border:1px solid #ffa50230;border-radius:10px;padding:8px 14px;margin-bottom:10px;font-size:12px;color:#ffa502;">' +
+        alertHtml += '<div style="background:#ffa50215;border:1px solid #ffa50230;border-radius:10px;padding:8px 14px;margin-bottom:10px;font-size:12px;color:#ffa502;">' +
             '⚠️ <b>' + lowCount + '</b> producto' + (lowCount > 1 ? 's' : '') + ' bajo' + (lowCount > 1 ? 's' : '') + ' mínimo</div>';
     }
 
@@ -5188,12 +5209,14 @@ function renderLocSpaceView(loc) {
             var qty = pr.qty || 0;
             var target = pr.targetQty || 2;
             var min = pr.minQty || 1;
+            var max = pr.maxQty || 0;
 
             // Status
             var statusColor = '#2ed573';
             var statusIcon = '✅';
             if (qty === 0) { statusColor = '#ff4757'; statusIcon = '🚨'; }
             else if (qty <= min) { statusColor = '#ffa502'; statusIcon = '⚠️'; }
+            else if (max > 0 && qty > max) { statusColor = '#ffa502'; statusIcon = '📈'; }
 
             // Spec tags (compact)
             var locSpecsHtml = '';
@@ -5224,6 +5247,7 @@ function renderLocSpaceView(loc) {
                 '</div>' +
                 '<div style="text-align:right;flex-shrink:0;">' +
                     '<div style="font-size:16px;font-weight:700;color:' + statusColor + ';">' + qty + '</div>' +
+                    (min > 0 || max > 0 ? '<div style="font-size:9px;color:var(--text3);">' + (min > 0 ? 'mín:' + min : '') + (min > 0 && max > 0 ? ' ' : '') + (max > 0 ? 'máx:' + max : '') + '</div>' : '') +
                     '<div style="background:var(--bg2);border-radius:3px;height:3px;width:40px;margin-top:3px;overflow:hidden;"><div style="height:100%;width:' + pct + '%;background:' + barColor + ';border-radius:3px;"></div></div>' +
                 '</div>' +
             '</div>';
@@ -5241,6 +5265,15 @@ function renderLocSpaceView(loc) {
             '<div class="loc-stat-item"><div class="loc-stat-num">' + totalTypes + '</div><div class="loc-stat-label">Tipos</div></div>' +
             '<div class="loc-stat-item"><div class="loc-stat-num" style="color:var(--primary);">' + totalQty + '</div><div class="loc-stat-label">Unidades</div></div>' +
         '</div>' +
+        (curMinU > 0 || curMaxU > 0 ?
+            '<div style="display:flex;align-items:center;gap:8px;margin-top:8px;padding:6px 12px;background:var(--bg2);border-radius:8px;font-size:11px;">' +
+                '<span style="color:var(--text2);">📊 Capacidad:</span>' +
+                (curMinU > 0 ? '<span style="color:' + (totalQty >= curMinU ? '#2ed573' : '#ff4757') + ';">Mín ' + curMinU + '</span>' : '') +
+                (curMinU > 0 && curMaxU > 0 ? '<span style="color:var(--text3);">|</span>' : '') +
+                (curMaxU > 0 ? '<span style="color:' + (totalQty <= curMaxU ? '#2ed573' : '#ffa502') + ';">Máx ' + curMaxU + '</span>' : '') +
+                '<span style="color:var(--text3);margin-left:auto;">Actual: <b>' + totalQty + '</b></span>' +
+            '</div>'
+        : '') +
         alertHtml +
         '<div style="margin:12px 0 6px;font-size:12px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;">Espacios</div>' +
         (tabsHtml || '<div style="color:var(--text3);font-size:13px;padding:8px 0;">Sin espacios definidos</div>') +
@@ -5276,6 +5309,40 @@ function openLocControlPanel(locId, spaceIdx) {
         '<button class="btn btn-outline btn-sm" onclick="closeModal(\'locControlModal\');openLocMovements(\'' + loc.id + '\')" style="font-size:12px;">📋 Movimientos</button>' +
     '</div>';
 
+    // Section: Capacidad por Espacio (minUnits / maxUnits)
+    if (loc.spaces && loc.spaces.length > 0) {
+        html += '<div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">📊 Capacidad por Espacio</div>';
+        html += '<div style="background:var(--bg2);border-radius:10px;padding:10px;margin-bottom:14px;">';
+        html += '<p style="font-size:11px;color:var(--text2);margin-bottom:8px;">Define las unidades mínimas y máximas para cada espacio.</p>';
+        for (var s = 0; s < loc.spaces.length; s++) {
+            var sp = loc.spaces[s];
+            var spTotal = 0;
+            var spProds = sp.products || [];
+            for (var pp = 0; pp < spProds.length; pp++) spTotal += (spProds[pp].qty || 0);
+            var spMin = sp.minUnits || 0;
+            var spMax = sp.maxUnits || 0;
+            var statusTxt = '';
+            if (spMin > 0 && spTotal < spMin) statusTxt = '<span style="color:#ff4757;font-size:10px;">⚠ Bajo mín.</span>';
+            else if (spMax > 0 && spTotal > spMax) statusTxt = '<span style="color:#ffa502;font-size:10px;">⚠ Sobre máx.</span>';
+            else if (spMin > 0 || spMax > 0) statusTxt = '<span style="color:#2ed573;font-size:10px;">✓ OK</span>';
+
+            html += '<div style="margin-bottom:' + (s < loc.spaces.length - 1 ? '10px' : '0') + ';padding-bottom:' + (s < loc.spaces.length - 1 ? '10px' : '0') + ';border-bottom:' + (s < loc.spaces.length - 1 ? '1px solid var(--border)' : 'none') + ';">';
+            html += '<div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:4px;">' + escapeHtml(sp.name || 'Espacio') + ' <span style="font-weight:400;color:var(--text2);">(' + spTotal + ' uds)</span> ' + statusTxt + '</div>';
+            html += '<div style="display:flex;gap:6px;align-items:center;">';
+            html += '<div style="flex:1;">' +
+                '<label style="font-size:10px;color:var(--text3);">Mínimo</label>' +
+                '<input type="number" class="input" id="spLimMin_' + s + '" value="' + spMin + '" min="0" placeholder="0" style="font-size:12px;padding:5px 8px;">' +
+            '</div>';
+            html += '<div style="flex:1;">' +
+                '<label style="font-size:10px;color:var(--text3);">Máximo</label>' +
+                '<input type="number" class="input" id="spLimMax_' + s + '" value="' + spMax + '" min="0" placeholder="0" style="font-size:12px;padding:5px 8px;">' +
+            '</div>';
+            html += '</div></div>';
+        }
+        html += '<button class="btn btn-primary btn-sm" onclick="saveSpaceLimits(\'' + loc.id + '\')" style="width:100%;margin-top:8px;font-size:12px;">💾 Guardar Límites</button>';
+        html += '</div>';
+    }
+
     // Section: Global settings
     html += '<div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Global</div>';
     html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:14px;">' +
@@ -5295,6 +5362,31 @@ function openLocControlPanel(locId, spaceIdx) {
     var content = document.getElementById('locControlContent');
     if (content) content.innerHTML = html;
     openModal('locControlModal');
+}
+
+// Save space minUnits/maxUnits
+function saveSpaceLimits(locId) {
+    var locs = getLocations();
+    for (var i = 0; i < locs.length; i++) {
+        if (locs[i].id === locId) {
+            var spaces = locs[i].spaces || [];
+            for (var s = 0; s < spaces.length; s++) {
+                var minEl = document.getElementById('spLimMin_' + s);
+                var maxEl = document.getElementById('spLimMax_' + s);
+                if (minEl) spaces[s].minUnits = parseInt(minEl.value) || 0;
+                if (maxEl) spaces[s].maxUnits = parseInt(maxEl.value) || 0;
+            }
+            locs[i].updatedAt = new Date().toISOString();
+            break;
+        }
+    }
+    saveLocations(locs);
+    syncLocationsToServer();
+    showToast('Límites de espacio guardados', 'success');
+    // Re-render detail view
+    for (var k = 0; k < locs.length; k++) {
+        if (locs[k].id === locId) { renderLocSpaceView(locs[k]); break; }
+    }
 }
 
 function _findLocIdx(locId) {
@@ -5380,19 +5472,24 @@ function editProductTarget(locId, spaceIdx, prodIdx) {
     if (!pr) return;
     var curTarget = pr.targetQty || 2;
     var curMin = pr.minQty || 1;
-    var msg = 'Producto: ' + (pr.name || '') + '\nObjetivo actual: ' + curTarget + '\nMínimo actual: ' + curMin;
+    var curMax = pr.maxQty || 0;
+    var msg = 'Producto: ' + (pr.name || '') + '\nObjetivo: ' + curTarget + ' | Mínimo: ' + curMin + ' | Máximo: ' + (curMax > 0 ? curMax : 'sin límite');
     var newTarget = prompt(msg + '\n\nNuevo OBJETIVO:', curTarget);
     if (newTarget === null) return;
     newTarget = parseInt(newTarget) || 0;
     var newMin = prompt(msg + '\n\nNuevo MÍNIMO para alerta:', curMin);
     if (newMin === null) return;
     newMin = parseInt(newMin) || 0;
+    var newMax = prompt(msg + '\n\nNuevo MÁXIMO (0 = sin límite):', curMax);
+    if (newMax === null) return;
+    newMax = parseInt(newMax) || 0;
 
     var locs2 = getLocations();
     for (var j = 0; j < locs2.length; j++) {
         if (locs2[j].id === locId && locs2[j].spaces && locs2[j].spaces[spaceIdx]) {
             locs2[j].spaces[spaceIdx].products[prodIdx].targetQty = newTarget;
             locs2[j].spaces[spaceIdx].products[prodIdx].minQty = newMin;
+            locs2[j].spaces[spaceIdx].products[prodIdx].maxQty = newMax;
             locs2[j].updatedAt = new Date().toISOString();
             break;
         }
@@ -5404,7 +5501,7 @@ function editProductTarget(locId, spaceIdx, prodIdx) {
         if (locs2[k].id === locId) { loc = locs2[k]; break; }
     }
     if (loc) renderLocSpaceView(loc);
-    showToast('Objetivo actualizado: ' + newTarget + ' / Mín: ' + newMin, 'success');
+    showToast('Actualizado: obj.' + newTarget + ' / mín.' + newMin + ' / máx.' + (newMax > 0 ? newMax : '∞'), 'success');
 }
 
 // ===== STOCK SUMMARY =====
@@ -6038,7 +6135,9 @@ function confirmAddProductToSpace() {
     var qty = parseInt(document.getElementById('spQty').value) || 0;
     var targetQty = parseInt(document.getElementById('spTargetQty').value) || 2;
     var minQty = parseInt(document.getElementById('spMinQty').value) || 1;
+    var maxQty = parseInt(document.getElementById('spMaxQty').value) || 0;
     if (qty < 0) qty = 0;
+    if (maxQty < 0) maxQty = 0;
 
     var locs = getLocations();
     var products = getProducts();
@@ -6067,6 +6166,7 @@ function confirmAddProductToSpace() {
                     if (prodSpecs) space.products[j].specifications = prodSpecs;
                     space.products[j].targetQty = targetQty;
                     space.products[j].minQty = minQty;
+                    space.products[j].maxQty = maxQty;
                     found = true;
                     break;
                 }
@@ -6074,7 +6174,7 @@ function confirmAddProductToSpace() {
             if (!found) {
                 space.products.push({
                     productId: _spSelectedProductId, name: prodName, brand: prodBrand,
-                    qty: qty, specifications: prodSpecs, targetQty: targetQty, minQty: minQty
+                    qty: qty, specifications: prodSpecs, targetQty: targetQty, minQty: minQty, maxQty: maxQty
                 });
             }
             locs[i].updatedAt = new Date().toISOString();
