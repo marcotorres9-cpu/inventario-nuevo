@@ -5111,12 +5111,13 @@ function renderGlobalTargetBanner() {
         }
     }
 
-    // Count status
+    // Count status — target met = OK, even if qty == min
     var mKeys = Object.keys(modelMap);
     for (var m = 0; m < mKeys.length; m++) {
         var md = modelMap[mKeys[m]];
         if (md.qty === 0) modelsEmpty++;
-        else if (md.qty <= md.min) modelsMissing++;
+        else if (md.target > 0 && md.qty >= md.target) modelsOk++;
+        else if (md.min > 0 && md.qty < md.min) modelsMissing++;
         else if (md.target > 0 && md.qty < md.target) modelsMissing++;
         else modelsOk++;
     }
@@ -5225,12 +5226,17 @@ function renderLocations() {
             }
         }
 
-        // Check for alerts
+        // Check for alerts (qty < min = alert, qty == min or >= target = OK)
         var alertCount = 0;
         for (var s2 = 0; s2 < totalSpaces; s2++) {
             var prods = (loc.spaces[s2].products || []);
             for (var p2 = 0; p2 < prods.length; p2++) {
-                if ((prods[p2].qty || 0) <= (prods[p2].minQty || 0)) alertCount++;
+                var pQty = prods[p2].qty || 0;
+                var pMin = prods[p2].minQty || 0;
+                var pTgt = prods[p2].targetQty || 0;
+                if (pQty === 0) alertCount++;
+                else if (pTgt > 0 && pQty >= pTgt) { /* OK */ }
+                else if (pMin > 0 && pQty < pMin) alertCount++;
             }
         }
         var alertBadge = alertCount > 0 ? ' <span style="background:#ff4757;color:#fff;font-size:9px;padding:1px 6px;border-radius:8px;margin-left:4px;">' + alertCount + ' ⚠️</span>' : '';
@@ -5296,8 +5302,13 @@ function renderLocSpaceView(loc) {
     var lowCount = 0;
     for (var p = 0; p < products.length; p++) {
         totalQty += (products[p].qty || 0);
-        if ((products[p].qty || 0) === 0) alertCount++;
-        else if ((products[p].qty || 0) <= (products[p].minQty || 0)) lowCount++;
+        var pQty = products[p].qty || 0;
+        var pMin = products[p].minQty || 0;
+        var pTgt = products[p].targetQty || 0;
+        if (pQty === 0) alertCount++;
+        else if (pTgt > 0 && pQty >= pTgt) { /* OK, target met */ }
+        else if (pMin > 0 && pQty < pMin) lowCount++;
+        else if (pTgt > 0 && pQty < pTgt) lowCount++;
     }
 
     // Space tabs with capacity indicators
@@ -5309,7 +5320,12 @@ function renderLocSpaceView(loc) {
         var sProds = (spaces[s].products || []);
         for (var sp = 0; sp < sProds.length; sp++) {
             sCount += (sProds[sp].qty || 0);
-            if ((sProds[sp].qty || 0) <= (sProds[sp].minQty || 0)) sAlerts++;
+            var spQty = sProds[sp].qty || 0;
+            var spMin = sProds[sp].minQty || 0;
+            var spTgt = sProds[sp].targetQty || 0;
+            if (spQty === 0) sAlerts++;
+            else if (spTgt > 0 && spQty >= spTgt) { /* OK */ }
+            else if (spMin > 0 && spQty < spMin) sAlerts++;
         }
         // Check space-level capacity
         var spMinU = spaces[s].minUnits || 0;
@@ -5359,11 +5375,12 @@ function renderLocSpaceView(loc) {
             var min = pr.minQty || 1;
             var max = pr.maxQty || 0;
 
-            // Status
+            // Status — target met = OK, below min = warning
             var statusColor = '#2ed573';
             var statusIcon = '✅';
             if (qty === 0) { statusColor = '#ff4757'; statusIcon = '🚨'; }
-            else if (qty <= min) { statusColor = '#ffa502'; statusIcon = '⚠️'; }
+            else if (target > 0 && qty >= target) { statusColor = '#2ed573'; statusIcon = '✅'; }
+            else if (min > 0 && qty < min) { statusColor = '#ffa502'; statusIcon = '⚠️'; }
             else if (max > 0 && qty > max) { statusColor = '#ffa502'; statusIcon = '📈'; }
 
             // Spec tags (compact)
@@ -5784,9 +5801,11 @@ function renderStockSummary() {
     for (var ki = 0; ki < keys.length; ki++) {
         var pm = productMap[keys[ki]];
         var obj = { key: keys[ki], name: pm.name, brand: pm.brand, specifications: pm.specifications, totalQty: pm.totalQty, totalTarget: pm.totalTarget, totalMin: pm.totalMin, entries: pm.entries };
+        // target met = complete, even if qty == min
         if (pm.totalQty === 0) emptyModels.push(obj);
+        else if (pm.totalTarget > 0 && pm.totalQty >= pm.totalTarget) existModels.push(obj);
+        else if (pm.totalMin > 0 && pm.totalQty < pm.totalMin) missingModels.push(obj);
         else if (pm.totalTarget > 0 && pm.totalQty < pm.totalTarget) missingModels.push(obj);
-        else if (pm.totalQty <= pm.totalMin) missingModels.push(obj);
         else existModels.push(obj);
     }
 
