@@ -6790,17 +6790,21 @@ function renderStockDetailPage() {
         '</div>' +
     '</div>';
 
-    // Quick stats
+    // Quick stats — "Faltantes" scrolls to missing section, "Sin stock" scrolls too
     html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px;">' +
         '<div style="background:#2ed57318;border:1px solid #2ed57330;border-radius:10px;padding:10px;text-align:center;">' +
             '<div style="font-size:22px;font-weight:800;color:#2ed573;">' + grandTotal + '</div>' +
             '<div style="font-size:10px;color:var(--text3);">En existencia</div></div>' +
-        '<div style="background:' + (globalMissing > 0 ? '#ff475718' : '#2ed57318') + ';border:1px solid ' + (globalMissing > 0 ? '#ff475730' : '#2ed57330') + ';border-radius:10px;padding:10px;text-align:center;">' +
+        '<div id="statMissingCard" onclick="scrollToSection(\'sectionFaltantes\')" style="background:' + (globalMissing > 0 ? '#ff475718' : '#2ed57318') + ';border:1px solid ' + (globalMissing > 0 ? '#ff475730' : '#2ed57330') + ';border-radius:10px;padding:10px;text-align:center;' + (globalMissing > 0 ? 'cursor:pointer;transition:transform 0.15s,box-shadow 0.15s;' : '') + '" ' + (globalMissing > 0 ? 'onmousedown="this.style.transform=\'scale(0.97)\'" onmouseup="this.style.transform=\'\'" onmouseleave="this.style.transform=\'\'"' : '') + '>' +
             '<div style="font-size:22px;font-weight:800;color:' + (globalMissing > 0 ? '#ff4757' : '#2ed573') + ';">' + globalMissing + '</div>' +
-            '<div style="font-size:10px;color:var(--text3);">Faltantes</div></div>' +
-        '<div style="background:' + (emptyModels.length > 0 ? '#ffa50218' : 'var(--bg2)') + ';border:1px solid ' + (emptyModels.length > 0 ? '#ffa50230' : 'var(--border)') + ';border-radius:10px;padding:10px;text-align:center;">' +
+            '<div style="font-size:10px;color:var(--text3);">Faltantes</div>' +
+            (globalMissing > 0 ? '<div style="font-size:9px;font-weight:700;color:#ff4757;margin-top:4px;">👇 Ver dónde</div>' : '') +
+        '</div>' +
+        '<div id="statEmptyCard" onclick="scrollToSection(\'sectionSinStock\')" style="background:' + (emptyModels.length > 0 ? '#ffa50218' : 'var(--bg2)') + ';border:1px solid ' + (emptyModels.length > 0 ? '#ffa50230' : 'var(--border)') + ';border-radius:10px;padding:10px;text-align:center;' + (emptyModels.length > 0 ? 'cursor:pointer;transition:transform 0.15s,box-shadow 0.15s;' : '') + '" ' + (emptyModels.length > 0 ? 'onmousedown="this.style.transform=\'scale(0.97)\'" onmouseup="this.style.transform=\'\'" onmouseleave="this.style.transform=\'\'"' : '') + '>' +
             '<div style="font-size:22px;font-weight:800;color:' + (emptyModels.length > 0 ? '#ffa502' : 'var(--text)') + ';">' + emptyModels.length + '</div>' +
-            '<div style="font-size:10px;color:var(--text3);">Sin stock</div></div>' +
+            '<div style="font-size:10px;color:var(--text3);">Sin stock</div>' +
+            (emptyModels.length > 0 ? '<div style="font-size:9px;font-weight:700;color:#ffa502;margin-top:4px;">👇 Ver cuáles</div>' : '') +
+        '</div>' +
     '</div>';
 
     // ===== LOCALES SECTION: clickable cards to go manage stock =====
@@ -6855,18 +6859,16 @@ function renderStockDetailPage() {
         '</div>';
     }
 
-    // ===== FALTANTES SECTION =====
-    if (emptyModels.length > 0 || missingModels.length > 0) {
-        html += '<div style="font-size:12px;font-weight:800;color:#ff4757;margin:14px 0 8px;text-transform:uppercase;letter-spacing:0.5px;">🚨 Modelos Faltantes</div>';
-        var allMissing = emptyModels.concat(missingModels);
-        for (var mi = 0; mi < allMissing.length; mi++) {
-            var m = allMissing[mi];
+    // ===== SIN STOCK SECTION (qty === 0) =====
+    if (emptyModels.length > 0) {
+        html += '<div id="sectionSinStock" style="font-size:12px;font-weight:800;color:#ff4757;margin:14px 0 8px;text-transform:uppercase;letter-spacing:0.5px;">🚨 Sin Stock</div>';
+        for (var mi = 0; mi < emptyModels.length; mi++) {
+            var m = emptyModels[mi];
             var mQty = m.totalQty;
             var mTarget = m.modelTarget > 0 ? m.modelTarget : m.modelMin;
             var mDeficit = Math.max(0, mTarget - mQty);
             var mPct = mTarget > 0 ? Math.min(100, Math.round((mQty / mTarget) * 100)) : 0;
-            var isEmpty = mQty === 0;
-            var mColor = isEmpty ? '#ff4757' : '#ffa502';
+            var mColor = '#ff4757';
             var mLabel = m.name + (m.brand ? ' · ' + m.brand : '');
 
             var mSpecs = '';
@@ -6886,12 +6888,12 @@ function renderStockDetailPage() {
             html += '<div style="background:' + mColor + '10;border:1px solid ' + mColor + '20;border-radius:10px;padding:10px 12px;margin-bottom:6px;">' +
                 '<div style="display:flex;justify-content:space-between;align-items:center;">' +
                     '<div style="flex:1;min-width:0;">' +
-                        '<div style="font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + (isEmpty ? '🚨' : '⚠️') + ' ' + escapeHtml(mLabel) + '</div>' +
+                        '<div style="font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">🚨 ' + escapeHtml(mLabel) + '</div>' +
                         (mSpecs ? '<div style="margin-top:3px;">' + mSpecs + '</div>' : '') +
                     '</div>' +
                     '<div style="text-align:right;flex-shrink:0;margin-left:8px;">' +
                         '<div style="font-size:18px;font-weight:800;color:' + mColor + ';">' + mQty + '<span style="font-size:11px;font-weight:400;color:var(--text3);"> / ' + mTarget + '</span></div>' +
-                        '<div style="font-size:10px;color:' + mColor + ';font-weight:600;">' + (isEmpty ? 'Sin existencia' : 'Faltan ' + mDeficit) + '</div>' +
+                        '<div style="font-size:10px;color:' + mColor + ';font-weight:600;">Sin existencia</div>' +
                     '</div>' +
                 '</div>' +
                 '<div style="background:var(--bg);border-radius:3px;height:4px;margin-top:8px;overflow:hidden;">' +
@@ -6903,13 +6905,9 @@ function renderStockDetailPage() {
             for (var ei = 0; ei < m.entries.length; ei++) {
                 var e = m.entries[ei];
                 var eQtyVal = e.qty;
-                var eIsZero = eQtyVal === 0;
-                var eAction = eIsZero ? 'add' : 'ingress';
+                var eAction = 'add';
                 var ePid = (e.productId || '').replace(/'/g, "\\'");
-                var eBtnBg = eIsZero ? 'background:#ff4757;color:#fff;' : 'background:#ffa502;color:#fff;';
-                var eBtnLabel = eIsZero ? '➕ Agregar Stock' : '✏️ Modificar';
-                var eBtnIcon = eIsZero ? '📥' : '✏️';
-                html += '<div onclick="goToLocFromStock(\'' + e.locId + '\',' + e.spaceIdx + ',\'' + ePid + '\',\'' + eAction + '\')" style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-radius:8px;cursor:pointer;transition:all 0.15s;border:1px solid ' + (eIsZero ? '#ff475720' : '#ffa50220') + ';background:' + (eIsZero ? '#ff475708' : '#ffa50208') + ';margin-bottom:4px;" onmousedown="this.style.transform=\'scale(0.98)\'" onmouseup="this.style.transform=\'\'" onmouseleave="this.style.transform=\'\'">' +
+                html += '<div onclick="goToLocFromStock(\'' + e.locId + '\',' + e.spaceIdx + ',\'' + ePid + '\',\'' + eAction + '\')" style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-radius:8px;cursor:pointer;transition:all 0.15s;border:1px solid #ff475720;background:#ff475708;margin-bottom:4px;" onmousedown="this.style.transform=\'scale(0.98)\'" onmouseup="this.style.transform=\'\'" onmouseleave="this.style.transform=\'\'">' +
                     '<div style="display:flex;align-items:center;gap:6px;flex:1;min-width:0;">' +
                         '<span style="font-size:12px;">🏪</span>' +
                         '<div style="min-width:0;">' +
@@ -6919,10 +6917,79 @@ function renderStockDetailPage() {
                     '</div>' +
                     '<div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">' +
                         '<div style="text-align:right;">' +
-                            '<div style="font-size:16px;font-weight:800;color:' + (eIsZero ? '#ff4757' : '#ffa502') + ';line-height:1;">' + eQtyVal + '</div>' +
+                            '<div style="font-size:16px;font-weight:800;color:#ff4757;line-height:1;">' + eQtyVal + '</div>' +
                             '<div style="font-size:9px;color:var(--text3);">uds</div>' +
                         '</div>' +
-                        '<div style="' + eBtnBg + 'font-size:10px;font-weight:700;padding:5px 10px;border-radius:6px;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,0.15);">' + eBtnLabel + '</div>' +
+                        '<div style="background:#ff4757;color:#fff;font-size:10px;font-weight:700;padding:5px 10px;border-radius:6px;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,0.15);">➕ Agregar Stock</div>' +
+                    '</div>' +
+                '</div>';
+            }
+            html += '</div></div>';
+        }
+    }
+
+    // ===== FALTANTES SECTION (qty > 0 but below target) =====
+    if (missingModels.length > 0) {
+        html += '<div id="sectionFaltantes" style="font-size:12px;font-weight:800;color:#ffa502;margin:14px 0 8px;text-transform:uppercase;letter-spacing:0.5px;">⚠️ Faltantes</div>';
+        for (var mi2 = 0; mi2 < missingModels.length; mi2++) {
+            var m = missingModels[mi2];
+            var mQty = m.totalQty;
+            var mTarget = m.modelTarget > 0 ? m.modelTarget : m.modelMin;
+            var mDeficit = Math.max(0, mTarget - mQty);
+            var mPct = mTarget > 0 ? Math.min(100, Math.round((mQty / mTarget) * 100)) : 0;
+            var mColor = '#ffa502';
+            var mLabel = m.name + (m.brand ? ' · ' + m.brand : '');
+
+            var mSpecs = '';
+            if (m.specifications) {
+                try {
+                    var sObj = (typeof m.specifications === 'string') ? JSON.parse(m.specifications) : m.specifications;
+                    if (sObj && typeof sObj === 'object') {
+                        var sk = Object.keys(sObj);
+                        for (var ski = 0; ski < sk.length;ski++) {
+                            var sv = (sObj[sk[ski]] || '').trim();
+                            if (sv) mSpecs += '<span style="display:inline-block;background:' + mColor + '15;color:' + mColor + ';font-size:9px;padding:1px 5px;border-radius:3px;margin-right:3px;">' + escapeHtml(sv) + '</span>';
+                        }
+                    }
+                } catch(e) {}
+            }
+
+            html += '<div style="background:' + mColor + '10;border:1px solid ' + mColor + '20;border-radius:10px;padding:10px 12px;margin-bottom:6px;">' +
+                '<div style="display:flex;justify-content:space-between;align-items:center;">' +
+                    '<div style="flex:1;min-width:0;">' +
+                        '<div style="font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">⚠️ ' + escapeHtml(mLabel) + '</div>' +
+                        (mSpecs ? '<div style="margin-top:3px;">' + mSpecs + '</div>' : '') +
+                    '</div>' +
+                    '<div style="text-align:right;flex-shrink:0;margin-left:8px;">' +
+                        '<div style="font-size:18px;font-weight:800;color:' + mColor + ';">' + mQty + '<span style="font-size:11px;font-weight:400;color:var(--text3);"> / ' + mTarget + '</span></div>' +
+                        '<div style="font-size:10px;color:' + mColor + ';font-weight:600;">Faltan ' + mDeficit + '</div>' +
+                    '</div>' +
+                '</div>' +
+                '<div style="background:var(--bg);border-radius:3px;height:4px;margin-top:8px;overflow:hidden;">' +
+                    '<div style="height:100%;width:' + mPct + '%;background:' + mColor + ';border-radius:3px;"></div>' +
+                '</div>';
+
+            // Distribution per locale - clickable entries with direct action buttons
+            html += '<div style="margin-top:8px;">';
+            for (var ei = 0; ei < m.entries.length; ei++) {
+                var e = m.entries[ei];
+                var eQtyVal = e.qty;
+                var eAction = 'ingress';
+                var ePid = (e.productId || '').replace(/'/g, "\\'");
+                html += '<div onclick="goToLocFromStock(\'' + e.locId + '\',' + e.spaceIdx + ',\'' + ePid + '\',\'' + eAction + '\')" style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-radius:8px;cursor:pointer;transition:all 0.15s;border:1px solid #ffa50220;background:#ffa50208;margin-bottom:4px;" onmousedown="this.style.transform=\'scale(0.98)\'" onmouseup="this.style.transform=\'\'" onmouseleave="this.style.transform=\'\'">' +
+                    '<div style="display:flex;align-items:center;gap:6px;flex:1;min-width:0;">' +
+                        '<span style="font-size:12px;">🏪</span>' +
+                        '<div style="min-width:0;">' +
+                            '<div style="font-size:11px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(e.locName) + '</div>' +
+                            '<div style="font-size:10px;color:var(--text3);">' + escapeHtml(e.spaceName) + '</div>' +
+                        '</div>' +
+                    '</div>' +
+                    '<div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">' +
+                        '<div style="text-align:right;">' +
+                            '<div style="font-size:16px;font-weight:800;color:#ffa502;line-height:1;">' + eQtyVal + '</div>' +
+                            '<div style="font-size:9px;color:var(--text3);">uds</div>' +
+                        '</div>' +
+                        '<div style="background:#ffa502;color:#fff;font-size:10px;font-weight:700;padding:5px 10px;border-radius:6px;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,0.15);">✏️ Modificar</div>' +
                     '</div>' +
                 '</div>';
             }
@@ -6989,6 +7056,20 @@ function renderStockDetailPage() {
     }
 
     spaceView.innerHTML = html;
+}
+
+// Smooth-scroll to a section by element id within locSpaceView
+function scrollToSection(sectionId) {
+    var el = document.getElementById(sectionId);
+    if (!el) return;
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    // Brief highlight flash
+    el.style.transition = 'background 0.3s';
+    el.style.background = 'rgba(255,255,255,0.15)';
+    el.style.borderRadius = '6px';
+    setTimeout(function() {
+        el.style.background = 'transparent';
+    }, 800);
 }
 
 // Navigate from stock detail to a specific locale + space and optionally open action
