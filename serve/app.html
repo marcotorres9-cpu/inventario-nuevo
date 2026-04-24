@@ -958,6 +958,7 @@
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
                 <h2 style="font-size:22px;font-weight:800;">🏪 Mis Locales</h2>
                 <div style="display:flex;gap:6px;">
+                    <button class="btn btn-outline btn-sm" onclick="openGlobalTargets()" style="font-size:12px;">🎯 Objetivos</button>
                     <button class="btn btn-outline btn-sm" onclick="openStockSummary()" style="font-size:12px;">📊 Resumen</button>
                     <button class="btn btn-primary btn-sm" onclick="openLocModal()">+ Nuevo Local</button>
                 </div>
@@ -1511,6 +1512,20 @@
         <div style="display:flex;gap:8px;margin-top:12px;">
             <button class="btn btn-primary btn-sm" style="flex:1;" onclick="exportLocaleExcel()">📥 Exportar Excel</button>
             <button class="btn btn-outline btn-sm" onclick="closeModal('stockSummaryModal')">Cerrar</button>
+        </div>
+    </div>
+</div>
+
+<!-- ===== GLOBAL TARGETS PER TV TYPE MODAL ===== -->
+<div id="globalTargetsModal" class="modal-overlay">
+    <div class="modal-content modal-md">
+        <div class="modal-handle"></div>
+        <div class="modal-header">
+            <h3 style="font-size:16px;font-weight:800;">🎯 Objetivos por Tipo de TV</h3>
+            <button class="modal-close" onclick="closeModal('globalTargetsModal')">✕</button>
+        </div>
+        <div>
+            <div id="globalTargetsContent" class="modal-scroll-inner"></div>
         </div>
     </div>
 </div>
@@ -5068,6 +5083,7 @@ function renderGlobalTargetBanner() {
     var banner = document.getElementById('globalTargetBanner');
     if (!banner) return;
     var locs = getLocations();
+    var globalTarget = getGlobalTarget();
 
     // Build per-model totals across ALL locales
     var modelMap = {};
@@ -5086,15 +5102,8 @@ function renderGlobalTargetBanner() {
         }
     }
 
-    // Sum targets from all locales' modelTargets
-    var grandTarget = 0;
-    var grandCurrent = 0;
-    var modelsOk = 0;
-    var modelsMissing = 0;
-    var modelsEmpty = 0;
-
-    // Collect model targets from all locales
-    var allModelTargets = {}; // key: productId -> { name, brand, target, min }
+    // Collect model targets from all locales' modelTargets
+    var allModelTargets = {};
     for (var li = 0; li < locs.length; li++) {
         var mt = locs[li].modelTargets || [];
         for (var ti = 0; ti < mt.length; ti++) {
@@ -5108,51 +5117,77 @@ function renderGlobalTargetBanner() {
         }
     }
 
+    // Merge: all models that exist in inventory OR have a target
+    var allKeys = {};
     var mKeys = Object.keys(modelMap);
     var atKeys = Object.keys(allModelTargets);
+    for (var mi = 0; mi < mKeys.length; mi++) allKeys[mKeys[mi]] = true;
+    for (var ai = 0; ai < atKeys.length; ai++) allKeys[atKeys[ai]] = true;
+    var keys = Object.keys(allKeys);
 
-    // Count status using model targets from locales
-    for (var ai = 0; ai < atKeys.length; ai++) {
-        var at = allModelTargets[atKeys[ai]];
-        var mQty = modelMap[atKeys[ai]] ? modelMap[atKeys[ai]].qty : 0;
-        grandTarget += at.target;
-        grandCurrent += mQty;
+    // Calculate totals
+    var grandCurrent = 0;
+    for (var ki = 0; ki < keys.length; ki++) {
+        grandCurrent += modelMap[keys[ki]] ? modelMap[keys[ki]].qty : 0;
+    }
+
+    // Determine the target to display
+    var modelTargetSum = 0;
+    var hasModelTargets = atKeys.length > 0;
+    for (var ati = 0; ati < atKeys.length; ati++) {
+        modelTargetSum += (allModelTargets[atKeys[ati]].target || 0);
+    }
+
+    // Use modelTargets if set, otherwise fall back to globalTarget
+    var displayTarget = hasModelTargets ? modelTargetSum : globalTarget;
+
+    // Count status per model
+    var modelsOk = 0;
+    var modelsMissing = 0;
+    var modelsEmpty = 0;
+    for (var ki2 = 0; ki2 < keys.length; ki2++) {
+        var mk = keys[ki2];
+        var mQty = modelMap[mk] ? modelMap[mk].qty : 0;
+        var mt = allModelTargets[mk];
+        var mTarget = mt ? mt.target : 0;
+        var mMin = mt ? mt.min : 0;
+
         if (mQty === 0) modelsEmpty++;
-        else if (at.target > 0 && mQty >= at.target) modelsOk++;
-        else if (at.min > 0 && mQty < at.min) modelsMissing++;
-        else if (at.target > 0 && mQty < at.target) modelsMissing++;
+        else if (mTarget > 0 && mQty >= mTarget) modelsOk++;
+        else if (mMin > 0 && mQty < mMin) modelsMissing++;
+        else if (mTarget > 0 && mQty < mTarget) modelsMissing++;
         else modelsOk++;
     }
 
-    // Also count models that exist in inventory but have no target set
-    for (var mi = 0; mi < mKeys.length; mi++) {
-        if (!allModelTargets[mKeys[mi]]) {
-            grandCurrent += modelMap[mKeys[mi]].qty;
-        }
-    }
+    var missing = Math.max(0, displayTarget - grandCurrent);
 
-    var missing = Math.max(0, grandTarget - grandCurrent);
-
-    if (grandTarget === 0) {
+    // If no target at all, prompt to set one
+    if (displayTarget === 0) {
         banner.innerHTML = '<div style="background:var(--primary-bg);border:1px solid var(--primary);border-radius:12px;padding:12px 14px;text-align:center;">' +
-            '<div style="font-size:13px;font-weight:700;color:var(--primary);margin-bottom:4px;">📺 Define objetivos por modelo</div>' +
-            '<div style="font-size:11px;color:var(--text2);margin-bottom:8px;">Entra a un local → ⚙️ Control para configurar</div>' +
+            '<div style="font-size:13px;font-weight:700;color:var(--primary);margin-bottom:4px;">📺 Define el objetivo global de TVs</div>' +
+            '<div style="font-size:11px;color:var(--text2);margin-bottom:8px;">Establece cuántas TVs debe haber en total</div>' +
+            '<button class="btn btn-primary btn-sm" onclick="editGlobalTarget()" style="width:auto;display:inline-flex;font-size:12px;padding:6px 14px;">Establecer Objetivo</button>' +
         '</div>';
         return;
     }
 
-    var pct = Math.min(100, Math.round((grandCurrent / grandTarget) * 100));
+    var pct = Math.min(100, Math.round((grandCurrent / displayTarget) * 100));
     var isOk = missing <= 0;
     var barColor = isOk ? '#2ed573' : '#ff4757';
 
-    // Build pills for missing models
+    // Build pills for missing models (using modelTargets if available)
     var missingModels = [];
-    for (var ai2 = 0; ai2 < atKeys.length; ai2++) {
-        var at2 = allModelTargets[atKeys[ai2]];
-        var mQty2 = modelMap[atKeys[ai2]] ? modelMap[atKeys[ai2]].qty : 0;
-        var label = at2.name + (at2.brand ? ' ' + at2.brand : '');
-        if (mQty2 === 0) missingModels.push({ label: label, qty: 0, target: at2.target, status: 'empty' });
-        else if (at2.target > 0 && mQty2 < at2.target) missingModels.push({ label: label, qty: mQty2, target: at2.target, status: 'low' });
+    for (var ai2 = 0; ai2 < keys.length; ai2++) {
+        var mk2 = keys[ai2];
+        var mQty2 = modelMap[mk2] ? modelMap[mk2].qty : 0;
+        var mt2 = allModelTargets[mk2];
+        var mName = modelMap[mk2] ? modelMap[mk2].name : (mt2 ? mt2.name : 'TV');
+        var mBrand = modelMap[mk2] ? modelMap[mk2].brand : (mt2 ? mt2.brand : '');
+        var mTarget2 = mt2 ? mt2.target : 0;
+        var label = mName + (mBrand ? ' ' + mBrand : '');
+
+        if (mQty2 === 0) missingModels.push({ label: label, qty: 0, target: mTarget2, status: 'empty' });
+        else if (mTarget2 > 0 && mQty2 < mTarget2) missingModels.push({ label: label, qty: mQty2, target: mTarget2, status: 'low' });
     }
     missingModels.sort(function(a, b) { return (a.qty - a.target) - (b.qty - b.target); });
 
@@ -5171,13 +5206,14 @@ function renderGlobalTargetBanner() {
     }
 
     banner.innerHTML = '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:12px 14px;">' +
-        '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">' +
             '<div style="display:flex;align-items:baseline;gap:6px;">' +
                 '<span style="font-size:11px;color:var(--text3);">📺 Total:</span>' +
                 '<span style="font-size:22px;font-weight:800;color:var(--primary);">' + grandCurrent + '</span>' +
-                '<span style="font-size:14px;color:var(--text3);">/ ' + grandTarget + '</span>' +
+                '<span style="font-size:14px;color:var(--text3);">/ ' + displayTarget + '</span>' +
                 (isOk ? '<span style="font-size:12px;color:#2ed573;">✅</span>' : '<span style="font-size:12px;color:#ff4757;font-weight:700;">Faltan ' + missing + '</span>') +
             '</div>' +
+            '<span style="font-size:11px;color:var(--text3);cursor:pointer;" onclick="editGlobalTarget()">✏️</span>' +
         '</div>' +
         '<div style="background:var(--bg);border-radius:4px;height:6px;overflow:hidden;">' +
             '<div style="height:100%;width:' + pct + '%;background:' + barColor + ';border-radius:4px;transition:width 0.4s;"></div>' +
@@ -5188,9 +5224,13 @@ function renderGlobalTargetBanner() {
             (modelsEmpty > 0 ? '<span style="color:#ff4757;">🚨 Sin stock: <b>' + modelsEmpty + '</b></span>' : '') +
         '</div>' +
         pillsHtml +
-        (missingModels.length > 0 ? '<div onclick="openStockSummary()" style="text-align:center;margin-top:8px;font-size:11px;color:var(--primary);cursor:pointer;font-weight:600;">Ver detalle completo →</div>' : '') +
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">' +
+            (missingModels.length > 0 ? '<span onclick="openStockSummary()" style="font-size:11px;color:var(--primary);cursor:pointer;font-weight:600;">Ver detalle completo →</span>' : '<span></span>') +
+            (hasModelTargets ? '' : '<span onclick="openGlobalTargets()" style="font-size:11px;color:var(--info);cursor:pointer;font-weight:600;">🎯 Definir por tipo →</span>') +
+        '</div>' +
     '</div>';
 }
+
 
 function editGlobalTarget() {
     var current = getGlobalTarget();
@@ -5652,6 +5692,7 @@ function openLocControlPanel(locId, spaceIdx) {
     // Section: Exportar y herramientas
     html += '<div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Herramientas</div>';
     html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">' +
+        '<button class="btn btn-outline btn-sm" onclick="closeModal(\'locControlModal\');openGlobalTargets()" style="font-size:12px;">🎯 Objetivos</button>' +
         '<button class="btn btn-outline btn-sm" onclick="closeModal(\'locControlModal\');openStockSummary()" style="font-size:12px;">📊 Resumen Stock</button>' +
         '<button class="btn btn-outline btn-sm" onclick="closeModal(\'locControlModal\');exportLocaleExcel()" style="font-size:12px;">📥 Excel</button>' +
     '</div>';
@@ -5928,6 +5969,219 @@ function editProductTarget(locId, spaceIdx, prodIdx) {
     showToast('Actualizado: obj.' + newTarget + ' / mín.' + newMin + ' / máx.' + (newMax > 0 ? newMax : '∞'), 'success');
 }
 
+// ===== GLOBAL TARGETS PER TV TYPE =====
+function openGlobalTargets() {
+    renderGlobalTargets();
+    openModal('globalTargetsModal');
+}
+
+function renderGlobalTargets() {
+    var container = document.getElementById('globalTargetsContent');
+    var locs = getLocations();
+    var globalTarget = getGlobalTarget();
+
+    // Build per-model totals across ALL locales
+    var modelMap = {};
+    for (var i = 0; i < locs.length; i++) {
+        var spaces = locs[i].spaces || [];
+        for (var s = 0; s < spaces.length; s++) {
+            var prods = spaces[s].products || [];
+            for (var p = 0; p < prods.length; p++) {
+                var pr = prods[p];
+                var key = pr.productId || (pr.name + '|' + pr.brand);
+                if (!modelMap[key]) {
+                    modelMap[key] = { name: pr.name || 'TV', brand: pr.brand || '', qty: 0, productId: pr.productId || '' };
+                }
+                modelMap[key].qty += (pr.qty || 0);
+                if (!modelMap[key].productId && pr.productId) modelMap[key].productId = pr.productId;
+            }
+        }
+    }
+
+    // Collect existing global model targets from all locales' modelTargets
+    var allModelTargets = {};
+    for (var li = 0; li < locs.length; li++) {
+        var mt = locs[li].modelTargets || [];
+        for (var ti = 0; ti < mt.length; ti++) {
+            var t = mt[ti];
+            var tKey = t.productId || (t.name + '|' + t.brand);
+            if (!allModelTargets[tKey]) {
+                allModelTargets[tKey] = { name: t.name || 'TV', brand: t.brand || '', target: 0, min: 0, productId: t.productId || '' };
+            }
+            allModelTargets[tKey].target += (t.target || 0);
+            allModelTargets[tKey].min += (t.min || 0);
+        }
+    }
+
+    // Merge: show all models that exist in inventory OR have a target
+    var allKeys = {};
+    var mKeys = Object.keys(modelMap);
+    var atKeys = Object.keys(allModelTargets);
+    for (var mi = 0; mi < mKeys.length; mi++) allKeys[mKeys[mi]] = true;
+    for (var ai = 0; ai < atKeys.length; ai++) allKeys[atKeys[ai]] = true;
+    var keys = Object.keys(allKeys);
+
+    // Calculate current totals
+    var grandCurrent = 0;
+    for (var ki = 0; ki < keys.length; ki++) {
+        grandCurrent += modelMap[keys[ki]] ? modelMap[keys[ki]].qty : 0;
+    }
+
+    // Calculate existing target sum
+    var existingTargetSum = 0;
+    for (var ati = 0; ati < atKeys.length; ati++) {
+        existingTargetSum += (allModelTargets[atKeys[ati]].target || 0);
+    }
+
+    var html = '';
+
+    // Header with global target
+    html += '<div style="background:linear-gradient(135deg, var(--info), #6c5ce7);border-radius:12px;padding:14px;margin-bottom:14px;color:#fff;">' +
+        '<div style="text-align:center;">' +
+            '<div style="font-size:11px;opacity:0.8;">Objetivo Global del Local</div>' +
+            '<div style="font-size:28px;font-weight:900;line-height:1.2;margin:2px 0;">' + globalTarget + ' TVs</div>' +
+            '<div style="font-size:11px;opacity:0.8;">Existencia actual: <b>' + grandCurrent + '</b></div>' +
+        '</div>' +
+        '<div style="background:rgba(255,255,255,0.2);border-radius:4px;height:5px;margin-top:10px;overflow:hidden;">' +
+            '<div style="height:100%;width:' + (globalTarget > 0 ? Math.min(100, Math.round((grandCurrent / globalTarget) * 100)) : 0) + '%;background:#fff;border-radius:4px;"></div>' +
+        '</div>' +
+    '</div>';
+
+    // Per-model targets section
+    html += '<div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:8px;">Define cuántas unidades de cada tipo de TV debe haber en total:</div>';
+
+    // Running total display
+    html += '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;">';
+    html += '<div style="font-size:12px;color:var(--text2);">Suma de objetivos:</div>';
+    html += '<div style="font-size:14px;font-weight:800;" id="globalTargetsRunningSum">' + existingTargetSum + ' / ' + globalTarget + '</div>';
+    html += '</div>';
+
+    if (keys.length === 0) {
+        html += '<div style="text-align:center;padding:20px;color:var(--text3);">' +
+            '<div style="font-size:32px;margin-bottom:8px;">📦</div>' +
+            '<div>No hay modelos de TV registrados.<br><small>Agrega productos a los espacios primero.</small></div></div>';
+        container.innerHTML = html;
+        return;
+    }
+
+    for (var idx = 0; idx < keys.length; idx++) {
+        var k = keys[idx];
+        var m = modelMap[k];
+        var mt = allModelTargets[k];
+        var mName = m ? m.name : (mt ? mt.name : 'TV');
+        var mBrand = m ? m.brand : (mt ? mt.brand : '');
+        var mQty = m ? m.qty : 0;
+        var mTargetVal = mt ? mt.target : 0;
+        var mMinVal = mt ? mt.min : 0;
+        var mProductId = (m ? m.productId : '') || (mt ? mt.productId : '');
+        var mLabel = mName + (mBrand ? ' · ' + mBrand : '');
+
+        // Status
+        var mStatus = '';
+        if (mQty === 0 && mTargetVal > 0) mStatus = '🚨';
+        else if (mTargetVal > 0 && mQty >= mTargetVal) mStatus = '✅';
+        else if (mTargetVal > 0 && mQty < mTargetVal) mStatus = '⚠️';
+        else mStatus = '📦';
+
+        html += '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px;margin-bottom:8px;' + (mQty === 0 && mTargetVal > 0 ? 'border-color:#ff475740;' : '') + '">';
+        html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">';
+        html += '<div style="font-size:13px;font-weight:700;color:var(--text);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + mStatus + ' ' + escapeHtml(mLabel) + '</div>';
+        html += '<div style="font-size:11px;color:var(--text3);flex-shrink:0;margin-left:8px;">Existen: <b style="color:var(--primary);">' + mQty + '</b></div>';
+        html += '</div>';
+        html += '<div style="display:flex;gap:8px;align-items:flex-end;">';
+        html += '<div style="flex:1;">' +
+            '<label style="font-size:10px;color:var(--text3);">Mínimo</label>' +
+            '<input type="number" class="input" data-gtkey="' + escapeHtml(k) + '" data-gtpid="' + escapeHtml(mProductId) + '" data-gtname="' + escapeHtml(mName) + '" data-gtbrand="' + escapeHtml(mBrand) + '" id="gtMin_' + idx + '" value="' + mMinVal + '" min="0" placeholder="0" style="font-size:13px;padding:6px 10px;" oninput="updateGlobalTargetsRunningSum()">' +
+        '</div>';
+        html += '<div style="flex:1;">' +
+            '<label style="font-size:10px;color:var(--text3);">Objetivo</label>' +
+            '<input type="number" class="input" id="gtTarget_' + idx + '" value="' + mTargetVal + '" min="0" placeholder="0" style="font-size:13px;padding:6px 10px;" oninput="updateGlobalTargetsRunningSum()">' +
+        '</div>';
+        // Progress indicator
+        if (mTargetVal > 0) {
+            var tPct = Math.min(100, Math.round((mQty / mTargetVal) * 100));
+            var tColor = mQty >= mTargetVal ? '#2ed573' : (mQty === 0 ? '#ff4757' : '#ffa502');
+            html += '<div style="text-align:center;width:36px;flex-shrink:0;">' +
+                '<div style="font-size:11px;font-weight:800;color:' + tColor + ';">' + tPct + '%</div></div>';
+        }
+        html += '</div></div>';
+    }
+
+    html += '<div style="margin-top:4px;display:flex;gap:8px;">';
+    html += '<button class="btn btn-primary btn-sm" onclick="saveGlobalTargets(' + keys.length + ')" style="flex:1;font-size:13px;">💾 Guardar Objetivos</button>';
+    html += '<button class="btn btn-outline btn-sm" onclick="closeModal(\'globalTargetsModal\')" style="flex:0;font-size:13px;padding:8px 14px;">Cerrar</button>';
+    html += '</div>';
+
+    // Store globalTarget for use in save function
+    html += '<input type="hidden" id="gtGlobalTarget" value="' + globalTarget + '">';
+
+    container.innerHTML = html;
+}
+
+function updateGlobalTargetsRunningSum() {
+    // Count all gtTarget_ inputs
+    var inputs = document.querySelectorAll('[id^="gtTarget_"]');
+    var sum = 0;
+    for (var i = 0; i < inputs.length; i++) {
+        sum += (parseInt(inputs[i].value) || 0);
+    }
+    var el = document.getElementById('globalTargetsRunningSum');
+    var gtEl = document.getElementById('gtGlobalTarget');
+    var gt = gtEl ? parseInt(gtEl.value) || 0 : 0;
+    if (el) {
+        var color = sum === gt ? '#2ed573' : (sum > gt ? '#ff4757' : 'var(--text)');
+        el.innerHTML = '<span style="color:' + color + ';">' + sum + '</span> / ' + gt;
+    }
+}
+
+function saveGlobalTargets(count) {
+    var locs = getLocations();
+    var targets = [];
+
+    for (var idx = 0; idx < count; idx++) {
+        var minEl = document.getElementById('gtMin_' + idx);
+        var targetEl = document.getElementById('gtTarget_' + idx);
+        if (!minEl || !targetEl) continue;
+
+        var key = minEl.getAttribute('data-gtkey');
+        var productId = minEl.getAttribute('data-gtpid') || '';
+        var name = minEl.getAttribute('data-gtname') || 'TV';
+        var brand = minEl.getAttribute('data-gtbrand') || '';
+        var minVal = parseInt(minEl.value) || 0;
+        var targetVal = parseInt(targetEl.value) || 0;
+
+        if (key) {
+            targets.push({
+                key: key,
+                productId: productId,
+                name: name,
+                brand: brand,
+                min: minVal,
+                target: targetVal
+            });
+        }
+    }
+
+    // Calculate sum of targets
+    var targetSum = 0;
+    for (var t = 0; t < targets.length; t++) targetSum += targets[t].target;
+
+    // Save targets to ALL locales (since it's a global setting per local)
+    for (var li = 0; li < locs.length; li++) {
+        // Deep copy targets for each locale
+        locs[li].modelTargets = JSON.parse(JSON.stringify(targets));
+        locs[li].updatedAt = new Date().toISOString();
+    }
+
+    saveLocations(locs);
+    syncLocationsToServer();
+
+    // Close modal and refresh
+    closeModal('globalTargetsModal');
+    showToast('Objetivos guardados: ' + targetSum + ' TVs en total (de ' + getGlobalTarget() + ')', 'success');
+    renderLocations();
+}
+
 // ===== STOCK SUMMARY =====
 function openStockSummary() {
     renderStockSummary();
@@ -6004,11 +6258,15 @@ function renderStockSummary() {
         return;
     }
 
-    var globalMissing = Math.max(0, grandTarget - grandTotal);
-    var globalPct = grandTarget > 0 ? Math.min(100, Math.round((grandTotal / grandTarget) * 100)) : 100;
+    // Use modelTargets if set, otherwise fall back to globalTarget
+    var hasModelTargets = atKeys.length > 0;
+    var displayTarget = hasModelTargets ? grandTarget : getGlobalTarget();
+
+    var globalMissing = Math.max(0, displayTarget - grandTotal);
+    var globalPct = displayTarget > 0 ? Math.min(100, Math.round((grandTotal / displayTarget) * 100)) : 100;
     var isComplete = globalMissing <= 0;
 
-    // Classify models using model-level targets
+    // Classify models using model-level targets (or just qty > 0 if no targets)
     var existModels = []; // meeting target
     var missingModels = []; // below target or empty
     var emptyModels = []; // zero qty
@@ -6028,7 +6286,7 @@ function renderStockSummary() {
     html += '<div style="background:linear-gradient(135deg, var(--primary), #6c5ce7);border-radius:14px;padding:16px;margin-bottom:14px;color:#fff;">' +
         '<div style="text-align:center;margin-bottom:12px;">' +
             '<div style="font-size:11px;opacity:0.8;">Resumen de Stock en Locales</div>' +
-            '<div style="font-size:36px;font-weight:900;line-height:1.1;margin:4px 0;">' + grandTotal + ' <span style="font-size:16px;font-weight:400;opacity:0.8;">de ' + grandTarget + '</span></div>' +
+            '<div style="font-size:36px;font-weight:900;line-height:1.1;margin:4px 0;">' + grandTotal + ' <span style="font-size:16px;font-weight:400;opacity:0.8;">de ' + displayTarget + '</span></div>' +
             (isComplete
                 ? '<div style="font-size:13px;font-weight:700;color:#2ed573;">Stock completo</div>'
                 : '<div style="font-size:13px;font-weight:700;color:#ff6b81;">Faltan ' + globalMissing + ' unidades</div>'
@@ -6259,7 +6517,7 @@ function downloadExcelFile(rows, filename) {
     }
     html += '</table></body></html>';
 
-    var blob = new Blob(['\uFEFF' + html], { type: 'application/vnd.ms-excel;charset=utf-8' });
+    var blob = new Blob(['﻿' + html], { type: 'application/vnd.ms-excel;charset=utf-8' });
     var url = URL.createObjectURL(blob);
     var a = document.createElement('a');
     a.href = url;
@@ -7369,14 +7627,14 @@ function updatePendingBadge() {
     if (!badge) return;
     if (_offlineQueue.length > 0) {
         badge.className = 'sync-badge pending';
-        badge.textContent = '\u23F3 ' + _offlineQueue.length + ' cambio(s) pendiente(s) — Se sincronizar\xE1n al reconectar';
+        badge.textContent = '⏳ ' + _offlineQueue.length + ' cambio(s) pendiente(s) — Se sincronizar\xE1n al reconectar';
         badge.onclick = function() {
             if (isOnline()) { processOfflineQueue(); }
             else { showToast('Sin conexi\xF3n — Los cambios se enviar\xE1n autom\xE1ticamente al reconectar', 'info'); }
         };
     } else if (!isOnline()) {
         badge.className = 'sync-badge';
-        badge.textContent = '\uD83D\uDCF1 Sin conexi\xF3n — Trabajando offline';
+        badge.textContent = '📺1 Sin conexi\xF3n — Trabajando offline';
         badge.onclick = null;
     } else {
         badge.className = 'sync-badge';
@@ -7395,7 +7653,7 @@ function processOfflineQueue() {
 
     showToast('Sincronizando ' + _offlineQueue.length + ' cambio(s) pendiente(s)...', 'info');
     var badge = document.getElementById('syncBadge');
-    if (badge) { badge.className = 'sync-badge syncing'; badge.textContent = '\uD83D\uDCE4 Enviando cambios...'; }
+    if (badge) { badge.className = 'sync-badge syncing'; badge.textContent = '📤 Enviando cambios...'; }
 
     var queue = _offlineQueue.slice();
     _offlineQueue = [];
