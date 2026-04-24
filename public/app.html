@@ -6898,17 +6898,33 @@ function renderStockDetailPage() {
                     '<div style="height:100%;width:' + mPct + '%;background:' + mColor + ';border-radius:3px;"></div>' +
                 '</div>';
 
-            // Distribution per locale - clickable entries with direct action
-            html += '<div style="margin-top:6px;font-size:10px;">';
+            // Distribution per locale - clickable entries with direct action buttons
+            html += '<div style="margin-top:8px;">';
             for (var ei = 0; ei < m.entries.length; ei++) {
                 var e = m.entries[ei];
-                var eColor = e.qty === 0 ? '#ff4757' : '#2ed573';
-                var eAction = e.qty === 0 ? 'add' : 'ingress';
-                var eActionLabel = e.qty === 0 ? '📥 Agregar' : '📥 Stockear';
+                var eQtyVal = e.qty;
+                var eIsZero = eQtyVal === 0;
+                var eAction = eIsZero ? 'add' : 'ingress';
                 var ePid = (e.productId || '').replace(/'/g, "\\'");
-                html += '<div onclick="goToLocFromStock(\'' + e.locId + '\',' + e.spaceIdx + ',\'' + ePid + '\',\'' + eAction + '\')" style="display:flex;justify-content:space-between;align-items:center;padding:3px 4px;border-radius:4px;cursor:pointer;' + (e.qty > 0 ? '' : 'background:#ff475710;') + '" onmousedown="this.style.opacity=\'0.7\'" onmouseup="this.style.opacity=\'1\'">' +
-                    '<span style="color:var(--text2);">🏪 ' + escapeHtml(e.locName) + ' › ' + escapeHtml(e.spaceName) + '</span>' +
-                    '<span style="display:flex;align-items:center;gap:4px;"><b style="color:' + eColor + ';">' + e.qty + '</b> <span style="color:var(--primary);font-size:9px;font-weight:700;">' + eActionLabel + '</span></span></div>';
+                var eBtnBg = eIsZero ? 'background:#ff4757;color:#fff;' : 'background:#ffa502;color:#fff;';
+                var eBtnLabel = eIsZero ? '➕ Agregar Stock' : '✏️ Modificar';
+                var eBtnIcon = eIsZero ? '📥' : '✏️';
+                html += '<div onclick="goToLocFromStock(\'' + e.locId + '\',' + e.spaceIdx + ',\'' + ePid + '\',\'' + eAction + '\')" style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-radius:8px;cursor:pointer;transition:all 0.15s;border:1px solid ' + (eIsZero ? '#ff475720' : '#ffa50220') + ';background:' + (eIsZero ? '#ff475708' : '#ffa50208') + ';margin-bottom:4px;" onmousedown="this.style.transform=\'scale(0.98)\'" onmouseup="this.style.transform=\'\'" onmouseleave="this.style.transform=\'\'">' +
+                    '<div style="display:flex;align-items:center;gap:6px;flex:1;min-width:0;">' +
+                        '<span style="font-size:12px;">🏪</span>' +
+                        '<div style="min-width:0;">' +
+                            '<div style="font-size:11px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(e.locName) + '</div>' +
+                            '<div style="font-size:10px;color:var(--text3);">' + escapeHtml(e.spaceName) + '</div>' +
+                        '</div>' +
+                    '</div>' +
+                    '<div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">' +
+                        '<div style="text-align:right;">' +
+                            '<div style="font-size:16px;font-weight:800;color:' + (eIsZero ? '#ff4757' : '#ffa502') + ';line-height:1;">' + eQtyVal + '</div>' +
+                            '<div style="font-size:9px;color:var(--text3);">uds</div>' +
+                        '</div>' +
+                        '<div style="' + eBtnBg + 'font-size:10px;font-weight:700;padding:5px 10px;border-radius:6px;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,0.15);">' + eBtnLabel + '</div>' +
+                    '</div>' +
+                '</div>';
             }
             html += '</div></div>';
         }
@@ -6946,12 +6962,27 @@ function renderStockDetailPage() {
                     '</div>' +
                 '</div>';
 
-            html += '<div style="margin-top:6px;font-size:10px;">';
+            html += '<div style="margin-top:8px;">';
             for (var edi = 0; edi < ex.entries.length; edi++) {
                 var ed = ex.entries[edi];
-                html += '<div onclick="goToLocFromStock(\'' + ed.locId + '\',' + ed.spaceIdx + ')" style="display:flex;justify-content:space-between;padding:3px 4px;border-radius:4px;cursor:pointer;" onmousedown="this.style.opacity=\'0.7\'" onmouseup="this.style.opacity=\'1\'">' +
-                    '<span style="color:var(--text3);">🏪 ' + escapeHtml(ed.locName) + ' › ' + escapeHtml(ed.spaceName) + '</span>' +
-                    '<span><b style="color:#2ed573;">' + ed.qty + '</b> <span style="color:var(--text3);">→</span></span></div>';
+                var edPid = (ed.productId || '').replace(/'/g, "\\'");
+                var edQtyVal = ed.qty;
+                html += '<div onclick="goToLocFromStock(\'' + ed.locId + '\',' + ed.spaceIdx + ',\'' + edPid + '\',\'ingress\')" style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-radius:8px;cursor:pointer;transition:all 0.15s;border:1px solid #2ed57315;background:#2ed57305;margin-bottom:4px;" onmousedown="this.style.transform=\'scale(0.98)\'" onmouseup="this.style.transform=\'\'" onmouseleave="this.style.transform=\'\'">' +
+                    '<div style="display:flex;align-items:center;gap:6px;flex:1;min-width:0;">' +
+                        '<span style="font-size:12px;">🏪</span>' +
+                        '<div style="min-width:0;">' +
+                            '<div style="font-size:11px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(ed.locName) + '</div>' +
+                            '<div style="font-size:10px;color:var(--text3);">' + escapeHtml(ed.spaceName) + '</div>' +
+                        '</div>' +
+                    '</div>' +
+                    '<div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">' +
+                        '<div style="text-align:right;">' +
+                            '<div style="font-size:16px;font-weight:800;color:#2ed573;line-height:1;">' + edQtyVal + '</div>' +
+                            '<div style="font-size:9px;color:var(--text3);">uds</div>' +
+                        '</div>' +
+                        '<div style="background:var(--primary);color:#fff;font-size:10px;font-weight:700;padding:5px 10px;border-radius:6px;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,0.15);">✏️ Modificar</div>' +
+                    '</div>' +
+                '</div>';
             }
             html += '</div></div>';
         }
