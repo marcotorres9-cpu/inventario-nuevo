@@ -957,7 +957,10 @@
             <!-- Header: title + add button -->
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
                 <h2 style="font-size:22px;font-weight:800;">🏪 Mis Locales</h2>
-                <button class="btn btn-primary btn-sm" onclick="openLocModal()">+ Nuevo Local</button>
+                <div style="display:flex;gap:6px;">
+                    <button class="btn btn-outline btn-sm" onclick="openStockSummary()" style="font-size:12px;">📊 Resumen</button>
+                    <button class="btn btn-primary btn-sm" onclick="openLocModal()">+ Nuevo Local</button>
+                </div>
             </div>
             <!-- Global target banner (compact) -->
             <div id="globalTargetBanner" style="margin-bottom:10px;"></div>
@@ -5067,9 +5070,15 @@ function renderGlobalTargetBanner() {
     var target = getGlobalTarget();
     var current = calcGlobalStock();
     var missing = Math.max(0, target - current);
+    var over = Math.max(0, current - target);
 
     if (target === 0) {
-        banner.innerHTML = '';
+        // Show prompt to set target
+        banner.innerHTML = '<div style="background:var(--primary-bg);border:1px solid var(--primary);border-radius:12px;padding:12px 14px;text-align:center;">' +
+            '<div style="font-size:13px;font-weight:700;color:var(--primary);margin-bottom:4px;">📺 Define tu objetivo total</div>' +
+            '<div style="font-size:11px;color:var(--text2);margin-bottom:8px;">¿Cuántas TVs deben existir en total en todos los locales?</div>' +
+            '<button class="btn btn-primary btn-sm" onclick="editGlobalTarget()" style="font-size:12px;">🎯 Establecer Objetivo</button>' +
+        '</div>';
         return;
     }
 
@@ -5077,14 +5086,93 @@ function renderGlobalTargetBanner() {
     var isOk = missing <= 0;
     var barColor = isOk ? '#2ed573' : '#ff4757';
 
-    banner.innerHTML = '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:10px 14px;">' +
-        '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">' +
-            '<span style="font-size:12px;color:var(--text2);">📺 Global: <b>' + current + '</b>/' + target + (isOk ? ' ✅' : ' <span style="color:#ff4757;">(-' + missing + ')</span>') + '</span>' +
+    // Build per-model quick breakdown
+    var locs = getLocations();
+    var modelMap = {};
+    var totalModels = 0;
+    var modelsOk = 0;
+    var modelsMissing = 0;
+    var modelsEmpty = 0;
+    for (var i = 0; i < locs.length; i++) {
+        var spaces = locs[i].spaces || [];
+        for (var s = 0; s < spaces.length; s++) {
+            var prods = spaces[s].products || [];
+            for (var p = 0; p < prods.length; p++) {
+                var pr = prods[p];
+                var key = pr.productId || (pr.name + '|' + pr.brand);
+                if (!modelMap[key]) {
+                    modelMap[key] = { name: pr.name || 'TV', brand: pr.brand || '', qty: 0, target: 0, min: 0 };
+                    totalModels++;
+                }
+                modelMap[key].qty += (pr.qty || 0);
+                modelMap[key].target += (pr.targetQty || 0);
+                modelMap[key].min += (pr.minQty || 0);
+            }
+        }
+    }
+
+    // Count status
+    var mKeys = Object.keys(modelMap);
+    for (var m = 0; m < mKeys.length; m++) {
+        var md = modelMap[mKeys[m]];
+        if (md.qty === 0) modelsEmpty++;
+        else if (md.qty <= md.min) modelsMissing++;
+        else if (md.target > 0 && md.qty < md.target) modelsMissing++;
+        else modelsOk++;
+    }
+
+    // Build compact model pills (top missing ones)
+    var missingModels = [];
+    var okModels = [];
+    for (var m2 = 0; m2 < mKeys.length; m2++) {
+        var md2 = modelMap[mKeys[m2]];
+        var label = md2.name + (md2.brand ? ' ' + md2.brand : '');
+        if (md2.qty === 0) missingModels.push({ label: label, qty: 0, status: 'empty' });
+        else if (md2.target > 0 && md2.qty < md2.target) missingModels.push({ label: label, qty: md2.qty, target: md2.target, status: 'low' });
+        else okModels.push({ label: label, qty: md2.qty, status: 'ok' });
+    }
+    // Sort: empty first, then by missing qty
+    missingModels.sort(function(a, b) { return (a.qty - a.target) - (b.qty - b.target); });
+
+    var pillsHtml = '';
+    if (missingModels.length > 0) {
+        pillsHtml = '<div style="margin-top:8px;">';
+        for (var mi = 0; mi < missingModels.length; mi++) {
+            var mm = missingModels[mi];
+            var mColor = mm.status === 'empty' ? '#ff4757' : '#ffa502';
+            var mIcon = mm.status === 'empty' ? '🚨' : '⚠️';
+            pillsHtml += '<span onclick="openStockSummary()" style="display:inline-flex;align-items:center;gap:3px;background:' + mColor + '18;color:' + mColor + ';font-size:10px;padding:3px 7px;border-radius:6px;margin:0 3px 3px 0;cursor:pointer;border:1px solid ' + mColor + '30;">' +
+                mIcon + ' ' + escapeHtml(mm.label) + (mm.qty > 0 ? ' (' + mm.qty + '/' + mm.target + ')' : ' (0)') +
+            '</span>';
+        }
+        pillsHtml += '</div>';
+    }
+
+    banner.innerHTML = '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:12px 14px;">' +
+        // Top row: big numbers
+        '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">' +
+            '<div style="display:flex;align-items:baseline;gap:6px;">' +
+                '<span style="font-size:11px;color:var(--text3);">📺 Objetivo:</span>' +
+                '<span style="font-size:22px;font-weight:800;color:var(--primary);">' + current + '</span>' +
+                '<span style="font-size:14px;color:var(--text3);">/ ' + target + '</span>' +
+                (isOk ? '<span style="font-size:12px;color:#2ed573;">✅</span>' : '<span style="font-size:12px;color:#ff4757;font-weight:700;">Faltan ' + missing + '</span>') +
+            '</div>' +
             '<button class="btn btn-ghost btn-xs" onclick="editGlobalTarget()" style="font-size:10px;padding:2px 6px;">✏️</button>' +
         '</div>' +
-        '<div style="background:var(--bg);border-radius:4px;height:5px;overflow:hidden;">' +
+        // Progress bar
+        '<div style="background:var(--bg);border-radius:4px;height:6px;overflow:hidden;">' +
             '<div style="height:100%;width:' + pct + '%;background:' + barColor + ';border-radius:4px;transition:width 0.4s;"></div>' +
         '</div>' +
+        // Quick stats row
+        '<div style="display:flex;gap:12px;margin-top:8px;font-size:11px;">' +
+            '<span style="color:var(--text2);">✅ Completos: <b>' + modelsOk + '</b></span>' +
+            (modelsMissing > 0 ? '<span style="color:#ffa502;">⚠️ Bajo mín: <b>' + modelsMissing + '</b></span>' : '') +
+            (modelsEmpty > 0 ? '<span style="color:#ff4757;">🚨 Sin stock: <b>' + modelsEmpty + '</b></span>' : '') +
+        '</div>' +
+        // Missing model pills
+        pillsHtml +
+        // Tap to see detail
+        (missingModels.length > 0 ? '<div onclick="openStockSummary()" style="text-align:center;margin-top:8px;font-size:11px;color:var(--primary);cursor:pointer;font-weight:600;">Ver detalle completo →</div>' : '') +
     '</div>';
 }
 
@@ -5640,18 +5728,16 @@ function openStockSummary() {
 function renderStockSummary() {
     var container = document.getElementById('stockSummaryContent');
     var locs = getLocations();
+    var globalTarget = getGlobalTarget();
 
     if (!locs || locs.length === 0) {
         container.innerHTML = '<div style="text-align:center;padding:30px;color:var(--text3);">No hay locales registrados</div>';
         return;
     }
 
-    // Build a consolidated table of all products across all locales/spaces
-    var productMap = {}; // key: productId, value: { name, brand, specs, locations: [{locName, spaceName, qty, target, min}] }
+    // Build consolidated product map
+    var productMap = {};
     var grandTotal = 0;
-    var grandTarget = 0;
-    var grandMissing = 0;
-    var grandAlerts = 0;
 
     for (var li = 0; li < locs.length; li++) {
         var loc = locs[li];
@@ -5661,14 +5747,20 @@ function renderStockSummary() {
             var prods = space.products || [];
             for (var pi = 0; pi < prods.length; pi++) {
                 var pr = prods[pi];
-                var key = pr.productId;
+                var key = pr.productId || (pr.name + '|' + pr.brand);
                 if (!productMap[key]) {
-                    productMap[key] = { name: pr.name || 'Producto', brand: pr.brand || '', specifications: pr.specifications || null, entries: [] };
+                    productMap[key] = { name: pr.name || 'Producto', brand: pr.brand || '', specifications: pr.specifications || null, entries: [], totalQty: 0, totalTarget: 0, totalMin: 0 };
                 }
+                var qty = pr.qty || 0;
+                var tgt = pr.targetQty || 0;
+                var mn = pr.minQty || 0;
                 productMap[key].entries.push({
-                    locName: loc.name, spaceName: space.name,
-                    qty: pr.qty || 0, targetQty: pr.targetQty || 2, minQty: pr.minQty || 1
+                    locName: loc.name, spaceName: space.name, qty: qty, targetQty: tgt, minQty: mn
                 });
+                productMap[key].totalQty += qty;
+                productMap[key].totalTarget += tgt;
+                productMap[key].totalMin += mn;
+                grandTotal += qty;
             }
         }
     }
@@ -5679,94 +5771,164 @@ function renderStockSummary() {
         return;
     }
 
-    // Build summary
-    var html = '';
+    // Calculate global missing based on target per product (sum of all targets) or global target
+    var sumTargets = 0;
+    for (var k = 0; k < keys.length; k++) sumTargets += productMap[keys[k]].totalTarget;
+    var effectiveTarget = globalTarget > 0 ? globalTarget : sumTargets;
+    var globalMissing = Math.max(0, effectiveTarget - grandTotal);
+    var globalPct = effectiveTarget > 0 ? Math.min(100, Math.round((grandTotal / effectiveTarget) * 100)) : 100;
+    var isComplete = globalMissing <= 0;
 
-    // Stats header
-    var totalModels = keys.length;
+    // Classify models
+    var existModels = []; // meeting target
+    var missingModels = []; // below target or empty
+    var emptyModels = []; // zero qty
     for (var ki = 0; ki < keys.length; ki++) {
         var pm = productMap[keys[ki]];
-        for (var ei = 0; ei < pm.entries.length; ei++) {
-            var entry = pm.entries[ei];
-            grandTotal += entry.qty;
-            grandTarget += entry.targetQty;
-            var m = entry.targetQty - entry.qty;
-            if (m > 0) grandMissing += m;
-            if (entry.qty <= entry.minQty) grandAlerts++;
+        var obj = { key: keys[ki], name: pm.name, brand: pm.brand, specifications: pm.specifications, totalQty: pm.totalQty, totalTarget: pm.totalTarget, totalMin: pm.totalMin, entries: pm.entries };
+        if (pm.totalQty === 0) emptyModels.push(obj);
+        else if (pm.totalTarget > 0 && pm.totalQty < pm.totalTarget) missingModels.push(obj);
+        else if (pm.totalQty <= pm.totalMin) missingModels.push(obj);
+        else existModels.push(obj);
+    }
+
+    var html = '';
+
+    // ===== MAIN RESUMEN HEADER =====
+    html += '<div style="background:linear-gradient(135deg, var(--primary), #6c5ce7);border-radius:14px;padding:16px;margin-bottom:14px;color:#fff;">' +
+        '<div style="text-align:center;margin-bottom:12px;">' +
+            '<div style="font-size:11px;opacity:0.8;">Resumen de Stock en Locales</div>' +
+            '<div style="font-size:36px;font-weight:900;line-height:1.1;margin:4px 0;">' + grandTotal + ' <span style="font-size:16px;font-weight:400;opacity:0.8;">de ' + effectiveTarget + '</span></div>' +
+            (isComplete
+                ? '<div style="font-size:13px;font-weight:700;color:#2ed573;">Stock completo</div>'
+                : '<div style="font-size:13px;font-weight:700;color:#ff6b81;">Faltan ' + globalMissing + ' unidades</div>'
+            ) +
+        '</div>' +
+        '<div style="background:rgba(255,255,255,0.2);border-radius:4px;height:6px;overflow:hidden;">' +
+            '<div style="height:100%;width:' + globalPct + '%;background:#fff;border-radius:4px;"></div>' +
+        '</div>' +
+        '<div style="display:flex;justify-content:center;gap:16px;margin-top:10px;font-size:11px;">' +
+            '<span>📊 ' + keys.length + ' modelos</span>' +
+            '<span>' + (isComplete ? '✅' : '⚠️') + ' ' + globalPct + '%</span>' +
+        '</div>' +
+    '</div>';
+
+    // ===== QUICK STATS =====
+    html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px;">' +
+        '<div style="background:#2ed57318;border:1px solid #2ed57330;border-radius:10px;padding:10px;text-align:center;">' +
+            '<div style="font-size:22px;font-weight:800;color:#2ed573;">' + grandTotal + '</div>' +
+            '<div style="font-size:10px;color:var(--text3);">En existencia</div></div>' +
+        '<div style="background:' + (globalMissing > 0 ? '#ff475718' : '#2ed57318') + ';border:1px solid ' + (globalMissing > 0 ? '#ff475730' : '#2ed57330') + ';border-radius:10px;padding:10px;text-align:center;">' +
+            '<div style="font-size:22px;font-weight:800;color:' + (globalMissing > 0 ? '#ff4757' : '#2ed573') + ';">' + globalMissing + '</div>' +
+            '<div style="font-size:10px;color:var(--text3);">Faltantes</div></div>' +
+        '<div style="background:' + (emptyModels.length > 0 ? '#ffa50218' : 'var(--bg2)') + ';border:1px solid ' + (emptyModels.length > 0 ? '#ffa50230' : 'var(--border)') + ';border-radius:10px;padding:10px;text-align:center;">' +
+            '<div style="font-size:22px;font-weight:800;color:' + (emptyModels.length > 0 ? '#ffa502' : 'var(--text)') + ';">' + emptyModels.length + '</div>' +
+            '<div style="font-size:10px;color:var(--text3);">Sin stock</div></div>' +
+    '</div>';
+
+    // ===== FALTANTES SECTION (most important — shows what's missing) =====
+    if (emptyModels.length > 0 || missingModels.length > 0) {
+        html += '<div style="font-size:12px;font-weight:800;color:#ff4757;margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px;">🚨 Faltantes</div>';
+        var allMissing = emptyModels.concat(missingModels);
+        for (var mi = 0; mi < allMissing.length; mi++) {
+            var m = allMissing[mi];
+            var mQty = m.totalQty;
+            var mTarget = m.totalTarget > 0 ? m.totalTarget : m.totalMin;
+            var mDeficit = Math.max(0, mTarget - mQty);
+            var mPct = mTarget > 0 ? Math.min(100, Math.round((mQty / mTarget) * 100)) : 0;
+            var isEmpty = mQty === 0;
+            var mColor = isEmpty ? '#ff4757' : '#ffa502';
+            var mLabel = m.name + (m.brand ? ' · ' + m.brand : '');
+
+            // Specs
+            var mSpecs = '';
+            if (m.specifications) {
+                try {
+                    var sObj = (typeof m.specifications === 'string') ? JSON.parse(m.specifications) : m.specifications;
+                    if (sObj && typeof sObj === 'object') {
+                        var sk = Object.keys(sObj);
+                        for (var ski = 0; ski < sk.length;ski++) {
+                            var sv = (sObj[sk[ski]] || '').trim();
+                            if (sv) mSpecs += '<span style="display:inline-block;background:' + mColor + '15;color:' + mColor + ';font-size:9px;padding:1px 5px;border-radius:3px;margin-right:3px;">' + escapeHtml(sv) + '</span>';
+                        }
+                    }
+                } catch(e) {}
+            }
+
+            html += '<div style="background:' + mColor + '10;border:1px solid ' + mColor + '20;border-radius:10px;padding:10px 12px;margin-bottom:6px;">' +
+                '<div style="display:flex;justify-content:space-between;align-items:center;">' +
+                    '<div style="flex:1;min-width:0;">' +
+                        '<div style="font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + (isEmpty ? '🚨' : '⚠️') + ' ' + escapeHtml(mLabel) + '</div>' +
+                        (mSpecs ? '<div style="margin-top:3px;">' + mSpecs + '</div>' : '') +
+                    '</div>' +
+                    '<div style="text-align:right;flex-shrink:0;margin-left:8px;">' +
+                        '<div style="font-size:18px;font-weight:800;color:' + mColor + ';">' + mQty + '<span style="font-size:11px;font-weight:400;color:var(--text3);"> / ' + mTarget + '</span></div>' +
+                        '<div style="font-size:10px;color:' + mColor + ';font-weight:600;">' + (isEmpty ? 'Sin existencia' : 'Faltan ' + mDeficit) + '</div>' +
+                    '</div>' +
+                '</div>' +
+                '<div style="background:var(--bg);border-radius:3px;height:4px;margin-top:8px;overflow:hidden;">' +
+                    '<div style="height:100%;width:' + mPct + '%;background:' + mColor + ';border-radius:3px;"></div>' +
+                '</div>';
+
+            // Distribution per locale
+            html += '<div style="margin-top:6px;font-size:10px;">';
+            for (var ei = 0; ei < m.entries.length; ei++) {
+                var e = m.entries[ei];
+                var eMissing = e.targetQty - e.qty;
+                var eColor = e.qty === 0 ? '#ff4757' : (e.qty <= e.minQty ? '#ffa502' : '#2ed573');
+                html += '<div style="display:flex;justify-content:space-between;padding:2px 0;">' +
+                    '<span style="color:var(--text3);">🏪 ' + escapeHtml(e.locName) + ' › ' + escapeHtml(e.spaceName) + '</span>' +
+                    '<span><b style="color:' + eColor + ';">' + e.qty + '</b>' +
+                    (e.targetQty > 0 ? '<span style="color:var(--text3);"> / ' + e.targetQty + '</span>' : '') +
+                    (eMissing > 0 ? ' <span style="color:#ff4757;">(-' + eMissing + ')</span>' : '') +
+                    '</span></div>';
+            }
+            html += '</div></div>';
         }
     }
 
-    html += '<div style="display:flex;gap:8px;margin-bottom:16px;">' +
-        '<div style="flex:1;background:var(--bg2);border-radius:10px;padding:10px;text-align:center;">' +
-            '<div style="font-size:20px;font-weight:800;color:var(--primary);">' + totalModels + '</div>' +
-            '<div style="font-size:11px;color:var(--text3);">Modelos</div></div>' +
-        '<div style="flex:1;background:var(--bg2);border-radius:10px;padding:10px;text-align:center;">' +
-            '<div style="font-size:20px;font-weight:800;">' + grandTotal + '</div>' +
-            '<div style="font-size:11px;color:var(--text3);">Total uds</div></div>' +
-        '<div style="flex:1;background:' + (grandMissing > 0 ? '#ff475715' : '#2ed57315') + ';border-radius:10px;padding:10px;text-align:center;">' +
-            '<div style="font-size:20px;font-weight:800;color:' + (grandMissing > 0 ? '#ff4757' : '#2ed573') + ';">' + (grandMissing > 0 ? '-' + grandMissing : '✓') + '</div>' +
-            '<div style="font-size:11px;color:var(--text3);">Faltantes</div></div>' +
-        '<div style="flex:1;background:' + (grandAlerts > 0 ? '#ffa50215' : 'var(--bg2)') + ';border-radius:10px;padding:10px;text-align:center;">' +
-            '<div style="font-size:20px;font-weight:800;color:' + (grandAlerts > 0 ? '#ffa502' : 'var(--text)') + ';">' + grandAlerts + '</div>' +
-            '<div style="font-size:11px;color:var(--text3);">Alertas</div></div>' +
-    '</div>';
-
-    // Product list
-    for (var ki2 = 0; ki2 < keys.length; ki2++) {
-        var pm2 = productMap[keys[ki2]];
-        var pTotal = 0, pTarget = 0;
-        var pAlert = false;
-        var pSpecsHtml = '';
-        if (pm2.specifications) {
-            try {
-                var sObj = (typeof pm2.specifications === 'string') ? JSON.parse(pm2.specifications) : pm2.specifications;
-                if (sObj && typeof sObj === 'object') {
-                    var sk = Object.keys(sObj);
-                    for (var ski = 0; ski < sk.length; ski++) {
-                        var sv = (sObj[sk[ski]] || '').trim();
-                        if (sv) pSpecsHtml += '<span style="display:inline-block;background:var(--primary-bg);color:var(--primary);font-size:9px;padding:1px 4px;border-radius:3px;margin:0 1px;">' + escapeHtml(sk[ski] + ': ' + sv) + '</span>';
+    // ===== EN EXISTENCIA SECTION =====
+    if (existModels.length > 0) {
+        html += '<div style="font-size:12px;font-weight:800;color:#2ed573;margin:12px 0 8px;text-transform:uppercase;letter-spacing:0.5px;">✅ En Existencia</div>';
+        for (var ei2 = 0; ei2 < existModels.length; ei2++) {
+            var ex = existModels[ei2];
+            var exLabel = ex.name + (ex.brand ? ' · ' + ex.brand : '');
+            var exSpecs = '';
+            if (ex.specifications) {
+                try {
+                    var sObj2 = (typeof ex.specifications === 'string') ? JSON.parse(ex.specifications) : ex.specifications;
+                    if (sObj2 && typeof sObj2 === 'object') {
+                        var sk2 = Object.keys(sObj2);
+                        for (var ski2 = 0; ski2 < sk2.length; ski2++) {
+                            var sv2 = (sObj2[sk2[ski2]] || '').trim();
+                            if (sv2) exSpecs += '<span style="display:inline-block;background:#2ed57315;color:#2ed573;font-size:9px;padding:1px 5px;border-radius:3px;margin-right:3px;">' + escapeHtml(sv2) + '</span>';
+                        }
                     }
-                }
-            } catch(e) {}
-        }
+                } catch(e) {}
+            }
 
-        for (var ei2 = 0; ei2 < pm2.entries.length; ei2++) {
-            pTotal += pm2.entries[ei2].qty;
-            pTarget += pm2.entries[ei2].targetQty;
-            if (pm2.entries[ei2].qty <= pm2.entries[ei2].minQty) pAlert = true;
-        }
-        var pMissing = pTarget - pTotal;
-        var pStatus = pTotal === 0 ? '#ff4757' : (pAlert ? '#ffa502' : (pMissing > 0 ? '#1e90ff' : '#2ed573'));
-        var pPct = pTarget > 0 ? Math.min(100, Math.round((pTotal / pTarget) * 100)) : 100;
+            html += '<div style="background:#2ed57310;border:1px solid #2ed57320;border-radius:10px;padding:10px 12px;margin-bottom:6px;">' +
+                '<div style="display:flex;justify-content:space-between;align-items:center;">' +
+                    '<div style="flex:1;min-width:0;">' +
+                        '<div style="font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">✅ ' + escapeHtml(exLabel) + '</div>' +
+                        (exSpecs ? '<div style="margin-top:3px;">' + exSpecs + '</div>' : '') +
+                    '</div>' +
+                    '<div style="text-align:right;flex-shrink:0;margin-left:8px;">' +
+                        '<div style="font-size:18px;font-weight:800;color:#2ed573;">' + ex.totalQty + '</div>' +
+                        '<div style="font-size:10px;color:#2ed573;">Completo</div>' +
+                    '</div>' +
+                '</div>';
 
-        html += '<div style="background:var(--bg2);border-radius:10px;padding:12px;margin-bottom:8px;border-left:3px solid ' + pStatus + ';">' +
-            '<div style="display:flex;justify-content:space-between;align-items:center;">' +
-                '<div style="flex:1;min-width:0;">' +
-                    '<div style="font-weight:700;font-size:14px;">' + escapeHtml(pm2.name) + (pm2.brand ? ' — ' + escapeHtml(pm2.brand) : '') + '</div>' +
-                    (pSpecsHtml ? '<div style="margin-top:3px;">' + pSpecsHtml + '</div>' : '') +
-                '</div>' +
-                '<div style="text-align:right;flex-shrink:0;margin-left:8px;">' +
-                    '<div style="font-size:18px;font-weight:800;color:' + pStatus + ';">' + pTotal + '<span style="font-size:11px;color:var(--text3);"> / ' + pTarget + '</span></div>' +
-                    '<div style="font-size:10px;color:var(--text3);">' + pPct + '%' + (pMissing > 0 ? ' · Faltan ' + pMissing : ' · Completo') + '</div>' +
-                '</div>' +
-            '</div>' +
-            '<div style="background:var(--bg3);border-radius:4px;height:3px;margin-top:6px;overflow:hidden;"><div style="height:100%;width:' + pPct + '%;background:' + pStatus + ';border-radius:4px;"></div></div>';
-
-        // Detail per locale/space
-        html += '<div style="margin-top:8px;font-size:11px;">';
-        for (var ei3 = 0; ei3 < pm2.entries.length; ei3++) {
-            var e = pm2.entries[ei3];
-            var eMissing = e.targetQty - e.qty;
-            var eAlert = e.qty <= e.minQty;
-            html += '<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid var(--border);">' +
-                '<span style="color:var(--text3);">' + escapeHtml(e.locName) + ' › ' + escapeHtml(e.spaceName) + '</span>' +
-                '<span>' +
-                    '<b style="color:' + (eAlert ? '#ff4757' : 'var(--text)') + ';">' + e.qty + '</b>' +
-                    '<span style="color:var(--text3);"> / ' + e.targetQty + ' (mín:' + e.minQty + ')</span>' +
-                    (eMissing > 0 ? ' <span style="color:#ff4757;">-' + eMissing + '</span>' : '') +
-                '</span></div>';
+            // Distribution
+            html += '<div style="margin-top:6px;font-size:10px;">';
+            for (var edi = 0; edi < ex.entries.length; edi++) {
+                var ed = ex.entries[edi];
+                html += '<div style="display:flex;justify-content:space-between;padding:2px 0;">' +
+                    '<span style="color:var(--text3);">🏪 ' + escapeHtml(ed.locName) + ' › ' + escapeHtml(ed.spaceName) + '</span>' +
+                    '<span><b style="color:#2ed573;">' + ed.qty + '</b></span></div>';
+            }
+            html += '</div></div>';
         }
-        html += '</div></div>';
     }
 
     container.innerHTML = html;
