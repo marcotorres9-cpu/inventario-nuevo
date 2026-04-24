@@ -5364,6 +5364,49 @@ function openLocControlPanel(locId, spaceIdx) {
         '<button class="btn btn-outline btn-sm" onclick="closeModal(\'locControlModal\');openLocMovements(\'' + loc.id + '\')" style="font-size:12px;">📋 Movimientos</button>' +
     '</div>';
 
+    // Section: Mín/Máx por tipo de producto en este espacio
+    if (loc.spaces && loc.spaces[spaceIdx] && (loc.spaces[spaceIdx].products || []).length > 0) {
+        var currentProducts = loc.spaces[spaceIdx].products || [];
+        html += '<div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">📺 Mín / Máx por Producto</div>';
+        html += '<div style="background:var(--bg2);border-radius:10px;padding:10px;margin-bottom:14px;">';
+        html += '<p style="font-size:11px;color:var(--text2);margin-bottom:8px;">Define mínimo, máximo y objetivo por cada tipo de tele en ' + escapeHtml(spaceName) + '.</p>';
+        for (var pi = 0; pi < currentProducts.length; pi++) {
+            var cp = currentProducts[pi];
+            var cpName = (cp.name || 'Producto') + (cp.brand ? ' · ' + cp.brand : '');
+            var cpQty = cp.qty || 0;
+            var cpMin = cp.minQty || 0;
+            var cpMax = cp.maxQty || 0;
+            var cpTarget = cp.targetQty || 0;
+            var cpStatus = '';
+            if (cpQty === 0) cpStatus = '🚨';
+            else if (cpMin > 0 && cpQty <= cpMin) cpStatus = '⚠️';
+            else if (cpMax > 0 && cpQty > cpMax) cpStatus = '📈';
+            else cpStatus = '✅';
+
+            html += '<div style="margin-bottom:' + (pi < currentProducts.length - 1 ? '10px' : '0') + ';padding-bottom:' + (pi < currentProducts.length - 1 ? '10px' : '0') + ';border-bottom:' + (pi < currentProducts.length - 1 ? '1px solid var(--border)' : 'none') + ';">';
+            html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">';
+            html += '<div style="font-size:12px;font-weight:700;color:var(--text);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + cpStatus + ' ' + escapeHtml(cpName) + '</div>';
+            html += '<div style="font-size:11px;color:var(--text3);flex-shrink:0;">Actual: <b style="color:var(--primary);">' + cpQty + '</b></div>';
+            html += '</div>';
+            html += '<div style="display:flex;gap:6px;align-items:center;">';
+            html += '<div style="flex:1;">' +
+                '<label style="font-size:10px;color:var(--text3);">Mínimo</label>' +
+                '<input type="number" class="input" id="prodLimMin_' + pi + '" value="' + cpMin + '" min="0" placeholder="0" style="font-size:12px;padding:5px 8px;">' +
+            '</div>';
+            html += '<div style="flex:1;">' +
+                '<label style="font-size:10px;color:var(--text3);">Máximo</label>' +
+                '<input type="number" class="input" id="prodLimMax_' + pi + '" value="' + cpMax + '" min="0" placeholder="0" style="font-size:12px;padding:5px 8px;">' +
+            '</div>';
+            html += '<div style="flex:1;">' +
+                '<label style="font-size:10px;color:var(--text3);">Objetivo</label>' +
+                '<input type="number" class="input" id="prodLimTarget_' + pi + '" value="' + cpTarget + '" min="0" placeholder="0" style="font-size:12px;padding:5px 8px;">' +
+            '</div>';
+            html += '</div></div>';
+        }
+        html += '<button class="btn btn-primary btn-sm" onclick="saveProductLimits(\'' + loc.id + '\',' + spaceIdx + ')" style="width:100%;margin-top:8px;font-size:12px;">💾 Guardar Límites por Producto</button>';
+        html += '</div>';
+    }
+
     // Section: Capacidad por Espacio (minUnits / maxUnits)
     if (loc.spaces && loc.spaces.length > 0) {
         html += '<div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">📊 Capacidad por Espacio</div>';
@@ -5417,6 +5460,35 @@ function openLocControlPanel(locId, spaceIdx) {
     var content = document.getElementById('locControlContent');
     if (content) content.innerHTML = html;
     openModal('locControlModal');
+}
+
+// Save product-level minQty/maxQty/targetQty for current space
+function saveProductLimits(locId, spaceIdx) {
+    var locs = getLocations();
+    var count = 0;
+    for (var i = 0; i < locs.length; i++) {
+        if (locs[i].id === locId && locs[i].spaces && locs[i].spaces[spaceIdx]) {
+            var products = locs[i].spaces[spaceIdx].products || [];
+            for (var pi = 0; pi < products.length; pi++) {
+                var minEl = document.getElementById('prodLimMin_' + pi);
+                var maxEl = document.getElementById('prodLimMax_' + pi);
+                var targetEl = document.getElementById('prodLimTarget_' + pi);
+                if (minEl) products[pi].minQty = parseInt(minEl.value) || 0;
+                if (maxEl) products[pi].maxQty = parseInt(maxEl.value) || 0;
+                if (targetEl) products[pi].targetQty = parseInt(targetEl.value) || 0;
+                count++;
+            }
+            locs[i].updatedAt = new Date().toISOString();
+            break;
+        }
+    }
+    saveLocations(locs);
+    syncLocationsToServer();
+    showToast('Límites actualizados para ' + count + ' productos', 'success');
+    // Re-render detail view
+    for (var k = 0; k < locs.length; k++) {
+        if (locs[k].id === locId) { renderLocSpaceView(locs[k]); break; }
+    }
 }
 
 // Save space minUnits/maxUnits
