@@ -5231,7 +5231,7 @@ function renderGlobalTargetBanner() {
         pillsHtml += '</div>';
     }
 
-    banner.innerHTML = '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:12px 14px;">' +
+    banner.innerHTML = '<div onclick="openStockSummary()" style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:12px 14px;cursor:pointer;transition:transform 0.15s,box-shadow 0.15s;" onmousedown="this.style.transform=\'scale(0.98)\'" onmouseup="this.style.transform=\'\'" onmouseleave="this.style.transform=\'\'">' +
         '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">' +
             '<div style="display:flex;align-items:baseline;gap:6px;">' +
                 '<span style="font-size:11px;color:var(--text3);">📺 Total:</span>' +
@@ -5239,7 +5239,7 @@ function renderGlobalTargetBanner() {
                 '<span style="font-size:14px;color:var(--text3);">/ ' + displayTarget + '</span>' +
                 (isOk ? '<span style="font-size:12px;color:#2ed573;">✅</span>' : '<span style="font-size:12px;color:#ff4757;font-weight:700;">Faltan ' + missing + '</span>') +
             '</div>' +
-            '<span style="font-size:11px;color:var(--text3);cursor:pointer;" onclick="editGlobalTarget()">✏️</span>' +
+            '<span style="font-size:11px;color:var(--text3);cursor:pointer;" onclick="event.stopPropagation();editGlobalTarget()">✏️</span>' +
         '</div>' +
         '<div style="background:var(--bg);border-radius:4px;height:6px;overflow:hidden;">' +
             '<div style="height:100%;width:' + pct + '%;background:' + barColor + ';border-radius:4px;transition:width 0.4s;"></div>' +
@@ -5251,8 +5251,8 @@ function renderGlobalTargetBanner() {
         '</div>' +
         pillsHtml +
         '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">' +
-            (missingModels.length > 0 ? '<span onclick="openStockSummary()" style="font-size:11px;color:var(--primary);cursor:pointer;font-weight:600;">Ver detalle completo →</span>' : '<span></span>') +
-            (hasModelTargets ? '' : '<span onclick="openGlobalTargets()" style="font-size:11px;color:var(--info);cursor:pointer;font-weight:600;">🎯 Definir por tipo →</span>') +
+            '<span style="font-size:11px;color:var(--primary);cursor:pointer;font-weight:600;">Ver detalle de stock →</span>' +
+            (hasModelTargets ? '' : '<span onclick="event.stopPropagation();openGlobalTargets()" style="font-size:11px;color:var(--info);cursor:pointer;font-weight:600;">🎯 Definir por tipo →</span>') +
         '</div>' +
     '</div>';
 }
@@ -6665,23 +6665,31 @@ function saveGlobalTargets(count) {
 
 // ===== STOCK SUMMARY =====
 function openStockSummary() {
-    renderStockSummary();
-    openModal('stockSummaryModal');
+    // Navigate to a full-page stock detail view instead of just a modal
+    var container = document.getElementById('locationsList');
+    var spaceView = document.getElementById('locSpaceView');
+    var emptyEl = document.getElementById('locationsEmpty');
+
+    container.style.display = 'none';
+    emptyEl.style.display = 'none';
+
+    // Hide header and banner
+    var header = container.parentElement.querySelector('div[style*="align-items:center"]');
+    if (header) header.style.display = 'none';
+    var banner = document.getElementById('globalTargetBanner');
+    if (banner) banner.style.display = 'none';
+
+    renderStockDetailPage();
+    spaceView.style.display = 'block';
 }
 
-function renderStockSummary() {
-    var container = document.getElementById('stockSummaryContent');
+function renderStockDetailPage() {
+    var spaceView = document.getElementById('locSpaceView');
     var locs = getLocations();
 
-    if (!locs || locs.length === 0) {
-        container.innerHTML = '<div style="text-align:center;padding:30px;color:var(--text3);">No hay locales registrados</div>';
-        return;
-    }
-
-    // Build consolidated product map with actual stock
+    // Build consolidated product map
     var productMap = {};
     var grandTotal = 0;
-
     for (var li = 0; li < locs.length; li++) {
         var loc = locs[li];
         var spaces = loc.spaces || [];
@@ -6692,19 +6700,17 @@ function renderStockSummary() {
                 var pr = prods[pi];
                 var key = pr.productId || (pr.name + '|' + pr.brand);
                 if (!productMap[key]) {
-                    productMap[key] = { name: pr.name || 'Producto', brand: pr.brand || '', specifications: pr.specifications || null, entries: [], totalQty: 0, modelTarget: 0, modelMin: 0 };
+                    productMap[key] = { name: pr.name || 'Producto', brand: pr.brand || '', specifications: pr.specifications || null, entries: [], totalQty: 0 };
                 }
                 var qty = pr.qty || 0;
-                productMap[key].entries.push({
-                    locName: loc.name, spaceName: space.name, qty: qty
-                });
+                productMap[key].entries.push({ locId: loc.id, locName: loc.name, spaceIdx: si, spaceName: space.name, qty: qty });
                 productMap[key].totalQty += qty;
                 grandTotal += qty;
             }
         }
     }
 
-    // Collect model targets from all locales' modelTargets
+    // Collect model targets
     var allModelTargets = {};
     var grandTarget = 0;
     for (var li2 = 0; li2 < locs.length; li2++) {
@@ -6721,39 +6727,31 @@ function renderStockSummary() {
         }
     }
 
-    // Merge targets into productMap
+    // Merge targets
     var atKeys = Object.keys(allModelTargets);
     for (var ati = 0; ati < atKeys.length; ati++) {
         if (productMap[atKeys[ati]]) {
             productMap[atKeys[ati]].modelTarget = allModelTargets[atKeys[ati]].target;
             productMap[atKeys[ati]].modelMin = allModelTargets[atKeys[ati]].min;
         } else {
-            // Target exists but no stock yet
             productMap[atKeys[ati]] = { name: allModelTargets[atKeys[ati]].name, brand: allModelTargets[atKeys[ati]].brand, specifications: null, entries: [], totalQty: 0, modelTarget: allModelTargets[atKeys[ati]].target, modelMin: allModelTargets[atKeys[ati]].min };
         }
     }
 
     var keys = Object.keys(productMap);
-    if (keys.length === 0) {
-        container.innerHTML = '<div style="text-align:center;padding:30px;color:var(--text3);">No hay productos en los locales</div>';
-        return;
-    }
-
-    // Use modelTargets if set, otherwise fall back to globalTarget
     var hasModelTargets = atKeys.length > 0;
     var displayTarget = hasModelTargets ? grandTarget : getGlobalTarget();
-
     var globalMissing = Math.max(0, displayTarget - grandTotal);
     var globalPct = displayTarget > 0 ? Math.min(100, Math.round((grandTotal / displayTarget) * 100)) : 100;
     var isComplete = globalMissing <= 0;
 
-    // Classify models using model-level targets (or just qty > 0 if no targets)
-    var existModels = []; // meeting target
-    var missingModels = []; // below target or empty
-    var emptyModels = []; // zero qty
+    // Classify models
+    var existModels = [];
+    var missingModels = [];
+    var emptyModels = [];
     for (var ki = 0; ki < keys.length; ki++) {
         var pm = productMap[keys[ki]];
-        var obj = { key: keys[ki], name: pm.name, brand: pm.brand, specifications: pm.specifications, totalQty: pm.totalQty, modelTarget: pm.modelTarget, modelMin: pm.modelMin, entries: pm.entries };
+        var obj = { key: keys[ki], name: pm.name, brand: pm.brand, specifications: pm.specifications, totalQty: pm.totalQty, modelTarget: pm.modelTarget || 0, modelMin: pm.modelMin || 0, entries: pm.entries };
         if (pm.totalQty === 0) emptyModels.push(obj);
         else if (pm.modelTarget > 0 && pm.totalQty >= pm.modelTarget) existModels.push(obj);
         else if (pm.modelMin > 0 && pm.totalQty < pm.modelMin) missingModels.push(obj);
@@ -6763,10 +6761,14 @@ function renderStockSummary() {
 
     var html = '';
 
-    // ===== MAIN RESUMEN HEADER =====
+    // Back button and title
+    html += '<div class="loc-back" onclick="renderLocations()">← Volver</div>';
+    html += '<h2 style="font-size:20px;font-weight:800;margin-bottom:14px;">📊 Detalle de Stock</h2>';
+
+    // Main summary header
     html += '<div style="background:linear-gradient(135deg, var(--primary), #6c5ce7);border-radius:14px;padding:16px;margin-bottom:14px;color:#fff;">' +
         '<div style="text-align:center;margin-bottom:12px;">' +
-            '<div style="font-size:11px;opacity:0.8;">Resumen de Stock en Locales</div>' +
+            '<div style="font-size:11px;opacity:0.8;">Total de TVs en todos los locales</div>' +
             '<div style="font-size:36px;font-weight:900;line-height:1.1;margin:4px 0;">' + grandTotal + ' <span style="font-size:16px;font-weight:400;opacity:0.8;">de ' + displayTarget + '</span></div>' +
             (isComplete
                 ? '<div style="font-size:13px;font-weight:700;color:#2ed573;">Stock completo</div>'
@@ -6782,7 +6784,7 @@ function renderStockSummary() {
         '</div>' +
     '</div>';
 
-    // ===== QUICK STATS =====
+    // Quick stats
     html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px;">' +
         '<div style="background:#2ed57318;border:1px solid #2ed57330;border-radius:10px;padding:10px;text-align:center;">' +
             '<div style="font-size:22px;font-weight:800;color:#2ed573;">' + grandTotal + '</div>' +
@@ -6795,9 +6797,61 @@ function renderStockSummary() {
             '<div style="font-size:10px;color:var(--text3);">Sin stock</div></div>' +
     '</div>';
 
-    // ===== FALTANTES SECTION (most important — shows what's missing) =====
+    // ===== LOCALES SECTION: clickable cards to go manage stock =====
+    html += '<div style="font-size:12px;font-weight:800;color:var(--text3);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px;">🏪 Locales</div>';
+    for (var li3 = 0; li3 < locs.length; li3++) {
+        var loc = locs[li3];
+        var locTotal = 0;
+        var locSpaces = loc.spaces || [];
+        var locAlerts = 0;
+        var locEmpty = 0;
+        for (var ls = 0; ls < locSpaces.length; ls++) {
+            var lProds = locSpaces[ls].products || [];
+            for (var lp = 0; lp < lProds.length; lp++) {
+                var lQty = lProds[lp].qty || 0;
+                locTotal += lQty;
+                if (lQty === 0) { locEmpty++; locAlerts++; }
+                else {
+                    var lTgt = lProds[lp].targetQty || 0;
+                    var lMin = lProds[lp].minQty || 0;
+                    if (lTgt > 0 && lQty >= lTgt) { /* OK */ }
+                    else if (lMin > 0 && lQty < lMin) locAlerts++;
+                    else if (lTgt > 0 && lQty < lTgt) locAlerts++;
+                }
+            }
+        }
+
+        var locColor = locAlerts === 0 ? '#2ed573' : (locEmpty > 0 ? '#ff4757' : '#ffa502');
+        var locIcon = locAlerts === 0 ? '✅' : (locEmpty > 0 ? '🚨' : '⚠️');
+
+        // Build per-space mini breakdown
+        var spaceBreakdown = '';
+        for (var sb = 0; sb < locSpaces.length; sb++) {
+            var sbProds = locSpaces[sb].products || [];
+            var sbTotal = 0;
+            for (var sbp = 0; sbp < sbProds.length; sbp++) sbTotal += (sbProds[sbp].qty || 0);
+            spaceBreakdown += '<span style="display:inline-block;background:var(--bg2);font-size:10px;padding:2px 7px;border-radius:5px;margin-right:3px;color:var(--text2);">' + escapeHtml(locSpaces[sb].name || ('Espacio ' + (sb+1))) + ': ' + sbTotal + '</span>';
+        }
+
+        html += '<div onclick="goToLocFromStock(\'' + loc.id + '\')" style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:8px;cursor:pointer;transition:transform 0.15s,box-shadow 0.15s;" onmousedown="this.style.transform=\'scale(0.98)\'" onmouseup="this.style.transform=\'\'" onmouseleave="this.style.transform=\'\'">' +
+            '<div style="display:flex;align-items:center;justify-content:space-between;">' +
+                '<div style="display:flex;align-items:center;gap:8px;">' +
+                    '<span style="font-size:14px;font-weight:700;color:var(--text);">🏪 ' + escapeHtml(loc.name) + '</span>' +
+                    (locAlerts > 0 ? '<span style="background:' + locColor + '20;color:' + locColor + ';font-size:9px;padding:1px 6px;border-radius:6px;font-weight:700;">' + locIcon + ' ' + locAlerts + '</span>' : '<span style="background:#2ed57320;color:#2ed573;font-size:9px;padding:1px 6px;border-radius:6px;font-weight:700;">✅ OK</span>') +
+                '</div>' +
+                '<div style="display:flex;align-items:center;gap:6px;">' +
+                    '<span style="font-size:18px;font-weight:800;color:var(--primary);">' + locTotal + '</span>' +
+                    '<span style="font-size:12px;color:var(--text3);">uds</span>' +
+                    '<span style="font-size:14px;color:var(--text3);">→</span>' +
+                '</div>' +
+            '</div>' +
+            (spaceBreakdown ? '<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:2px;">' + spaceBreakdown + '</div>' : '') +
+        '</div>';
+    }
+
+    // ===== FALTANTES SECTION =====
     if (emptyModels.length > 0 || missingModels.length > 0) {
-        html += '<div style="font-size:12px;font-weight:800;color:#ff4757;margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px;">🚨 Faltantes</div>';
+        html += '<div style="font-size:12px;font-weight:800;color:#ff4757;margin:14px 0 8px;text-transform:uppercase;letter-spacing:0.5px;">🚨 Modelos Faltantes</div>';
         var allMissing = emptyModels.concat(missingModels);
         for (var mi = 0; mi < allMissing.length; mi++) {
             var m = allMissing[mi];
@@ -6809,7 +6863,6 @@ function renderStockSummary() {
             var mColor = isEmpty ? '#ff4757' : '#ffa502';
             var mLabel = m.name + (m.brand ? ' · ' + m.brand : '');
 
-            // Specs
             var mSpecs = '';
             if (m.specifications) {
                 try {
@@ -6839,14 +6892,14 @@ function renderStockSummary() {
                     '<div style="height:100%;width:' + mPct + '%;background:' + mColor + ';border-radius:3px;"></div>' +
                 '</div>';
 
-            // Distribution per locale
+            // Distribution per locale - clickable entries
             html += '<div style="margin-top:6px;font-size:10px;">';
             for (var ei = 0; ei < m.entries.length; ei++) {
                 var e = m.entries[ei];
                 var eColor = e.qty === 0 ? '#ff4757' : '#2ed573';
-                html += '<div style="display:flex;justify-content:space-between;padding:2px 0;">' +
-                    '<span style="color:var(--text3);">🏪 ' + escapeHtml(e.locName) + ' › ' + escapeHtml(e.spaceName) + '</span>' +
-                    '<span><b style="color:' + eColor + ';">' + e.qty + '</b></span></div>';
+                html += '<div onclick="goToLocFromStock(\'' + e.locId + '\',' + e.spaceIdx + ')" style="display:flex;justify-content:space-between;padding:3px 4px;border-radius:4px;cursor:pointer;' + (e.qty > 0 ? '' : 'background:#ff475710;') + '" onmousedown="this.style.opacity=\'0.7\'" onmouseup="this.style.opacity=\'1\'">' +
+                    '<span style="color:var(--text2);">🏪 ' + escapeHtml(e.locName) + ' › ' + escapeHtml(e.spaceName) + '</span>' +
+                    '<span><b style="color:' + eColor + ';">' + e.qty + '</b> <span style="color:var(--text3);">→</span></span></div>';
             }
             html += '</div></div>';
         }
@@ -6854,7 +6907,7 @@ function renderStockSummary() {
 
     // ===== EN EXISTENCIA SECTION =====
     if (existModels.length > 0) {
-        html += '<div style="font-size:12px;font-weight:800;color:#2ed573;margin:12px 0 8px;text-transform:uppercase;letter-spacing:0.5px;">✅ En Existencia</div>';
+        html += '<div style="font-size:12px;font-weight:800;color:#2ed573;margin:14px 0 8px;text-transform:uppercase;letter-spacing:0.5px;">✅ En Existencia</div>';
         for (var ei2 = 0; ei2 < existModels.length; ei2++) {
             var ex = existModels[ei2];
             var exLabel = ex.name + (ex.brand ? ' · ' + ex.brand : '');
@@ -6884,19 +6937,35 @@ function renderStockSummary() {
                     '</div>' +
                 '</div>';
 
-            // Distribution
             html += '<div style="margin-top:6px;font-size:10px;">';
             for (var edi = 0; edi < ex.entries.length; edi++) {
                 var ed = ex.entries[edi];
-                html += '<div style="display:flex;justify-content:space-between;padding:2px 0;">' +
+                html += '<div onclick="goToLocFromStock(\'' + ed.locId + '\',' + ed.spaceIdx + ')" style="display:flex;justify-content:space-between;padding:3px 4px;border-radius:4px;cursor:pointer;" onmousedown="this.style.opacity=\'0.7\'" onmouseup="this.style.opacity=\'1\'">' +
                     '<span style="color:var(--text3);">🏪 ' + escapeHtml(ed.locName) + ' › ' + escapeHtml(ed.spaceName) + '</span>' +
-                    '<span><b style="color:#2ed573;">' + ed.qty + '</b></span></div>';
+                    '<span><b style="color:#2ed573;">' + ed.qty + '</b> <span style="color:var(--text3);">→</span></span></div>';
             }
             html += '</div></div>';
         }
     }
 
-    container.innerHTML = html;
+    spaceView.innerHTML = html;
+}
+
+// Navigate from stock detail to a specific locale + space
+function goToLocFromStock(locId, spaceIdx) {
+    _locCurrentLocId = locId;
+    _locCurrentSpace = spaceIdx || 0;
+    _groupSelectMode = false;
+    _groupSelected = {};
+
+    var locs = getLocations();
+    var loc = null;
+    for (var i = 0; i < locs.length; i++) {
+        if (locs[i].id === locId) { loc = locs[i]; break; }
+    }
+    if (!loc) return;
+
+    renderLocSpaceView(loc);
 }
 
 // ===== EXCEL EXPORT — LOCALES INVENTORY =====
