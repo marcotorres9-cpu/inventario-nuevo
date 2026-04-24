@@ -855,6 +855,14 @@
                 </div>
             </div>
 
+            <div class="card" id="changelogCard" style="border:1px solid var(--primary);background:linear-gradient(135deg,var(--primary-bg),var(--bg));">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+                    <div class="card-title" style="margin-bottom:0;">🆕 Novedades</div>
+                    <button onclick="document.getElementById('changelogCard').style.display='none'" style="background:none;border:none;color:var(--text3);font-size:16px;cursor:pointer;padding:2px 6px;">✕</button>
+                </div>
+                <div id="changelogContent" style="font-size:13px;color:var(--text);line-height:1.6;"></div>
+            </div>
+
             <div class="card">
                 <div class="card-title">⚠️ Productos con stock bajo</div>
                 <div id="lowStockList">
@@ -1639,7 +1647,7 @@ function getServerUrl() {
         return window.location.origin;
     }
     // Hardcoded fallback for Capacitor WebView
-    return 'https://inventario-tienda-three.vercel.app';
+    return 'https://inventario-nuevo.vercel.app';
 }
 // Auth uses the SAME server as data — all routes in one deployment
 function getAuthUrl() {
@@ -2603,9 +2611,56 @@ function logout() {
 }
 
 // ====================================================================
+// CHANGELOG — Show latest updates to the user
+// ====================================================================
+var APP_VERSION = '2.4.0';
+var CHANGELOG_ENTRIES = [
+    { ver: '2.4.0', date: '24 Abr 2026', items: [
+        { icon: '📊', text: '<b>Capacidad por espacio:</b> Controla unidades mínimas y máximas para Exhibición, Local Pequeño, Local Grande desde el panel de Control del Local.' },
+        { icon: '📈', text: '<b>Alertas de capacidad:</b> Se muestran alertas cuando un espacio está por debajo del mínimo o sobre el máximo de unidades.' },
+        { icon: '📦', text: '<b>Máximo por producto:</b> Al agregar productos a un espacio puedes definir cantidad mínima, máxima y objetivo.' },
+        { icon: '🛠️', text: '<b>Filtros de productos corregidos:</b> Los filtros por categoría, marca, color y especificaciones ahora funcionan correctamente en cascada.' },
+        { icon: '🔗', text: '<b>Sincronización mejorada:</b> Se muestran notificaciones al sincronizar cambios con el servidor.' }
+    ]},
+    { ver: '2.3.0', date: 'Abr 2026', items: [
+        { icon: '🏪', text: '<b>Vista limpia de Locales:</b> La vista de detalle es solo lectura, sin controles saturados. Todo el control está en el panel de Control.' },
+        { icon: '⚙️', text: '<b>Panel de Control:</b> Acceso centralizado a editar local, agregar productos, movimientos, objetivos y exportaciones.' },
+        { icon: '📋', text: '<b>Historial de movimientos:</b> Registro de ingresos y ventas por local con exportación a Excel.' }
+    ]}
+];
+
+function renderChangelog() {
+    var card = document.getElementById('changelogCard');
+    var content = document.getElementById('changelogContent');
+    if (!card || !content) return;
+    var lastSeen = localStorage.getItem('inv_changelogSeen') || '';
+    if (lastSeen === APP_VERSION) {
+        card.style.display = 'none';
+        return;
+    }
+    localStorage.setItem('inv_changelogSeen', APP_VERSION);
+    var html = '';
+    for (var e = 0; e < CHANGELOG_ENTRIES.length; e++) {
+        var entry = CHANGELOG_ENTRIES[e];
+        html += '<div style="margin-bottom:' + (e < CHANGELOG_ENTRIES.length - 1 ? '12px' : '0') + ';">';
+        html += '<div style="font-size:11px;color:var(--primary);font-weight:700;margin-bottom:4px;">v' + entry.ver + ' · ' + entry.date + '</div>';
+        for (var i = 0; i < entry.items.length; i++) {
+            var item = entry.items[i];
+            html += '<div style="display:flex;gap:6px;align-items:flex-start;margin-bottom:4px;">';
+            html += '<span style="flex-shrink:0;font-size:12px;">' + item.icon + '</span>';
+            html += '<span style="flex:1;">' + item.text + '</span>';
+            html += '</div>';
+        }
+        html += '</div>';
+    }
+    content.innerHTML = html;
+}
+
+// ====================================================================
 // GLOBAL: updateDashboard() - MUST be defined and callable from anywhere
 // ====================================================================
 function updateDashboard() {
+    renderChangelog();
     var products = getProducts();
     var quotations = getQuotations();
     var totalProducts = products.length;
@@ -8069,7 +8124,7 @@ function downloadQuotationPDF(id) {
     // ALWAYS force the correct server URL — clear any old/wrong URL
     // This fixes APK where inv_serverUrl may be set to a wrong vercel project
     var _badUrl = localStorage.getItem('inv_serverUrl') || '';
-    var _correctUrl = 'https://inventario-tienda-three.vercel.app';
+    var _correctUrl = 'https://inventario-nuevo.vercel.app';
     if (_badUrl !== _correctUrl) {
         console.log('[INIT] Correcting server URL from', _badUrl, 'to', _correctUrl);
         localStorage.removeItem('inv_serverUrl');
