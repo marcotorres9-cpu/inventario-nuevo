@@ -6792,18 +6792,20 @@ function renderStockDetailPage() {
     '</div>';
 
     // Quick stats — clicking toggles a filter view showing only that section
+    var totalProblems = emptyModels.length + missingModels.length;
+    var hasProblems = totalProblems > 0;
     var hasMissing = missingModels.length > 0;
     var hasEmpty = emptyModels.length > 0;
     html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px;">' +
         '<div id="filterExist" onclick="toggleStockFilter(\'exist\')" style="background:#2ed57318;border:1px solid #2ed57330;border-radius:10px;padding:10px;text-align:center;cursor:pointer;transition:all 0.15s;" onmousedown="this.style.transform=\'scale(0.97)\'" onmouseup="this.style.transform=\'\'" onmouseleave="this.style.transform=\'\'">' +
             '<div style="font-size:22px;font-weight:800;color:#2ed573;">' + grandTotal + '</div>' +
-            '<div style="font-size:10px;color:var(--text3);">En existencia</div>' +
+            '<div style="font-size:10px;color:var(--text3);">Unidades</div>' +
             '<div style="font-size:9px;font-weight:700;color:#2ed573;margin-top:4px;">👇 Ver</div>' +
         '</div>' +
-        '<div id="filterFaltantes" onclick="toggleStockFilter(\'faltantes\')" style="background:' + (hasMissing ? '#ff475718' : '#2ed57318') + ';border:1px solid ' + (hasMissing ? '#ff475730' : '#2ed57330') + ';border-radius:10px;padding:10px;text-align:center;cursor:pointer;transition:all 0.15s;" onmousedown="this.style.transform=\'scale(0.97)\'" onmouseup="this.style.transform=\'\'" onmouseleave="this.style.transform=\'\'">' +
-            '<div style="font-size:22px;font-weight:800;color:' + (hasMissing ? '#ff4757' : '#2ed573') + ';">' + missingModels.length + '</div>' +
+        '<div id="filterFaltantes" onclick="toggleStockFilter(\'faltantes\')" style="background:' + (hasProblems ? '#ff475718' : '#2ed57318') + ';border:1px solid ' + (hasProblems ? '#ff475730' : '#2ed57330') + ';border-radius:10px;padding:10px;text-align:center;cursor:pointer;transition:all 0.15s;" onmousedown="this.style.transform=\'scale(0.97)\'" onmouseup="this.style.transform=\'\'" onmouseleave="this.style.transform=\'\'">' +
+            '<div style="font-size:22px;font-weight:800;color:' + (hasProblems ? '#ff4757' : '#2ed573') + ';">' + totalProblems + '</div>' +
             '<div style="font-size:10px;color:var(--text3);">Faltantes</div>' +
-            (hasMissing ? '<div style="font-size:9px;font-weight:700;color:#ff4757;margin-top:4px;">👇 Ver dónde</div>' : '') +
+            (hasProblems ? '<div style="font-size:9px;font-weight:700;color:#ff4757;margin-top:4px;">👇 Ver dónde</div>' : '') +
         '</div>' +
         '<div id="filterSinStock" onclick="toggleStockFilter(\'sinStock\')" style="background:' + (hasEmpty ? '#ffa50218' : 'var(--bg2)') + ';border:1px solid ' + (hasEmpty ? '#ffa50230' : 'var(--border)') + ';border-radius:10px;padding:10px;text-align:center;cursor:pointer;transition:all 0.15s;" onmousedown="this.style.transform=\'scale(0.97)\'" onmouseup="this.style.transform=\'\'" onmouseleave="this.style.transform=\'\'">' +
             '<div style="font-size:22px;font-weight:800;color:' + (hasEmpty ? '#ffa502' : 'var(--text)') + ';">' + emptyModels.length + '</div>' +
@@ -7132,6 +7134,22 @@ function _applyStockFilter(view) {
         }
     }
 
+    // "Faltantes" filter shows BOTH sinStock and faltantes sections
+    if (_stockFilter === 'faltantes') {
+        for (var g2 = 0; g2 < groups.length; g2++) {
+            var gf = groups[g2].getAttribute('data-filter');
+            if (gf === 'sinStock' || gf === 'faltantes') {
+                groups[g2].style.display = '';
+            }
+        }
+        for (var h2 = 0; h2 < headers.length; h2++) {
+            var hf = headers[h2].getAttribute('data-filter');
+            if (hf === 'sinStock' || hf === 'faltantes') {
+                headers[h2].style.display = '';
+            }
+        }
+    }
+
     // Update card highlight styles
     var filterCards = [
         { el: document.getElementById('filterExist'), filter: 'exist' },
@@ -7158,7 +7176,7 @@ function _applyStockFilter(view) {
             bar.id = 'filterBar';
             view.insertBefore(bar, view.children[2]); // after back button and title
         }
-        var labels = { faltantes: 'Faltantes', sinStock: 'Sin Stock', exist: 'En Existencia' };
+        var labels = { faltantes: 'Faltantes (todo)', sinStock: 'Sin Stock', exist: 'En Existencia' };
         bar.innerHTML = '<div onclick="toggleStockFilter(\'' + _stockFilter + '\')" style="display:flex;align-items:center;justify-content:space-between;background:var(--primary);color:#fff;border-radius:10px;padding:10px 14px;margin-bottom:12px;cursor:pointer;">' +
             '<span style="font-size:12px;font-weight:700;">Filtrando: ' + (labels[_stockFilter] || _stockFilter) + '</span>' +
             '<span style="font-size:11px;background:rgba(255,255,255,0.25);padding:3px 10px;border-radius:6px;">✕ Mostrar todo</span>' +
