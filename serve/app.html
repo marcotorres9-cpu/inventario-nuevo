@@ -7320,21 +7320,21 @@ function renderStockDetailPage() {
         }
     }
 
-    // Collect model targets
+    // Collect model targets from the first locale only
+    // (saveGlobalTargets saves identical targets to ALL locales, so summing would multiply the values)
     var allModelTargets = {};
     var grandTarget = 0;
-    for (var li2 = 0; li2 < locs.length; li2++) {
-        var mt = locs[li2].modelTargets || [];
-        for (var ti = 0; ti < mt.length; ti++) {
-            var t = mt[ti];
-            var tKey = t.productId || (t.name + '|' + t.brand);
-            if (!allModelTargets[tKey]) {
-                allModelTargets[tKey] = { name: t.name || 'TV', brand: t.brand || '', target: 0, min: 0 };
-            }
-            allModelTargets[tKey].target += (t.target || 0);
-            allModelTargets[tKey].min += (t.min || 0);
-            grandTarget += (t.target || 0);
+    var refLoc = locs.length > 0 ? locs[0] : null;
+    var refMt = refLoc ? (refLoc.modelTargets || []) : [];
+    for (var ti = 0; ti < refMt.length; ti++) {
+        var t = refMt[ti];
+        var tKey = t.productId || (t.name + '|' + t.brand);
+        if (!allModelTargets[tKey]) {
+            allModelTargets[tKey] = { name: t.name || 'TV', brand: t.brand || '', target: 0, min: 0 };
         }
+        allModelTargets[tKey].target += (t.target || 0);
+        allModelTargets[tKey].min += (t.min || 0);
+        grandTarget += (t.target || 0);
     }
 
     // Merge targets
@@ -7425,19 +7425,41 @@ function renderStockDetailPage() {
         var locSpaces = loc.spaces || [];
         var locAlerts = 0;
         var locEmpty = 0;
+
+        // Build per-model totals within this local (sum of all spaces)
+        var locModelMap = {};
         for (var ls = 0; ls < locSpaces.length; ls++) {
             var lProds = locSpaces[ls].products || [];
             for (var lp = 0; lp < lProds.length; lp++) {
                 var lQty = lProds[lp].qty || 0;
                 locTotal += lQty;
-                if (lQty === 0) { locEmpty++; locAlerts++; }
-                else {
-                    var lTgt = lProds[lp].targetQty || 0;
-                    var lMin = lProds[lp].minQty || 0;
-                    if (lTgt > 0 && lQty >= lTgt) { /* OK */ }
-                    else if (lMin > 0 && lQty < lMin) locAlerts++;
-                    else if (lTgt > 0 && lQty < lTgt) locAlerts++;
-                }
+                var lKey = lProds[lp].productId || (lProds[lp].name + '|' + lProds[lp].brand);
+                if (!locModelMap[lKey]) locModelMap[lKey] = { qty: 0 };
+                locModelMap[lKey].qty += lQty;
+            }
+        }
+
+        // Compare consolidated totals against model targets (global min/target)
+        var lmKeys = Object.keys(locModelMap);
+        for (var lmi = 0; lmi < lmKeys.length; lmi++) {
+            var lmt = allModelTargets[lmKeys[lmi]];
+            var lQtyTotal = locModelMap[lmKeys[lmi]].qty;
+            if (lQtyTotal === 0) { locEmpty++; locAlerts++; }
+            else if (lmt) {
+                var lTarget = lmt.target || 0;
+                var lMin = lmt.min || 0;
+                if (lTarget > 0 && lQtyTotal >= lTarget) { /* OK */ }
+                else if (lMin > 0 && lQtyTotal < lMin) locAlerts++;
+                else if (lTarget > 0 && lQtyTotal < lTarget) locAlerts++;
+            }
+        }
+
+        // Also check models with target but 0 in this local
+        var atKeys2 = Object.keys(allModelTargets);
+        for (var ati3 = 0; ati3 < atKeys2.length; ati3++) {
+            if (!locModelMap[atKeys2[ati3]]) {
+                var missingTarget = allModelTargets[atKeys2[ati3]].target || 0;
+                if (missingTarget > 0) { locEmpty++; locAlerts++; }
             }
         }
 
@@ -7530,21 +7552,41 @@ function renderStockDetailPage() {
             var locSpaces = loc.spaces || [];
             var locAlerts = 0;
             var locEmpty = 0;
+
+            // Build per-model totals within this local (sum of all spaces)
+            var locModelMap2 = {};
             for (var ls = 0; ls < locSpaces.length; ls++) {
                 var lProds = locSpaces[ls].products || [];
                 for (var lp = 0; lp < lProds.length; lp++) {
                     var lQty = lProds[lp].qty || 0;
                     locTotal += lQty;
-                    if (lQty === 0) { locEmpty++; locAlerts++; }
-                    else {
-                        var lTgt = lProds[lp].targetQty || 0;
-                        var lMin = lProds[lp].minQty || 0;
-                        if (lTgt > 0 && lQty >= lTgt) { /* OK */ }
-                        else if (lMin > 0 && lQty < lMin) locAlerts++;
-                        else if (lTgt > 0 && lQty < lTgt) locAlerts++;
-                    }
+                    var lKey = lProds[lp].productId || (lProds[lp].name + '|' + lProds[lp].brand);
+                    if (!locModelMap2[lKey]) locModelMap2[lKey] = { qty: 0 };
+                    locModelMap2[lKey].qty += lQty;
                 }
             }
+
+            // Compare consolidated totals against model targets
+            var lmKeys2 = Object.keys(locModelMap2);
+            for (var lmi = 0; lmi < lmKeys2.length; lmi++) {
+                var lmt = allModelTargets[lmKeys2[lmi]];
+                var lQtyTotal = locModelMap2[lmKeys2[lmi]].qty;
+                if (lQtyTotal === 0) { locEmpty++; locAlerts++; }
+                else if (lmt) {
+                    var lTarget = lmt.target || 0;
+                    var lMin = lmt.min || 0;
+                    if (lTarget > 0 && lQtyTotal >= lTarget) { /* OK */ }
+                    else if (lMin > 0 && lQtyTotal < lMin) locAlerts++;
+                    else if (lTarget > 0 && lQtyTotal < lTarget) locAlerts++;
+                }
+            }
+            var atKeys2b = Object.keys(allModelTargets);
+            for (var ati3 = 0; ati3 < atKeys2b.length; ati3++) {
+                if (!locModelMap2[atKeys2b[ati3]]) {
+                    if (allModelTargets[atKeys2b[ati3]].target > 0) { locEmpty++; locAlerts++; }
+                }
+            }
+
             var locColor = locAlerts === 0 ? '#2ed573' : (locEmpty > 0 ? '#ff4757' : '#ffa502');
             var locIcon = locAlerts === 0 ? '✅' : (locEmpty > 0 ? '🚨' : '⚠️');
             var spaceBreakdown = '';
