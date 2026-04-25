@@ -3485,7 +3485,7 @@ function renderProductList() {
 // ====================================================================
 // FILTER CHIP SYSTEM — replaces native <select> in filter bars
 // ====================================================================
-var _filterChipState = { fcat: '', fbrand: '', fcolor: '', fspec: '', spcat: '', spbrand: '', spcolor: '', spspec: '' };
+var _filterChipState = { fcat: '', fbrand: '', fcolor: '', fspec: '', spcat: '', spbrand: '', spcolor: '', spspec: '', locbrand: '', locspec: '' };
 var _openChipDropdown = null;
 
 function toggleFilterDropdown(key) {
@@ -3501,12 +3501,18 @@ function toggleFilterDropdown(key) {
 
     // Find the button that was clicked to position the dropdown
     var chipMap = { fcat: 'chipFilterCat', fbrand: 'chipFilterBrand', fcolor: 'chipFilterColor', fspec: 'chipFilterSpec',
-                    spcat: 'chipSpCat', spbrand: 'chipSpBrand', spcolor: 'chipSpColor', spspec: 'chipSpSpec' };
+                    spcat: 'chipSpCat', spbrand: 'chipSpBrand', spcolor: 'chipSpColor', spspec: 'chipSpSpec',
+                    locbrand: 'chipLocBrand', locspec: 'chipLocSpec' };
     var btn = document.getElementById(chipMap[key]);
     if (!btn) return;
 
-    // Populate options into overlay
-    populateChipDropdown(key, overlay);
+    // For loc prefix, use space products instead of catalog
+    var isLoc = key.indexOf('loc') === 0;
+    if (isLoc) {
+        populateLocChipDropdown(key, overlay);
+    } else {
+        populateChipDropdown(key, overlay);
+    }
 
     // Position overlay below the button using fixed positioning
     var rect = btn.getBoundingClientRect();
@@ -3606,14 +3612,65 @@ function populateChipDropdown(key, overlay) {
     overlay.innerHTML = html;
 }
 
+function populateLocChipDropdown(key, overlay) {
+    if (!overlay) return;
+    var spaceProds = window._currentSpaceProds || [];
+    var current = _filterChipState[key] || '';
+    var type = key.substring(3); // locbrand -> brand, locspec -> spec
+
+    // Cascading: filter base products by sibling chips
+    var baseProds = spaceProds;
+    if (type === 'spec' && _filterChipState.locbrand) {
+        baseProds = baseProds.filter(function(p){ return (p.brand || '') === _filterChipState.locbrand; });
+    }
+
+    // Collect unique values
+    var values = [];
+    var seen = {};
+    for (var i = 0; i < baseProds.length; i++) {
+        var val = '';
+        if (type === 'brand') val = baseProds[i].brand || '';
+        else if (type === 'spec' && baseProds[i].specifications) {
+            try {
+                var sObj = (typeof baseProds[i].specifications === 'string') ? JSON.parse(baseProds[i].specifications) : baseProds[i].specifications;
+                if (sObj && typeof sObj === 'object') {
+                    var sks = Object.keys(sObj);
+                    for (var si = 0; si < sks.length; si++) {
+                        var sv = (sObj[sks[si]] || '').trim();
+                        if (sv && !seen[sv]) { values.push(sv); seen[sv] = true; }
+                    }
+                }
+            } catch(e) {}
+            continue;
+        }
+        if (val && !seen[val]) { values.push(val); seen[val] = true; }
+    }
+    values.sort();
+
+    if (values.length === 0) {
+        overlay.innerHTML = '<div style="padding:14px;text-align:center;color:var(--text3);font-size:11px;">Sin opciones disponibles</div>';
+        return;
+    }
+
+    var html = '';
+    for (var j = 0; j < values.length; j++) {
+        var sel = current === values[j] ? ' selected' : '';
+        html += '<div class="filter-chip-opt' + sel + '" data-val="' + escapeHtml(values[j]) + '" onclick="selectChipValue(\'' + key + '\',\'' + escapeHtml(values[j]).replace(/'/g, "\\'") + '\')">' +
+            escapeHtml(values[j]) + '<span class="chip-check">✓</span></div>';
+    }
+    overlay.innerHTML = html;
+}
+
 function selectChipValue(key, value) {
     _filterChipState[key] = value;
 
     // Update chip button appearance
     var chipMap = { fcat: 'chipFilterCat', fbrand: 'chipFilterBrand', fcolor: 'chipFilterColor', fspec: 'chipFilterSpec',
-                    spcat: 'chipSpCat', spbrand: 'chipSpBrand', spcolor: 'chipSpColor', spspec: 'chipSpSpec' };
+                    spcat: 'chipSpCat', spbrand: 'chipSpBrand', spcolor: 'chipSpColor', spspec: 'chipSpSpec',
+                    locbrand: 'chipLocBrand', locspec: 'chipLocSpec' };
     var labelMap = { fcat: '📂 Categoría', fbrand: '🏷️ Marca', fcolor: '🎨 Color', fspec: '⚙️ Specs',
-                     spcat: '📂 Cat.', spbrand: '🏷️ Marca', spcolor: '🎨 Color', spspec: '⚙️ Specs' };
+                     spcat: '📂 Cat.', spbrand: '🏷️ Marca', spcolor: '🎨 Color', spspec: '⚙️ Specs',
+                     locbrand: '🏷️ Marca', locspec: '⚙️ Specs' };
     var chip = document.getElementById(chipMap[key]);
     if (chip) {
         chip.textContent = (labelMap[key] || '') + ': ' + value;
@@ -3627,10 +3684,24 @@ function selectChipValue(key, value) {
 
     // Cascading: reset downstream filters
     var isSp = key.indexOf('sp') === 0;
-    var type = isSp ? key.substring(2) : key.substring(1);
-    var downstream = { cat: ['brand','color','spec'], brand: ['color','spec'], color: ['spec'], spec: [] };
+    var isLoc = key.indexOf('loc') === 0;
+    var type, downstream, prefix;
+
+    if (isLoc) {
+        type = key.substring(3); // locbrand -> brand, locspec -> spec
+        downstream = { brand: ['spec'], spec: [] };
+        prefix = 'loc';
+    } else if (isSp) {
+        type = key.substring(2);
+        downstream = { cat: ['brand','color','spec'], brand: ['color','spec'], color: ['spec'], spec: [] };
+        prefix = 'sp';
+    } else {
+        type = key.substring(1);
+        downstream = { cat: ['brand','color','spec'], brand: ['color','spec'], color: ['spec'], spec: [] };
+        prefix = 'f';
+    }
+
     var downstreamKeys = downstream[type] || [];
-    var prefix = isSp ? 'sp' : 'f';
     for (var d = 0; d < downstreamKeys.length; d++) {
         var dk = prefix + downstreamKeys[d];
         _filterChipState[dk] = '';
@@ -3639,8 +3710,13 @@ function selectChipValue(key, value) {
     }
 
     // Trigger re-render
-    if (!isSp) renderProductList();
-    else {
+    if (isLoc) {
+        var locId = _locCurrentLocId;
+        var spaceIdx = _locCurrentSpace || 0;
+        if (locId) filterSpaceProducts(locId, spaceIdx);
+    } else if (!isSp) {
+        renderProductList();
+    } else {
         var searchEl = document.getElementById('spSearch');
         if (searchEl) searchProductsForSpace(searchEl.value);
     }
@@ -5476,7 +5552,7 @@ function renderLocSpaceView(loc) {
         if (spMinU > 0 && sCount < spMinU) capBadge = ' <span style="color:#ff4757;font-size:9px;">↓</span>';
         else if (spMaxU > 0 && sCount > spMaxU) capBadge = ' <span style="color:#ffa502;font-size:9px;">↑</span>';
         var alertBadge = sAlerts > 0 ? ' <span style="background:#ff4757;color:#fff;font-size:9px;padding:1px 5px;border-radius:8px;">!</span>' : '';
-        tabsHtml += '<span class="space-tab' + activeClass + '" onclick="_locCurrentSpace=' + s + ';renderLocSpaceView(getLocations()[' + _findLocIdx(loc.id) + '])">' +
+        tabsHtml += '<span class="space-tab' + activeClass + '" onclick="_locCurrentSpace=' + s + ';_filterChipState.locbrand=\'\';_filterChipState.locspec=\'\';renderLocSpaceView(getLocations()[' + _findLocIdx(loc.id) + '])">' +
             escapeHtml(spaces[s].name) + ' <small>(' + sCount + ')</small>' + capBadge + alertBadge + '</span>';
     }
 
@@ -5617,6 +5693,16 @@ function renderLocSpaceView(loc) {
         (tabsHtml || '<div style="color:var(--text3);font-size:13px;padding:8px 0;">Sin espacios definidos</div>') +
         '<div style="margin:12px 0 8px;font-size:14px;font-weight:700;">📦 ' + escapeHtml(currentSpace.name) + '</div>' +
         toolbarHtml +
+        // Professional cascading filter chips for space products
+        '<div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;align-items:center;">' +
+            '<div class="filter-chip-wrap">' +
+                '<button class="filter-chip" id="chipLocBrand" onclick="toggleFilterDropdown(\'locbrand\')" style="font-size:11px;padding:5px 8px;">🏷️ Marca</button>' +
+            '</div>' +
+            '<div class="filter-chip-wrap">' +
+                '<button class="filter-chip" id="chipLocSpec" onclick="toggleFilterDropdown(\'locspec\')" style="font-size:11px;padding:5px 8px;">⚙️ Specs</button>' +
+            '</div>' +
+            '<button class="filter-chip" onclick="clearLocFilters()" style="font-size:11px;padding:5px 8px;color:var(--danger);font-weight:700;">✕</button>' +
+        '</div>' +
         '<div style="margin-bottom:8px;position:relative;">' +
             '<input type="text" id="spaceProdSearchInput" class="input" placeholder="🔍 Buscar producto..." oninput="filterSpaceProducts(\'' + loc.id + '\',' + currentIdx + ')" style="font-size:13px;padding:8px 12px;width:100%;box-sizing:border-box;">' +
         '</div>' +
@@ -5636,25 +5722,70 @@ function filterSpaceProducts(locId, spaceIdx) {
         if (locs[i].id === locId) { loc = locs[i]; break; }
     }
     if (!loc) return;
+
+    // Get chip filter values
+    var fBrand = _filterChipState.locbrand || '';
+    var fSpec = _filterChipState.locspec || '';
+
     var filtered = [];
     for (var j = 0; j < allProds.length; j++) {
         var pr = allProds[j];
+
+        // Chip filter: brand
+        if (fBrand && (pr.brand || '') !== fBrand) continue;
+
+        // Chip filter: spec
+        if (fSpec) {
+            var specMatch = false;
+            if (pr.specifications) {
+                try {
+                    var so = (typeof pr.specifications === 'string') ? JSON.parse(pr.specifications) : pr.specifications;
+                    if (so && typeof so === 'object') {
+                        var sk = Object.keys(so);
+                        for (var x = 0; x < sk.length; x++) {
+                            var svFull = (so[sk[x]] || '').toLowerCase();
+                            if (svFull === fSpec.toLowerCase() || svFull.indexOf(fSpec.toLowerCase()) >= 0) {
+                                specMatch = true; break;
+                            }
+                        }
+                    }
+                } catch(e) {}
+            }
+            if (!specMatch) continue;
+        }
+
+        // Text search
         var searchText = (pr.name || '') + ' ' + (pr.brand || '') + ' ';
-        // Also include specs in search
         if (pr.specifications) {
             try {
-                var so = (typeof pr.specifications === 'string') ? JSON.parse(pr.specifications) : pr.specifications;
-                if (so && typeof so === 'object') {
-                    var sk = Object.keys(so);
-                    for (var x = 0; x < sk.length; x++) searchText += (so[sk[x]] || '') + ' ';
+                var so2 = (typeof pr.specifications === 'string') ? JSON.parse(pr.specifications) : pr.specifications;
+                if (so2 && typeof so2 === 'object') {
+                    var sk2 = Object.keys(so2);
+                    for (var x2 = 0; x2 < sk2.length; x2++) searchText += (so2[sk2[x2]] || '') + ' ';
                 }
             } catch(e) {}
         }
-        if (!query || searchText.toLowerCase().indexOf(query) >= 0) {
-            filtered.push(j); // store original index
-        }
+        if (query && searchText.toLowerCase().indexOf(query) < 0) continue;
+
+        filtered.push(j);
     }
     renderFilteredProducts(loc, spaceIdx, filtered, allProds);
+}
+
+function clearLocFilters() {
+    _filterChipState.locbrand = '';
+    _filterChipState.locspec = '';
+    var chipBrand = document.getElementById('chipLocBrand');
+    var chipSpec = document.getElementById('chipLocSpec');
+    if (chipBrand) { chipBrand.textContent = '🏷️ Marca'; chipBrand.classList.remove('active'); }
+    if (chipSpec) { chipSpec.textContent = '⚙️ Specs'; chipSpec.classList.remove('active'); }
+    // Clear search input
+    var searchEl = document.getElementById('spaceProdSearchInput');
+    if (searchEl) searchEl.value = '';
+    // Re-render with no filters
+    var locId = _locCurrentLocId;
+    var spaceIdx = _locCurrentSpace || 0;
+    if (locId) filterSpaceProducts(locId, spaceIdx);
 }
 
 function renderFilteredProducts(loc, spaceIdx, filteredIdxs, allProds) {
@@ -6504,6 +6635,10 @@ function executeDescarga(locId, spaceIdx, prodIdx) {
 function exitSpaceView() {
     _groupSelectMode = false;
     _groupSelected = {};
+    // Clear space filters
+    _filterChipState.locbrand = '';
+    _filterChipState.locspec = '';
+    window._currentSpaceProds = [];
     renderLocations();
 }
 
