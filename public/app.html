@@ -1529,6 +1529,30 @@
     </div>
 </div>
 
+<!-- ===== CARGA DE STOCK MODAL ===== -->
+<div id="cargaStockModal" class="modal-overlay">
+    <div class="modal-content modal-sm">
+        <div class="modal-handle"></div>
+        <div class="modal-header">
+            <h2 class="modal-title" id="cargaStockTitle">📥 Carga de Stock</h2>
+            <button class="modal-close" onclick="closeModal('cargaStockModal')">✕</button>
+        </div>
+        <div id="cargaStockContent" style="padding:4px 0;"></div>
+    </div>
+</div>
+
+<!-- ===== DESCARGA DE STOCK MODAL ===== -->
+<div id="descargaStockModal" class="modal-overlay">
+    <div class="modal-content modal-sm">
+        <div class="modal-handle"></div>
+        <div class="modal-header">
+            <h2 class="modal-title" id="descargaStockTitle">📤 Descarga de Stock</h2>
+            <button class="modal-close" onclick="closeModal('descargaStockModal')">✕</button>
+        </div>
+        <div id="descargaStockContent" style="padding:4px 0;"></div>
+    </div>
+</div>
+
 <!-- ===== STOCK SUMMARY MODAL ===== -->
 <div id="stockSummaryModal" class="modal-overlay">
     <div class="modal-content modal-lg">
@@ -5505,15 +5529,15 @@ function renderLocSpaceView(loc) {
                     '<div style="font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(pName) + '</div>' +
                     (locSpecsHtml ? '<div class="product-specs" style="margin-top:2px;">' + locSpecsHtml + '</div>' : '') +
                 '</div>' +
-                // +/- buttons
+                // Cargar / Descargar buttons
                 '<div style="display:flex;align-items:center;gap:2px;flex-shrink:0;">' +
-                    '<button onclick="changeSpaceQtyDirect(\'' + loc.id + '\',' + currentIdx + ',' + i + ',-1)" style="width:28px;height:28px;border-radius:8px;border:1px solid var(--border);background:var(--bg2);color:var(--text);font-size:16px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;' + (qty === 0 ? 'opacity:0.3;pointer-events:none;' : '') + '">-</button>' +
-                    '<div onclick="openStockEdit(\'' + loc.id + '\',' + currentIdx + ',' + i + ')" style="min-width:32px;text-align:center;cursor:pointer;padding:2px 4px;">' +
+                    '<button onclick="openDescargaStock(\'' + loc.id + '\',' + currentIdx + ',' + i + ')" style="width:32px;height:32px;border-radius:8px;border:1px solid #ff475730;background:#ff475710;color:#ff4757;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;' + (qty === 0 ? 'opacity:0.3;pointer-events:none;' : '') + '" title="Descargar">📤</button>' +
+                    '<div onclick="openStockEdit(\'' + loc.id + '\',' + currentIdx + ',' + i + ')" style="min-width:36px;text-align:center;cursor:pointer;padding:2px 4px;">' +
                         '<div style="font-size:16px;font-weight:700;color:' + statusColor + ';">' + qty + '</div>' +
                         (min > 0 || max > 0 ? '<div style="font-size:9px;color:var(--text3);">' + (min > 0 ? 'mín:' + min : '') + (min > 0 && max > 0 ? ' ' : '') + (max > 0 ? 'máx:' + max : '') + '</div>' : '') +
-                        '<div style="background:var(--bg2);border-radius:3px;height:3px;width:32px;margin-top:2px;overflow:hidden;"><div style="height:100%;width:' + pct + '%;background:' + barColor + ';border-radius:3px;"></div></div>' +
+                        '<div style="background:var(--bg2);border-radius:3px;height:3px;width:36px;margin-top:2px;overflow:hidden;"><div style="height:100%;width:' + pct + '%;background:' + barColor + ';border-radius:3px;"></div></div>' +
                     '</div>' +
-                    '<button onclick="changeSpaceQtyDirect(\'' + loc.id + '\',' + currentIdx + ',' + i + ',1)" style="width:28px;height:28px;border-radius:8px;border:1px solid var(--primary);background:var(--primary);color:#fff;font-size:16px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;">+</button>' +
+                    '<button onclick="openCargaStock(\'' + loc.id + '\',' + currentIdx + ',' + i + ')" style="width:32px;height:32px;border-radius:8px;border:1px solid #2ed57330;background:#2ed57310;color:#2ed573;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;" title="Cargar">📥</button>' +
                 '</div>' +
             '</div>';
         }
@@ -5531,8 +5555,8 @@ function renderLocSpaceView(loc) {
     }
     if (selectedCount > 0 && _groupSelectMode) {
         toolbarHtml += '<div style="margin-left:auto;display:flex;gap:4px;">';
-        toolbarHtml += '<button class="btn btn-primary btn-sm" onclick="openBatchIngress()" style="font-size:12px;">📥 Ingresar (' + selectedCount + ')</button>';
-        toolbarHtml += '<button class="btn btn-outline btn-sm" onclick="openBatchSell()" style="font-size:12px;color:#ff4757;border-color:#ff4757;">🏷️ Vender (' + selectedCount + ')</button>';
+        toolbarHtml += '<button class="btn btn-primary btn-sm" onclick="openBatchIngress()" style="font-size:12px;">📥 Cargar (' + selectedCount + ')</button>';
+        toolbarHtml += '<button class="btn btn-outline btn-sm" onclick="openBatchSell()" style="font-size:12px;color:#ff4757;border-color:#ff4757;">📤 Descargar (' + selectedCount + ')</button>';
         toolbarHtml += '</div>';
     }
     toolbarHtml += '</div>';
@@ -5615,8 +5639,8 @@ function openLocControlPanel(locId, spaceIdx) {
             html += '<div style="font-size:11px;color:var(--text3);flex-shrink:0;">Stock: <b style="color:var(--primary);">' + cpQty + '</b></div>';
             html += '</div>';
             html += '<div style="display:flex;gap:6px;">';
-            html += '<button class="btn btn-outline btn-sm" onclick="sellFromSpace(\'' + loc.id + '\',' + spaceIdx + ',' + pi + ')" style="flex:1;font-size:11px;' + (cpQty === 0 ? 'opacity:0.4;pointer-events:none;' : '') + '">🏷️ Vender</button>';
-            html += '<button class="btn btn-primary btn-sm" onclick="quickIngress(\'' + loc.id + '\',' + spaceIdx + ',' + pi + ')" style="flex:1;font-size:11px;">📥 +Ingreso</button>';
+            html += '<button class="btn btn-outline btn-sm" onclick="sellFromSpace(\'' + loc.id + '\',' + spaceIdx + ',' + pi + ')" style="flex:1;font-size:11px;color:#ff4757;border-color:#ff4757;' + (cpQty === 0 ? 'opacity:0.4;pointer-events:none;' : '') + '">📤 Descargar</button>';
+            html += '<button class="btn btn-primary btn-sm" onclick="quickIngress(\'' + loc.id + '\',' + spaceIdx + ',' + pi + ')" style="flex:1;font-size:11px;">📥 Cargar</button>';
             html += '</div></div>';
         }
         html += '</div>';
@@ -5877,166 +5901,24 @@ function _findLocIdx(locId) {
 
 // ===== SELL FROM SPACE (register sale) =====
 function sellFromSpace(locId, spaceIdx, prodIdx) {
-    var locs = getLocations();
-    var pr = null;
-    var locRef = null;
-    var spaceName = '';
-    for (var i = 0; i < locs.length; i++) {
-        if (locs[i].id === locId && locs[i].spaces && locs[i].spaces[spaceIdx]) {
-            pr = locs[i].spaces[spaceIdx].products[prodIdx];
-            spaceName = locs[i].spaces[spaceIdx].name || '';
-            locRef = locs[i];
-            break;
-        }
-    }
-    if (!pr) return;
-    var qty = pr.qty || 0;
-    var maxSell = qty;
-    var msg = '¿Cuántas unidades de "' + (pr.name || 'Producto') + '" vendiste?\nActual: ' + qty + ' uds';
-    var sellQty = prompt(msg, '1');
-    if (sellQty === null) return;
-    sellQty = parseInt(sellQty) || 0;
-    if (sellQty < 1) { showToast('Cantidad inválida', 'error'); return; }
-    if (sellQty > maxSell) sellQty = maxSell;
-
-    // Ask for sale price (optional, for daily totals)
-    var salePrice = prompt('¿Precio de venta por unidad? (deja vacío para solo registrar)', '');
-    salePrice = parseFloat(salePrice) || 0;
-
-    var locs2 = getLocations();
-    for (var j = 0; j < locs2.length; j++) {
-        if (locs2[j].id === locId && locs2[j].spaces && locs2[j].spaces[spaceIdx]) {
-            locs2[j].spaces[spaceIdx].products[prodIdx].qty -= sellQty;
-            locs2[j].updatedAt = new Date().toISOString();
-            // Log movement (venta)
-            if (!locs2[j].movements) locs2[j].movements = [];
-            locs2[j].movements.push({
-                id: 'mov-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5),
-                date: new Date().toISOString(),
-                type: 'venta',
-                productId: locs2[j].spaces[spaceIdx].products[prodIdx].productId,
-                productName: locs2[j].spaces[spaceIdx].products[prodIdx].name || 'Producto',
-                productBrand: locs2[j].spaces[spaceIdx].products[prodIdx].brand || '',
-                spaceIdx: spaceIdx,
-                spaceName: spaceName,
-                qty: sellQty,
-                salePrice: salePrice,
-                totalSale: sellQty * salePrice
-            });
-            break;
-        }
-    }
-    saveLocations(locs2);
-    syncLocationsToServer();
-    var loc = null;
-    for (var k = 0; k < locs2.length; k++) {
-        if (locs2[k].id === locId) { loc = locs2[k]; break; }
-    }
-    if (loc) renderLocSpaceView(loc);
-    var priceInfo = salePrice > 0 ? ' ($' + (sellQty * salePrice).toFixed(2) + ')' : '';
-    showToast('Venta registrada: -' + sellQty + ' ud' + (sellQty > 1 ? 's' : '') + priceInfo, 'success');
+    // Redirect to formal Descarga modal
+    openDescargaStock(locId, spaceIdx, prodIdx);
 }
 
 // ===== QUICK INGRESS (add stock to existing product in space) =====
 function quickIngress(locId, spaceIdx, prodIdx) {
-    var locs = getLocations();
-    var pr = null;
-    var spaceName = '';
-    for (var i = 0; i < locs.length; i++) {
-        if (locs[i].id === locId && locs[i].spaces && locs[i].spaces[spaceIdx]) {
-            pr = locs[i].spaces[spaceIdx].products[prodIdx];
-            spaceName = locs[i].spaces[spaceIdx].name || '';
-            break;
-        }
-    }
-    if (!pr) return;
-    var qty = pr.qty || 0;
-    var msg = '¿Cuántas unidades de "' + (pr.name || 'Producto') + '" ingresan?\nActual: ' + qty + ' uds';
-    var addQty = prompt(msg, '1');
-    if (addQty === null) return;
-    addQty = parseInt(addQty) || 0;
-    if (addQty < 1) { showToast('Cantidad inválida', 'error'); return; }
-
-    var locs2 = getLocations();
-    for (var j = 0; j < locs2.length; j++) {
-        if (locs2[j].id === locId && locs2[j].spaces && locs2[j].spaces[spaceIdx]) {
-            locs2[j].spaces[spaceIdx].products[prodIdx].qty += addQty;
-            locs2[j].updatedAt = new Date().toISOString();
-            // Log movement (ingreso)
-            if (!locs2[j].movements) locs2[j].movements = [];
-            locs2[j].movements.push({
-                id: 'mov-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5),
-                date: new Date().toISOString(),
-                type: 'ingreso',
-                productId: locs2[j].spaces[spaceIdx].products[prodIdx].productId,
-                productName: locs2[j].spaces[spaceIdx].products[prodIdx].name || 'Producto',
-                productBrand: locs2[j].spaces[spaceIdx].products[prodIdx].brand || '',
-                spaceIdx: spaceIdx,
-                spaceName: spaceName,
-                qty: addQty
-            });
-            break;
-        }
-    }
-    saveLocations(locs2);
-    syncLocationsToServer();
-    var loc = null;
-    for (var k = 0; k < locs2.length; k++) {
-        if (locs2[k].id === locId) { loc = locs2[k]; break; }
-    }
-    if (loc) renderLocSpaceView(loc);
-    showToast('Ingreso registrado: +' + addQty + ' ud' + (addQty > 1 ? 's' : ''), 'success');
+    // Redirect to formal Carga modal
+    openCargaStock(locId, spaceIdx, prodIdx);
 }
 
 // ===== DIRECT +/- QUANTITY CHANGE (with movement log) =====
 function changeSpaceQtyDirect(locId, spaceIdx, prodIdx, delta) {
-    var locs = getLocations();
-    var pr = null;
-    var spaceName = '';
-    for (var i = 0; i < locs.length; i++) {
-        if (locs[i].id === locId && locs[i].spaces && locs[i].spaces[spaceIdx]) {
-            pr = locs[i].spaces[spaceIdx].products[prodIdx];
-            spaceName = locs[i].spaces[spaceIdx].name || '';
-            break;
-        }
+    // Redirect to formal Carga/Descarga modals
+    if (delta > 0) {
+        openCargaStock(locId, spaceIdx, prodIdx);
+    } else {
+        openDescargaStock(locId, spaceIdx, prodIdx);
     }
-    if (!pr) return;
-    var qty = pr.qty || 0;
-    if (delta < 0 && qty <= 0) return;
-
-    var locs2 = getLocations();
-    for (var j = 0; j < locs2.length; j++) {
-        if (locs2[j].id === locId && locs2[j].spaces && locs2[j].spaces[spaceIdx]) {
-            var newQty = Math.max(0, (locs2[j].spaces[spaceIdx].products[prodIdx].qty || 0) + delta);
-            locs2[j].spaces[spaceIdx].products[prodIdx].qty = newQty;
-            locs2[j].updatedAt = new Date().toISOString();
-            // Log movement
-            if (!locs2[j].movements) locs2[j].movements = [];
-            locs2[j].movements.push({
-                id: 'mov-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5),
-                date: new Date().toISOString(),
-                type: delta > 0 ? 'ingreso' : 'venta',
-                productId: locs2[j].spaces[spaceIdx].products[prodIdx].productId,
-                productName: locs2[j].spaces[spaceIdx].products[prodIdx].name || 'Producto',
-                productBrand: locs2[j].spaces[spaceIdx].products[prodIdx].brand || '',
-                spaceIdx: spaceIdx,
-                spaceName: spaceName,
-                qty: Math.abs(delta)
-            });
-            // Auto-remove if qty hits 0
-            if (newQty === 0) {
-                locs2[j].spaces[spaceIdx].products.splice(prodIdx, 1);
-            }
-            break;
-        }
-    }
-    saveLocations(locs2);
-    syncLocationsToServer();
-    var loc = null;
-    for (var k = 0; k < locs2.length; k++) {
-        if (locs2[k].id === locId) { loc = locs2[k]; break; }
-    }
-    if (loc) renderLocSpaceView(loc);
 }
 
 // ===== STOCK EDIT MODAL =====
@@ -6054,17 +5936,19 @@ function openStockEdit(locId, spaceIdx, prodIdx) {
     var pName = (pr.name || 'Producto') + (pr.brand ? ' · ' + pr.brand : '');
     var qty = pr.qty || 0;
 
-    document.getElementById('stockEditTitle').textContent = '✏️ ' + pName;
+    document.getElementById('stockEditTitle').textContent = '📋 ' + pName;
     document.getElementById('stockEditContent').innerHTML =
         '<div style="padding:0 4px;">' +
         '<div style="text-align:center;margin-bottom:16px;">' +
             '<div style="font-size:11px;color:var(--text3);margin-bottom:4px;">Stock actual</div>' +
-            '<div style="font-size:36px;font-weight:800;color:var(--primary);" id="stockEditPreview">' + qty + '</div>' +
+            '<div style="font-size:36px;font-weight:800;color:var(--primary);">' + qty + '</div>' +
+            '<div style="font-size:10px;color:var(--text3);margin-top:2px;">Para cambiar, usa Cargar (📥) o Descargar (📤)</div>' +
         '</div>' +
-        '<div class="input-group">' +
-            '<label class="input-label">Nueva cantidad</label>' +
-            '<input type="number" id="stockEditQty" class="input" value="' + qty + '" min="0" style="font-size:18px;text-align:center;font-weight:700;" oninput="document.getElementById(\'stockEditPreview\').textContent=this.value">' +
+        '<div style="display:flex;gap:8px;margin-bottom:14px;">' +
+            '<button class="btn btn-primary" style="flex:1;background:#2ed573;border-color:#2ed573;font-size:13px;" onclick="closeModal(\'stockEditModal\');openCargaStock(\'' + locId + '\',' + spaceIdx + ',' + prodIdx + ')">📥 Cargar Stock</button>' +
+            '<button class="btn btn-outline" style="flex:1;color:#ff4757;border-color:#ff4757;font-size:13px;' + (qty === 0 ? 'opacity:0.4;pointer-events:none;' : '') + '" onclick="closeModal(\'stockEditModal\');openDescargaStock(\'' + locId + '\',' + spaceIdx + ',' + prodIdx + ')">📤 Descargar Stock</button>' +
         '</div>' +
+        '<div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Configuracion de stock</div>' +
         '<div style="display:flex;gap:6px;margin-top:6px;">' +
             '<div class="input-group" style="flex:1;">' +
                 '<label class="input-label">Mínimo</label>' +
@@ -6080,15 +5964,44 @@ function openStockEdit(locId, spaceIdx, prodIdx) {
             '</div>' +
         '</div>' +
         '<div style="display:flex;gap:8px;margin-top:14px;">' +
-            '<button class="btn btn-primary" style="flex:1;" onclick="saveStockEdit(\'' + locId + '\',' + spaceIdx + ',' + prodIdx + ')">💾 Guardar</button>' +
-            '<button class="btn btn-outline" onclick="closeModal(\'stockEditModal\')">Cancelar</button>' +
+            '<button class="btn btn-primary" style="flex:1;" onclick="saveStockConfig(\'' + locId + '\',' + spaceIdx + ',' + prodIdx + ')">💾 Guardar Config</button>' +
+            '<button class="btn btn-outline" onclick="closeModal(\'stockEditModal\')">Cerrar</button>' +
         '</div>' +
         '</div>';
     openModal('stockEditModal');
 }
 
+function saveStockConfig(locId, spaceIdx, prodIdx) {
+    var newMin = parseInt(document.getElementById('stockEditMin').value) || 0;
+    var newMax = parseInt(document.getElementById('stockEditMax').value) || 0;
+    var newTarget = parseInt(document.getElementById('stockEditTarget').value) || 0;
+
+    var locs = getLocations();
+    for (var i = 0; i < locs.length; i++) {
+        if (locs[i].id === locId && locs[i].spaces && locs[i].spaces[spaceIdx]) {
+            var pr = locs[i].spaces[spaceIdx].products[prodIdx];
+            if (!pr) break;
+            pr.minQty = newMin;
+            pr.maxQty = newMax;
+            pr.targetQty = newTarget;
+            locs[i].updatedAt = new Date().toISOString();
+            break;
+        }
+    }
+    saveLocations(locs);
+    syncLocationsToServer();
+    closeModal('stockEditModal');
+    var loc = null;
+    for (var k = 0; k < locs.length; k++) {
+        if (locs[k].id === locId) { loc = locs[k]; break; }
+    }
+    if (loc) renderLocSpaceView(loc);
+    showToast('Configuracion guardada', 'success');
+}
+
+// Keep saveStockEdit for backward compatibility (batch operations may call it)
 function saveStockEdit(locId, spaceIdx, prodIdx) {
-    var newQty = parseInt(document.getElementById('stockEditQty').value) || 0;
+    var newQty = parseInt(document.getElementById('stockEditQty') ? document.getElementById('stockEditQty').value : '0') || 0;
     var newMin = parseInt(document.getElementById('stockEditMin').value) || 0;
     var newMax = parseInt(document.getElementById('stockEditMax').value) || 0;
     var newTarget = parseInt(document.getElementById('stockEditTarget').value) || 0;
@@ -6113,6 +6026,9 @@ function saveStockEdit(locId, spaceIdx, prodIdx) {
                     id: 'mov-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5),
                     date: new Date().toISOString(),
                     type: diff > 0 ? 'ingreso' : 'venta',
+                    reason: 'edicion_directa',
+                    reasonLabel: 'Edicion directa',
+                    notes: '',
                     productId: pr.productId,
                     productName: pr.name || 'Producto',
                     productBrand: pr.brand || '',
@@ -6137,6 +6053,277 @@ function saveStockEdit(locId, spaceIdx, prodIdx) {
     }
     if (loc) renderLocSpaceView(loc);
     showToast('Stock actualizado', 'success');
+}
+
+// ===== CARGA DE STOCK (Formal Inventory Entry) =====
+function openCargaStock(locId, spaceIdx, prodIdx) {
+    var locs = getLocations();
+    var pr = null;
+    var spaceName = '';
+    for (var i = 0; i < locs.length; i++) {
+        if (locs[i].id === locId && locs[i].spaces && locs[i].spaces[spaceIdx]) {
+            pr = locs[i].spaces[spaceIdx].products[prodIdx];
+            spaceName = locs[i].spaces[spaceIdx].name || '';
+            break;
+        }
+    }
+    if (!pr) return;
+
+    var pName = (pr.name || 'Producto') + (pr.brand ? ' · ' + pr.brand : '');
+    var qty = pr.qty || 0;
+
+    document.getElementById('cargaStockTitle').textContent = '📥 Cargar Stock';
+    document.getElementById('cargaStockContent').innerHTML =
+        '<div style="padding:0 4px;">' +
+        '<div style="background:#2ed57310;border:1px solid #2ed57325;border-radius:10px;padding:10px 12px;margin-bottom:14px;">' +
+            '<div style="font-size:11px;color:var(--text3);margin-bottom:2px;">Producto</div>' +
+            '<div style="font-size:14px;font-weight:700;color:var(--text);">' + escapeHtml(pName) + '</div>' +
+            '<div style="font-size:11px;color:var(--text3);margin-top:2px;">' + escapeHtml(spaceName) + '</div>' +
+            '<div style="display:flex;align-items:center;gap:8px;margin-top:6px;">' +
+                '<div style="font-size:11px;color:var(--text3);">Stock actual:</div>' +
+                '<div style="font-size:22px;font-weight:800;color:#2ed573;">' + qty + '</div>' +
+                '<div style="font-size:10px;color:var(--text3);">uds</div>' +
+            '</div>' +
+        '</div>' +
+        '<div class="input-group">' +
+            '<label class="input-label">📦 Cantidad a cargar</label>' +
+            '<input type="number" id="cargaQty" class="input" value="1" min="1" style="font-size:20px;text-align:center;font-weight:700;">' +
+        '</div>' +
+        '<div class="input-group">' +
+            '<label class="input-label">📝 Motivo</label>' +
+            '<select id="cargaReason" class="input" style="font-size:14px;">' +
+                '<option value="compra">Compra / Adquisicion</option>' +
+                '<option value="traslado">Traslado desde otro local</option>' +
+                '<option value="devolucion">Devolucion de cliente</option>' +
+                '<option value="ajuste">Ajuste de inventario</option>' +
+                '<option value="otro">Otro</option>' +
+            '</select>' +
+        '</div>' +
+        '<div class="input-group">' +
+            '<label class="input-label">Notas (opcional)</label>' +
+            '<input type="text" id="cargaNotes" class="input" placeholder="Ej: Proveedor XYZ, Factura #123..." style="font-size:13px;">' +
+        '</div>' +
+        '<div id="cargaPreview" style="background:var(--bg2);border-radius:8px;padding:8px 12px;margin-top:8px;text-align:center;font-size:13px;color:var(--text2);">Nuevo stock: ' + (qty + 1) + ' unidades</div>' +
+        '<div style="display:flex;gap:8px;margin-top:14px;">' +
+            '<button class="btn btn-primary" style="flex:1;background:#2ed573;border-color:#2ed573;" onclick="executeCarga(\'' + locId + '\',' + spaceIdx + ',' + prodIdx + ')">📥 Confirmar Carga</button>' +
+            '<button class="btn btn-outline" onclick="closeModal(\'cargaStockModal\')">Cancelar</button>' +
+        '</div>' +
+        '</div>';
+
+    openModal('cargaStockModal');
+
+    // Update preview on qty change
+    setTimeout(function() {
+        var qtyInput = document.getElementById('cargaQty');
+        if (qtyInput) {
+            qtyInput.addEventListener('input', function() {
+                var add = parseInt(this.value) || 0;
+                document.getElementById('cargaPreview').textContent = 'Nuevo stock: ' + (qty + add) + ' unidades';
+            });
+        }
+    }, 100);
+}
+
+function executeCarga(locId, spaceIdx, prodIdx) {
+    var addQty = parseInt(document.getElementById('cargaQty').value) || 0;
+    if (addQty < 1) { showToast('La cantidad debe ser mayor a 0', 'error'); return; }
+
+    var reason = document.getElementById('cargaReason').value;
+    var notes = (document.getElementById('cargaNotes').value || '').trim();
+
+    var reasonLabels = {
+        compra: 'Compra/Adquisicion',
+        traslado: 'Traslado desde otro local',
+        devolucion: 'Devolucion de cliente',
+        ajuste: 'Ajuste de inventario',
+        otro: 'Otro'
+    };
+    var reasonLabel = reasonLabels[reason] || reason;
+
+    var locs = getLocations();
+    var spaceName = '';
+    for (var i = 0; i < locs.length; i++) {
+        if (locs[i].id === locId && locs[i].spaces && locs[i].spaces[spaceIdx]) {
+            var pr = locs[i].spaces[spaceIdx].products[prodIdx];
+            if (!pr) break;
+
+            pr.qty = (pr.qty || 0) + addQty;
+            locs[i].updatedAt = new Date().toISOString();
+
+            if (!locs[i].movements) locs[i].movements = [];
+            locs[i].movements.push({
+                id: 'mov-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5),
+                date: new Date().toISOString(),
+                type: 'carga',
+                reason: reason,
+                reasonLabel: reasonLabel,
+                notes: notes,
+                productId: pr.productId,
+                productName: pr.name || 'Producto',
+                productBrand: pr.brand || '',
+                spaceIdx: spaceIdx,
+                spaceName: locs[i].spaces[spaceIdx].name || '',
+                qty: addQty
+            });
+            spaceName = locs[i].spaces[spaceIdx].name || '';
+            break;
+        }
+    }
+    saveLocations(locs);
+    syncLocationsToServer();
+    closeModal('cargaStockModal');
+    var loc = null;
+    for (var k = 0; k < locs.length; k++) {
+        if (locs[k].id === locId) { loc = locs[k]; break; }
+    }
+    if (loc) renderLocSpaceView(loc);
+    showToast('+' + addQty + ' uds cargadas (' + reasonLabel + ')', 'success');
+}
+
+// ===== DESCARGA DE STOCK (Formal Inventory Exit) =====
+function openDescargaStock(locId, spaceIdx, prodIdx) {
+    var locs = getLocations();
+    var pr = null;
+    var spaceName = '';
+    for (var i = 0; i < locs.length; i++) {
+        if (locs[i].id === locId && locs[i].spaces && locs[i].spaces[spaceIdx]) {
+            pr = locs[i].spaces[spaceIdx].products[prodIdx];
+            spaceName = locs[i].spaces[spaceIdx].name || '';
+            break;
+        }
+    }
+    if (!pr) return;
+
+    var pName = (pr.name || 'Producto') + (pr.brand ? ' · ' + pr.brand : '');
+    var qty = pr.qty || 0;
+    if (qty === 0) { showToast('Sin stock para descargar', 'error'); return; }
+
+    document.getElementById('descargaStockTitle').textContent = '📤 Descargar Stock';
+    document.getElementById('descargaStockContent').innerHTML =
+        '<div style="padding:0 4px;">' +
+        '<div style="background:#ff475710;border:1px solid #ff475725;border-radius:10px;padding:10px 12px;margin-bottom:14px;">' +
+            '<div style="font-size:11px;color:var(--text3);margin-bottom:2px;">Producto</div>' +
+            '<div style="font-size:14px;font-weight:700;color:var(--text);">' + escapeHtml(pName) + '</div>' +
+            '<div style="font-size:11px;color:var(--text3);margin-top:2px;">' + escapeHtml(spaceName) + '</div>' +
+            '<div style="display:flex;align-items:center;gap:8px;margin-top:6px;">' +
+                '<div style="font-size:11px;color:var(--text3);">Stock actual:</div>' +
+                '<div style="font-size:22px;font-weight:800;color:#ff4757;">' + qty + '</div>' +
+                '<div style="font-size:10px;color:var(--text3);">uds</div>' +
+            '</div>' +
+        '</div>' +
+        '<div class="input-group">' +
+            '<label class="input-label">📦 Cantidad a descargar</label>' +
+            '<input type="number" id="descargaQty" class="input" value="' + Math.min(1, qty) + '" min="1" max="' + qty + '" style="font-size:20px;text-align:center;font-weight:700;color:#ff4757;">' +
+        '</div>' +
+        '<div class="input-group">' +
+            '<label class="input-label">📝 Motivo</label>' +
+            '<select id="descargaReason" class="input" style="font-size:14px;">' +
+                '<option value="venta">Venta</option>' +
+                '<option value="traslado">Traslado a otro local</option>' +
+                '<option value="merma">Merma / Deterioro</option>' +
+                '<option value="devolucion">Devolucion a proveedor</option>' +
+                '<option value="ajuste">Ajuste de inventario</option>' +
+                '<option value="otro">Otro</option>' +
+            '</select>' +
+        '</div>' +
+        '<div class="input-group">' +
+            '<label class="input-label">Notas (opcional)</label>' +
+            '<input type="text" id="descargaNotes" class="input" placeholder="Ej: Factura de venta #456, Cliente XYZ..." style="font-size:13px;">' +
+        '</div>' +
+        '<div id="descargaPreview" style="background:var(--bg2);border-radius:8px;padding:8px 12px;margin-top:8px;text-align:center;font-size:13px;color:var(--text2);">Nuevo stock: ' + Math.max(0, qty - 1) + ' unidades</div>' +
+        '<div style="display:flex;gap:8px;margin-top:14px;">' +
+            '<button class="btn btn-primary" style="flex:1;background:#ff4757;border-color:#ff4757;" onclick="executeDescarga(\'' + locId + '\',' + spaceIdx + ',' + prodIdx + ')">📤 Confirmar Descarga</button>' +
+            '<button class="btn btn-outline" onclick="closeModal(\'descargaStockModal\')">Cancelar</button>' +
+        '</div>' +
+        '</div>';
+
+    openModal('descargaStockModal');
+
+    // Update preview on qty change
+    setTimeout(function() {
+        var qtyInput = document.getElementById('descargaQty');
+        if (qtyInput) {
+            qtyInput.addEventListener('input', function() {
+                var sub = parseInt(this.value) || 0;
+                var newVal = Math.max(0, qty - sub);
+                document.getElementById('descargaPreview').textContent = 'Nuevo stock: ' + newVal + ' unidades';
+            });
+        }
+    }, 100);
+}
+
+function executeDescarga(locId, spaceIdx, prodIdx) {
+    var locs = getLocations();
+    var pr = null;
+    var currentQty = 0;
+    for (var i = 0; i < locs.length; i++) {
+        if (locs[i].id === locId && locs[i].spaces && locs[i].spaces[spaceIdx]) {
+            pr = locs[i].spaces[spaceIdx].products[prodIdx];
+            break;
+        }
+    }
+    if (!pr) return;
+    currentQty = pr.qty || 0;
+
+    var subQty = parseInt(document.getElementById('descargaQty').value) || 0;
+    if (subQty < 1) { showToast('La cantidad debe ser mayor a 0', 'error'); return; }
+    if (subQty > currentQty) { showToast('No puedes descargar mas de ' + currentQty + ' unidades', 'error'); return; }
+
+    var reason = document.getElementById('descargaReason').value;
+    var notes = (document.getElementById('descargaNotes').value || '').trim();
+
+    var reasonLabels = {
+        venta: 'Venta',
+        traslado: 'Traslado a otro local',
+        merma: 'Merma/Deterioro',
+        devolucion: 'Devolucion a proveedor',
+        ajuste: 'Ajuste de inventario',
+        otro: 'Otro'
+    };
+    var reasonLabel = reasonLabels[reason] || reason;
+
+    var locs2 = getLocations();
+    for (var j = 0; j < locs2.length; j++) {
+        if (locs2[j].id === locId && locs2[j].spaces && locs2[j].spaces[spaceIdx]) {
+            var pr2 = locs2[j].spaces[spaceIdx].products[prodIdx];
+            if (!pr2) break;
+
+            var newQty = Math.max(0, (pr2.qty || 0) - subQty);
+            pr2.qty = newQty;
+            locs2[j].updatedAt = new Date().toISOString();
+
+            if (!locs2[j].movements) locs2[j].movements = [];
+            locs2[j].movements.push({
+                id: 'mov-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5),
+                date: new Date().toISOString(),
+                type: 'descarga',
+                reason: reason,
+                reasonLabel: reasonLabel,
+                notes: notes,
+                productId: pr2.productId,
+                productName: pr2.name || 'Producto',
+                productBrand: pr2.brand || '',
+                spaceIdx: spaceIdx,
+                spaceName: locs2[j].spaces[spaceIdx].name || '',
+                qty: subQty
+            });
+
+            // Auto-remove if qty hits 0
+            if (newQty === 0) {
+                locs2[j].spaces[spaceIdx].products.splice(prodIdx, 1);
+            }
+            break;
+        }
+    }
+    saveLocations(locs2);
+    syncLocationsToServer();
+    closeModal('descargaStockModal');
+    var loc = null;
+    for (var k = 0; k < locs2.length; k++) {
+        if (locs2[k].id === locId) { loc = locs2[k]; break; }
+    }
+    if (loc) renderLocSpaceView(loc);
+    showToast('-' + subQty + ' uds descargadas (' + reasonLabel + ')', 'success');
 }
 
 // ===== GROUP SELECTION MODE =====
@@ -6227,10 +6414,24 @@ function openBatchIngress() {
     }
     listHtml += '</div>';
 
-    document.getElementById('batchStockTitle').textContent = '📥 Ingreso por Grupo (' + selectedKeys.length + ' productos)';
+    document.getElementById('batchStockTitle').textContent = '📥 Carga por Grupo (' + selectedKeys.length + ' productos)';
     document.getElementById('batchStockContent').innerHTML =
         '<div style="padding:0 4px;">' +
-        '<p style="font-size:11px;color:var(--text2);margin-bottom:10px;">Define cuántas unidades ingresar a cada producto seleccionado.</p>' +
+        '<p style="font-size:11px;color:var(--text2);margin-bottom:10px;">Define cuantas unidades cargar a cada producto seleccionado.</p>' +
+        '<div class="input-group" style="margin-bottom:10px;">' +
+            '<label class="input-label">📝 Motivo</label>' +
+            '<select id="batchIngressReason" class="input" style="font-size:13px;">' +
+                '<option value="compra">Compra / Adquisicion</option>' +
+                '<option value="traslado">Traslado desde otro local</option>' +
+                '<option value="devolucion">Devolucion de cliente</option>' +
+                '<option value="ajuste">Ajuste de inventario</option>' +
+                '<option value="otro">Otro</option>' +
+            '</select>' +
+        '</div>' +
+        '<div class="input-group" style="margin-bottom:10px;">' +
+            '<label class="input-label">Notas (opcional)</label>' +
+            '<input type="text" id="batchIngressNotes" class="input" placeholder="Ej: Proveedor XYZ..." style="font-size:13px;">' +
+        '</div>' +
         '<div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;">' +
             '<button class="btn btn-outline btn-sm" onclick="setBatchQtyAll(1)" style="font-size:11px;">+1 a todos</button>' +
             '<button class="btn btn-outline btn-sm" onclick="setBatchQtyAll(2)" style="font-size:11px;">+2 a todos</button>' +
@@ -6238,7 +6439,7 @@ function openBatchIngress() {
         '</div>' +
         listHtml +
         '<div style="display:flex;gap:8px;margin-top:14px;">' +
-            '<button class="btn btn-primary" style="flex:1;" onclick="executeBatchIngress()">📥 Confirmar Ingreso</button>' +
+            '<button class="btn btn-primary" style="flex:1;" onclick="executeBatchIngress()">📥 Confirmar Carga</button>' +
             '<button class="btn btn-outline" onclick="closeModal(\'batchStockModal\')">Cancelar</button>' +
         '</div>' +
         '</div>';
@@ -6261,6 +6462,20 @@ function executeBatchIngress() {
     }
     if (!loc || !loc.spaces || !loc.spaces[_locCurrentSpace]) return;
 
+    var reasonEl = document.getElementById('batchIngressReason');
+    var notesEl = document.getElementById('batchIngressNotes');
+    var reason = reasonEl ? reasonEl.value : 'otro';
+    var notes = notesEl ? (notesEl.value || '').trim() : '';
+
+    var reasonLabels = {
+        compra: 'Compra/Adquisicion',
+        traslado: 'Traslado desde otro local',
+        devolucion: 'Devolucion de cliente',
+        ajuste: 'Ajuste de inventario',
+        otro: 'Otro'
+    };
+    var reasonLabel = reasonLabels[reason] || reason;
+
     var selectedKeys = Object.keys(_groupSelected);
     var totalAdded = 0;
     var spaceName = loc.spaces[_locCurrentSpace].name || '';
@@ -6281,7 +6496,10 @@ function executeBatchIngress() {
         locs[locIdx].movements.push({
             id: 'mov-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5),
             date: new Date().toISOString(),
-            type: 'ingreso',
+            type: 'carga',
+            reason: reason,
+            reasonLabel: reasonLabel,
+            notes: notes,
             productId: pr.productId,
             productName: pr.name || 'Producto',
             productBrand: pr.brand || '',
@@ -6296,7 +6514,7 @@ function executeBatchIngress() {
     syncLocationsToServer();
     closeModal('batchStockModal');
     renderLocSpaceView(locs[locIdx]);
-    showToast('Ingreso por grupo: +' + totalAdded + ' unidades en ' + selectedKeys.length + ' productos', 'success');
+    showToast('Carga por grupo: +' + totalAdded + ' uds (' + reasonLabel + ')', 'success');
 }
 
 // ===== BATCH SELL =====
@@ -6329,17 +6547,32 @@ function openBatchSell() {
     }
     listHtml += '</div>';
 
-    document.getElementById('batchStockTitle').textContent = '🏷️ Venta por Grupo (' + selectedKeys.length + ' productos)';
+    document.getElementById('batchStockTitle').textContent = '📤 Descarga por Grupo (' + selectedKeys.length + ' productos)';
     document.getElementById('batchStockContent').innerHTML =
         '<div style="padding:0 4px;">' +
-        '<p style="font-size:11px;color:var(--text2);margin-bottom:10px;">Define cuántas unidades vender de cada producto seleccionado.</p>' +
+        '<p style="font-size:11px;color:var(--text2);margin-bottom:10px;">Define cuantas unidades descargar de cada producto seleccionado.</p>' +
+        '<div class="input-group" style="margin-bottom:10px;">' +
+            '<label class="input-label">📝 Motivo</label>' +
+            '<select id="batchSellReason" class="input" style="font-size:13px;">' +
+                '<option value="venta">Venta</option>' +
+                '<option value="traslado">Traslado a otro local</option>' +
+                '<option value="merma">Merma / Deterioro</option>' +
+                '<option value="devolucion">Devolucion a proveedor</option>' +
+                '<option value="ajuste">Ajuste de inventario</option>' +
+                '<option value="otro">Otro</option>' +
+            '</select>' +
+        '</div>' +
+        '<div class="input-group" style="margin-bottom:10px;">' +
+            '<label class="input-label">Notas (opcional)</label>' +
+            '<input type="text" id="batchSellNotes" class="input" placeholder="Ej: Factura #456, Cliente XYZ..." style="font-size:13px;">' +
+        '</div>' +
         '<div class="input-group" style="margin-bottom:10px;">' +
             '<label class="input-label">Precio de venta por unidad (opcional)</label>' +
-            '<input type="number" id="batchSalePrice" class="input" value="" min="0" placeholder="Dejar vacío para solo registrar baja" style="font-size:12px;">' +
+            '<input type="number" id="batchSalePrice" class="input" value="" min="0" placeholder="Dejar vacio para solo registrar baja" style="font-size:12px;">' +
         '</div>' +
         listHtml +
         '<div style="display:flex;gap:8px;margin-top:14px;">' +
-            '<button class="btn btn-primary" style="flex:1;background:#ff4757;" onclick="executeBatchSell()">🏷️ Confirmar Venta</button>' +
+            '<button class="btn btn-primary" style="flex:1;background:#ff4757;" onclick="executeBatchSell()">📤 Confirmar Descarga</button>' +
             '<button class="btn btn-outline" onclick="closeModal(\'batchStockModal\')">Cancelar</button>' +
         '</div>' +
         '</div>';
@@ -6354,6 +6587,21 @@ function executeBatchSell() {
         if (locs[i].id === _locCurrentLocId) { loc = locs[i]; locIdx = i; break; }
     }
     if (!loc || !loc.spaces || !loc.spaces[_locCurrentSpace]) return;
+
+    var reasonEl = document.getElementById('batchSellReason');
+    var notesEl = document.getElementById('batchSellNotes');
+    var reason = reasonEl ? reasonEl.value : 'venta';
+    var notes = notesEl ? (notesEl.value || '').trim() : '';
+
+    var reasonLabels = {
+        venta: 'Venta',
+        traslado: 'Traslado a otro local',
+        merma: 'Merma/Deterioro',
+        devolucion: 'Devolucion a proveedor',
+        ajuste: 'Ajuste de inventario',
+        otro: 'Otro'
+    };
+    var reasonLabel = reasonLabels[reason] || reason;
 
     var selectedKeys = Object.keys(_groupSelected);
     var totalSold = 0;
@@ -6384,7 +6632,10 @@ function executeBatchSell() {
         locs[locIdx].movements.push({
             id: 'mov-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5),
             date: new Date().toISOString(),
-            type: 'venta',
+            type: 'descarga',
+            reason: reason,
+            reasonLabel: reasonLabel,
+            notes: notes,
             productId: pr.productId,
             productName: pr.name || 'Producto',
             productBrand: pr.brand || '',
@@ -6408,7 +6659,7 @@ function executeBatchSell() {
     _groupSelected = {};
     renderLocSpaceView(locs[locIdx]);
     var priceInfo = totalSaleAmount > 0 ? ' ($' + totalSaleAmount.toFixed(2) + ')' : '';
-    showToast('Venta por grupo: -' + totalSold + ' unidades' + priceInfo, 'success');
+    showToast('Descarga por grupo: -' + totalSold + ' uds (' + reasonLabel + ')' + priceInfo, 'success');
 }
 
 // ===== EDIT PRODUCT TARGET =====
@@ -7010,14 +7261,13 @@ function renderStockDetailPage() {
                     '<div style="height:100%;width:' + mPct + '%;background:' + mColor + ';border-radius:3px;"></div>' +
                 '</div>';
 
-            // Distribution per locale - clickable entries with direct action buttons
+            // Distribution per locale - clickable entries with Cargar button
             html += '<div style="margin-top:8px;">';
             for (var ei = 0; ei < m.entries.length; ei++) {
                 var e = m.entries[ei];
                 var eQtyVal = e.qty;
-                var eAction = 'add';
                 var ePid = (e.productId || '').replace(/'/g, "\\'");
-                html += '<div onclick="goToLocFromStock(\'' + e.locId + '\',' + e.spaceIdx + ',\'' + ePid + '\',\'' + eAction + '\')" style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-radius:8px;cursor:pointer;transition:all 0.15s;border:1px solid #ff475720;background:#ff475708;margin-bottom:4px;" onmousedown="this.style.transform=\'scale(0.98)\'" onmouseup="this.style.transform=\'\'" onmouseleave="this.style.transform=\'\'">' +
+                html += '<div onclick="goToLocFromStock(\'' + e.locId + '\',' + e.spaceIdx + ',\'' + ePid + '\',\'carga\')" style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-radius:8px;cursor:pointer;transition:all 0.15s;border:1px solid #ff475720;background:#ff475708;margin-bottom:4px;" onmousedown="this.style.transform=\'scale(0.98)\'" onmouseup="this.style.transform=\'\'" onmouseleave="this.style.transform=\'\'">' +
                     '<div style="display:flex;align-items:center;gap:6px;flex:1;min-width:0;">' +
                         '<span style="font-size:12px;">🏪</span>' +
                         '<div style="min-width:0;">' +
@@ -7030,7 +7280,7 @@ function renderStockDetailPage() {
                             '<div style="font-size:16px;font-weight:800;color:#ff4757;line-height:1;">' + eQtyVal + '</div>' +
                             '<div style="font-size:9px;color:var(--text3);">uds</div>' +
                         '</div>' +
-                        '<div style="background:#ff4757;color:#fff;font-size:10px;font-weight:700;padding:5px 10px;border-radius:6px;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,0.15);">➕ Agregar Stock</div>' +
+                        '<div style="background:#2ed573;color:#fff;font-size:10px;font-weight:700;padding:5px 10px;border-radius:6px;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,0.15);">📥 Cargar</div>' +
                     '</div>' +
                 '</div>';
             }
@@ -7081,14 +7331,13 @@ function renderStockDetailPage() {
                     '<div style="height:100%;width:' + mPct + '%;background:' + mColor + ';border-radius:3px;"></div>' +
                 '</div>';
 
-            // Distribution per locale - clickable entries with direct action buttons
+            // Distribution per locale - clickable entries with Cargar/Descargar buttons
             html += '<div style="margin-top:8px;">';
             for (var ei = 0; ei < m.entries.length; ei++) {
                 var e = m.entries[ei];
                 var eQtyVal = e.qty;
-                var eAction = 'ingress';
                 var ePid = (e.productId || '').replace(/'/g, "\\'");
-                html += '<div onclick="goToLocFromStock(\'' + e.locId + '\',' + e.spaceIdx + ',\'' + ePid + '\',\'' + eAction + '\')" style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-radius:8px;cursor:pointer;transition:all 0.15s;border:1px solid #ffa50220;background:#ffa50208;margin-bottom:4px;" onmousedown="this.style.transform=\'scale(0.98)\'" onmouseup="this.style.transform=\'\'" onmouseleave="this.style.transform=\'\'">' +
+                html += '<div onclick="goToLocFromStock(\'' + e.locId + '\',' + e.spaceIdx + ',\'' + ePid + '\',\'carga\')" style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-radius:8px;cursor:pointer;transition:all 0.15s;border:1px solid #ffa50220;background:#ffa50208;margin-bottom:4px;" onmousedown="this.style.transform=\'scale(0.98)\'" onmouseup="this.style.transform=\'\'" onmouseleave="this.style.transform=\'\'">' +
                     '<div style="display:flex;align-items:center;gap:6px;flex:1;min-width:0;">' +
                         '<span style="font-size:12px;">🏪</span>' +
                         '<div style="min-width:0;">' +
@@ -7101,7 +7350,7 @@ function renderStockDetailPage() {
                             '<div style="font-size:16px;font-weight:800;color:#ffa502;line-height:1;">' + eQtyVal + '</div>' +
                             '<div style="font-size:9px;color:var(--text3);">uds</div>' +
                         '</div>' +
-                        '<div style="background:#ffa502;color:#fff;font-size:10px;font-weight:700;padding:5px 10px;border-radius:6px;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,0.15);">✏️ Modificar</div>' +
+                        '<div style="background:#2ed573;color:#fff;font-size:10px;font-weight:700;padding:5px 10px;border-radius:6px;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,0.15);">📥 Cargar</div>' +
                     '</div>' +
                 '</div>';
             }
@@ -7148,7 +7397,7 @@ function renderStockDetailPage() {
                 var ed = ex.entries[edi];
                 var edPid = (ed.productId || '').replace(/'/g, "\\'");
                 var edQtyVal = ed.qty;
-                html += '<div onclick="goToLocFromStock(\'' + ed.locId + '\',' + ed.spaceIdx + ',\'' + edPid + '\',\'ingress\')" style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-radius:8px;cursor:pointer;transition:all 0.15s;border:1px solid #2ed57315;background:#2ed57305;margin-bottom:4px;" onmousedown="this.style.transform=\'scale(0.98)\'" onmouseup="this.style.transform=\'\'" onmouseleave="this.style.transform=\'\'">' +
+                html += '<div onclick="goToLocFromStock(\'' + ed.locId + '\',' + ed.spaceIdx + ',\'' + edPid + '\',\'descarga\')" style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-radius:8px;cursor:pointer;transition:all 0.15s;border:1px solid #2ed57315;background:#2ed57305;margin-bottom:4px;" onmousedown="this.style.transform=\'scale(0.98)\'" onmouseup="this.style.transform=\'\'" onmouseleave="this.style.transform=\'\'">' +
                     '<div style="display:flex;align-items:center;gap:6px;flex:1;min-width:0;">' +
                         '<span style="font-size:12px;">🏪</span>' +
                         '<div style="min-width:0;">' +
@@ -7161,7 +7410,7 @@ function renderStockDetailPage() {
                             '<div style="font-size:16px;font-weight:800;color:#2ed573;line-height:1;">' + edQtyVal + '</div>' +
                             '<div style="font-size:9px;color:var(--text3);">uds</div>' +
                         '</div>' +
-                        '<div style="background:var(--primary);color:#fff;font-size:10px;font-weight:700;padding:5px 10px;border-radius:6px;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,0.15);">✏️ Modificar</div>' +
+                        '<div style="background:#ff4757;color:#fff;font-size:10px;font-weight:700;padding:5px 10px;border-radius:6px;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,0.15);">📤 Descargar</div>' +
                     '</div>' +
                 '</div>';
             }
@@ -7216,7 +7465,6 @@ function goToLocFromStock(locId, spaceIdx, productId, action) {
                 setTimeout(function() {
                     var searchEl = document.getElementById('spSearch');
                     if (searchEl && productId) {
-                        // Try to find the product name for search
                         var products = getProducts();
                         for (var p = 0; p < products.length; p++) {
                             if (products[p].id === productId) {
@@ -7227,11 +7475,17 @@ function goToLocFromStock(locId, spaceIdx, productId, action) {
                         }
                     }
                 }, 400);
+            } else if (action === 'carga' && prodIdx >= 0) {
+                // Open formal Carga modal
+                openCargaStock(locId, _locCurrentSpace, prodIdx);
+            } else if (action === 'descarga' && prodIdx >= 0) {
+                // Open formal Descarga modal
+                openDescargaStock(locId, _locCurrentSpace, prodIdx);
             } else if (action === 'ingress' && prodIdx >= 0) {
-                // Product exists but needs more — open stock edit
-                openStockEdit(locId, _locCurrentSpace, prodIdx);
+                // Legacy — redirect to Carga
+                openCargaStock(locId, _locCurrentSpace, prodIdx);
             } else if (prodIdx >= 0) {
-                // Default: open stock edit
+                // Default: open stock info/config
                 openStockEdit(locId, _locCurrentSpace, prodIdx);
             } else {
                 // Not found, open add modal
@@ -7418,7 +7672,7 @@ function renderMovements() {
         var dayMovs = dayGroups[dk];
         var dayTotalIn = 0, dayTotalOut = 0, dayTotalSale = 0;
         for (var dm = 0; dm < dayMovs.length; dm++) {
-            if (dayMovs[dm].movement.type === 'ingreso') dayTotalIn += dayMovs[dm].movement.qty;
+            if (dayMovs[dm].movement.type === 'ingreso' || dayMovs[dm].movement.type === 'carga') dayTotalIn += dayMovs[dm].movement.qty;
             else {
                 dayTotalOut += dayMovs[dm].movement.qty;
                 dayTotalSale += (dayMovs[dm].movement.totalSale || 0);
@@ -7442,8 +7696,8 @@ function renderMovements() {
         html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">' +
             '<div style="font-weight:700;font-size:14px;">📅 ' + dayLabel + '</div>' +
             '<div style="display:flex;gap:8px;font-size:11px;">' +
-                '<span style="color:#2ed573;">+' + dayTotalIn + ' ingreso' + (dayTotalIn !== 1 ? 's' : '') + '</span>' +
-                '<span style="color:#ff4757;">-' + dayTotalOut + ' venta' + (dayTotalOut !== 1 ? 's' : '') + '</span>' +
+                '<span style="color:#2ed573;">+' + dayTotalIn + ' carga' + (dayTotalIn !== 1 ? 's' : '') + '</span>' +
+                '<span style="color:#ff4757;">-' + dayTotalOut + ' descarga' + (dayTotalOut !== 1 ? 's' : '') + '</span>' +
                 (dayTotalSale > 0 ? '<span style="color:var(--primary);font-weight:700;">$' + dayTotalSale.toFixed(2) + '</span>' : '') +
             '</div></div>';
 
@@ -7451,25 +7705,29 @@ function renderMovements() {
         for (var mj = 0; mj < dayMovs.length; mj++) {
             var mov = dayMovs[mj].movement;
             var locN = dayMovs[mj].locName;
-            var isVenta = mov.type === 'venta';
+            var isOut = mov.type === 'venta' || mov.type === 'descarga';
             var movDate = new Date(mov.date);
             var timeStr = String(movDate.getHours()).padStart(2, '0') + ':' + String(movDate.getMinutes()).padStart(2, '0');
+            var reasonStr = mov.reasonLabel || (isOut ? 'Descarga' : 'Carga');
+            var notesStr = mov.notes ? (' — ' + escapeHtml(mov.notes)) : '';
 
             html += '<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);' + (mj === dayMovs.length - 1 ? 'border-bottom:none;' : '') + '">' +
                 '<div style="width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;background:' +
-                (isVenta ? '#ff475720' : '#2ed57320') + ';">' + (isVenta ? '💰' : '📦') + '</div>' +
+                (isOut ? '#ff475720' : '#2ed57320') + ';">' + (isOut ? '📤' : '📥') + '</div>' +
                 '<div style="flex:1;min-width:0;">' +
                     '<div style="font-size:13px;font-weight:600;">' + escapeHtml(mov.productName || 'Producto') +
-                    (mov.productBrand ? ' — ' + escapeHtml(mov.productBrand) : '') + '</div>' +
+                    (mov.productBrand ? ' · ' + escapeHtml(mov.productBrand) : '') + '</div>' +
                     '<div style="font-size:10px;color:var(--text3);">' +
+                        '<span style="background:' + (isOut ? '#ff475720' : '#2ed57320') + ';color:' + (isOut ? '#ff4757' : '#2ed573') + ';font-size:9px;padding:1px 5px;border-radius:4px;">' + escapeHtml(reasonStr) + '</span> ' +
                         escapeHtml(locN) +
                         (mov.spaceName ? ' › ' + escapeHtml(mov.spaceName) : '') +
                         ' · ' + timeStr +
+                        notesStr +
                     '</div>' +
                 '</div>' +
                 '<div style="text-align:right;flex-shrink:0;">' +
-                    '<div style="font-size:14px;font-weight:700;color:' + (isVenta ? '#ff4757' : '#2ed573') + ';">' +
-                    (isVenta ? '-' : '+') + mov.qty + ' ud' + (mov.qty > 1 ? 's' : '') + '</div>' +
+                    '<div style="font-size:14px;font-weight:700;color:' + (isOut ? '#ff4757' : '#2ed573') + ';">' +
+                    (isOut ? '-' : '+') + mov.qty + ' ud' + (mov.qty > 1 ? 's' : '') + '</div>' +
                     (mov.totalSale > 0 ? '<div style="font-size:10px;color:var(--primary);">$' + mov.totalSale.toFixed(2) + '</div>' : '') +
                 '</div>' +
             '</div>';
