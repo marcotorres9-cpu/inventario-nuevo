@@ -64,3 +64,43 @@ Stage Summary:
 - Code fixed in app.html and pushed to GitHub
 - New APK built (v3.0) that loads HTML directly from GitHub (bypasses Vercel deployment issues)
 - APK at /home/z/my-project/download/InventarioTienda.apk
+
+---
+Task ID: 3
+Agent: Main Agent
+Task: Add TV Inventory Control with Initial Registration to Inventario Pro app
+
+Work Log:
+- Analyzed the existing 10,800+ line app.html file structure
+- Identified key functions to modify: confirmAddProductToSpace, addCartToSpace, openDescargaStock, openStockEdit, renderLocSpaceView, buildLocCards, renderStockDetailPage
+- Added 78 lines of new CSS styles for inventory flow control (inv-flow-card, inv-flow-item, inv-initial-badge, inv-control-table, inv-warning-bar, inv-flow-arrow)
+- Added 2 new modal HTML elements: initInvModal (Initial Inventory Registration) and invControlModal (Inventory Control View)
+- Added 6 new JavaScript functions (386 lines):
+  - computeProductFlow(loc, productId) - Computes inicial/entradas/salidas/actual across all spaces
+  - computeProductFlowBySpace(loc, productId, spaceIdx) - Computes flow for a specific space
+  - openInitialInventoryModal(locId, spaceIdx) - Opens modal to register initial stock for all products in a space
+  - saveInitialInventory() - Saves initial inventory registration with initialStock field
+  - openInventoryControl(locId) - Opens the inventory control view modal
+  - renderInventoryControl(loc) - Renders the control view showing flow per space with visual indicators
+- Modified existing functions:
+  - confirmAddProductToSpace(): Added initialStock=qty when adding new product, update initialStock if not set when product exists
+  - addCartToSpace(): Same initialStock logic for batch cart mode
+  - openDescargaStock(): Added warning banner if product has no initialStock registered, with link to register
+  - openStockEdit(): Added flow visualization grid (inicial/entradas/salidas/actual) when initialStock is set, warning banner when not
+  - renderLocSpaceView(): Added "📋 Inv. Inicial" and "📊 Control" buttons to toolbar, added invFlowMini indicator under products
+  - buildLocCards(): Added inventory registration status badge (✅ Inv. / ⏳ 2/5 / ⏳ Pend.) on location cards
+  - renderStockDetailPage(): Added "📊 Control" button on locale cards in both render sections
+  - openLocControlPanel(): Added "📊 Control de Inventario" section with Inv. Inicial and Control buttons
+- All changes verified: JavaScript syntax check passed
+- Committed to git: f29a7d3
+- Pushed to GitHub: marcotorres9-cpu/inventario-nuevo
+- Deployed to Vercel production: https://inventario-nuevo.vercel.app
+
+Stage Summary:
+- Full inventory flow control system implemented: Inicial → Entradas → Salidas → Actual
+- Initial inventory registration modal allows setting baseline stock per product per space
+- Inventory control view shows visual flow cards with bar charts and formula display
+- Warning system alerts when downloading without initial inventory registered
+- Registration status badges visible on location cards and product details
+- 588 lines of code added/modified in app.html
+- Production deployment at https://inventario-nuevo.vercel.app
