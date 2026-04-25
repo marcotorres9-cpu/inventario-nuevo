@@ -5323,7 +5323,21 @@ function renderLocations() {
 
     if (locs.length === 0) { container.innerHTML = ''; return; }
 
-    var html = '';
+    // Search bar for filtering locals
+    var html = '<div style="margin-bottom:10px;position:relative;">' +
+        '<input type="text" id="locSearchInput" class="input" placeholder="🔍 Buscar local por nombre..." oninput="filterLocationsList()" style="font-size:13px;padding:10px 14px;width:100%;box-sizing:border-box;">' +
+        '</div>';
+
+    // Store locs data globally for filter
+    window._locsData = locs;
+    html += '<div id="locListCards">';
+    html += buildLocCards(locs);
+    html += '</div>';
+    container.innerHTML = html;
+}
+
+function buildLocCards(locs) {
+    var cards = '';
     for (var i = 0; i < locs.length; i++) {
         var loc = locs[i];
         var totalProducts = 0;
@@ -5362,7 +5376,7 @@ function renderLocations() {
             spaceChips += '<span class="loc-space-badge">' + escapeHtml(spaceName) + ' (' + spaceCount + ')</span>';
         }
 
-        html += '<div class="loc-card" onclick="openLocDetail(\'' + loc.id + '\')" style="cursor:pointer;">' +
+        cards += '<div class="loc-card" onclick="openLocDetail(\'' + loc.id + '\')" style="cursor:pointer;">' +
             '<div class="loc-card-header">' +
                 '<span class="loc-card-title">🏪 ' + escapeHtml(loc.name) + '</span>' +
                 '<span class="loc-card-count">' + totalProducts + ' uds' + alertBadge + '</span>' +
@@ -5370,7 +5384,21 @@ function renderLocations() {
             (totalSpaces > 0 ? '<div class="loc-spaces">' + spaceChips + '</div>' : '') +
         '</div>';
     }
-    container.innerHTML = html;
+    return cards;
+}
+
+function filterLocationsList() {
+    var query = (document.getElementById('locSearchInput') || {}).value || '';
+    query = query.toLowerCase().trim();
+    var locs = window._locsData || [];
+    var filtered = [];
+    for (var i = 0; i < locs.length; i++) {
+        if (!query || locs[i].name.toLowerCase().indexOf(query) >= 0) {
+            filtered.push(locs[i]);
+        }
+    }
+    var el = document.getElementById('locListCards');
+    if (el) el.innerHTML = buildLocCards(filtered);
 }
 
 function openLocDetail(locId) {
@@ -5405,6 +5433,9 @@ function renderLocSpaceView(loc) {
     var currentIdx = _locCurrentSpace;
     var currentSpace = spaces[currentIdx] || { name: 'Sin espacios', products: [] };
     var products = currentSpace.products || [];
+
+    // Store products for filtering
+    window._currentSpaceProds = products.slice();
 
     // Count stats
     var totalQty = 0;
@@ -5586,7 +5617,113 @@ function renderLocSpaceView(loc) {
         (tabsHtml || '<div style="color:var(--text3);font-size:13px;padding:8px 0;">Sin espacios definidos</div>') +
         '<div style="margin:12px 0 8px;font-size:14px;font-weight:700;">📦 ' + escapeHtml(currentSpace.name) + '</div>' +
         toolbarHtml +
-        '<div class="card" style="padding:4px 14px;">' + prodHtml + '</div>';
+        '<div style="margin-bottom:8px;position:relative;">' +
+            '<input type="text" id="spaceProdSearchInput" class="input" placeholder="🔍 Buscar producto..." oninput="filterSpaceProducts(\'' + loc.id + '\',' + currentIdx + ')" style="font-size:13px;padding:8px 12px;width:100%;box-sizing:border-box;">' +
+        '</div>' +
+        '<div id="spaceProdList"><div class="card" style="padding:4px 14px;">' + prodHtml + '</div></div>';
+}
+
+// Store current space products for filtering
+window._currentSpaceProds = [];
+
+function filterSpaceProducts(locId, spaceIdx) {
+    var query = (document.getElementById('spaceProdSearchInput') || {}).value || '';
+    query = query.toLowerCase().trim();
+    var allProds = window._currentSpaceProds || [];
+    var locs = getLocations();
+    var loc = null;
+    for (var i = 0; i < locs.length; i++) {
+        if (locs[i].id === locId) { loc = locs[i]; break; }
+    }
+    if (!loc) return;
+    var filtered = [];
+    for (var j = 0; j < allProds.length; j++) {
+        var pr = allProds[j];
+        var searchText = (pr.name || '') + ' ' + (pr.brand || '') + ' ';
+        // Also include specs in search
+        if (pr.specifications) {
+            try {
+                var so = (typeof pr.specifications === 'string') ? JSON.parse(pr.specifications) : pr.specifications;
+                if (so && typeof so === 'object') {
+                    var sk = Object.keys(so);
+                    for (var x = 0; x < sk.length; x++) searchText += (so[sk[x]] || '') + ' ';
+                }
+            } catch(e) {}
+        }
+        if (!query || searchText.toLowerCase().indexOf(query) >= 0) {
+            filtered.push(j); // store original index
+        }
+    }
+    renderFilteredProducts(loc, spaceIdx, filtered, allProds);
+}
+
+function renderFilteredProducts(loc, spaceIdx, filteredIdxs, allProds) {
+    var el = document.getElementById('spaceProdList');
+    if (!el) return;
+    if (filteredIdxs.length === 0) {
+        el.innerHTML = '<div class="card" style="padding:20px;text-align:center;color:var(--text3);font-size:13px;">Sin productos que coincidan</div>';
+        return;
+    }
+    var html = '<div class="card" style="padding:4px 14px;">';
+    for (var f = 0; f < filteredIdxs.length; f++) {
+        var i = filteredIdxs[f];
+        var pr = allProds[i];
+        var pName = pr.name || 'Producto';
+        if (pr.brand) pName += ' · ' + pr.brand;
+        var qty = pr.qty || 0;
+        var target = pr.targetQty || 2;
+        var min = pr.minQty || 1;
+        var max = pr.maxQty || 0;
+
+        var statusColor = '#2ed573';
+        var statusIcon = '✅';
+        if (qty === 0) { statusColor = '#ff4757'; statusIcon = '🚨'; }
+        else if (target > 0 && qty >= target) { statusColor = '#2ed573'; statusIcon = '✅'; }
+        else if (min > 0 && qty < min) { statusColor = '#ffa502'; statusIcon = '⚠️'; }
+        else if (max > 0 && qty > max) { statusColor = '#ffa502'; statusIcon = '📈'; }
+
+        var locSpecsHtml = '';
+        if (pr.specifications) {
+            try {
+                var specObj = (typeof pr.specifications === 'string') ? JSON.parse(pr.specifications) : pr.specifications;
+                if (specObj && typeof specObj === 'object') {
+                    var specKeys = Object.keys(specObj);
+                    for (var s = 0; s < specKeys.length; s++) {
+                        var sv = (specObj[specKeys[s]] || '').trim();
+                        if (sv) locSpecsHtml += '<span class="product-spec-tag">' + escapeHtml(sv) + '</span>';
+                    }
+                }
+            } catch(e) {}
+        }
+
+        var pct = target > 0 ? Math.min(100, Math.round((qty / target) * 100)) : 100;
+        var barColor = qty === 0 ? '#ff4757' : (qty <= min ? '#ffa502' : '#2ed573');
+        var isChecked = _groupSelected[i] ? ' checked' : '';
+        var chkStyle = _groupSelectMode ? '' : 'display:none;';
+        var chkOpacity = _groupSelectMode ? '1' : '0';
+
+        html += '<div style="display:flex;align-items:center;gap:6px;padding:9px 0;border-bottom:1px solid var(--border);' + (qty <= min ? 'border-left:3px solid ' + statusColor + ';padding-left:6px;' : '') + ';transition:background 0.15s;' + (isChecked ? 'background:rgba(99,102,241,0.06);border-radius:8px;' : '') + '" data-prodidx="' + i + '">' +
+            '<label style="flex-shrink:0;cursor:pointer;opacity:' + chkOpacity + ';transition:opacity 0.2s;' + chkStyle + '">' +
+                '<input type="checkbox" style="width:16px;height:16px;accent-color:var(--primary);cursor:pointer;"' + isChecked + ' onchange="toggleProductSelect(' + i + ',this.checked)">' +
+            '</label>' +
+            '<span style="font-size:11px;color:' + statusColor + ';flex-shrink:0;">' + statusIcon + '</span>' +
+            '<div style="flex:1;min-width:0;">' +
+                '<div style="font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(pName) + '</div>' +
+                (locSpecsHtml ? '<div class="product-specs" style="margin-top:2px;">' + locSpecsHtml + '</div>' : '') +
+            '</div>' +
+            '<div style="display:flex;align-items:center;gap:2px;flex-shrink:0;">' +
+                '<button onclick="openDescargaStock(\'' + loc.id + '\',' + spaceIdx + ',' + i + ')" style="width:32px;height:32px;border-radius:8px;border:1px solid #ff475730;background:#ff475710;color:#ff4757;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;' + (qty === 0 ? 'opacity:0.3;pointer-events:none;' : '') + '" title="Descargar">📤</button>' +
+                '<div onclick="openStockEdit(\'' + loc.id + '\',' + spaceIdx + ',' + i + ')" style="min-width:36px;text-align:center;cursor:pointer;padding:2px 4px;">' +
+                    '<div style="font-size:16px;font-weight:700;color:' + statusColor + ';">' + qty + '</div>' +
+                    (min > 0 || max > 0 ? '<div style="font-size:9px;color:var(--text3);">' + (min > 0 ? 'mín:' + min : '') + (min > 0 && max > 0 ? ' ' : '') + (max > 0 ? 'máx:' + max : '') + '</div>' : '') +
+                    '<div style="background:var(--bg2);border-radius:3px;height:3px;width:36px;margin-top:2px;overflow:hidden;"><div style="height:100%;width:' + pct + '%;background:' + barColor + ';border-radius:3px;"></div></div>' +
+                '</div>' +
+                '<button onclick="openCargaStock(\'' + loc.id + '\',' + spaceIdx + ',' + i + ')" style="width:32px;height:32px;border-radius:8px;border:1px solid #2ed57330;background:#2ed57310;color:#2ed573;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;" title="Cargar">📥</button>' +
+            '</div>' +
+        '</div>';
+    }
+    html += '</div>';
+    el.innerHTML = html;
 }
 
 // CONTROL PANEL: Opens a modal with all locale management actions
@@ -6811,20 +6948,19 @@ function renderGlobalTargets() {
         }
     }
 
-    // Collect existing global model targets from all locales' modelTargets
+    // Collect existing global model targets from the first locale only
+    // (saveGlobalTargets saves identical targets to ALL locales, so summing would multiply the values)
     var allModelTargets = {};
-    for (var li = 0; li < locs.length; li++) {
-        var mt = locs[li].modelTargets || [];
-        for (var ti = 0; ti < mt.length; ti++) {
-            var t = mt[ti];
-            var tSpecsKey = buildSpecsKey(t.specs);
-            var tKey = t.productId || (t.name + '|' + t.brand + '|' + tSpecsKey);
-            if (!allModelTargets[tKey]) {
-                allModelTargets[tKey] = { name: t.name || 'TV', brand: t.brand || '', target: 0, min: 0, productId: t.productId || '', specsLabel: extractSpecsLabel(t.specs), specsKey: tSpecsKey };
-            }
-            allModelTargets[tKey].target += (t.target || 0);
-            allModelTargets[tKey].min += (t.min || 0);
+    var refTargets = (locs.length > 0 && locs[0].modelTargets) ? locs[0].modelTargets : [];
+    for (var ti = 0; ti < refTargets.length; ti++) {
+        var t = refTargets[ti];
+        var tSpecsKey = buildSpecsKey(t.specs);
+        var tKey = t.productId || (t.name + '|' + t.brand + '|' + tSpecsKey);
+        if (!allModelTargets[tKey]) {
+            allModelTargets[tKey] = { name: t.name || 'TV', brand: t.brand || '', target: 0, min: 0, productId: t.productId || '', specsLabel: extractSpecsLabel(t.specs), specsKey: tSpecsKey };
         }
+        allModelTargets[tKey].target += (t.target || 0);
+        allModelTargets[tKey].min += (t.min || 0);
     }
 
     // Merge: show all models that exist in inventory OR have a target
