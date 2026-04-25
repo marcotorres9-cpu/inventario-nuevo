@@ -5427,17 +5427,36 @@ function buildLocCards(locs) {
             }
         }
 
-        // Check for alerts (qty < min = alert, qty == min or >= target = OK)
+        // Check for alerts using global model targets (sum across all spaces)
         var alertCount = 0;
+        // Build total qty per model across all spaces
+        var bLocModelMap = {};
         for (var s2 = 0; s2 < totalSpaces; s2++) {
-            var prods = (loc.spaces[s2].products || []);
-            for (var p2 = 0; p2 < prods.length; p2++) {
-                var pQty = prods[p2].qty || 0;
-                var pMin = prods[p2].minQty || 0;
-                var pTgt = prods[p2].targetQty || 0;
-                if (pQty === 0) alertCount++;
-                else if (pTgt > 0 && pQty >= pTgt) { /* OK */ }
-                else if (pMin > 0 && pQty < pMin) alertCount++;
+            var bProds = (loc.spaces[s2].products || []);
+            for (var p2 = 0; p2 < bProds.length; p2++) {
+                var bKey = buildModelKey(bProds[p2].productId, bProds[p2].name, bProds[p2].brand, bProds[p2].specifications);
+                if (!bLocModelMap[bKey]) bLocModelMap[bKey] = 0;
+                bLocModelMap[bKey] += (bProds[p2].qty || 0);
+                if (bProds[p2].qty === 0) alertCount++;
+            }
+        }
+        // Check against global targets
+        var bLocs = getLocations();
+        var bRefMt = (bLocs.length > 0 && bLocs[0].modelTargets) ? bLocs[0].modelTargets : [];
+        var bGtMap = {};
+        for (var bti = 0; bti < bRefMt.length; bti++) {
+            var bt = bRefMt[bti];
+            var btKey = buildModelKey(bt.productId, bt.name, bt.brand, bt.specs);
+            bGtMap[btKey] = { target: bt.target || 0, min: bt.min || 0 };
+            if (bt.productId) bGtMap[bt.productId] = { target: bt.target || 0, min: bt.min || 0 };
+        }
+        var bMkKeys = Object.keys(bLocModelMap);
+        for (var bmi = 0; bmi < bMkKeys.length; bmi++) {
+            var bGt = bGtMap[bMkKeys[bmi]] || null;
+            if (bGt) {
+                var bTotal = bLocModelMap[bMkKeys[bmi]];
+                if (bGt.target > 0 && bTotal < bGt.target) alertCount++;
+                else if (bGt.min > 0 && bTotal < bGt.min) alertCount++;
             }
         }
         var alertBadge = alertCount > 0 ? ' <span style="background:#ff4757;color:#fff;font-size:9px;padding:1px 6px;border-radius:8px;margin-left:4px;">' + alertCount + ' ⚠️</span>' : '';
@@ -5513,20 +5532,48 @@ function renderLocSpaceView(loc) {
     // Store products for filtering
     window._currentSpaceProds = products.slice();
 
-    // Count stats
+    // Count stats using global model targets (sum across all spaces)
     var totalQty = 0;
     var totalTypes = products.length;
     var alertCount = 0;
     var lowCount = 0;
+    // Build total qty per model across ALL spaces of this local
+    window._locTotalMap = {};
+    var locAllSpaces = loc.spaces || [];
+    for (var ls2 = 0; ls2 < locAllSpaces.length; ls2++) {
+        var ls2Prods = locAllSpaces[ls2].products || [];
+        for (var lp2 = 0; lp2 < ls2Prods.length; lp2++) {
+            var lp2Pr = ls2Prods[lp2];
+            var lp2Key = buildModelKey(lp2Pr.productId, lp2Pr.name, lp2Pr.brand, lp2Pr.specifications);
+            if (!window._locTotalMap[lp2Key]) window._locTotalMap[lp2Key] = 0;
+            window._locTotalMap[lp2Key] += (lp2Pr.qty || 0);
+        }
+    }
+    // Get global model targets for comparison
+    var locs4gt = getLocations();
+    var refLoc4gt = locs4gt.length > 0 ? locs4gt[0] : null;
+    window._locGlobalModelTargets = {};
+    var refMt4 = refLoc4gt ? (refLoc4gt.modelTargets || []) : [];
+    for (var t4i = 0; t4i < refMt4.length; t4i++) {
+        var t4 = refMt4[t4i];
+        var t4Key = buildModelKey(t4.productId, t4.name, t4.brand, t4.specs);
+        window._locGlobalModelTargets[t4Key] = { target: t4.target || 0, min: t4.min || 0 };
+        // Also register without specs for backward compat
+        if (t4.productId) window._locGlobalModelTargets[t4.productId] = { target: t4.target || 0, min: t4.min || 0 };
+    }
+    var globalModelTargets = window._locGlobalModelTargets;
     for (var p = 0; p < products.length; p++) {
         totalQty += (products[p].qty || 0);
         var pQty = products[p].qty || 0;
-        var pMin = products[p].minQty || 0;
-        var pTgt = products[p].targetQty || 0;
+        var pMk = buildModelKey(products[p].productId, products[p].name, products[p].brand, products[p].specifications);
+        var pTotalQty = window._locTotalMap[pMk] || 0;
+        var pGt = window._locGlobalModelTargets[pMk] || window._locGlobalModelTargets[products[p].productId || ''] || null;
+        var pTgt = pGt ? pGt.target : 0;
+        var pMin = pGt ? pGt.min : 0;
         if (pQty === 0) alertCount++;
-        else if (pTgt > 0 && pQty >= pTgt) { /* OK, target met */ }
-        else if (pMin > 0 && pQty < pMin) lowCount++;
-        else if (pTgt > 0 && pQty < pTgt) lowCount++;
+        else if (pTgt > 0 && pTotalQty >= pTgt) { /* OK, target met */ }
+        else if (pMin > 0 && pTotalQty < pMin) lowCount++;
+        else if (pTgt > 0 && pTotalQty < pTgt) lowCount++;
     }
 
     // Space tabs with capacity indicators
@@ -5539,11 +5586,14 @@ function renderLocSpaceView(loc) {
         for (var sp = 0; sp < sProds.length; sp++) {
             sCount += (sProds[sp].qty || 0);
             var spQty = sProds[sp].qty || 0;
-            var spMin = sProds[sp].minQty || 0;
-            var spTgt = sProds[sp].targetQty || 0;
+            var spMk = buildModelKey(sProds[sp].productId, sProds[sp].name, sProds[sp].brand, sProds[sp].specifications);
+            var spTotal = window._locTotalMap[spMk] || 0;
+            var spGt = window._locGlobalModelTargets[spMk] || window._locGlobalModelTargets[sProds[sp].productId || ''] || null;
+            var spTgt = spGt ? spGt.target : 0;
+            var spMin = spGt ? spGt.min : 0;
             if (spQty === 0) sAlerts++;
-            else if (spTgt > 0 && spQty >= spTgt) { /* OK */ }
-            else if (spMin > 0 && spQty < spMin) sAlerts++;
+            else if (spTgt > 0 && spTotal >= spTgt) { /* OK */ }
+            else if (spMin > 0 && spTotal < spMin) sAlerts++;
         }
         // Check space-level capacity
         var spMinU = spaces[s].minUnits || 0;
@@ -5589,16 +5639,20 @@ function renderLocSpaceView(loc) {
             var pName = pr.name || 'Producto';
             if (pr.brand) pName += ' · ' + pr.brand;
             var qty = pr.qty || 0;
-            var target = pr.targetQty || 2;
-            var min = pr.minQty || 1;
+            // Use global model targets for comparison (sum across all spaces)
+            var prMk = buildModelKey(pr.productId, pr.name, pr.brand, pr.specifications);
+            var prGt = window._locGlobalModelTargets[prMk] || window._locGlobalModelTargets[pr.productId || ''] || null;
+            var target = prGt ? prGt.target : 0;
+            var min = prGt ? prGt.min : 0;
             var max = pr.maxQty || 0;
+            var prTotalQty = window._locTotalMap[prMk] || 0;
 
-            // Status — target met = OK, below min = warning
+            // Status — use total across all spaces for comparison
             var statusColor = '#2ed573';
             var statusIcon = '✅';
             if (qty === 0) { statusColor = '#ff4757'; statusIcon = '🚨'; }
-            else if (target > 0 && qty >= target) { statusColor = '#2ed573'; statusIcon = '✅'; }
-            else if (min > 0 && qty < min) { statusColor = '#ffa502'; statusIcon = '⚠️'; }
+            else if (target > 0 && prTotalQty >= target) { statusColor = '#2ed573'; statusIcon = '✅'; }
+            else if (min > 0 && prTotalQty < min) { statusColor = '#ffa502'; statusIcon = '⚠️'; }
             else if (max > 0 && qty > max) { statusColor = '#ffa502'; statusIcon = '📈'; }
 
             // Spec tags (compact)
@@ -5618,15 +5672,20 @@ function renderLocSpaceView(loc) {
                 } catch(e) {}
             }
 
-            // Progress bar (subtle)
-            var pct = target > 0 ? Math.min(100, Math.round((qty / target) * 100)) : 100;
-            var barColor = qty === 0 ? '#ff4757' : (qty <= min ? '#ffa502' : '#2ed573');
+            // Progress bar (subtle) — use total across all spaces
+            var pct = target > 0 ? Math.min(100, Math.round((prTotalQty / target) * 100)) : 100;
+            var barColor = qty === 0 ? '#ff4757' : (prTotalQty <= min && min > 0 ? '#ffa502' : '#2ed573');
 
             var isChecked = _groupSelected[i] ? ' checked' : '';
             var chkStyle = _groupSelectMode ? '' : 'display:none;';
             var chkOpacity = _groupSelectMode ? '1' : '0';
 
-            prodHtml += '<div style="display:flex;align-items:center;gap:6px;padding:9px 0;border-bottom:1px solid var(--border);' + (qty <= min ? 'border-left:3px solid ' + statusColor + ';padding-left:6px;' : '') + ';transition:background 0.15s;' + (isChecked ? 'background:var(--primary);background:rgba(99,102,241,0.06);border-radius:8px;' : '') + '" data-prodidx="' + i + '">' +
+            // Show min/target from global model targets (total across all spaces)
+            var minMaxHtml = '';
+            if (target > 0) minMaxHtml += '<div style="font-size:9px;color:var(--text3);">obj:' + prTotalQty + '/' + target + '</div>';
+            else if (min > 0) minMaxHtml += '<div style="font-size:9px;color:var(--text3);">mín:' + min + '</div>';
+
+            prodHtml += '<div style="display:flex;align-items:center;gap:6px;padding:9px 0;border-bottom:1px solid var(--border);' + (min > 0 && prTotalQty < min ? 'border-left:3px solid ' + statusColor + ';padding-left:6px;' : '') + ';transition:background 0.15s;' + (isChecked ? 'background:var(--primary);background:rgba(99,102,241,0.06);border-radius:8px;' : '') + '" data-prodidx="' + i + '">' +
                 // Checkbox for group selection
                 '<label style="flex-shrink:0;cursor:pointer;opacity:' + chkOpacity + ';transition:opacity 0.2s;' + chkStyle + '">' +
                     '<input type="checkbox" style="width:16px;height:16px;accent-color:var(--primary);cursor:pointer;"' + isChecked + ' onchange="toggleProductSelect(' + i + ',this.checked)">' +
@@ -5641,7 +5700,7 @@ function renderLocSpaceView(loc) {
                     '<button onclick="openDescargaStock(\'' + loc.id + '\',' + currentIdx + ',' + i + ')" style="width:32px;height:32px;border-radius:8px;border:1px solid #ff475730;background:#ff475710;color:#ff4757;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;' + (qty === 0 ? 'opacity:0.3;pointer-events:none;' : '') + '" title="Descargar">📤</button>' +
                     '<div onclick="openStockEdit(\'' + loc.id + '\',' + currentIdx + ',' + i + ')" style="min-width:36px;text-align:center;cursor:pointer;padding:2px 4px;">' +
                         '<div style="font-size:16px;font-weight:700;color:' + statusColor + ';">' + qty + '</div>' +
-                        (min > 0 || max > 0 ? '<div style="font-size:9px;color:var(--text3);">' + (min > 0 ? 'mín:' + min : '') + (min > 0 && max > 0 ? ' ' : '') + (max > 0 ? 'máx:' + max : '') + '</div>' : '') +
+                        minMaxHtml +
                         '<div style="background:var(--bg2);border-radius:3px;height:3px;width:36px;margin-top:2px;overflow:hidden;"><div style="height:100%;width:' + pct + '%;background:' + barColor + ';border-radius:3px;"></div></div>' +
                     '</div>' +
                     '<button onclick="openCargaStock(\'' + loc.id + '\',' + currentIdx + ',' + i + ')" style="width:32px;height:32px;border-radius:8px;border:1px solid #2ed57330;background:#2ed57310;color:#2ed573;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;" title="Cargar">📥</button>' +
@@ -5802,15 +5861,19 @@ function renderFilteredProducts(loc, spaceIdx, filteredIdxs, allProds) {
         var pName = pr.name || 'Producto';
         if (pr.brand) pName += ' · ' + pr.brand;
         var qty = pr.qty || 0;
-        var target = pr.targetQty || 2;
-        var min = pr.minQty || 1;
+        // Use global model targets for comparison
+        var fprMk = buildModelKey(pr.productId, pr.name, pr.brand, pr.specifications);
+        var fprGt = window._locGlobalModelTargets && (window._locGlobalModelTargets[fprMk] || window._locGlobalModelTargets[pr.productId || '']) ? (window._locGlobalModelTargets[fprMk] || window._locGlobalModelTargets[pr.productId || '']) : null;
+        var target = fprGt ? fprGt.target : 0;
+        var min = fprGt ? fprGt.min : 0;
         var max = pr.maxQty || 0;
+        var fprTotalQty = window._locTotalMap ? (window._locTotalMap[fprMk] || 0) : qty;
 
         var statusColor = '#2ed573';
         var statusIcon = '✅';
         if (qty === 0) { statusColor = '#ff4757'; statusIcon = '🚨'; }
-        else if (target > 0 && qty >= target) { statusColor = '#2ed573'; statusIcon = '✅'; }
-        else if (min > 0 && qty < min) { statusColor = '#ffa502'; statusIcon = '⚠️'; }
+        else if (target > 0 && fprTotalQty >= target) { statusColor = '#2ed573'; statusIcon = '✅'; }
+        else if (min > 0 && fprTotalQty < min) { statusColor = '#ffa502'; statusIcon = '⚠️'; }
         else if (max > 0 && qty > max) { statusColor = '#ffa502'; statusIcon = '📈'; }
 
         var locSpecsHtml = '';
@@ -5827,13 +5890,17 @@ function renderFilteredProducts(loc, spaceIdx, filteredIdxs, allProds) {
             } catch(e) {}
         }
 
-        var pct = target > 0 ? Math.min(100, Math.round((qty / target) * 100)) : 100;
-        var barColor = qty === 0 ? '#ff4757' : (qty <= min ? '#ffa502' : '#2ed573');
+        var pct = target > 0 ? Math.min(100, Math.round((fprTotalQty / target) * 100)) : 100;
+        var barColor = qty === 0 ? '#ff4757' : (fprTotalQty <= min && min > 0 ? '#ffa502' : '#2ed573');
         var isChecked = _groupSelected[i] ? ' checked' : '';
         var chkStyle = _groupSelectMode ? '' : 'display:none;';
         var chkOpacity = _groupSelectMode ? '1' : '0';
 
-        html += '<div style="display:flex;align-items:center;gap:6px;padding:9px 0;border-bottom:1px solid var(--border);' + (qty <= min ? 'border-left:3px solid ' + statusColor + ';padding-left:6px;' : '') + ';transition:background 0.15s;' + (isChecked ? 'background:rgba(99,102,241,0.06);border-radius:8px;' : '') + '" data-prodidx="' + i + '">' +
+        var fMinMaxHtml = '';
+        if (target > 0) fMinMaxHtml += '<div style="font-size:9px;color:var(--text3);">obj:' + fprTotalQty + '/' + target + '</div>';
+        else if (min > 0) fMinMaxHtml += '<div style="font-size:9px;color:var(--text3);">mín:' + min + '</div>';
+
+        html += '<div style="display:flex;align-items:center;gap:6px;padding:9px 0;border-bottom:1px solid var(--border);' + (min > 0 && fprTotalQty < min ? 'border-left:3px solid ' + statusColor + ';padding-left:6px;' : '') + ';transition:background 0.15s;' + (isChecked ? 'background:rgba(99,102,241,0.06);border-radius:8px;' : '') + '" data-prodidx="' + i + '">' +
             '<label style="flex-shrink:0;cursor:pointer;opacity:' + chkOpacity + ';transition:opacity 0.2s;' + chkStyle + '">' +
                 '<input type="checkbox" style="width:16px;height:16px;accent-color:var(--primary);cursor:pointer;"' + isChecked + ' onchange="toggleProductSelect(' + i + ',this.checked)">' +
             '</label>' +
@@ -5846,7 +5913,7 @@ function renderFilteredProducts(loc, spaceIdx, filteredIdxs, allProds) {
                 '<button onclick="openDescargaStock(\'' + loc.id + '\',' + spaceIdx + ',' + i + ')" style="width:32px;height:32px;border-radius:8px;border:1px solid #ff475730;background:#ff475710;color:#ff4757;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;' + (qty === 0 ? 'opacity:0.3;pointer-events:none;' : '') + '" title="Descargar">📤</button>' +
                 '<div onclick="openStockEdit(\'' + loc.id + '\',' + spaceIdx + ',' + i + ')" style="min-width:36px;text-align:center;cursor:pointer;padding:2px 4px;">' +
                     '<div style="font-size:16px;font-weight:700;color:' + statusColor + ';">' + qty + '</div>' +
-                    (min > 0 || max > 0 ? '<div style="font-size:9px;color:var(--text3);">' + (min > 0 ? 'mín:' + min : '') + (min > 0 && max > 0 ? ' ' : '') + (max > 0 ? 'máx:' + max : '') + '</div>' : '') +
+                    fMinMaxHtml +
                     '<div style="background:var(--bg2);border-radius:3px;height:3px;width:36px;margin-top:2px;overflow:hidden;"><div style="height:100%;width:' + pct + '%;background:' + barColor + ';border-radius:3px;"></div></div>' +
                 '</div>' +
                 '<button onclick="openCargaStock(\'' + loc.id + '\',' + spaceIdx + ',' + i + ')" style="width:32px;height:32px;border-radius:8px;border:1px solid #2ed57330;background:#2ed57310;color:#2ed573;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;" title="Cargar">📥</button>' +
@@ -7022,42 +7089,67 @@ function openGlobalTargets() {
     openModal('globalTargetsModal');
 }
 
+// ===== GLOBAL SPECS HELPERS =====
+// Extract display label from specs (e.g. "Android TV" or "Google TV")
+function extractSpecsLabel(specs) {
+    if (!specs) return '';
+    try {
+        var specObj = (typeof specs === 'string') ? JSON.parse(specs) : specs;
+        if (!specObj || typeof specObj !== 'object') return '';
+        var parts = [];
+        var specKeys = Object.keys(specObj);
+        for (var si = 0; si < specKeys.length; si++) {
+            var sv = (specObj[specKeys[si]] || '').trim();
+            if (sv) parts.push(sv);
+        }
+        return parts.join(' · ');
+    } catch(e) { return ''; }
+}
+
+// Build specs-only key for grouping (e.g. "tipo=Android TV")
+function buildSpecsKey(specs) {
+    if (!specs) return '';
+    try {
+        var specObj = (typeof specs === 'string') ? JSON.parse(specs) : specs;
+        if (!specObj || typeof specObj !== 'object') return '';
+        var parts = [];
+        var specKeys = Object.keys(specObj).sort();
+        for (var si = 0; si < specKeys.length; si++) {
+            var sv = (specObj[specKeys[si]] || '').trim();
+            if (sv) parts.push(specKeys[si] + '=' + sv);
+        }
+        return parts.join('|');
+    } catch(e) { return ''; }
+}
+
+// Build consistent model key: ALWAYS includes specs when present
+function buildModelKey(productId, name, brand, specifications) {
+    var specsKey = buildSpecsKey(specifications);
+    if (productId) {
+        return specsKey ? (productId + '||' + specsKey) : productId;
+    }
+    return (name || '') + '|' + (brand || '') + (specsKey ? '|' + specsKey : '');
+}
+
+// Lookup a model target with backward-compat fallback (old data has no specs in key)
+function findModelTarget(allTargets, productId, name, brand, specifications) {
+    var key = buildModelKey(productId, name, brand, specifications);
+    if (allTargets[key]) return allTargets[key];
+    // Fallback: old data might have key without specs
+    if (productId && allTargets[productId]) return allTargets[productId];
+    var fb = (name || '') + '|' + (brand || '');
+    if (allTargets[fb]) return allTargets[fb];
+    return null;
+}
+
+// Map to store original specs JSON keyed by model key (used during save)
+window._gtOriginalSpecsMap = {};
+
 function renderGlobalTargets() {
     var container = document.getElementById('globalTargetsContent');
     var locs = getLocations();
     var globalTarget = getGlobalTarget();
-
-    // Helper: extract a short specs string for display (e.g. "Android TV" or "Google TV")
-    function extractSpecsLabel(specs) {
-        if (!specs) return '';
-        try {
-            var specObj = (typeof specs === 'string') ? JSON.parse(specs) : specs;
-            if (!specObj || typeof specObj !== 'object') return '';
-            var parts = [];
-            var specKeys = Object.keys(specObj);
-            for (var si = 0; si < specKeys.length; si++) {
-                var sv = (specObj[specKeys[si]] || '').trim();
-                if (sv) parts.push(sv);
-            }
-            return parts.join(' · ');
-        } catch(e) { return ''; }
-    }
-
-    // Helper: build specs-only key portion for grouping
-    function buildSpecsKey(specs) {
-        if (!specs) return '';
-        try {
-            var specObj = (typeof specs === 'string') ? JSON.parse(specs) : specs;
-            if (!specObj || typeof specObj !== 'object') return '';
-            var parts = [];
-            var specKeys = Object.keys(specObj).sort();
-            for (var si = 0; si < specKeys.length; si++) {
-                var sv = (specObj[specKeys[si]] || '').trim();
-                if (sv) parts.push(specKeys[si] + '=' + sv);
-            }
-            return parts.join('|');
-        } catch(e) { return ''; }
-    }
+    window._gtOriginalSpecsMap = {};
 
     // Build per-model totals across ALL locales — include specs for display & grouping
     var modelMap = {};
@@ -7067,10 +7159,11 @@ function renderGlobalTargets() {
             var prods = spaces[s].products || [];
             for (var p = 0; p < prods.length; p++) {
                 var pr = prods[p];
-                var specsKey = buildSpecsKey(pr.specifications);
-                var key = pr.productId || (pr.name + '|' + pr.brand + '|' + specsKey);
+                var key = buildModelKey(pr.productId, pr.name, pr.brand, pr.specifications);
                 if (!modelMap[key]) {
-                    modelMap[key] = { name: pr.name || 'TV', brand: pr.brand || '', qty: 0, productId: pr.productId || '', specsLabel: extractSpecsLabel(pr.specifications), specsKey: specsKey };
+                    modelMap[key] = { name: pr.name || 'TV', brand: pr.brand || '', qty: 0, productId: pr.productId || '', specsLabel: extractSpecsLabel(pr.specifications), specsKey: buildSpecsKey(pr.specifications) };
+                    // Store original specs JSON for save
+                    window._gtOriginalSpecsMap[key] = pr.specifications || null;
                 }
                 // Keep the most descriptive specs label (longer one wins)
                 var prSpecLabel = extractSpecsLabel(pr.specifications);
@@ -7089,13 +7182,12 @@ function renderGlobalTargets() {
     var refTargets = (locs.length > 0 && locs[0].modelTargets) ? locs[0].modelTargets : [];
     for (var ti = 0; ti < refTargets.length; ti++) {
         var t = refTargets[ti];
-        var tSpecsKey = buildSpecsKey(t.specs);
-        var tKey = t.productId || (t.name + '|' + t.brand + '|' + tSpecsKey);
+        var tKey = buildModelKey(t.productId, t.name, t.brand, t.specs);
         if (!allModelTargets[tKey]) {
-            allModelTargets[tKey] = { name: t.name || 'TV', brand: t.brand || '', target: 0, min: 0, productId: t.productId || '', specsLabel: extractSpecsLabel(t.specs), specsKey: tSpecsKey };
+            allModelTargets[tKey] = { name: t.name || 'TV', brand: t.brand || '', target: 0, min: 0, productId: t.productId || '', specsLabel: extractSpecsLabel(t.specs), specsKey: buildSpecsKey(t.specs) };
         }
-        allModelTargets[tKey].target += (t.target || 0);
-        allModelTargets[tKey].min += (t.min || 0);
+        allModelTargets[tKey].target = (t.target || 0);
+        allModelTargets[tKey].min = (t.min || 0);
     }
 
     // Merge: show all models that exist in inventory OR have a target
@@ -7235,9 +7327,11 @@ function saveGlobalTargets(count) {
         var productId = minEl.getAttribute('data-gtpid') || '';
         var name = minEl.getAttribute('data-gtname') || 'TV';
         var brand = minEl.getAttribute('data-gtbrand') || '';
-        var specs = minEl.getAttribute('data-gtspecs') || '';
         var minVal = parseInt(minEl.value) || 0;
         var targetVal = parseInt(targetEl.value) || 0;
+
+        // Use original specs JSON from the map (not the display label)
+        var specs = window._gtOriginalSpecsMap[key] || null;
 
         if (key) {
             targets.push({
@@ -7308,7 +7402,7 @@ function renderStockDetailPage() {
             var prods = space.products || [];
             for (var pi = 0; pi < prods.length; pi++) {
                 var pr = prods[pi];
-                var key = pr.productId || (pr.name + '|' + pr.brand);
+                var key = buildModelKey(pr.productId, pr.name, pr.brand, pr.specifications);
                 if (!productMap[key]) {
                     productMap[key] = { name: pr.name || 'Producto', brand: pr.brand || '', specifications: pr.specifications || null, entries: [], totalQty: 0 };
                 }
@@ -7328,16 +7422,16 @@ function renderStockDetailPage() {
     var refMt = refLoc ? (refLoc.modelTargets || []) : [];
     for (var ti = 0; ti < refMt.length; ti++) {
         var t = refMt[ti];
-        var tKey = t.productId || (t.name + '|' + t.brand);
+        var tKey = buildModelKey(t.productId, t.name, t.brand, t.specs);
         if (!allModelTargets[tKey]) {
-            allModelTargets[tKey] = { name: t.name || 'TV', brand: t.brand || '', target: 0, min: 0 };
+            allModelTargets[tKey] = { name: t.name || 'TV', brand: t.brand || '', target: 0, min: 0, productId: t.productId || '' };
         }
-        allModelTargets[tKey].target += (t.target || 0);
-        allModelTargets[tKey].min += (t.min || 0);
+        allModelTargets[tKey].target = (t.target || 0);
+        allModelTargets[tKey].min = (t.min || 0);
         grandTarget += (t.target || 0);
     }
 
-    // Merge targets
+    // Merge targets into productMap using findModelTarget for backward compat
     var atKeys = Object.keys(allModelTargets);
     for (var ati = 0; ati < atKeys.length; ati++) {
         if (productMap[atKeys[ati]]) {
@@ -7433,7 +7527,7 @@ function renderStockDetailPage() {
             for (var lp = 0; lp < lProds.length; lp++) {
                 var lQty = lProds[lp].qty || 0;
                 locTotal += lQty;
-                var lKey = lProds[lp].productId || (lProds[lp].name + '|' + lProds[lp].brand);
+                var lKey = buildModelKey(lProds[lp].productId, lProds[lp].name, lProds[lp].brand, lProds[lp].specifications);
                 if (!locModelMap[lKey]) locModelMap[lKey] = { qty: 0 };
                 locModelMap[lKey].qty += lQty;
             }
@@ -7442,7 +7536,12 @@ function renderStockDetailPage() {
         // Compare consolidated totals against model targets (global min/target)
         var lmKeys = Object.keys(locModelMap);
         for (var lmi = 0; lmi < lmKeys.length; lmi++) {
-            var lmt = allModelTargets[lmKeys[lmi]];
+            // Try direct match first, then fallback without specs
+            var lmt = allModelTargets[lmKeys[lmi]] || (function(k) {
+                var parts = k.split('||');
+                if (parts.length > 1 && allModelTargets[parts[0]]) return allModelTargets[parts[0]];
+                return null;
+            })(lmKeys[lmi]);
             var lQtyTotal = locModelMap[lmKeys[lmi]].qty;
             if (lQtyTotal === 0) { locEmpty++; locAlerts++; }
             else if (lmt) {
@@ -7458,8 +7557,19 @@ function renderStockDetailPage() {
         var atKeys2 = Object.keys(allModelTargets);
         for (var ati3 = 0; ati3 < atKeys2.length; ati3++) {
             if (!locModelMap[atKeys2[ati3]]) {
-                var missingTarget = allModelTargets[atKeys2[ati3]].target || 0;
-                if (missingTarget > 0) { locEmpty++; locAlerts++; }
+                // Check if any variant of this target exists in the local
+                var targetFound = false;
+                var atBase = atKeys2[ati3].split('||')[0];
+                var lmCheckKeys = Object.keys(locModelMap);
+                for (var lmci = 0; lmci < lmCheckKeys.length; lmci++) {
+                    if (lmCheckKeys[lmci] === atKeys2[ati3] || lmCheckKeys[lmci].split('||')[0] === atBase) {
+                        targetFound = true; break;
+                    }
+                }
+                if (!targetFound) {
+                    var missingTarget = allModelTargets[atKeys2[ati3]].target || 0;
+                    if (missingTarget > 0) { locEmpty++; locAlerts++; }
+                }
             }
         }
 
@@ -7560,7 +7670,7 @@ function renderStockDetailPage() {
                 for (var lp = 0; lp < lProds.length; lp++) {
                     var lQty = lProds[lp].qty || 0;
                     locTotal += lQty;
-                    var lKey = lProds[lp].productId || (lProds[lp].name + '|' + lProds[lp].brand);
+                    var lKey = buildModelKey(lProds[lp].productId, lProds[lp].name, lProds[lp].brand, lProds[lp].specifications);
                     if (!locModelMap2[lKey]) locModelMap2[lKey] = { qty: 0 };
                     locModelMap2[lKey].qty += lQty;
                 }
@@ -7569,7 +7679,11 @@ function renderStockDetailPage() {
             // Compare consolidated totals against model targets
             var lmKeys2 = Object.keys(locModelMap2);
             for (var lmi = 0; lmi < lmKeys2.length; lmi++) {
-                var lmt = allModelTargets[lmKeys2[lmi]];
+                var lmt = allModelTargets[lmKeys2[lmi]] || (function(k) {
+                    var parts = k.split('||');
+                    if (parts.length > 1 && allModelTargets[parts[0]]) return allModelTargets[parts[0]];
+                    return null;
+                })(lmKeys2[lmi]);
                 var lQtyTotal = locModelMap2[lmKeys2[lmi]].qty;
                 if (lQtyTotal === 0) { locEmpty++; locAlerts++; }
                 else if (lmt) {
@@ -7583,7 +7697,15 @@ function renderStockDetailPage() {
             var atKeys2b = Object.keys(allModelTargets);
             for (var ati3 = 0; ati3 < atKeys2b.length; ati3++) {
                 if (!locModelMap2[atKeys2b[ati3]]) {
-                    if (allModelTargets[atKeys2b[ati3]].target > 0) { locEmpty++; locAlerts++; }
+                    var tfound2 = false;
+                    var atBase2 = atKeys2b[ati3].split('||')[0];
+                    var lmck2 = Object.keys(locModelMap2);
+                    for (var lmci2 = 0; lmci2 < lmck2.length; lmci2++) {
+                        if (lmck2[lmci2] === atKeys2b[ati3] || lmck2[lmci2].split('||')[0] === atBase2) {
+                            tfound2 = true; break;
+                        }
+                    }
+                    if (!tfound2 && allModelTargets[atKeys2b[ati3]].target > 0) { locEmpty++; locAlerts++; }
                 }
             }
 
