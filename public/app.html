@@ -690,6 +690,84 @@
 
         /* Full-height scroll areas */
         .scroll-area { max-height: 350px; overflow-y: auto; }
+
+        /* ================================================================
+           INVENTORY FLOW CONTROL
+           ================================================================ */
+        .inv-flow-card {
+            background: var(--card); border: 1px solid var(--border);
+            border-radius: var(--radius-lg); padding: 14px; margin-bottom: 10px;
+        }
+        .inv-flow-card-header {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 10px;
+        }
+        .inv-flow-card-title {
+            font-size: 13px; font-weight: 700; color: var(--text);
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1;
+        }
+        .inv-flow-row {
+            display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 6px;
+            text-align: center;
+        }
+        .inv-flow-item {
+            background: var(--bg2); border-radius: 8px; padding: 8px 4px;
+        }
+        .inv-flow-item-num {
+            font-size: 18px; font-weight: 800; line-height: 1.2;
+        }
+        .inv-flow-item-label {
+            font-size: 9px; font-weight: 600; color: var(--text3); margin-top: 2px;
+            text-transform: uppercase; letter-spacing: 0.3px;
+        }
+        .inv-flow-item.inicial .inv-flow-item-num { color: var(--info); }
+        .inv-flow-item.entradas .inv-flow-item-num { color: var(--primary); }
+        .inv-flow-item.salidas .inv-flow-item-num { color: var(--danger); }
+        .inv-flow-item.actual .inv-flow-item-num { color: var(--accent); }
+        .inv-flow-bar {
+            display: flex; height: 4px; border-radius: 2px; overflow: hidden;
+            margin-top: 8px; background: var(--bg3);
+        }
+        .inv-flow-bar-in { background: var(--primary); border-radius: 2px 0 0 2px; transition: width 0.3s; }
+        .inv-flow-bar-out { background: var(--danger); transition: width 0.3s; }
+        .inv-initial-badge {
+            display: inline-flex; align-items: center; gap: 3px;
+            font-size: 10px; font-weight: 700; padding: 2px 7px;
+            border-radius: 8px;
+        }
+        .inv-initial-badge.registered {
+            background: var(--primary-bg); color: var(--primary);
+            border: 1px solid rgba(34,197,94,0.2);
+        }
+        .inv-initial-badge.pending {
+            background: var(--warning-bg); color: var(--warning);
+            border: 1px solid rgba(245,158,11,0.2);
+        }
+        .inv-control-table {
+            width: 100%; border-collapse: collapse; font-size: 12px;
+        }
+        .inv-control-table th {
+            background: var(--bg2); padding: 8px 6px; font-size: 10px;
+            font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px;
+            color: var(--text3); border-bottom: 2px solid var(--border);
+            text-align: center;
+        }
+        .inv-control-table th:first-child { text-align: left; }
+        .inv-control-table td {
+            padding: 8px 6px; border-bottom: 1px solid var(--border);
+            text-align: center; font-weight: 600;
+        }
+        .inv-control-table td:first-child { text-align: left; font-weight: 500; }
+        .inv-warning-bar {
+            background: var(--warning-bg); border: 1px solid rgba(245,158,11,0.2);
+            border-radius: 8px; padding: 8px 12px; margin-bottom: 10px;
+            font-size: 12px; color: var(--warning); display: flex;
+            align-items: center; gap: 6px;
+        }
+        .inv-flow-arrow {
+            display: flex; align-items: center; justify-content: center;
+            gap: 4px; margin: 6px 0; font-size: 11px; color: var(--text3);
+        }
     </style>
 </head>
 <body>
@@ -1610,6 +1688,33 @@
             <button class="btn btn-primary btn-sm" style="flex:1;" onclick="exportMovementsExcel()">📥 Exportar Excel</button>
             <button class="btn btn-outline btn-sm" onclick="closeModal('movementsModal')">Cerrar</button>
         </div>
+    </div>
+</div>
+
+<!-- ===== INITIAL INVENTORY REGISTRATION MODAL ===== -->
+<div id="initInvModal" class="modal-overlay">
+    <div class="modal-content modal-lg">
+        <div class="modal-handle"></div>
+        <div class="modal-header">
+            <h2 class="modal-title" id="initInvTitle">📋 Inventario Inicial</h2>
+            <button class="modal-close" onclick="closeModal('initInvModal')">✕</button>
+        </div>
+        <div id="initInvContent" class="modal-scroll-inner"></div>
+        <div style="padding:0 18px 18px;">
+            <button class="btn btn-primary" style="width:100%;" onclick="saveInitialInventory()">💾 Registrar Inventario Inicial</button>
+        </div>
+    </div>
+</div>
+
+<!-- ===== INVENTORY CONTROL VIEW MODAL ===== -->
+<div id="invControlModal" class="modal-overlay">
+    <div class="modal-content modal-lg">
+        <div class="modal-handle"></div>
+        <div class="modal-header">
+            <h2 class="modal-title">📊 Control de Inventario</h2>
+            <button class="modal-close" onclick="closeModal('invControlModal')">✕</button>
+        </div>
+        <div id="invControlContent" class="modal-scroll-inner"></div>
     </div>
 </div>
 
@@ -5461,6 +5566,27 @@ function buildLocCards(locs) {
         }
         var alertBadge = alertCount > 0 ? ' <span style="background:#ff4757;color:#fff;font-size:9px;padding:1px 6px;border-radius:8px;margin-left:4px;">' + alertCount + ' ⚠️</span>' : '';
 
+        // Check initial inventory registration status
+        var invRegCount = 0;
+        var invTotalCount = 0;
+        for (var s4 = 0; s4 < totalSpaces; s4++) {
+            var s4Prods = (loc.spaces[s4].products || []);
+            for (var p4 = 0; p4 < s4Prods.length; p4++) {
+                invTotalCount++;
+                if (s4Prods[p4].initialStock !== undefined && s4Prods[p4].initialStock !== null) invRegCount++;
+            }
+        }
+        var invBadge = '';
+        if (invTotalCount > 0) {
+            if (invRegCount === invTotalCount) {
+                invBadge = ' <span class="inv-initial-badge registered" style="margin-left:4px;">✅ Inv.</span>';
+            } else if (invRegCount > 0) {
+                invBadge = ' <span class="inv-initial-badge pending" style="margin-left:4px;">⏳ ' + invRegCount + '/' + invTotalCount + '</span>';
+            } else {
+                invBadge = ' <span class="inv-initial-badge pending" style="margin-left:4px;">⏳ Pend.</span>';
+            }
+        }
+
         // Space chips
         var spaceChips = '';
         for (var s3 = 0; s3 < totalSpaces; s3++) {
@@ -5473,7 +5599,7 @@ function buildLocCards(locs) {
 
         cards += '<div class="loc-card" onclick="openLocDetail(\'' + loc.id + '\')" style="cursor:pointer;">' +
             '<div class="loc-card-header">' +
-                '<span class="loc-card-title">🏪 ' + escapeHtml(loc.name) + '</span>' +
+                '<span class="loc-card-title">🏪 ' + escapeHtml(loc.name) + invBadge + '</span>' +
                 '<span class="loc-card-count">' + totalProducts + ' uds' + alertBadge + '</span>' +
             '</div>' +
             (totalSpaces > 0 ? '<div class="loc-spaces">' + spaceChips + '</div>' : '') +
@@ -5685,6 +5811,20 @@ function renderLocSpaceView(loc) {
             if (target > 0) minMaxHtml += '<div style="font-size:9px;color:var(--text3);">obj:' + prTotalQty + '/' + target + '</div>';
             else if (min > 0) minMaxHtml += '<div style="font-size:9px;color:var(--text3);">mín:' + min + '</div>';
 
+            // Inventory flow mini-indicator
+            var invFlowMini = '';
+            if (pr.initialStock !== undefined && pr.initialStock !== null) {
+                var pFlow = computeProductFlowBySpace(loc, pr.productId, currentIdx);
+                if (pFlow.entradas > 0 || pFlow.salidas > 0) {
+                    invFlowMini = '<div style="font-size:9px;color:var(--text3);margin-top:1px;display:flex;gap:3px;align-items:center;">' +
+                        '<span style="color:var(--info);">' + pFlow.inicial + '</span>' +
+                        '<span>+<span style="color:var(--primary);">' + pFlow.entradas + '</span></span>' +
+                        '<span>-<span style="color:var(--danger);">' + pFlow.salidas + '</span></span>' +
+                        '<span>=<span style="color:var(--accent);font-weight:700;">' + pFlow.actual + '</span></span>' +
+                    '</div>';
+                }
+            }
+
             prodHtml += '<div style="display:flex;align-items:center;gap:6px;padding:9px 0;border-bottom:1px solid var(--border);' + (min > 0 && prTotalQty < min ? 'border-left:3px solid ' + statusColor + ';padding-left:6px;' : '') + ';transition:background 0.15s;' + (isChecked ? 'background:var(--primary);background:rgba(99,102,241,0.06);border-radius:8px;' : '') + '" data-prodidx="' + i + '">' +
                 // Checkbox for group selection
                 '<label style="flex-shrink:0;cursor:pointer;opacity:' + chkOpacity + ';transition:opacity 0.2s;' + chkStyle + '">' +
@@ -5694,6 +5834,7 @@ function renderLocSpaceView(loc) {
                 '<div style="flex:1;min-width:0;">' +
                     '<div style="font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(pName) + '</div>' +
                     (locSpecsHtml ? '<div class="product-specs" style="margin-top:2px;">' + locSpecsHtml + '</div>' : '') +
+                    invFlowMini +
                 '</div>' +
                 // Cargar / Descargar buttons
                 '<div style="display:flex;align-items:center;gap:2px;flex-shrink:0;">' +
@@ -5714,6 +5855,8 @@ function renderLocSpaceView(loc) {
     var toolbarHtml = '';
     toolbarHtml += '<div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;align-items:center;">';
     toolbarHtml += '<button class="btn btn-primary btn-sm" onclick="openSpaceProductModal(\'' + loc.id + '\',' + currentIdx + ')" style="font-size:12px;">📥 Agregar Producto</button>';
+    toolbarHtml += '<button class="btn btn-outline btn-sm" onclick="openInitialInventoryModal(\'' + loc.id + '\',' + currentIdx + ')" style="font-size:12px;">📋 Inv. Inicial</button>';
+    toolbarHtml += '<button class="btn btn-outline btn-sm" onclick="openInventoryControl(\'' + loc.id + '\')" style="font-size:12px;">📊 Control</button>';
     toolbarHtml += '<button class="btn btn-outline btn-sm" onclick="toggleGroupSelectMode()" style="font-size:12px;' + (_groupSelectMode ? 'background:var(--primary);color:#fff;border-color:var(--primary);' : '') + ';">☑️ Seleccionar Grupo</button>';
     if (_groupSelectMode) {
         toolbarHtml += '<button class="btn btn-outline btn-sm" onclick="selectAllProducts()" style="font-size:12px;">☑️ Todo</button>';
@@ -5950,6 +6093,13 @@ function openLocControlPanel(locId, spaceIdx) {
     html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:14px;">' +
         '<button class="btn btn-primary btn-sm" onclick="closeModal(\'locControlModal\');openSpaceProductModal(\'' + loc.id + '\',' + spaceIdx + ')" style="font-size:12px;">📥 Ingreso Stock</button>' +
         '<button class="btn btn-outline btn-sm" onclick="closeModal(\'locControlModal\');openLocMovements(\'' + loc.id + '\')" style="font-size:12px;">📋 Movimientos</button>' +
+    '</div>';
+
+    // Section: Inventory Control
+    html += '<div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">📊 Control de Inventario</div>';
+    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:14px;">' +
+        '<button class="btn btn-outline btn-sm" onclick="closeModal(\'locControlModal\');openInitialInventoryModal(\'' + loc.id + '\',' + spaceIdx + ')" style="font-size:12px;">📋 Inv. Inicial</button>' +
+        '<button class="btn btn-outline btn-sm" onclick="closeModal(\'locControlModal\');openInventoryControl(\'' + loc.id + '\')" style="font-size:12px;">📊 Control</button>' +
     '</div>';
 
     // Section: Baja por Venta (sell from space) + Ingreso rápido
@@ -6309,6 +6459,34 @@ function openStockEdit(locId, spaceIdx, prodIdx) {
     var qty = pr.qty || 0;
 
     document.getElementById('stockEditTitle').textContent = '📋 ' + pName;
+    var initialStockVal = (pr.initialStock !== undefined && pr.initialStock !== null) ? pr.initialStock : null;
+    var initialStockHtml = '';
+    if (initialStockVal !== null) {
+        var flow = computeProductFlowBySpace(
+            (function() { var locs = getLocations(); for (var x = 0; x < locs.length; x++) { if (locs[x].spaces) { for (var y = 0; y < locs[x].spaces.length; y++) { var sp = locs[x].spaces[y]; for (var z = 0; z < (sp.products||[]).length; z++) { if (sp.products[z] === pr) return locs[x]; } } } } return null; })(),
+            pr.productId, 0
+        );
+        initialStockHtml = '<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:4px;margin-bottom:14px;text-align:center;">' +
+            '<div style="background:var(--info-bg);border-radius:8px;padding:6px 2px;">' +
+                '<div style="font-size:14px;font-weight:800;color:var(--info);">' + initialStockVal + '</div>' +
+                '<div style="font-size:8px;color:var(--text3);text-transform:uppercase;">Inicial</div>' +
+            '</div>' +
+            '<div style="background:var(--primary-bg);border-radius:8px;padding:6px 2px;">' +
+                '<div style="font-size:14px;font-weight:800;color:var(--primary);">+' + flow.entradas + '</div>' +
+                '<div style="font-size:8px;color:var(--text3);text-transform:uppercase;">Entradas</div>' +
+            '</div>' +
+            '<div style="background:var(--danger-bg);border-radius:8px;padding:6px 2px;">' +
+                '<div style="font-size:14px;font-weight:800;color:var(--danger);">-' + flow.salidas + '</div>' +
+                '<div style="font-size:8px;color:var(--text3);text-transform:uppercase;">Salidas</div>' +
+            '</div>' +
+            '<div style="background:var(--bg2);border-radius:8px;padding:6px 2px;">' +
+                '<div style="font-size:14px;font-weight:800;color:var(--accent);">' + qty + '</div>' +
+                '<div style="font-size:8px;color:var(--text3);text-transform:uppercase;">Actual</div>' +
+            '</div>' +
+        '</div>';
+    } else {
+        initialStockHtml = '<div class="inv-warning-bar" style="margin-bottom:10px;">⚠️ Sin inventario inicial registrado. <span style="cursor:pointer;text-decoration:underline;" onclick="closeModal(\'stockEditModal\');openInitialInventoryModal(\'' + locId + '\',' + spaceIdx + ')">Registrar</span></div>';
+    }
     document.getElementById('stockEditContent').innerHTML =
         '<div style="padding:0 4px;">' +
         '<div style="text-align:center;margin-bottom:16px;">' +
@@ -6316,6 +6494,7 @@ function openStockEdit(locId, spaceIdx, prodIdx) {
             '<div style="font-size:36px;font-weight:800;color:var(--primary);">' + qty + '</div>' +
             '<div style="font-size:10px;color:var(--text3);margin-top:2px;">Para cambiar, usa Cargar (📥) o Descargar (📤)</div>' +
         '</div>' +
+        initialStockHtml +
         '<div style="display:flex;gap:8px;margin-bottom:14px;">' +
             '<button class="btn btn-primary" style="flex:1;background:#2ed573;border-color:#2ed573;font-size:13px;" onclick="closeModal(\'stockEditModal\');openCargaStock(\'' + locId + '\',' + spaceIdx + ',' + prodIdx + ')">📥 Cargar Stock</button>' +
             '<button class="btn btn-outline" style="flex:1;color:#ff4757;border-color:#ff4757;font-size:13px;' + (qty === 0 ? 'opacity:0.4;pointer-events:none;' : '') + '" onclick="closeModal(\'stockEditModal\');openDescargaStock(\'' + locId + '\',' + spaceIdx + ',' + prodIdx + ')">📤 Descargar Stock</button>' +
@@ -6571,8 +6750,13 @@ function openDescargaStock(locId, spaceIdx, prodIdx) {
     if (qty === 0) { showToast('Sin stock para descargar', 'error'); return; }
 
     document.getElementById('descargaStockTitle').textContent = '📤 Descargar Stock';
+    var noInitialWarning = '';
+    if (pr.initialStock === undefined || pr.initialStock === null) {
+        noInitialWarning = '<div class="inv-warning-bar">⚠️ Este producto no tiene inventario inicial registrado. <span style="cursor:pointer;text-decoration:underline;" onclick="closeModal(\'descargaStockModal\');openInitialInventoryModal(\'' + locId + '\',' + spaceIdx + ')">Registrar ahora</span></div>';
+    }
     document.getElementById('descargaStockContent').innerHTML =
         '<div style="padding:0 4px;">' +
+        noInitialWarning +
         '<div style="background:#ff475710;border:1px solid #ff475725;border-radius:10px;padding:10px 12px;margin-bottom:14px;">' +
             '<div style="font-size:11px;color:var(--text3);margin-bottom:2px;">Producto</div>' +
             '<div style="font-size:14px;font-weight:700;color:var(--text);">' + escapeHtml(pName) + '</div>' +
@@ -7592,6 +7776,7 @@ function renderStockDetailPage() {
                     (locAlerts > 0 ? '<span style="background:' + locColor + '20;color:' + locColor + ';font-size:9px;padding:1px 6px;border-radius:6px;font-weight:700;">' + locIcon + ' ' + locAlerts + '</span>' : '<span style="background:#2ed57320;color:#2ed573;font-size:9px;padding:1px 6px;border-radius:6px;font-weight:700;">✅ OK</span>') +
                 '</div>' +
                 '<div style="display:flex;align-items:center;gap:6px;">' +
+                    '<span onclick="event.stopPropagation();openInventoryControl(\'' + loc.id + '\')" style="background:var(--info-bg);color:var(--info);font-size:9px;padding:3px 8px;border-radius:6px;font-weight:700;cursor:pointer;">📊 Control</span>' +
                     '<span style="font-size:18px;font-weight:800;color:var(--primary);">' + locTotal + '</span>' +
                     '<span style="font-size:12px;color:var(--text3);">uds</span>' +
                     '<span style="font-size:14px;color:var(--text3);">→</span>' +
@@ -7725,6 +7910,7 @@ function renderStockDetailPage() {
                         (locAlerts > 0 ? '<span style="background:' + locColor + '20;color:' + locColor + ';font-size:9px;padding:1px 6px;border-radius:6px;font-weight:700;">' + locIcon + ' ' + locAlerts + '</span>' : '<span style="background:#2ed57320;color:#2ed573;font-size:9px;padding:1px 6px;border-radius:6px;font-weight:700;">✅ OK</span>') +
                     '</div>' +
                     '<div style="display:flex;align-items:center;gap:6px;">' +
+                        '<span onclick="event.stopPropagation();openInventoryControl(\'' + loc.id + '\')" style="background:var(--info-bg);color:var(--info);font-size:9px;padding:3px 8px;border-radius:6px;font-weight:700;cursor:pointer;">📊 Control</span>' +
                         '<span style="font-size:18px;font-weight:800;color:var(--primary);">' + locTotal + '</span>' +
                         '<span style="font-size:12px;color:var(--text3);">uds</span>' +
                         '<span style="font-size:14px;color:var(--text3);">→</span>' +
@@ -8643,8 +8829,14 @@ function confirmAddProductToSpace() {
             if (!found) {
                 space.products.push({
                     productId: _spSelectedProductId, name: prodName, brand: prodBrand,
-                    qty: qty, specifications: prodSpecs, targetQty: targetQty, minQty: minQty, maxQty: maxQty
+                    qty: qty, specifications: prodSpecs, targetQty: targetQty, minQty: minQty, maxQty: maxQty,
+                    initialStock: qty
                 });
+            } else {
+                // If product already exists, update initialStock if not set
+                if (space.products[j].initialStock === undefined || space.products[j].initialStock === null) {
+                    space.products[j].initialStock = space.products[j].qty;
+                }
             }
             locs[i].updatedAt = new Date().toISOString();
             if (qty > 0) {
@@ -8704,8 +8896,14 @@ function addCartToSpace(locId, spaceIdx) {
                 if (!found) {
                     space.products.push({
                         productId: pid, name: prodName, brand: prodBrand,
-                        qty: cartQty, specifications: prodSpecs, targetQty: 0, minQty: 0, maxQty: 0
+                        qty: cartQty, specifications: prodSpecs, targetQty: 0, minQty: 0, maxQty: 0,
+                        initialStock: cartQty
                     });
+                } else {
+                    // If product already exists, update initialStock if not set
+                    if (space.products[j].initialStock === undefined || space.products[j].initialStock === null) {
+                        space.products[j].initialStock = space.products[j].qty;
+                    }
                 }
                 totalAdded += cartQty;
 
@@ -10792,6 +10990,393 @@ document.getElementById('resetForm').addEventListener('submit', function(e) {
         errEl.style.display = 'block';
     });
 });
+
+// ====================================================================
+// INVENTORY FLOW CONTROL - Initial Stock Registration & Tracking
+// ====================================================================
+
+var _initInvLocId = '';
+var _initInvSpaceIdx = 0;
+
+/**
+ * Compute product flow: inicial, entradas, salidas, actual for a product in a locale
+ * @param {object} loc - The locale object
+ * @param {string} productId - The product ID
+ * @returns {object} { inicial, entradas, salidas, actual }
+ */
+function computeProductFlow(loc, productId) {
+    var inicial = 0;
+    var entradas = 0;
+    var salidas = 0;
+    var actual = 0;
+
+    // Get initialStock from all spaces for this product
+    var spaces = loc.spaces || [];
+    for (var s = 0; s < spaces.length; s++) {
+        var prods = spaces[s].products || [];
+        for (var p = 0; p < prods.length; p++) {
+            if (prods[p].productId === productId) {
+                inicial += (prods[p].initialStock || 0);
+                actual += (prods[p].qty || 0);
+            }
+        }
+    }
+
+    // Compute entradas/salidas from movements
+    var movements = loc.movements || [];
+    for (var m = 0; m < movements.length; m++) {
+        var mov = movements[m];
+        if (mov.productId === productId) {
+            if (mov.type === 'carga' || mov.type === 'ingreso') {
+                entradas += (mov.qty || 0);
+            } else if (mov.type === 'descarga' || mov.type === 'venta') {
+                salidas += (mov.qty || 0);
+            }
+        }
+    }
+
+    // If no initialStock registered, use current qty minus movements as baseline
+    if (inicial === 0 && actual > 0) {
+        inicial = actual - entradas + salidas;
+        if (inicial < 0) inicial = 0;
+    }
+
+    return { inicial: inicial, entradas: entradas, salidas: salidas, actual: actual };
+}
+
+/**
+ * Compute product flow for a specific space index
+ */
+function computeProductFlowBySpace(loc, productId, spaceIdx) {
+    var inicial = 0;
+    var entradas = 0;
+    var salidas = 0;
+    var actual = 0;
+
+    var space = (loc.spaces || [])[spaceIdx];
+    if (!space) return { inicial: 0, entradas: 0, salidas: 0, actual: 0 };
+
+    var prods = space.products || [];
+    for (var p = 0; p < prods.length; p++) {
+        if (prods[p].productId === productId) {
+            inicial = (prods[p].initialStock || 0);
+            actual = (prods[p].qty || 0);
+            break;
+        }
+    }
+
+    // Compute entradas/salidas from movements for this space
+    var movements = loc.movements || [];
+    for (var m = 0; m < movements.length; m++) {
+        var mov = movements[m];
+        if (mov.productId === productId && (mov.spaceIdx === spaceIdx)) {
+            if (mov.type === 'carga' || mov.type === 'ingreso') {
+                entradas += (mov.qty || 0);
+            } else if (mov.type === 'descarga' || mov.type === 'venta') {
+                salidas += (mov.qty || 0);
+            }
+        }
+    }
+
+    // If no initialStock registered, compute from current and movements
+    if (inicial === 0 && actual > 0) {
+        inicial = actual - entradas + salidas;
+        if (inicial < 0) inicial = 0;
+    }
+
+    return { inicial: inicial, entradas: entradas, salidas: salidas, actual: actual };
+}
+
+/**
+ * Open the Initial Inventory Registration Modal
+ */
+function openInitialInventoryModal(locId, spaceIdx) {
+    _initInvLocId = locId;
+    _initInvSpaceIdx = spaceIdx || 0;
+
+    var locs = getLocations();
+    var loc = null;
+    for (var i = 0; i < locs.length; i++) {
+        if (locs[i].id === locId) { loc = locs[i]; break; }
+    }
+    if (!loc) return;
+
+    var space = (loc.spaces || [])[spaceIdx];
+    if (!space) return;
+
+    var products = space.products || [];
+    var spaceName = space.name || ('Espacio ' + (spaceIdx + 1));
+
+    document.getElementById('initInvTitle').textContent = '📋 Inventario Inicial — ' + escapeHtml(loc.name) + ' / ' + escapeHtml(spaceName);
+
+    var html = '<div style="padding:4px 14px;">';
+    html += '<div style="font-size:12px;color:var(--text2);margin-bottom:12px;line-height:1.5;">' +
+        'Registra el stock inicial de cada TV. Este será el punto de referencia para controlar entradas y salidas posteriores.' +
+        '</div>';
+
+    if (products.length === 0) {
+        html += '<div style="text-align:center;padding:24px;color:var(--text3);">' +
+            '<div style="font-size:32px;margin-bottom:6px;">📦</div>' +
+            '<div style="font-size:13px;">Sin productos en este espacio</div>' +
+            '<div style="font-size:11px;margin-top:4px;">Agrega productos primero</div></div>';
+    } else {
+        for (var p = 0; p < products.length; p++) {
+            var pr = products[p];
+            var pName = (pr.name || 'Producto') + (pr.brand ? ' · ' + pr.brand : '');
+            var currentInitial = pr.initialStock || 0;
+            var currentQty = pr.qty || 0;
+            var hasInitial = pr.initialStock !== undefined && pr.initialStock !== null;
+
+            // Spec tags
+            var specHtml = '';
+            if (pr.specifications) {
+                try {
+                    var specObj = (typeof pr.specifications === 'string') ? JSON.parse(pr.specifications) : pr.specifications;
+                    if (specObj && typeof specObj === 'object') {
+                        var specKeys = Object.keys(specObj);
+                        for (var sk = 0; sk < specKeys.length; sk++) {
+                            var sv = (specObj[specKeys[sk]] || '').trim();
+                            if (sv) specHtml += '<span class="product-spec-tag">' + escapeHtml(sv) + '</span>';
+                        }
+                    }
+                } catch(e) {}
+            }
+
+            html += '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:8px;">';
+            html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">';
+            html += '<div style="flex:1;min-width:0;">';
+            html += '<div style="font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(pName) + '</div>';
+            if (specHtml) html += '<div class="product-specs" style="margin-top:2px;">' + specHtml + '</div>';
+            html += '</div>';
+            html += '<div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">';
+            html += '<span style="font-size:10px;color:var(--text3);">Actual: <b style="color:var(--primary);">' + currentQty + '</b></span>';
+            if (hasInitial) {
+                html += '<span class="inv-initial-badge registered">✅ Reg.</span>';
+            } else {
+                html += '<span class="inv-initial-badge pending">⏳ Pend.</span>';
+            }
+            html += '</div></div>';
+            html += '<div style="display:flex;align-items:center;gap:8px;">';
+            html += '<label style="font-size:11px;color:var(--text3);font-weight:600;white-space:nowrap;">Inv. Inicial:</label>';
+            html += '<input type="number" id="initInv_' + p + '" class="input" value="' + (hasInitial ? currentInitial : currentQty) + '" min="0" style="flex:1;font-size:14px;font-weight:700;text-align:center;padding:8px;">';
+            html += '</div>';
+            html += '</div>';
+        }
+    }
+
+    html += '</div>';
+    document.getElementById('initInvContent').innerHTML = html;
+    openModal('initInvModal');
+}
+
+/**
+ * Save initial inventory registration
+ */
+function saveInitialInventory() {
+    var locId = _initInvLocId;
+    var spaceIdx = _initInvSpaceIdx;
+
+    var locs = getLocations();
+    var loc = null;
+    var locIdx = -1;
+    for (var i = 0; i < locs.length; i++) {
+        if (locs[i].id === locId) { loc = locs[i]; locIdx = i; break; }
+    }
+    if (locIdx < 0) return;
+
+    var space = (loc.spaces || [])[spaceIdx];
+    if (!space) return;
+
+    var products = space.products || [];
+    var updated = 0;
+
+    for (var p = 0; p < products.length; p++) {
+        var input = document.getElementById('initInv_' + p);
+        if (input) {
+            var val = parseInt(input.value);
+            if (isNaN(val) || val < 0) val = 0;
+            products[p].initialStock = val;
+            updated++;
+        }
+    }
+
+    if (updated === 0) {
+        showToast('No hay productos para registrar', 'error');
+        return;
+    }
+
+    locs[locIdx].spaces[spaceIdx].products = products;
+    locs[locIdx].updatedAt = new Date().toISOString();
+    saveLocations(locs);
+    syncLocationsToServer();
+    closeModal('initInvModal');
+
+    // Re-render the space view
+    var updatedLoc = locs[locIdx];
+    renderLocSpaceView(updatedLoc);
+    showToast('Inventario inicial registrado: ' + updated + ' producto' + (updated > 1 ? 's' : ''), 'success');
+}
+
+/**
+ * Open the Inventory Control view for a locale
+ */
+function openInventoryControl(locId) {
+    var locs = getLocations();
+    var loc = null;
+    for (var i = 0; i < locs.length; i++) {
+        if (locs[i].id === locId) { loc = locs[i]; break; }
+    }
+    if (!loc) return;
+
+    var html = renderInventoryControl(loc);
+    document.getElementById('invControlContent').innerHTML = html;
+    openModal('invControlModal');
+}
+
+/**
+ * Render the Inventory Control view for a locale
+ */
+function renderInventoryControl(loc) {
+    var spaces = loc.spaces || [];
+    var html = '<div style="padding:4px 14px;">';
+
+    // Locale header
+    html += '<div style="text-align:center;margin-bottom:14px;">';
+    html += '<div style="font-size:18px;font-weight:800;color:var(--text);">🏪 ' + escapeHtml(loc.name) + '</div>';
+    html += '<div style="font-size:12px;color:var(--text3);margin-top:2px;">Control de Inventario</div>';
+    html += '</div>';
+
+    // Count products with and without initial inventory
+    var totalProducts = 0;
+    var registeredCount = 0;
+    var allProductFlows = [];
+
+    for (var s = 0; s < spaces.length; s++) {
+        var prods = spaces[s].products || [];
+        for (var p = 0; p < prods.length; p++) {
+            totalProducts++;
+            var pr = prods[p];
+            var hasInitial = pr.initialStock !== undefined && pr.initialStock !== null;
+            if (hasInitial) registeredCount++;
+
+            var flow = computeProductFlowBySpace(loc, pr.productId, s);
+            var pName = (pr.name || 'Producto') + (pr.brand ? ' · ' + pr.brand : '');
+
+            // Spec tags
+            var specHtml = '';
+            if (pr.specifications) {
+                try {
+                    var specObj = (typeof pr.specifications === 'string') ? JSON.parse(pr.specifications) : pr.specifications;
+                    if (specObj && typeof specObj === 'object') {
+                        var specKeys = Object.keys(specObj);
+                        for (var sk = 0; sk < specKeys.length; sk++) {
+                            var sv = (specObj[specKeys[sk]] || '').trim();
+                            if (sv) specHtml += '<span class="product-spec-tag">' + escapeHtml(sv) + '</span>';
+                        }
+                    }
+                } catch(e) {}
+            }
+
+            allProductFlows.push({
+                spaceIdx: s,
+                spaceName: spaces[s].name || ('Espacio ' + (s+1)),
+                productId: pr.productId,
+                name: pName,
+                specs: specHtml,
+                hasInitial: hasInitial,
+                inicial: flow.inicial,
+                entradas: flow.entradas,
+                salidas: flow.salidas,
+                actual: flow.actual
+            });
+        }
+    }
+
+    // Summary stats
+    var pendingCount = totalProducts - registeredCount;
+    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;">';
+    html += '<div style="background:var(--primary-bg);border:1px solid rgba(34,197,94,0.2);border-radius:10px;padding:10px;text-align:center;">';
+    html += '<div style="font-size:20px;font-weight:800;color:var(--primary);">' + registeredCount + '</div>';
+    html += '<div style="font-size:10px;color:var(--text3);">Con Inv. Inicial</div>';
+    html += '</div>';
+    html += '<div style="background:' + (pendingCount > 0 ? 'var(--warning-bg)' : 'var(--bg2)') + ';border:1px solid ' + (pendingCount > 0 ? 'rgba(245,158,11,0.2)' : 'var(--border)') + ';border-radius:10px;padding:10px;text-align:center;">';
+    html += '<div style="font-size:20px;font-weight:800;color:' + (pendingCount > 0 ? 'var(--warning)' : 'var(--text3)') + ';">' + pendingCount + '</div>';
+    html += '<div style="font-size:10px;color:var(--text3);">Sin Registrar</div>';
+    html += '</div>';
+    html += '</div>';
+
+    if (pendingCount > 0) {
+        html += '<div class="inv-warning-bar">⚠️ ' + pendingCount + ' producto' + (pendingCount > 1 ? 's' : '') + ' sin inventario inicial registrado. Regístralo para un control completo.</div>';
+    }
+
+    if (allProductFlows.length === 0) {
+        html += '<div style="text-align:center;padding:24px;color:var(--text3);">' +
+            '<div style="font-size:32px;margin-bottom:6px;">📦</div>' +
+            '<div style="font-size:13px;">Sin productos en este local</div></div>';
+    } else {
+        // Group by space
+        var currentSpaceIdx = -1;
+        for (var f = 0; f < allProductFlows.length; f++) {
+            var pf = allProductFlows[f];
+
+            // Space header
+            if (pf.spaceIdx !== currentSpaceIdx) {
+                if (currentSpaceIdx >= 0) html += '</div>';
+                currentSpaceIdx = pf.spaceIdx;
+                html += '<div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin:10px 0 6px;">📦 ' + escapeHtml(pf.spaceName) + '</div>';
+                html += '<div>';
+            }
+
+            // Flow card for each product
+            var totalMov = pf.entradas + pf.salidas;
+            var inPct = totalMov > 0 ? Math.round((pf.entradas / totalMov) * 100) : 50;
+            var outPct = totalMov > 0 ? Math.round((pf.salidas / totalMov) * 100) : 50;
+
+            html += '<div class="inv-flow-card">';
+            html += '<div class="inv-flow-card-header">';
+            html += '<div class="inv-flow-card-title">' + (pf.hasInitial ? '' : '⏳ ') + escapeHtml(pf.name) + '</div>';
+            if (!pf.hasInitial) {
+                html += '<span class="inv-initial-badge pending">Sin registro</span>';
+            } else {
+                html += '<span class="inv-initial-badge registered">✅ Registrado</span>';
+            }
+            html += '</div>';
+            if (pf.specs) html += '<div style="margin-bottom:8px;">' + pf.specs + '</div>';
+            html += '<div class="inv-flow-row">';
+            html += '<div class="inv-flow-item inicial"><div class="inv-flow-item-num">' + pf.inicial + '</div><div class="inv-flow-item-label">Inicial</div></div>';
+            html += '<div class="inv-flow-item entradas"><div class="inv-flow-item-num">+' + pf.entradas + '</div><div class="inv-flow-item-label">Entradas</div></div>';
+            html += '<div class="inv-flow-item salidas"><div class="inv-flow-item-num">-' + pf.salidas + '</div><div class="inv-flow-item-label">Salidas</div></div>';
+            html += '<div class="inv-flow-item actual"><div class="inv-flow-item-num">' + pf.actual + '</div><div class="inv-flow-item-label">Actual</div></div>';
+            html += '</div>';
+
+            // Flow bar visualization
+            if (totalMov > 0) {
+                html += '<div class="inv-flow-bar">';
+                html += '<div class="inv-flow-bar-in" style="width:' + inPct + '%;"></div>';
+                html += '<div class="inv-flow-bar-out" style="width:' + outPct + '%;"></div>';
+                html += '</div>';
+            }
+
+            // Flow arrow formula
+            html += '<div class="inv-flow-arrow">';
+            html += '<span style="color:var(--info);">' + pf.inicial + '</span>';
+            html += '<span>→ +</span>';
+            html += '<span style="color:var(--primary);">' + pf.entradas + '</span>';
+            html += '<span>→ -</span>';
+            html += '<span style="color:var(--danger);">' + pf.salidas + '</span>';
+            html += '<span>=</span>';
+            html += '<span style="color:var(--accent);font-weight:800;">' + pf.actual + '</span>';
+            html += '</div>';
+
+            html += '</div>';
+        }
+        if (currentSpaceIdx >= 0) html += '</div>';
+    }
+
+    html += '</div>';
+    return html;
+}
+
 </script>
 
 <!-- Global chip dropdown (at body level to avoid clipping) -->
