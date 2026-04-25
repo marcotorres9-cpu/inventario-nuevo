@@ -5650,6 +5650,30 @@ function openLocControlPanel(locId, spaceIdx) {
     html += '<div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">🎯 Objetivo del Local</div>';
     html += '<div style="background:var(--bg2);border-radius:10px;padding:10px;margin-bottom:14px;">';
 
+    // Helper to extract specs label for local model
+    function localSpecsLabel(specs) {
+        if (!specs) return '';
+        try {
+            var o = (typeof specs === 'string') ? JSON.parse(specs) : specs;
+            if (!o || typeof o !== 'object') return '';
+            var p = [];
+            var ks = Object.keys(o);
+            for (var x = 0; x < ks.length; x++) { var v = (o[ks[x]] || '').trim(); if (v) p.push(v); }
+            return p.join(' · ');
+        } catch(e) { return ''; }
+    }
+    function localSpecsKey(specs) {
+        if (!specs) return '';
+        try {
+            var o = (typeof specs === 'string') ? JSON.parse(specs) : specs;
+            if (!o || typeof o !== 'object') return '';
+            var p = [];
+            var ks = Object.keys(o).sort();
+            for (var x = 0; x < ks.length; x++) { var v = (o[ks[x]] || '').trim(); if (v) p.push(ks[x] + '=' + v); }
+            return p.join('|');
+        } catch(e) { return ''; }
+    }
+
     // Calculate current totals per model across ALL spaces
     var localModelMap = {};
     var localGrandTotal = 0;
@@ -5657,8 +5681,11 @@ function openLocControlPanel(locId, spaceIdx) {
         var lsProds = loc.spaces[ls].products || [];
         for (var lsp = 0; lsp < lsProds.length; lsp++) {
             var lp = lsProds[lsp];
-            var lk = lp.productId || (lp.name + '|' + lp.brand);
-            if (!localModelMap[lk]) localModelMap[lk] = { name: lp.name, brand: lp.brand, qty: 0 };
+            var lpSpecKey = localSpecsKey(lp.specifications);
+            var lk = lp.productId || (lp.name + '|' + lp.brand + '|' + lpSpecKey);
+            if (!localModelMap[lk]) localModelMap[lk] = { name: lp.name, brand: lp.brand, qty: 0, specsLabel: localSpecsLabel(lp.specifications) };
+            var lpSL = localSpecsLabel(lp.specifications);
+            if (lpSL && lpSL.length > (localModelMap[lk].specsLabel || '').length) localModelMap[lk].specsLabel = lpSL;
             localModelMap[lk].qty += (lp.qty || 0);
             localGrandTotal += (lp.qty || 0);
         }
@@ -5669,8 +5696,12 @@ function openLocControlPanel(locId, spaceIdx) {
     var existingTargetMap = {};
     for (var eti = 0; eti < existingTargets.length; eti++) {
         var et = existingTargets[eti];
-        var etKey = et.productId || (et.name + '|' + et.brand);
-        existingTargetMap[etKey] = et;
+        var etSpecKey = localSpecsKey(et.specs);
+        var etKey = et.productId || (et.name + '|' + et.brand + '|' + etSpecKey);
+        if (!existingTargetMap[etKey]) {
+            existingTargetMap[etKey] = et;
+            existingTargetMap[etKey]._specsLabel = localSpecsLabel(et.specs);
+        }
     }
 
     // Merge: show all models that exist in inventory OR have a target
@@ -5678,7 +5709,8 @@ function openLocControlPanel(locId, spaceIdx) {
     var lmKeys = Object.keys(localModelMap);
     for (var lmi = 0; lmi < lmKeys.length; lmi++) allModelKeys[lmKeys[lmi]] = true;
     for (var eti2 = 0; eti2 < existingTargets.length; eti2++) {
-        var etKey2 = existingTargets[eti2].productId || (existingTargets[eti2].name + '|' + existingTargets[eti2].brand);
+        var et2 = existingTargets[eti2];
+        var etKey2 = et2.productId || (et2.name + '|' + et2.brand + '|' + localSpecsKey(et2.specs));
         allModelKeys[etKey2] = true;
     }
     var amKeys = Object.keys(allModelKeys);
@@ -5710,6 +5742,7 @@ function openLocControlPanel(locId, spaceIdx) {
         var aQty = localModelMap[ak] ? localModelMap[ak].qty : 0;
         var aTargetVal = aTarget ? (aTarget.target || 0) : 0;
         var aMinVal = aTarget ? (aTarget.min || 0) : 0;
+        var aSpecsLabel = (aTarget ? (aTarget._specsLabel || localSpecsLabel(aTarget.specs)) : (localModelMap[ak] ? localModelMap[ak].specsLabel : ''));
         var aStatus = '';
         if (aQty === 0 && aTargetVal > 0) aStatus = '🚨';
         else if (aTargetVal > 0 && aQty >= aTargetVal) aStatus = '✅';
@@ -5721,13 +5754,15 @@ function openLocControlPanel(locId, spaceIdx) {
 
         html += '<div style="margin-bottom:' + (ai < amKeys.length - 1 ? '8px' : '0') + ';padding-bottom:' + (ai < amKeys.length - 1 ? '8px' : '0') + ';border-bottom:' + (ai < amKeys.length - 1 ? '1px solid var(--border)' : 'none') + ';">';
         html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">';
-        html += '<div style="font-size:12px;font-weight:700;color:var(--text);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + aStatus + ' ' + escapeHtml(aName + (aBrand ? ' · ' + aBrand : '')) + '</div>';
+        var aPlainLabel = aName + (aBrand ? ' · ' + aBrand : '');
+        var aSpecsBadge = aSpecsLabel ? ' <span style="font-size:10px;color:var(--primary);font-weight:600;">[' + escapeHtml(aSpecsLabel) + ']</span>' : '';
+        html += '<div style="font-size:12px;font-weight:700;color:var(--text);flex:1;min-width:0;">' + escapeHtml(aStatus + ' ' + aPlainLabel) + aSpecsBadge + '</div>';
         html += '<div style="font-size:10px;color:var(--text3);flex-shrink:0;">Existen: <b style="color:var(--primary);">' + aQty + '</b></div>';
         html += '</div>';
         html += '<div style="display:flex;gap:6px;align-items:center;">';
         html += '<div style="flex:1;">' +
             '<label style="font-size:10px;color:var(--text3);">Mínimo</label>' +
-            '<input type="number" class="input" data-mkey="' + escapeHtml(ak) + '" data-pid="' + escapeHtml(aProductId) + '" data-mname="' + escapeHtml(aName) + '" data-mbrand="' + escapeHtml(aBrand) + '" id="mtMin_' + ai + '" value="' + aMinVal + '" min="0" placeholder="0" style="font-size:12px;padding:5px 8px;">' +
+            '<input type="number" class="input" data-mkey="' + escapeHtml(ak) + '" data-pid="' + escapeHtml(aProductId) + '" data-mname="' + escapeHtml(aName) + '" data-mbrand="' + escapeHtml(aBrand) + '" data-mspecs="' + escapeHtml(aSpecsLabel) + '" id="mtMin_' + ai + '" value="' + aMinVal + '" min="0" placeholder="0" style="font-size:12px;padding:5px 8px;">' +
         '</div>';
         html += '<div style="flex:1;">' +
             '<label style="font-size:10px;color:var(--text3);">Objetivo</label>' +
@@ -5834,12 +5869,14 @@ function saveModelTargets(locId, count) {
                 var pidEl = minEl ? minEl.getAttribute('data-pid') : '';
                 var nameEl = minEl ? minEl.getAttribute('data-mname') : 'TV';
                 var brandEl = minEl ? minEl.getAttribute('data-mbrand') : '';
+                var specsEl = minEl ? minEl.getAttribute('data-mspecs') : '';
                 if (keyEl) {
                     targets.push({
                         key: keyEl,
                         productId: pidEl || '',
                         name: nameEl,
                         brand: brandEl,
+                        specs: specsEl,
                         min: minEl ? (parseInt(minEl.value) || 0) : 0,
                         target: targetEl ? (parseInt(targetEl.value) || 0) : 0
                     });
@@ -6718,7 +6755,39 @@ function renderGlobalTargets() {
     var locs = getLocations();
     var globalTarget = getGlobalTarget();
 
-    // Build per-model totals across ALL locales
+    // Helper: extract a short specs string for display (e.g. "Android TV" or "Google TV")
+    function extractSpecsLabel(specs) {
+        if (!specs) return '';
+        try {
+            var specObj = (typeof specs === 'string') ? JSON.parse(specs) : specs;
+            if (!specObj || typeof specObj !== 'object') return '';
+            var parts = [];
+            var specKeys = Object.keys(specObj);
+            for (var si = 0; si < specKeys.length; si++) {
+                var sv = (specObj[specKeys[si]] || '').trim();
+                if (sv) parts.push(sv);
+            }
+            return parts.join(' · ');
+        } catch(e) { return ''; }
+    }
+
+    // Helper: build specs-only key portion for grouping
+    function buildSpecsKey(specs) {
+        if (!specs) return '';
+        try {
+            var specObj = (typeof specs === 'string') ? JSON.parse(specs) : specs;
+            if (!specObj || typeof specObj !== 'object') return '';
+            var parts = [];
+            var specKeys = Object.keys(specObj).sort();
+            for (var si = 0; si < specKeys.length; si++) {
+                var sv = (specObj[specKeys[si]] || '').trim();
+                if (sv) parts.push(specKeys[si] + '=' + sv);
+            }
+            return parts.join('|');
+        } catch(e) { return ''; }
+    }
+
+    // Build per-model totals across ALL locales — include specs for display & grouping
     var modelMap = {};
     for (var i = 0; i < locs.length; i++) {
         var spaces = locs[i].spaces || [];
@@ -6726,9 +6795,15 @@ function renderGlobalTargets() {
             var prods = spaces[s].products || [];
             for (var p = 0; p < prods.length; p++) {
                 var pr = prods[p];
-                var key = pr.productId || (pr.name + '|' + pr.brand);
+                var specsKey = buildSpecsKey(pr.specifications);
+                var key = pr.productId || (pr.name + '|' + pr.brand + '|' + specsKey);
                 if (!modelMap[key]) {
-                    modelMap[key] = { name: pr.name || 'TV', brand: pr.brand || '', qty: 0, productId: pr.productId || '' };
+                    modelMap[key] = { name: pr.name || 'TV', brand: pr.brand || '', qty: 0, productId: pr.productId || '', specsLabel: extractSpecsLabel(pr.specifications), specsKey: specsKey };
+                }
+                // Keep the most descriptive specs label (longer one wins)
+                var prSpecLabel = extractSpecsLabel(pr.specifications);
+                if (prSpecLabel && prSpecLabel.length > (modelMap[key].specsLabel || '').length) {
+                    modelMap[key].specsLabel = prSpecLabel;
                 }
                 modelMap[key].qty += (pr.qty || 0);
                 if (!modelMap[key].productId && pr.productId) modelMap[key].productId = pr.productId;
@@ -6742,9 +6817,10 @@ function renderGlobalTargets() {
         var mt = locs[li].modelTargets || [];
         for (var ti = 0; ti < mt.length; ti++) {
             var t = mt[ti];
-            var tKey = t.productId || (t.name + '|' + t.brand);
+            var tSpecsKey = buildSpecsKey(t.specs);
+            var tKey = t.productId || (t.name + '|' + t.brand + '|' + tSpecsKey);
             if (!allModelTargets[tKey]) {
-                allModelTargets[tKey] = { name: t.name || 'TV', brand: t.brand || '', target: 0, min: 0, productId: t.productId || '' };
+                allModelTargets[tKey] = { name: t.name || 'TV', brand: t.brand || '', target: 0, min: 0, productId: t.productId || '', specsLabel: extractSpecsLabel(t.specs), specsKey: tSpecsKey };
             }
             allModelTargets[tKey].target += (t.target || 0);
             allModelTargets[tKey].min += (t.min || 0);
@@ -6812,7 +6888,7 @@ function renderGlobalTargets() {
         var mTargetVal = mt ? mt.target : 0;
         var mMinVal = mt ? mt.min : 0;
         var mProductId = (m ? m.productId : '') || (mt ? mt.productId : '');
-        var mLabel = mName + (mBrand ? ' · ' + mBrand : '');
+        var mSpecsLabel = (m ? m.specsLabel : '') || (mt ? mt.specsLabel : '');
 
         // Status
         var mStatus = '';
@@ -6823,13 +6899,16 @@ function renderGlobalTargets() {
 
         html += '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px;margin-bottom:8px;' + (mQty === 0 && mTargetVal > 0 ? 'border-color:#ff475740;' : '') + '">';
         html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">';
-        html += '<div style="font-size:13px;font-weight:700;color:var(--text);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + mStatus + ' ' + escapeHtml(mLabel) + '</div>';
+        // Build label: plain text + specs badge (no escapeHtml on the whole thing since specs has HTML)
+        var mPlainLabel = mName + (mBrand ? ' · ' + mBrand : '');
+        var mSpecsBadge = mSpecsLabel ? ' <span style="font-size:11px;color:var(--primary);font-weight:600;">[' + escapeHtml(mSpecsLabel) + ']</span>' : '';
+        html += '<div style="font-size:13px;font-weight:700;color:var(--text);flex:1;min-width:0;">' + escapeHtml(mStatus + ' ' + mPlainLabel) + mSpecsBadge + '</div>';
         html += '<div style="font-size:11px;color:var(--text3);flex-shrink:0;margin-left:8px;">Existen: <b style="color:var(--primary);">' + mQty + '</b></div>';
         html += '</div>';
         html += '<div style="display:flex;gap:8px;align-items:flex-end;">';
         html += '<div style="flex:1;">' +
             '<label style="font-size:10px;color:var(--text3);">Mínimo</label>' +
-            '<input type="number" class="input" data-gtkey="' + escapeHtml(k) + '" data-gtpid="' + escapeHtml(mProductId) + '" data-gtname="' + escapeHtml(mName) + '" data-gtbrand="' + escapeHtml(mBrand) + '" id="gtMin_' + idx + '" value="' + mMinVal + '" min="0" placeholder="0" style="font-size:13px;padding:6px 10px;" oninput="updateGlobalTargetsRunningSum()">' +
+            '<input type="number" class="input" data-gtkey="' + escapeHtml(k) + '" data-gtpid="' + escapeHtml(mProductId) + '" data-gtname="' + escapeHtml(mName) + '" data-gtbrand="' + escapeHtml(mBrand) + '" data-gtspecs="' + escapeHtml(mSpecsLabel) + '" id="gtMin_' + idx + '" value="' + mMinVal + '" min="0" placeholder="0" style="font-size:13px;padding:6px 10px;" oninput="updateGlobalTargetsRunningSum()">' +
         '</div>';
         html += '<div style="flex:1;">' +
             '<label style="font-size:10px;color:var(--text3);">Objetivo</label>' +
@@ -6885,6 +6964,7 @@ function saveGlobalTargets(count) {
         var productId = minEl.getAttribute('data-gtpid') || '';
         var name = minEl.getAttribute('data-gtname') || 'TV';
         var brand = minEl.getAttribute('data-gtbrand') || '';
+        var specs = minEl.getAttribute('data-gtspecs') || '';
         var minVal = parseInt(minEl.value) || 0;
         var targetVal = parseInt(targetEl.value) || 0;
 
@@ -6894,6 +6974,7 @@ function saveGlobalTargets(count) {
                 productId: productId,
                 name: name,
                 brand: brand,
+                specs: specs,
                 min: minVal,
                 target: targetVal
             });
