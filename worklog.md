@@ -104,3 +104,4 @@ Stage Summary:
 - Registration status badges visible on location cards and product details
 - 588 lines of code added/modified in app.html
 - Production deployment at https://inventario-nuevo.vercel.app
+- NEW Vercel project created: inventario-control-tv → https://inventario-control-tv.vercel.app

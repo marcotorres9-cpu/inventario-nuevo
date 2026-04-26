@@ -5688,6 +5688,7 @@ function renderLocSpaceView(loc) {
         if (t4.productId) window._locGlobalModelTargets[t4.productId] = { target: t4.target || 0, min: t4.min || 0 };
     }
     var globalModelTargets = window._locGlobalModelTargets;
+    var totalFaltantesSpace = 0;
     for (var p = 0; p < products.length; p++) {
         totalQty += (products[p].qty || 0);
         var pQty = products[p].qty || 0;
@@ -5700,6 +5701,13 @@ function renderLocSpaceView(loc) {
         else if (pTgt > 0 && pTotalQty >= pTgt) { /* OK, target met */ }
         else if (pMin > 0 && pTotalQty < pMin) lowCount++;
         else if (pTgt > 0 && pTotalQty < pTgt) lowCount++;
+        // Calculate faltantes for this product
+        if (products[p].initialStock !== undefined && products[p].initialStock !== null) {
+            var pFlowCalc = computeProductFlowBySpace(loc, products[p].productId, currentIdx);
+            var pTotal = pFlowCalc.inicial + pFlowCalc.entradas;
+            var pFalt = pTotal - pFlowCalc.actual;
+            if (pFalt > 0) totalFaltantesSpace += pFalt;
+        }
     }
 
     // Space tabs with capacity indicators
@@ -5811,18 +5819,38 @@ function renderLocSpaceView(loc) {
             if (target > 0) minMaxHtml += '<div style="font-size:9px;color:var(--text3);">obj:' + prTotalQty + '/' + target + '</div>';
             else if (min > 0) minMaxHtml += '<div style="font-size:9px;color:var(--text3);">mín:' + min + '</div>';
 
-            // Inventory flow mini-indicator
-            var invFlowMini = '';
+            // Inventory slot visualization — show initial stock positions with empty/vacant for sold
+            var invSlotsHtml = '';
             if (pr.initialStock !== undefined && pr.initialStock !== null) {
                 var pFlow = computeProductFlowBySpace(loc, pr.productId, currentIdx);
-                if (pFlow.entradas > 0 || pFlow.salidas > 0) {
-                    invFlowMini = '<div style="font-size:9px;color:var(--text3);margin-top:1px;display:flex;gap:3px;align-items:center;">' +
-                        '<span style="color:var(--info);">' + pFlow.inicial + '</span>' +
-                        '<span>+<span style="color:var(--primary);">' + pFlow.entradas + '</span></span>' +
-                        '<span>-<span style="color:var(--danger);">' + pFlow.salidas + '</span></span>' +
-                        '<span>=<span style="color:var(--accent);font-weight:700;">' + pFlow.actual + '</span></span>' +
-                    '</div>';
+                var totalSlots = pFlow.inicial + pFlow.entradas;
+                var faltantes = totalSlots - pFlow.actual;
+                if (faltantes < 0) faltantes = 0;
+                
+                // Build visual slot grid (max 30 shown, then summary)
+                var maxShow = Math.min(totalSlots, 30);
+                var slotGrid = '';
+                for (var slot = 0; slot < maxShow; slot++) {
+                    if (slot < pFlow.actual) {
+                        // Present/available slot
+                        slotGrid += '<span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:var(--primary);margin:1px;box-shadow:0 1px 3px rgba(34,197,94,0.3);"></span>';
+                    } else {
+                        // Empty/sold slot
+                        slotGrid += '<span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:var(--danger);opacity:0.6;margin:1px;border:1px dashed var(--danger);"></span>';
+                    }
                 }
+                if (totalSlots > 30) {
+                    slotGrid += '<span style="font-size:9px;color:var(--text3);margin-left:4px;">+' + (totalSlots - 30) + '</span>';
+                }
+                
+                invSlotsHtml = '<div style="margin-top:3px;">' +
+                    '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:0;">' + slotGrid + '</div>' +
+                    '<div style="display:flex;gap:8px;margin-top:3px;font-size:10px;">' +
+                        '<span style="color:var(--primary);font-weight:600;">' + pFlow.actual + ' presentes</span>' +
+                        (faltantes > 0 ? '<span style="color:var(--danger);font-weight:600;">' + faltantes + ' faltantes</span>' : '<span style="color:var(--text3);">0 faltantes</span>') +
+                        '<span style="color:var(--text3);">de ' + totalSlots + '</span>' +
+                    '</div>' +
+                '</div>';
             }
 
             prodHtml += '<div style="display:flex;align-items:center;gap:6px;padding:9px 0;border-bottom:1px solid var(--border);' + (min > 0 && prTotalQty < min ? 'border-left:3px solid ' + statusColor + ';padding-left:6px;' : '') + ';transition:background 0.15s;' + (isChecked ? 'background:var(--primary);background:rgba(99,102,241,0.06);border-radius:8px;' : '') + '" data-prodidx="' + i + '">' +
@@ -5834,7 +5862,7 @@ function renderLocSpaceView(loc) {
                 '<div style="flex:1;min-width:0;">' +
                     '<div style="font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(pName) + '</div>' +
                     (locSpecsHtml ? '<div class="product-specs" style="margin-top:2px;">' + locSpecsHtml + '</div>' : '') +
-                    invFlowMini +
+                    invSlotsHtml +
                 '</div>' +
                 // Cargar / Descargar buttons
                 '<div style="display:flex;align-items:center;gap:2px;flex-shrink:0;">' +
@@ -5880,6 +5908,7 @@ function renderLocSpaceView(loc) {
             '<div class="loc-stat-item"><div class="loc-stat-num">' + spaces.length + '</div><div class="loc-stat-label">Espacios</div></div>' +
             '<div class="loc-stat-item"><div class="loc-stat-num">' + totalTypes + '</div><div class="loc-stat-label">Tipos</div></div>' +
             '<div class="loc-stat-item"><div class="loc-stat-num" style="color:var(--primary);">' + totalQty + '</div><div class="loc-stat-label">Unidades</div></div>' +
+            (totalFaltantesSpace > 0 ? '<div class="loc-stat-item"><div class="loc-stat-num" style="color:var(--danger);">' + totalFaltantesSpace + '</div><div class="loc-stat-label">Faltantes</div></div>' : '') +
         '</div>' +
         (curMinU > 0 || curMaxU > 0 ?
             '<div style="display:flex;align-items:center;gap:8px;margin-top:8px;padding:6px 12px;background:var(--bg2);border-radius:8px;font-size:11px;">' +
@@ -6466,7 +6495,25 @@ function openStockEdit(locId, spaceIdx, prodIdx) {
             (function() { var locs = getLocations(); for (var x = 0; x < locs.length; x++) { if (locs[x].spaces) { for (var y = 0; y < locs[x].spaces.length; y++) { var sp = locs[x].spaces[y]; for (var z = 0; z < (sp.products||[]).length; z++) { if (sp.products[z] === pr) return locs[x]; } } } } return null; })(),
             pr.productId, 0
         );
-        initialStockHtml = '<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:4px;margin-bottom:14px;text-align:center;">' +
+        var totalSlotsSe = flow.inicial + flow.entradas;
+        var faltantesSe = totalSlotsSe - flow.actual;
+        if (faltantesSe < 0) faltantesSe = 0;
+
+        // Slot visualization in stock edit modal
+        var slotGridSe = '';
+        var maxShowSe = Math.min(totalSlotsSe, 30);
+        for (var seSlot = 0; seSlot < maxShowSe; seSlot++) {
+            if (seSlot < flow.actual) {
+                slotGridSe += '<span style="display:inline-block;width:16px;height:16px;border-radius:3px;background:var(--primary);margin:1px;box-shadow:0 1px 3px rgba(34,197,94,0.3);"></span>';
+            } else {
+                slotGridSe += '<span style="display:inline-block;width:16px;height:16px;border-radius:3px;background:var(--danger);opacity:0.5;margin:1px;border:1px dashed var(--danger);"></span>';
+            }
+        }
+        if (totalSlotsSe > 30) {
+            slotGridSe += '<span style="font-size:10px;color:var(--text3);margin-left:4px;">+' + (totalSlotsSe - 30) + ' más</span>';
+        }
+
+        initialStockHtml = '<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:4px;margin-bottom:10px;text-align:center;">' +
             '<div style="background:var(--info-bg);border-radius:8px;padding:6px 2px;">' +
                 '<div style="font-size:14px;font-weight:800;color:var(--info);">' + initialStockVal + '</div>' +
                 '<div style="font-size:8px;color:var(--text3);text-transform:uppercase;">Inicial</div>' +
@@ -6482,6 +6529,15 @@ function openStockEdit(locId, spaceIdx, prodIdx) {
             '<div style="background:var(--bg2);border-radius:8px;padding:6px 2px;">' +
                 '<div style="font-size:14px;font-weight:800;color:var(--accent);">' + qty + '</div>' +
                 '<div style="font-size:8px;color:var(--text3);text-transform:uppercase;">Actual</div>' +
+            '</div>' +
+        '</div>' +
+        // Slot grid visualization
+        '<div style="background:var(--bg2);border-radius:10px;padding:10px;margin-bottom:10px;">' +
+            '<div style="display:flex;flex-wrap:wrap;gap:0;">' + slotGridSe + '</div>' +
+            '<div style="display:flex;justify-content:space-between;margin-top:6px;font-size:11px;">' +
+                '<span style="color:var(--primary);font-weight:600;">' + flow.actual + ' presentes</span>' +
+                (faltantesSe > 0 ? '<span style="color:var(--danger);font-weight:600;">' + faltantesSe + ' faltantes (vendidos)</span>' : '<span style="color:var(--text3);">0 faltantes</span>') +
+                '<span style="color:var(--text3);">de ' + totalSlotsSe + '</span>' +
             '</div>' +
         '</div>';
     } else {
@@ -6587,10 +6643,8 @@ function saveStockEdit(locId, spaceIdx, prodIdx) {
                     spaceName: locs[i].spaces[spaceIdx].name || '',
                     qty: Math.abs(diff)
                 });
-                // Auto-remove if qty hits 0
-                if (newQty === 0) {
-                    locs[i].spaces[spaceIdx].products.splice(prodIdx, 1);
-                }
+                // Keep product even if qty hits 0 — show as agotado so faltantes are visible
+                // if (newQty === 0) { locs[i].spaces[spaceIdx].products.splice(prodIdx, 1); }
             }
             break;
         }
@@ -6864,10 +6918,8 @@ function executeDescarga(locId, spaceIdx, prodIdx) {
                 qty: subQty
             });
 
-            // Auto-remove if qty hits 0
-            if (newQty === 0) {
-                locs2[j].spaces[spaceIdx].products.splice(prodIdx, 1);
-            }
+            // Keep product even if qty hits 0 — show as agotado so user can see what was sold
+            // NO auto-remove: the product stays visible with qty=0 so faltantes are tracked
             break;
         }
     }
@@ -7206,10 +7258,10 @@ function executeBatchSell() {
             totalSale: sellQty * salePrice
         });
 
-        // Auto-remove if qty hits 0
-        if (pr.qty === 0) {
-            locs[locIdx].spaces[_locCurrentSpace].products.splice(idx, 1);
-        }
+        // Keep product even if qty hits 0 — show as agotado so faltantes are visible
+        // if (pr.qty === 0) {
+        //     locs[locIdx].spaces[_locCurrentSpace].products.splice(idx, 1);
+        // }
     }
 
     locs[locIdx].updatedAt = new Date().toISOString();
@@ -8935,10 +8987,10 @@ function changeSpaceQty(locId, spaceIdx, prodIdx, delta) {
             if (prod) {
                 prod.qty = (prod.qty || 0) + delta;
                 if (prod.qty < 0) prod.qty = 0;
-                if (prod.qty === 0) {
-                    // Remove product when qty reaches 0
-                    locs[i].spaces[spaceIdx].products.splice(prodIdx, 1);
-                }
+                // Keep product even if qty reaches 0 — show as agotado so faltantes are visible
+                // if (prod.qty === 0) {
+                //     locs[i].spaces[spaceIdx].products.splice(prodIdx, 1);
+                // }
             }
             locs[i].updatedAt = new Date().toISOString();
             break;
@@ -11250,6 +11302,7 @@ function renderInventoryControl(loc) {
     var totalProducts = 0;
     var registeredCount = 0;
     var allProductFlows = [];
+    var totalFaltantes = 0;
 
     for (var s = 0; s < spaces.length; s++) {
         var prods = spaces[s].products || [];
@@ -11277,6 +11330,11 @@ function renderInventoryControl(loc) {
                 } catch(e) {}
             }
 
+            var totalSlots = flow.inicial + flow.entradas;
+            var faltantes = totalSlots - flow.actual;
+            if (faltantes < 0) faltantes = 0;
+            totalFaltantes += faltantes;
+
             allProductFlows.push({
                 spaceIdx: s,
                 spaceName: spaces[s].name || ('Espacio ' + (s+1)),
@@ -11287,26 +11345,54 @@ function renderInventoryControl(loc) {
                 inicial: flow.inicial,
                 entradas: flow.entradas,
                 salidas: flow.salidas,
-                actual: flow.actual
+                actual: flow.actual,
+                totalSlots: totalSlots,
+                faltantes: faltantes
             });
         }
     }
 
-    // Summary stats
+    // Summary stats — 3 columns: registered, pending, faltantes
     var pendingCount = totalProducts - registeredCount;
-    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;">';
+    html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:14px;">';
     html += '<div style="background:var(--primary-bg);border:1px solid rgba(34,197,94,0.2);border-radius:10px;padding:10px;text-align:center;">';
     html += '<div style="font-size:20px;font-weight:800;color:var(--primary);">' + registeredCount + '</div>';
-    html += '<div style="font-size:10px;color:var(--text3);">Con Inv. Inicial</div>';
+    html += '<div style="font-size:9px;color:var(--text3);">Con Inv. Inicial</div>';
     html += '</div>';
     html += '<div style="background:' + (pendingCount > 0 ? 'var(--warning-bg)' : 'var(--bg2)') + ';border:1px solid ' + (pendingCount > 0 ? 'rgba(245,158,11,0.2)' : 'var(--border)') + ';border-radius:10px;padding:10px;text-align:center;">';
     html += '<div style="font-size:20px;font-weight:800;color:' + (pendingCount > 0 ? 'var(--warning)' : 'var(--text3)') + ';">' + pendingCount + '</div>';
-    html += '<div style="font-size:10px;color:var(--text3);">Sin Registrar</div>';
+    html += '<div style="font-size:9px;color:var(--text3);">Sin Registrar</div>';
+    html += '</div>';
+    html += '<div style="background:' + (totalFaltantes > 0 ? 'var(--danger-bg)' : 'var(--bg2)') + ';border:1px solid ' + (totalFaltantes > 0 ? 'rgba(239,68,68,0.2)' : 'var(--border)') + ';border-radius:10px;padding:10px;text-align:center;">';
+    html += '<div style="font-size:20px;font-weight:800;color:' + (totalFaltantes > 0 ? 'var(--danger)' : 'var(--text3)') + ';">' + totalFaltantes + '</div>';
+    html += '<div style="font-size:9px;color:var(--text3);">Faltantes</div>';
     html += '</div>';
     html += '</div>';
 
     if (pendingCount > 0) {
         html += '<div class="inv-warning-bar">⚠️ ' + pendingCount + ' producto' + (pendingCount > 1 ? 's' : '') + ' sin inventario inicial registrado. Regístralo para un control completo.</div>';
+    }
+
+    // FALTANTES SECTION — show what was sold/missing
+    if (totalFaltantes > 0) {
+        html += '<div style="background:var(--danger-bg);border:1px solid rgba(239,68,68,0.25);border-radius:12px;padding:12px;margin-bottom:14px;">';
+        html += '<div style="font-size:13px;font-weight:800;color:var(--danger);margin-bottom:8px;">🔴 Faltantes — Lo que se vendió</div>';
+        for (var ff = 0; ff < allProductFlows.length; ff++) {
+            var pf2 = allProductFlows[ff];
+            if (pf2.faltantes > 0) {
+                html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(239,68,68,0.15);">';
+                html += '<div style="flex:1;min-width:0;">';
+                html += '<div style="font-size:12px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(pf2.name) + '</div>';
+                html += '<div style="font-size:10px;color:var(--text3);">' + escapeHtml(pf2.spaceName) + '</div>';
+                html += '</div>';
+                html += '<div style="text-align:right;flex-shrink:0;margin-left:8px;">';
+                html += '<div style="font-size:16px;font-weight:800;color:var(--danger);">-' + pf2.faltantes + '</div>';
+                html += '<div style="font-size:9px;color:var(--text3);">de ' + pf2.totalSlots + '</div>';
+                html += '</div>';
+                html += '</div>';
+            }
+        }
+        html += '</div>';
     }
 
     if (allProductFlows.length === 0) {
@@ -11327,18 +11413,16 @@ function renderInventoryControl(loc) {
                 html += '<div>';
             }
 
-            // Flow card for each product
-            var totalMov = pf.entradas + pf.salidas;
-            var inPct = totalMov > 0 ? Math.round((pf.entradas / totalMov) * 100) : 50;
-            var outPct = totalMov > 0 ? Math.round((pf.salidas / totalMov) * 100) : 50;
-
+            // Flow card for each product — with slot visualization
             html += '<div class="inv-flow-card">';
             html += '<div class="inv-flow-card-header">';
             html += '<div class="inv-flow-card-title">' + (pf.hasInitial ? '' : '⏳ ') + escapeHtml(pf.name) + '</div>';
             if (!pf.hasInitial) {
                 html += '<span class="inv-initial-badge pending">Sin registro</span>';
+            } else if (pf.faltantes > 0) {
+                html += '<span style="background:var(--danger-bg);color:var(--danger);font-size:10px;font-weight:700;padding:2px 8px;border-radius:8px;">-' + pf.faltantes + ' faltante' + (pf.faltantes > 1 ? 's' : '') + '</span>';
             } else {
-                html += '<span class="inv-initial-badge registered">✅ Registrado</span>';
+                html += '<span class="inv-initial-badge registered">✅ Completo</span>';
             }
             html += '</div>';
             if (pf.specs) html += '<div style="margin-bottom:8px;">' + pf.specs + '</div>';
@@ -11349,11 +11433,27 @@ function renderInventoryControl(loc) {
             html += '<div class="inv-flow-item actual"><div class="inv-flow-item-num">' + pf.actual + '</div><div class="inv-flow-item-label">Actual</div></div>';
             html += '</div>';
 
-            // Flow bar visualization
-            if (totalMov > 0) {
-                html += '<div class="inv-flow-bar">';
-                html += '<div class="inv-flow-bar-in" style="width:' + inPct + '%;"></div>';
-                html += '<div class="inv-flow-bar-out" style="width:' + outPct + '%;"></div>';
+            // Visual slot grid for this product
+            if (pf.hasInitial && pf.totalSlots > 0) {
+                var maxShowCtrl = Math.min(pf.totalSlots, 40);
+                var slotGridCtrl = '';
+                for (var sc = 0; sc < maxShowCtrl; sc++) {
+                    if (sc < pf.actual) {
+                        slotGridCtrl += '<span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:var(--primary);margin:1px;"></span>';
+                    } else {
+                        slotGridCtrl += '<span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:var(--danger);opacity:0.5;margin:1px;border:1px dashed var(--danger);"></span>';
+                    }
+                }
+                if (pf.totalSlots > 40) {
+                    slotGridCtrl += '<span style="font-size:9px;color:var(--text3);margin-left:3px;">+' + (pf.totalSlots - 40) + '</span>';
+                }
+                html += '<div style="margin-top:8px;">';
+                html += '<div style="display:flex;flex-wrap:wrap;gap:0;">' + slotGridCtrl + '</div>';
+                html += '<div style="display:flex;justify-content:space-between;margin-top:4px;font-size:10px;">';
+                html += '<span style="color:var(--primary);">' + pf.actual + ' presentes</span>';
+                html += '<span style="color:var(--danger);">' + pf.faltantes + ' faltantes</span>';
+                html += '<span style="color:var(--text3);">de ' + pf.totalSlots + '</span>';
+                html += '</div>';
                 html += '</div>';
             }
 
