@@ -1018,52 +1018,82 @@
     <!-- ===== PRODUCTS SECTION ===== -->
     <div id="productsSection" class="section">
         <div class="main">
-            <div class="search-bar">
-                <input type="text" id="searchInput" class="search-input" placeholder="🔍 Buscar producto..." oninput="renderProductList()">
-            </div>
-            <!-- Cascading filter bar -->
-            <div id="productFilterBar" style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;">
-                <div class="filter-chip-wrap">
-                    <button class="filter-chip" id="chipFilterCat" onclick="toggleFilterDropdown('fcat')">📂 Categoría</button>
-                    <div class="filter-chip-dropdown" id="ddFcat"></div>
+            <!-- Header with title + buttons -->
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+                <h2 style="font-size:22px;font-weight:800;">📋 Catálogo</h2>
+                <div style="display:flex;gap:6px;">
+                    <button class="btn btn-outline btn-sm" id="btnGICatalogView" onclick="toggleGICatalogView()" style="font-size:12px;">📦 Espacios</button>
+                    <button class="btn btn-primary btn-sm" onclick="openAddProduct()">+ Nuevo Producto</button>
                 </div>
-                <div class="filter-chip-wrap">
-                    <button class="filter-chip" id="chipFilterBrand" onclick="toggleFilterDropdown('fbrand')">🏷️ Marca</button>
-                    <div class="filter-chip-dropdown" id="ddFbrand"></div>
-                </div>
-                <div class="filter-chip-wrap">
-                    <button class="filter-chip" id="chipFilterColor" onclick="toggleFilterDropdown('fcolor')">🎨 Color</button>
-                    <div class="filter-chip-dropdown" id="ddFcolor"></div>
-                </div>
-                <div class="filter-chip-wrap">
-                    <button class="filter-chip" id="chipFilterSpec" onclick="toggleFilterDropdown('fspec')">⚙️ Specs</button>
-                    <div class="filter-chip-dropdown" id="ddFspec"></div>
-                </div>
-                <button class="filter-chip" onclick="clearProductFilters()" style="color:var(--danger);font-weight:700;">✕</button>
             </div>
-            <!-- Sort bar -->
-            <div id="productSortBar" style="display:flex;gap:6px;margin-bottom:10px;align-items:center;flex-wrap:wrap;">
-                <span style="font-size:11px;color:#888;white-space:nowrap;">⬇️ Ordenar:</span>
-                <select id="sortField" class="input" style="flex:1;min-width:100px;font-size:12px;padding:6px 8px;" onchange="renderProductList()">
-                    <option value="">Sin ordenar</option>
-                    <option value="price_asc">Precio: menor a mayor</option>
-                    <option value="price_desc">Precio: mayor a menor</option>
-                    <option value="name_asc">Nombre: A-Z</option>
-                    <option value="name_desc">Nombre: Z-A</option>
-                    <option value="brand_asc">Marca: A-Z</option>
-                    <option value="category_asc">Categoría: A-Z</option>
-                    <option value="stock_asc">Stock: menor a mayor</option>
-                    <option value="stock_desc">Stock: mayor a menor</option>
-                    <option value="color_asc">Color: A-Z</option>
-                    <option value="cost_asc">Costo: menor a mayor</option>
-                    <option value="cost_desc">Costo: mayor a menor</option>
-                </select>
+
+            <!-- CATALOG VIEW (default) -->
+            <div id="giCatalogMain">
+                <div class="search-bar">
+                    <input type="text" id="searchInput" class="search-input" placeholder="🔍 Buscar producto..." oninput="renderProductList()">
+                </div>
+                <!-- Cascading filter bar -->
+                <div id="productFilterBar" style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;">
+                    <div class="filter-chip-wrap">
+                        <button class="filter-chip" id="chipFilterCat" onclick="toggleFilterDropdown('fcat')">📂 Categoría</button>
+                        <div class="filter-chip-dropdown" id="ddFcat"></div>
+                    </div>
+                    <div class="filter-chip-wrap">
+                        <button class="filter-chip" id="chipFilterBrand" onclick="toggleFilterDropdown('fbrand')">🏷️ Marca</button>
+                        <div class="filter-chip-dropdown" id="ddFbrand"></div>
+                    </div>
+                    <div class="filter-chip-wrap">
+                        <button class="filter-chip" id="chipFilterColor" onclick="toggleFilterDropdown('fcolor')">🎨 Color</button>
+                        <div class="filter-chip-dropdown" id="ddFcolor"></div>
+                    </div>
+                    <div class="filter-chip-wrap">
+                        <button class="filter-chip" id="chipFilterSpec" onclick="toggleFilterDropdown('fspec')">⚙️ Specs</button>
+                        <div class="filter-chip-dropdown" id="ddFspec"></div>
+                    </div>
+                    <button class="filter-chip" onclick="clearProductFilters()" style="color:var(--danger);font-weight:700;">✕</button>
+                </div>
+                <!-- Sort bar -->
+                <div id="productSortBar" style="display:flex;gap:6px;margin-bottom:10px;align-items:center;flex-wrap:wrap;">
+                    <span style="font-size:11px;color:#888;white-space:nowrap;">⬇️ Ordenar:</span>
+                    <select id="sortField" class="input" style="flex:1;min-width:100px;font-size:12px;padding:6px 8px;" onchange="renderProductList()">
+                        <option value="">Sin ordenar</option>
+                        <option value="price_asc">Precio: menor a mayor</option>
+                        <option value="price_desc">Precio: mayor a menor</option>
+                        <option value="name_asc">Nombre: A-Z</option>
+                        <option value="name_desc">Nombre: Z-A</option>
+                        <option value="brand_asc">Marca: A-Z</option>
+                        <option value="category_asc">Categoría: A-Z</option>
+                        <option value="stock_asc">Stock: menor a mayor</option>
+                        <option value="stock_desc">Stock: mayor a menor</option>
+                        <option value="color_asc">Color: A-Z</option>
+                        <option value="cost_asc">Costo: menor a mayor</option>
+                        <option value="cost_desc">Costo: mayor a menor</option>
+                    </select>
+                </div>
+                <div style="display:flex;gap:8px;margin-bottom:14px;">
+                    <button class="btn btn-primary btn-sm" onclick="openAddProduct()" style="flex:1;">➕ Nuevo Producto</button>
+                    <button class="btn btn-outline btn-sm" onclick="exportProductsExcel()" style="white-space:nowrap;font-size:12px;">📥 Excel</button>
+                </div>
+                <div id="productList"></div>
             </div>
-            <div style="display:flex;gap:8px;margin-bottom:14px;">
-                <button class="btn btn-primary btn-sm" onclick="openAddProduct()" style="flex:1;">➕ Nuevo Producto</button>
-                <button class="btn btn-outline btn-sm" onclick="exportProductsExcel()" style="white-space:nowrap;font-size:12px;">📥 Excel</button>
+
+            <!-- SPACES VIEW (hidden by default) -->
+            <div id="giSpacesView" style="display:none;">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+                    <div class="loc-back" onclick="toggleGICatalogView()" style="margin-bottom:0;">← Catálogo</div>
+                    <button class="btn btn-primary btn-sm" onclick="openGICreateSpace()" style="font-size:12px;">+ Nuevo Espacio</button>
+                </div>
+                <div id="giSearchBar" style="margin-bottom:10px;position:relative;">
+                    <input type="text" id="giSpaceSearch" class="input" placeholder="🔍 Buscar espacio..." oninput="filterGASpaces()" style="font-size:13px;padding:10px 14px;width:100%;box-sizing:border-box;">
+                </div>
+                <div id="giSpacesList"></div>
+                <div id="giEmptyState" style="text-align:center;padding:40px 20px;display:none;">
+                    <div style="font-size:48px;margin-bottom:12px;">📦</div>
+                    <div style="color:var(--text2);font-size:14px;margin-bottom:16px;">Aún no tienes espacios en el catálogo</div>
+                    <button class="btn btn-primary" onclick="openGICreateSpace()" style="width:auto;display:inline-flex;">+ Agregar Espacio</button>
+                </div>
+                <div id="giSpaceView" style="display:none;"></div>
             </div>
-            <div id="productList"></div>
         </div>
     </div>
 
@@ -1080,28 +1110,6 @@
                     <div class="empty-text">Crea una nueva cotización o consulta las guardadas</div>
                 </div>
             </div>
-        </div>
-    </div>
-
-    <!-- ===== GENERAL INVENTORY SECTION ===== -->
-    <div id="inventorySection" class="section">
-        <div class="main">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-                <h2 style="font-size:22px;font-weight:800;">📦 Inventario General</h2>
-                <div style="display:flex;gap:6px;">
-                    <button class="btn btn-primary btn-sm" onclick="openGICreateSpace()">+ Nuevo Espacio</button>
-                </div>
-            </div>
-            <div id="giSearchBar" style="margin-bottom:10px;position:relative;">
-                <input type="text" id="giSpaceSearch" class="input" placeholder="🔍 Buscar espacio..." oninput="filterGASpaces()" style="font-size:13px;padding:10px 14px;width:100%;box-sizing:border-box;">
-            </div>
-            <div id="giSpacesList"></div>
-            <div id="giEmptyState" style="text-align:center;padding:40px 20px;display:none;">
-                <div style="font-size:48px;margin-bottom:12px;">📦</div>
-                <div style="color:var(--text2);font-size:14px;margin-bottom:16px;">Aún no tienes espacios de inventario general</div>
-                <button class="btn btn-primary" onclick="openGICreateSpace()" style="width:auto;display:inline-flex;">+ Agregar Espacio</button>
-            </div>
-            <div id="giSpaceView" style="display:none;"></div>
         </div>
     </div>
 
@@ -1275,10 +1283,6 @@
         <button class="nav-item" id="navLocations" onclick="switchSection('locations')">
             <span class="nav-icon">🏪</span>
             <span>Locales</span>
-        </button>
-        <button class="nav-item" id="navInventory" onclick="switchSection('inventory')">
-            <span class="nav-icon">📦</span>
-            <span>Inventario</span>
         </button>
         <button class="nav-item" id="navConfig" onclick="switchSection('config')">
             <span class="nav-icon">⚙️</span>
@@ -2383,7 +2387,7 @@ function applyTheme(theme) {
 // NAVIGATION
 // ====================================================================
 function switchSection(name) {
-    var sections = ['dashboard', 'products', 'quotation', 'locations', 'inventory', 'config'];
+    var sections = ['dashboard', 'products', 'quotation', 'locations', 'config'];
     for (var i = 0; i < sections.length; i++) {
         var el = document.getElementById(sections[i] + 'Section');
         if (el) el.classList.remove('active');
@@ -2396,9 +2400,8 @@ function switchSection(name) {
     if (navBtn) navBtn.classList.add('active');
 
     if (name === 'dashboard') updateDashboard();
-    if (name === 'products') { renderProductList(); populateProductFilterDropdowns(); }
+    if (name === 'products') { _giViewMode = 'catalog'; renderProductList(); populateProductFilterDropdowns(); }
     if (name === 'locations') renderLocations();
-    if (name === 'inventory') renderGI();
     if (name === 'config') { renderCategories(); renderBrands(); renderColors(); renderUsers(); loadServerConfigUI(); }
 }
 
@@ -12315,6 +12318,30 @@ function openCruceSelector() {
 // GENERAL INVENTORY MODULE
 // ====================================================================
 var _giCurrentSpaceIdx = 0;
+var _giViewMode = 'catalog'; // 'catalog' or 'spaces'
+
+function toggleGICatalogView() {
+    var catalogEl = document.getElementById('giCatalogMain');
+    var spacesEl = document.getElementById('giSpacesView');
+    var btn = document.getElementById('btnGICatalogView');
+    if (_giViewMode === 'catalog') {
+        // Switch to spaces view
+        _giViewMode = 'spaces';
+        catalogEl.style.display = 'none';
+        spacesEl.style.display = 'block';
+        if (btn) { btn.textContent = '📋 Catálogo'; }
+        renderGI();
+    } else {
+        // Switch back to catalog view
+        _giViewMode = 'catalog';
+        catalogEl.style.display = 'block';
+        spacesEl.style.display = 'none';
+        if (btn) { btn.textContent = '📦 Espacios'; }
+        // Reset space view
+        var spaceView = document.getElementById('giSpaceView');
+        if (spaceView) { spaceView.style.display = 'none'; spaceView.innerHTML = ''; }
+    }
+}
 
 function renderGI() {
     var spaces = getGeneralInventory();
@@ -12725,7 +12752,8 @@ function exitGISpace() {
     spaceView.style.display = 'none';
     spaceView.innerHTML = '';
     container.style.display = 'block';
-    searchBar.style.display = 'block';
+    if (emptyEl) emptyEl.style.display = 'block';
+    if (searchBar) searchBar.style.display = 'block';
     renderGI();
 }
 
