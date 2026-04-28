@@ -3681,7 +3681,7 @@ function renderProductList() {
 // ====================================================================
 // FILTER CHIP SYSTEM — replaces native <select> in filter bars
 // ====================================================================
-var _filterChipState = { fcat: '', fbrand: '', fcolor: '', fspec: '', spcat: '', spbrand: '', spcolor: '', spspec: '', locbrand: '', locspec: '', crucebrand: '', crucespec: '' };
+var _filterChipState = { fcat: '', fbrand: '', fcolor: '', fspec: '', spcat: '', spbrand: '', spcolor: '', spspec: '', locbrand: '', locspec: '', crucebrand: '', crucespec: '', crucespace: '', crucestatus: '' };
 var _openChipDropdown = null;
 
 function toggleFilterDropdown(key) {
@@ -3699,14 +3699,19 @@ function toggleFilterDropdown(key) {
     var chipMap = { fcat: 'chipFilterCat', fbrand: 'chipFilterBrand', fcolor: 'chipFilterColor', fspec: 'chipFilterSpec',
                     spcat: 'chipSpCat', spbrand: 'chipSpBrand', spcolor: 'chipSpColor', spspec: 'chipSpSpec',
                     locbrand: 'chipLocBrand', locspec: 'chipLocSpec',
-                    crucebrand: 'chipCruceBrand', crucespec: 'chipCruceSpec' };
+                    crucebrand: 'chipCruceBrand', crucespec: 'chipCruceSpec',
+                    crucespace: 'chipCruceSpace', crucestatus: 'chipCruceStatus' };
     var btn = document.getElementById(chipMap[key]);
     if (!btn) return;
 
     // For loc/cruce prefix, use space products instead of catalog
     var isLoc = key.indexOf('loc') === 0;
     var isCruce = key.indexOf('cruce') === 0;
-    if (isLoc || isCruce) {
+    if (key === 'crucespace') {
+        populateCruceSpaceDropdown(key, overlay);
+    } else if (key === 'crucestatus') {
+        populateCruceStatusDropdown(key, overlay);
+    } else if (isLoc || isCruce) {
         populateLocChipDropdown(key, overlay);
     } else {
         populateChipDropdown(key, overlay);
@@ -3861,6 +3866,53 @@ function populateLocChipDropdown(key, overlay) {
     overlay.innerHTML = html;
 }
 
+function populateCruceSpaceDropdown(key, overlay) {
+    if (!overlay) return;
+    var current = _filterChipState[key] || '';
+    var locs = getLocations();
+    var loc = null;
+    for (var i = 0; i < locs.length; i++) {
+        if (locs[i].id === _cruceLocId) { loc = locs[i]; break; }
+    }
+    var spaces = loc ? (loc.spaces || []) : [];
+    var options = [];
+    for (var si = 0; si < spaces.length; si++) {
+        var sName = spaces[si].name || ('Espacio ' + (si + 1));
+        var sCount = (spaces[si].products || []).length;
+        options.push({ val: String(si), label: sName + ' (' + sCount + ')' });
+    }
+    var html = '';
+    for (var j = 0; j < options.length; j++) {
+        var sel = current === options[j].val ? ' selected' : '';
+        html += '<div class="filter-chip-opt' + sel + '" data-val="' + escapeHtml(options[j].val) + '" onclick="selectChipValue(\'' + key + '\',\'' + escapeHtml(options[j].val).replace(/'/g, "\\'") + '\')">' +
+            escapeHtml(options[j].label) + '<span class="chip-check">✓</span></div>';
+    }
+    if (options.length === 0) {
+        html = '<div style="padding:14px;text-align:center;color:var(--text3);font-size:11px;">Sin espacios</div>';
+    }
+    overlay.innerHTML = html;
+}
+
+function populateCruceStatusDropdown(key, overlay) {
+    if (!overlay) return;
+    var current = _filterChipState[key] || '';
+    var options = [
+        { val: 'all', label: '📋 Todos' },
+        { val: 'withCount', label: '🔢 Solo con conteo' },
+        { val: 'noCount', label: '⬜ Solo sin conteo' },
+        { val: 'diff', label: '⚠️ Solo diferencias' },
+        { val: 'missing', label: '🔴 Solo faltantes' },
+        { val: 'excess', label: '🔵 Solo sobrantes' }
+    ];
+    var html = '';
+    for (var j = 0; j < options.length; j++) {
+        var sel = current === options[j].val ? ' selected' : '';
+        html += '<div class="filter-chip-opt' + sel + '" data-val="' + escapeHtml(options[j].val) + '" onclick="selectChipValue(\'' + key + '\',\'' + options[j].val + '\')">' +
+            options[j].label + '<span class="chip-check">✓</span></div>';
+    }
+    overlay.innerHTML = html;
+}
+
 function selectChipValue(key, value) {
     _filterChipState[key] = value;
 
@@ -3868,11 +3920,13 @@ function selectChipValue(key, value) {
     var chipMap = { fcat: 'chipFilterCat', fbrand: 'chipFilterBrand', fcolor: 'chipFilterColor', fspec: 'chipFilterSpec',
                     spcat: 'chipSpCat', spbrand: 'chipSpBrand', spcolor: 'chipSpColor', spspec: 'chipSpSpec',
                     locbrand: 'chipLocBrand', locspec: 'chipLocSpec',
-                    crucebrand: 'chipCruceBrand', crucespec: 'chipCruceSpec' };
+                    crucebrand: 'chipCruceBrand', crucespec: 'chipCruceSpec',
+                    crucespace: 'chipCruceSpace', crucestatus: 'chipCruceStatus' };
     var labelMap = { fcat: '📂 Categoría', fbrand: '🏷️ Marca', fcolor: '🎨 Color', fspec: '⚙️ Specs',
                      spcat: '📂 Cat.', spbrand: '🏷️ Marca', spcolor: '🎨 Color', spspec: '⚙️ Specs',
                      locbrand: '🏷️ Marca', locspec: '⚙️ Specs',
-                     crucebrand: '🏷️ Marca', crucespec: '⚙️ Specs' };
+                     crucebrand: '🏷️ Marca', crucespec: '⚙️ Specs',
+                     crucespace: '📦 Espacio', crucestatus: '📋 Estado' };
     var chip = document.getElementById(chipMap[key]);
     if (chip) {
         chip.textContent = (labelMap[key] || '') + ': ' + value;
@@ -11738,8 +11792,8 @@ function renderCruceForm(locId) {
     // Reset cruce filter state
     _filterChipState.crucebrand = '';
     _filterChipState.crucespec = '';
-    window._cruceSpaceFilter = '';
-    window._cruceStatusFilter = 'all';
+    _filterChipState.crucespace = '';
+    _filterChipState.crucestatus = '';
 
     // Filter chips + search bar
     html += '<div style="display:flex;gap:6px;margin:0 14px 8px;flex-wrap:wrap;align-items:center;">';
@@ -11752,26 +11806,14 @@ function renderCruceForm(locId) {
     html += '<button class="filter-chip" onclick="clearCruceFilters()" style="font-size:11px;padding:5px 8px;color:var(--danger);font-weight:700;">✕</button>';
     html += '</div>';
 
-    // Pro filters: Space selector + Status filter
-    html += '<div style="display:flex;gap:8px;margin:0 14px 8px;flex-wrap:wrap;">';
-    // Space selector dropdown
-    html += '<select id="cruceSpaceFilter" onchange="filterCruceProducts()" style="flex:1;min-width:120px;font-size:12px;padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg2);color:var(--text);box-sizing:border-box;">';
-    html += '<option value="">📦 Todos los espacios</option>';
-    for (var sfi = 0; sfi < spaces.length; sfi++) {
-        var sfName = spaces[sfi].name || ('Espacio ' + (sfi + 1));
-        var sfCount = (spaces[sfi].products || []).length;
-        html += '<option value="' + sfi + '">' + escapeHtml(sfName) + ' (' + sfCount + ')</option>';
-    }
-    html += '</select>';
-    // Status filter dropdown
-    html += '<select id="cruceStatusFilter" onchange="filterCruceProducts()" style="flex:1;min-width:140px;font-size:12px;padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg2);color:var(--text);box-sizing:border-box;">';
-    html += '<option value="all">📋 Todos</option>';
-    html += '<option value="withCount">🔢 Solo con conteo</option>';
-    html += '<option value="noCount">⬜ Solo sin conteo</option>';
-    html += '<option value="diff">⚠️ Solo diferencias</option>';
-    html += '<option value="missing">🔴 Solo faltantes</option>';
-    html += '<option value="excess">🔵 Solo sobrantes</option>';
-    html += '</select>';
+    // Pro filters: Space selector + Status filter (chip style)
+    html += '<div style="display:flex;gap:6px;margin:0 14px 8px;flex-wrap:wrap;align-items:center;">';
+    html += '<div class="filter-chip-wrap">';
+    html += '<button class="filter-chip" id="chipCruceSpace" onclick="toggleFilterDropdown(\'crucespace\')" style="font-size:11px;padding:5px 8px;">📦 Espacio</button>';
+    html += '</div>';
+    html += '<div class="filter-chip-wrap">';
+    html += '<button class="filter-chip" id="chipCruceStatus" onclick="toggleFilterDropdown(\'crucestatus\')" style="font-size:11px;padding:5px 8px;">📋 Estado</button>';
+    html += '</div>';
     html += '</div>';
 
     html += '<div style="margin:0 14px 10px;position:relative;">';
@@ -11911,11 +11953,9 @@ function filterCruceProducts() {
     var allItems = window._cruceAllProducts || [];
     var filtered = [];
 
-    // Read pro filter values
-    var spaceFilterEl = document.getElementById('cruceSpaceFilter');
-    var spaceFilter = spaceFilterEl ? spaceFilterEl.value : '';
-    var statusFilterEl = document.getElementById('cruceStatusFilter');
-    var statusFilter = statusFilterEl ? statusFilterEl.value : 'all';
+    // Read pro filter values from chip state
+    var spaceFilter = _filterChipState.crucespace || '';
+    var statusFilter = _filterChipState.crucestatus || 'all';
 
     for (var i = 0; i < allItems.length; i++) {
         var item = allItems[i];
@@ -11993,17 +12033,18 @@ function filterCruceProducts() {
 function clearCruceFilters() {
     _filterChipState.crucebrand = '';
     _filterChipState.crucespec = '';
+    _filterChipState.crucespace = '';
+    _filterChipState.crucestatus = '';
     var chipBrand = document.getElementById('chipCruceBrand');
     var chipSpec = document.getElementById('chipCruceSpec');
+    var chipSpace = document.getElementById('chipCruceSpace');
+    var chipStatus = document.getElementById('chipCruceStatus');
     if (chipBrand) { chipBrand.textContent = '🏷️ Marca'; chipBrand.classList.remove('active'); }
     if (chipSpec) { chipSpec.textContent = '⚙️ Specs'; chipSpec.classList.remove('active'); }
+    if (chipSpace) { chipSpace.textContent = '📦 Espacio'; chipSpace.classList.remove('active'); }
+    if (chipStatus) { chipStatus.textContent = '📋 Estado'; chipStatus.classList.remove('active'); }
     var searchEl = document.getElementById('cruceSearchInput');
     if (searchEl) searchEl.value = '';
-    // Reset pro filters
-    var spaceEl = document.getElementById('cruceSpaceFilter');
-    if (spaceEl) spaceEl.value = '';
-    var statusEl = document.getElementById('cruceStatusFilter');
-    if (statusEl) statusEl.value = 'all';
     filterCruceProducts();
 }
 
@@ -12036,8 +12077,7 @@ function updateCruceCard(si, pi) {
     updateCruceSummary();
 
     // If status filter is active, re-apply to show/hide based on new count
-    var statusFilterEl = document.getElementById('cruceStatusFilter');
-    var statusFilter = statusFilterEl ? statusFilterEl.value : 'all';
+    var statusFilter = _filterChipState.crucestatus || 'all';
     if (statusFilter !== 'all') {
         filterCruceProducts();
     }
