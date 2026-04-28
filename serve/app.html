@@ -330,6 +330,18 @@
         .loc-stat-item { flex: 1; background: var(--bg2); border-radius: var(--radius); padding: 10px; text-align: center; }
         .loc-stat-num { font-size: 20px; font-weight: 800; color: var(--primary); }
         .loc-stat-label { font-size: 11px; color: var(--text2); margin-top: 2px; }
+
+        /* General Inventory */
+        .gi-space-tab { display: inline-block; padding: 8px 16px; border-radius: 10px; font-size: 13px; font-weight: 600; cursor: pointer; background: var(--bg2); color: var(--text2); border: 1px solid var(--border); margin: 0 4px 8px 0; transition: all 0.15s; }
+        .gi-space-tab.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+        .gi-space-tab:active { transform: scale(0.95); }
+        .gi-product-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; margin-bottom: 8px; }
+        .gi-product-card:hover { border-color: var(--primary); }
+        .gi-stat-row { display: flex; gap: 10px; margin-top: 10px; }
+        .gi-stat-item { flex: 1; background: var(--bg2); border-radius: var(--radius); padding: 10px; text-align: center; }
+        .gi-stat-num { font-size: 20px; font-weight: 800; color: var(--primary); }
+        .gi-stat-label { font-size: 11px; color: var(--text2); margin-top: 2px; }
+
         .loc-product-row {
             display: flex; align-items: center; justify-content: space-between;
             padding: 12px 0; border-bottom: 1px solid var(--border);
@@ -1071,6 +1083,28 @@
         </div>
     </div>
 
+    <!-- ===== GENERAL INVENTORY SECTION ===== -->
+    <div id="inventorySection" class="section">
+        <div class="main">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+                <h2 style="font-size:22px;font-weight:800;">📦 Inventario General</h2>
+                <div style="display:flex;gap:6px;">
+                    <button class="btn btn-primary btn-sm" onclick="openGICreateSpace()">+ Nuevo Espacio</button>
+                </div>
+            </div>
+            <div id="giSearchBar" style="margin-bottom:10px;position:relative;">
+                <input type="text" id="giSpaceSearch" class="input" placeholder="🔍 Buscar espacio..." oninput="filterGASpaces()" style="font-size:13px;padding:10px 14px;width:100%;box-sizing:border-box;">
+            </div>
+            <div id="giSpacesList"></div>
+            <div id="giEmptyState" style="text-align:center;padding:40px 20px;display:none;">
+                <div style="font-size:48px;margin-bottom:12px;">📦</div>
+                <div style="color:var(--text2);font-size:14px;margin-bottom:16px;">Aún no tienes espacios de inventario general</div>
+                <button class="btn btn-primary" onclick="openGICreateSpace()" style="width:auto;display:inline-flex;">+ Agregar Espacio</button>
+            </div>
+            <div id="giSpaceView" style="display:none;"></div>
+        </div>
+    </div>
+
     <!-- ===== LOCATIONS SECTION ===== -->
     <div id="locationsSection" class="section">
         <div class="main">
@@ -1231,8 +1265,8 @@
             <span>Inicio</span>
         </button>
         <button class="nav-item" id="navProducts" onclick="switchSection('products')">
-            <span class="nav-icon">📦</span>
-            <span>Productos</span>
+            <span class="nav-icon">📋</span>
+            <span>Catálogo</span>
         </button>
         <button class="nav-item" id="navQuotation" onclick="switchSection('quotation')">
             <span class="nav-icon">📝</span>
@@ -1241,6 +1275,10 @@
         <button class="nav-item" id="navLocations" onclick="switchSection('locations')">
             <span class="nav-icon">🏪</span>
             <span>Locales</span>
+        </button>
+        <button class="nav-item" id="navInventory" onclick="switchSection('inventory')">
+            <span class="nav-icon">📦</span>
+            <span>Inventario</span>
         </button>
         <button class="nav-item" id="navConfig" onclick="switchSection('config')">
             <span class="nav-icon">⚙️</span>
@@ -1847,6 +1885,16 @@ function getLocations() {
 function saveLocations(arr) {
     localStorage.setItem('inv_locations', JSON.stringify(arr));
 }
+
+// ===== GENERAL INVENTORY DATA =====
+function getGeneralInventory() {
+    try { return JSON.parse(localStorage.getItem('inv_general_inventory') || '[]'); } catch(e) { return []; }
+}
+function saveGeneralInventory(arr) {
+    localStorage.setItem('inv_general_inventory', JSON.stringify(arr));
+}
+function genId() { return Date.now().toString(36) + Math.random().toString(36).substr(2, 9); }
+
 function getGlobalTarget() {
     try { return parseInt(localStorage.getItem('inv_globalTarget')) || 0; } catch(e) { return 0; }
 }
@@ -2335,7 +2383,7 @@ function applyTheme(theme) {
 // NAVIGATION
 // ====================================================================
 function switchSection(name) {
-    var sections = ['dashboard', 'products', 'quotation', 'locations', 'config'];
+    var sections = ['dashboard', 'products', 'quotation', 'locations', 'inventory', 'config'];
     for (var i = 0; i < sections.length; i++) {
         var el = document.getElementById(sections[i] + 'Section');
         if (el) el.classList.remove('active');
@@ -2350,6 +2398,7 @@ function switchSection(name) {
     if (name === 'dashboard') updateDashboard();
     if (name === 'products') { renderProductList(); populateProductFilterDropdowns(); }
     if (name === 'locations') renderLocations();
+    if (name === 'inventory') renderGI();
     if (name === 'config') { renderCategories(); renderBrands(); renderColors(); renderUsers(); loadServerConfigUI(); }
 }
 
@@ -3681,7 +3730,7 @@ function renderProductList() {
 // ====================================================================
 // FILTER CHIP SYSTEM — replaces native <select> in filter bars
 // ====================================================================
-var _filterChipState = { fcat: '', fbrand: '', fcolor: '', fspec: '', spcat: '', spbrand: '', spcolor: '', spspec: '', locbrand: '', locspec: '', crucebrand: '', crucespec: '', crucespace: '', crucestatus: '' };
+var _filterChipState = { fcat: '', fbrand: '', fcolor: '', fspec: '', spcat: '', spbrand: '', spcolor: '', spspec: '', locbrand: '', locspec: '', crucebrand: '', crucespec: '', crucespace: '', crucestatus: '', gicat: '', gibrand: '', gicolor: '', gispec: '' };
 var _openChipDropdown = null;
 
 function toggleFilterDropdown(key) {
@@ -3700,17 +3749,23 @@ function toggleFilterDropdown(key) {
                     spcat: 'chipSpCat', spbrand: 'chipSpBrand', spcolor: 'chipSpColor', spspec: 'chipSpSpec',
                     locbrand: 'chipLocBrand', locspec: 'chipLocSpec',
                     crucebrand: 'chipCruceBrand', crucespec: 'chipCruceSpec',
-                    crucespace: 'chipCruceSpace', crucestatus: 'chipCruceStatus' };
+                    crucespace: 'chipCruceSpace', crucestatus: 'chipCruceStatus',
+                    gicat: 'chipGICat', gibrand: 'chipGIBrand', gicolor: 'chipGIColor', gispec: 'chipGISpec' };
     var btn = document.getElementById(chipMap[key]);
     if (!btn) return;
 
     // For loc/cruce prefix, use space products instead of catalog
     var isLoc = key.indexOf('loc') === 0;
     var isCruce = key.indexOf('cruce') === 0;
+    var isGi = key.indexOf('gi') === 0;
     if (key === 'crucespace') {
         populateCruceSpaceDropdown(key, overlay);
     } else if (key === 'crucestatus') {
         populateCruceStatusDropdown(key, overlay);
+    } else if (isGi && key === 'gispec') {
+        populateLocChipDropdown(key, overlay);
+    } else if (isGi) {
+        populateChipDropdown(key, overlay);
     } else if (isLoc || isCruce) {
         populateLocChipDropdown(key, overlay);
     } else {
@@ -3921,12 +3976,14 @@ function selectChipValue(key, value) {
                     spcat: 'chipSpCat', spbrand: 'chipSpBrand', spcolor: 'chipSpColor', spspec: 'chipSpSpec',
                     locbrand: 'chipLocBrand', locspec: 'chipLocSpec',
                     crucebrand: 'chipCruceBrand', crucespec: 'chipCruceSpec',
-                    crucespace: 'chipCruceSpace', crucestatus: 'chipCruceStatus' };
+                    crucespace: 'chipCruceSpace', crucestatus: 'chipCruceStatus',
+                    gicat: 'chipGICat', gibrand: 'chipGIBrand', gicolor: 'chipGIColor', gispec: 'chipGISpec' };
     var labelMap = { fcat: '📂 Categoría', fbrand: '🏷️ Marca', fcolor: '🎨 Color', fspec: '⚙️ Specs',
                      spcat: '📂 Cat.', spbrand: '🏷️ Marca', spcolor: '🎨 Color', spspec: '⚙️ Specs',
                      locbrand: '🏷️ Marca', locspec: '⚙️ Specs',
                      crucebrand: '🏷️ Marca', crucespec: '⚙️ Specs',
-                     crucespace: '📦 Espacio', crucestatus: '📋 Estado' };
+                     crucespace: '📦 Espacio', crucestatus: '📋 Estado',
+                     gicat: '📂 Cat.', gibrand: '🏷️ Marca', gicolor: '🎨 Color', gispec: '⚙️ Specs' };
     var chip = document.getElementById(chipMap[key]);
     if (chip) {
         chip.textContent = (labelMap[key] || '') + ': ' + value;
@@ -3942,6 +3999,7 @@ function selectChipValue(key, value) {
     var isSp = key.indexOf('sp') === 0;
     var isLoc = key.indexOf('loc') === 0;
     var isCruce = key.indexOf('cruce') === 0;
+    var isGi = key.indexOf('gi') === 0;
     var type, downstream, prefix;
 
     if (isCruce) {
@@ -3952,6 +4010,10 @@ function selectChipValue(key, value) {
         type = key.substring(3); // locbrand -> brand, locspec -> spec
         downstream = { brand: ['spec'], spec: [] };
         prefix = 'loc';
+    } else if (isGi) {
+        type = key.substring(2); // gicat -> cat, gibrand -> brand, etc
+        downstream = { cat: ['brand','color','spec'], brand: ['color','spec'], color: ['spec'], spec: [] };
+        prefix = 'gi';
     } else if (isSp) {
         type = key.substring(2);
         downstream = { cat: ['brand','color','spec'], brand: ['color','spec'], color: ['spec'], spec: [] };
@@ -3973,6 +4035,8 @@ function selectChipValue(key, value) {
     // Trigger re-render
     if (isCruce) {
         filterCruceProducts();
+    } else if (isGi) {
+        filterGIProducts();
     } else if (isLoc) {
         var locId = _locCurrentLocId;
         var spaceIdx = _locCurrentSpace || 0;
@@ -12245,6 +12309,803 @@ function openCruceSelector() {
     var contentEl = document.getElementById('cruceContent');
     if (contentEl) contentEl.innerHTML = html;
     openModal('cruceModal');
+}
+
+// ====================================================================
+// GENERAL INVENTORY MODULE
+// ====================================================================
+var _giCurrentSpaceIdx = 0;
+
+function renderGI() {
+    var spaces = getGeneralInventory();
+    var container = document.getElementById('giSpacesList');
+    var emptyEl = document.getElementById('giEmptyState');
+    var spaceView = document.getElementById('giSpaceView');
+    var searchBar = document.getElementById('giSearchBar');
+
+    // Reset to list view
+    container.style.display = 'block';
+    searchBar.style.display = 'block';
+    emptyEl.style.display = spaces.length === 0 ? 'block' : 'none';
+    spaceView.style.display = 'none';
+    spaceView.innerHTML = '';
+
+    if (spaces.length === 0) { container.innerHTML = ''; return; }
+
+    // Store data globally for filter
+    window._giSpacesData = spaces;
+
+    var html = '<div id="giListCards">';
+    html += buildGICards(spaces);
+    html += '</div>';
+    container.innerHTML = html;
+}
+
+function buildGICards(spaces) {
+    var cards = '';
+    for (var i = 0; i < spaces.length; i++) {
+        var space = spaces[i];
+        var prods = space.products || [];
+        var totalQty = 0;
+        var totalTypes = 0;
+        var totalValue = 0;
+        var alertCount = 0;
+        for (var p = 0; p < prods.length; p++) {
+            totalQty += (prods[p].qty || 0);
+            if (prods[p].qty > 0) totalTypes++;
+            else alertCount++;
+            totalValue += (prods[p].qty || 0) * (prods[p].cost || 0);
+        }
+        var valueStr = totalValue > 0 ? '$' + totalValue.toLocaleString() : '$0';
+        var alertBadge = alertCount > 0 ? ' <span style="background:#ff4757;color:#fff;font-size:9px;padding:1px 6px;border-radius:8px;">' + alertCount + ' ⚠️</span>' : '';
+
+        cards += '<div class="loc-card" onclick="enterGISpace(' + i + ')" style="cursor:pointer;">' +
+            '<div class="loc-card-header">' +
+                '<span class="loc-card-title">📦 ' + escapeHtml(space.name) + alertBadge + '</span>' +
+                '<span class="loc-card-count">' + totalQty + ' uds</span>' +
+            '</div>' +
+            '<div style="display:flex;gap:12px;margin-top:6px;">' +
+                '<span style="font-size:12px;color:var(--text2);">' + prods.length + ' productos</span>' +
+                '<span style="font-size:12px;color:var(--text2);">💡 ' + valueStr + '</span>' +
+            '</div>' +
+        '</div>';
+    }
+    return cards;
+}
+
+function filterGASpaces() {
+    var query = (document.getElementById('giSpaceSearch') || {}).value || '';
+    query = query.toLowerCase().trim();
+    var spaces = window._giSpacesData || [];
+    var filtered = [];
+    for (var i = 0; i < spaces.length; i++) {
+        if (!query || spaces[i].name.toLowerCase().indexOf(query) >= 0) {
+            filtered.push(spaces[i]);
+        }
+    }
+    var el = document.getElementById('giListCards');
+    if (el) el.innerHTML = buildGICards(filtered);
+}
+
+function enterGISpace(spaceIdx) {
+    _giCurrentSpaceIdx = spaceIdx;
+    var container = document.getElementById('giSpacesList');
+    var emptyEl = document.getElementById('giEmptyState');
+    var searchBar = document.getElementById('giSearchBar');
+    var spaceView = document.getElementById('giSpaceView');
+    container.style.display = 'none';
+    emptyEl.style.display = 'none';
+    searchBar.style.display = 'none';
+    spaceView.style.display = 'block';
+    renderGISpaceView();
+}
+
+function renderGISpaceView() {
+    var spaceView = document.getElementById('giSpaceView');
+    var spaces = getGeneralInventory();
+    var currentIdx = _giCurrentSpaceIdx;
+    var currentSpace = spaces[currentIdx] || { name: 'Sin espacio', products: [] };
+    var products = currentSpace.products || [];
+
+    // Store products for filtering
+    window._currentSpaceProds = products.slice();
+
+    // Compute stats
+    var totalQty = 0;
+    var totalTypes = products.length;
+    var totalValue = 0;
+    var alertCount = 0;
+    var lowCount = 0;
+    for (var p = 0; p < products.length; p++) {
+        var q = products[p].qty || 0;
+        totalQty += q;
+        totalValue += q * (products[p].cost || 0);
+        if (q === 0) alertCount++;
+        else if (q <= 3) lowCount++;
+    }
+
+    var valueStr = totalValue > 0 ? '$' + totalValue.toLocaleString() : '$0';
+
+    // Space tabs
+    var tabsHtml = '';
+    for (var s = 0; s < spaces.length; s++) {
+        var activeClass = s === currentIdx ? ' active' : '';
+        var sCount = 0;
+        var sProds = (spaces[s].products || []);
+        for (var sp = 0; sp < sProds.length; sp++) sCount += (sProds[sp].qty || 0);
+        tabsHtml += '<span class="gi-space-tab' + activeClass + '" onclick="_giCurrentSpaceIdx=' + s + ';_filterChipState.gicat=\'\';_filterChipState.gibrand=\'\';_filterChipState.gicolor=\'\';_filterChipState.gispec=\'\';renderGISpaceView()">' +
+            escapeHtml(spaces[s].name) + ' <small>(' + sCount + ')</small></span>';
+    }
+
+    // Alert bar
+    var alertHtml = '';
+    if (alertCount > 0) {
+        alertHtml += '<div style="background:#ff475715;border:1px solid #ff475730;border-radius:10px;padding:8px 14px;margin-bottom:10px;font-size:12px;color:#ff6b81;">' +
+            '🚨 <b>' + alertCount + '</b> producto' + (alertCount > 1 ? 's' : '') + ' agotado' + (alertCount > 1 ? 's' : '') + '</div>';
+    } else if (lowCount > 0) {
+        alertHtml += '<div style="background:#ffa50215;border:1px solid #ffa50230;border-radius:10px;padding:8px 14px;margin-bottom:10px;font-size:12px;color:#ffa502;">' +
+            '⚠️ <b>' + lowCount + '</b> producto' + (lowCount > 1 ? 's' : '') + ' con stock bajo</div>';
+    }
+
+    // Sort bar
+    var sortHtml = '<div style="display:flex;gap:6px;margin-bottom:8px;align-items:center;">' +
+        '<select id="giSortField" class="input" onchange="filterGIProducts()" style="font-size:11px;padding:6px 8px;flex:1;box-sizing:border-box;">' +
+            '<option value="">Ordenar por...</option>' +
+            '<option value="name">Nombre</option>' +
+            '<option value="brand">Marca</option>' +
+            '<option value="qty">Cantidad ↑</option>' +
+            '<option value="-qty">Cantidad ↓</option>' +
+            '<option value="price">Precio ↑</option>' +
+            '<option value="-price">Precio ↓</option>' +
+            '<option value="cost">Costo ↑</option>' +
+            '<option value="-cost">Costo ↓</option>' +
+            '<option value="category">Categoría</option>' +
+        '</select></div>';
+
+    // Product list
+    var prodHtml = '';
+    if (products.length === 0) {
+        prodHtml = '<div style="text-align:center;padding:24px 20px;color:var(--text3);">' +
+            '<div style="font-size:32px;margin-bottom:6px;">📦</div>' +
+            '<div style="font-size:13px;">Sin productos en este espacio</div></div>';
+    } else {
+        for (var i = 0; i < products.length; i++) {
+            var pr = products[i];
+            var pName = pr.name || 'Producto';
+            if (pr.brand) pName += ' · ' + pr.brand;
+            var qty = pr.qty || 0;
+            var statusColor = '#2ed573';
+            var statusIcon = '✅';
+            if (qty === 0) { statusColor = '#ff4757'; statusIcon = '🚨'; }
+            else if (qty <= 3) { statusColor = '#ffa502'; statusIcon = '⚠️'; }
+
+            // Spec tags
+            var specsHtml = '';
+            if (pr.specifications) {
+                try {
+                    var specObj = (typeof pr.specifications === 'string') ? JSON.parse(pr.specifications) : pr.specifications;
+                    if (specObj && typeof specObj === 'object') {
+                        var specKeys = Object.keys(specObj);
+                        for (var sk = 0; sk < specKeys.length; sk++) {
+                            var sv = (specObj[specKeys[sk]] || '').trim();
+                            if (sv) specsHtml += '<span class="product-spec-tag">' + escapeHtml(sv) + '</span>';
+                        }
+                    }
+                } catch(e) {}
+            }
+
+            // Category tag
+            var catTag = pr.category ? '<span class="product-spec-tag" style="background:var(--primary-bg);color:var(--primary);">' + escapeHtml(pr.category) + '</span>' : '';
+
+            prodHtml += '<div style="display:flex;align-items:center;gap:6px;padding:9px 0;border-bottom:1px solid var(--border);">' +
+                '<span style="font-size:11px;color:' + statusColor + ';flex-shrink:0;">' + statusIcon + '</span>' +
+                '<div style="flex:1;min-width:0;">' +
+                    '<div style="font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(pName) + '</div>' +
+                    (specsHtml || catTag ? '<div class="product-specs" style="margin-top:2px;">' + catTag + specsHtml + '</div>' : '') +
+                    '<div style="font-size:10px;color:var(--text3);margin-top:2px;">💰 $' + (pr.price || 0).toLocaleString() + ' · 💵 $' + (pr.cost || 0).toLocaleString() + '</div>' +
+                '</div>' +
+                '<div style="display:flex;align-items:center;gap:2px;flex-shrink:0;">' +
+                    '<button onclick="openGIUnloadStock(' + currentIdx + ',' + i + ')" style="width:32px;height:32px;border-radius:8px;border:1px solid #ff475730;background:#ff475710;color:#ff4757;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;' + (qty === 0 ? 'opacity:0.3;pointer-events:none;' : '') + '" title="Descargar">📤</button>' +
+                    '<div style="min-width:36px;text-align:center;padding:2px 4px;">' +
+                        '<div style="font-size:16px;font-weight:700;color:' + statusColor + ';">' + qty + '</div>' +
+                        '<div style="background:var(--bg2);border-radius:3px;height:3px;width:36px;margin-top:2px;overflow:hidden;"><div style="height:100%;width:' + (qty > 0 ? Math.min(100, qty * 10) : 0) + '%;background:' + statusColor + ';border-radius:3px;"></div></div>' +
+                    '</div>' +
+                    '<button onclick="openGILoadStock(' + currentIdx + ',' + i + ')" style="width:32px;height:32px;border-radius:8px;border:1px solid #2ed57330;background:#2ed57310;color:#2ed573;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;" title="Cargar">📥</button>' +
+                '</div>' +
+            '</div>';
+        }
+    }
+
+    spaceView.innerHTML =
+        '<div class="loc-back" onclick="exitGISpace()">← Volver</div>' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">' +
+            '<h2 style="font-size:20px;font-weight:800;">📦 ' + escapeHtml(currentSpace.name) + '</h2>' +
+            '<div style="display:flex;gap:4px;">' +
+                '<button class="btn btn-outline btn-sm" onclick="editGISpace(' + currentIdx + ')" style="font-size:11px;">✏️</button>' +
+                '<button class="btn btn-outline btn-sm" onclick="exportGIToExcel(' + currentIdx + ')" style="font-size:11px;">📤</button>' +
+            '</div>' +
+        '</div>' +
+        '<div class="gi-stat-row">' +
+            '<div class="gi-stat-item"><div class="gi-stat-num">' + spaces.length + '</div><div class="gi-stat-label">Espacios</div></div>' +
+            '<div class="gi-stat-item"><div class="gi-stat-num">' + totalTypes + '</div><div class="gi-stat-label">Tipos</div></div>' +
+            '<div class="gi-stat-item"><div class="gi-stat-num" style="color:var(--primary);">' + totalQty + '</div><div class="gi-stat-label">Unidades</div></div>' +
+            '<div class="gi-stat-item"><div class="gi-stat-num" style="color:var(--info);font-size:14px;">' + valueStr + '</div><div class="gi-stat-label">Valor</div></div>' +
+        '</div>' +
+        alertHtml +
+        '<div style="margin:12px 0 6px;font-size:12px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;">Espacios</div>' +
+        (tabsHtml || '<div style="color:var(--text3);font-size:13px;padding:8px 0;">Sin espacios definidos</div>') +
+        '<div style="margin:12px 0 8px;font-size:14px;font-weight:700;">📦 ' + escapeHtml(currentSpace.name) + '</div>' +
+        '<div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;align-items:center;">' +
+            '<button class="btn btn-primary btn-sm" onclick="openGIAddProduct(' + currentIdx + ')" style="font-size:12px;">📥 Agregar Producto</button>' +
+            '<button class="btn btn-outline btn-sm" onclick="deleteGISpace(' + currentIdx + ')" style="font-size:12px;color:var(--danger);border-color:var(--danger);">🗑️ Eliminar Espacio</button>' +
+        '</div>' +
+        // Filter chips
+        '<div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;align-items:center;">' +
+            '<div class="filter-chip-wrap">' +
+                '<button class="filter-chip" id="chipGICat" onclick="toggleFilterDropdown(\'gicat\')" style="font-size:11px;padding:5px 8px;">📂 Cat.</button>' +
+            '</div>' +
+            '<div class="filter-chip-wrap">' +
+                '<button class="filter-chip" id="chipGIBrand" onclick="toggleFilterDropdown(\'gibrand\')" style="font-size:11px;padding:5px 8px;">🏷️ Marca</button>' +
+            '</div>' +
+            '<div class="filter-chip-wrap">' +
+                '<button class="filter-chip" id="chipGIColor" onclick="toggleFilterDropdown(\'gicolor\')" style="font-size:11px;padding:5px 8px;">🎨 Color</button>' +
+            '</div>' +
+            '<div class="filter-chip-wrap">' +
+                '<button class="filter-chip" id="chipGISpec" onclick="toggleFilterDropdown(\'gispec\')" style="font-size:11px;padding:5px 8px;">⚙️ Specs</button>' +
+            '</div>' +
+            '<button class="filter-chip" onclick="clearGIFilters()" style="font-size:11px;padding:5px 8px;color:var(--danger);font-weight:700;">✕</button>' +
+        '</div>' +
+        sortHtml +
+        '<div style="margin-bottom:8px;position:relative;">' +
+            '<input type="text" id="giProdSearch" class="input" placeholder="🔍 Buscar producto..." oninput="filterGIProducts()" style="font-size:13px;padding:8px 12px;width:100%;box-sizing:border-box;">' +
+        '</div>' +
+        '<div id="giProdList"><div class="card" style="padding:4px 14px;">' + prodHtml + '</div></div>';
+}
+
+function filterGIProducts() {
+    var query = (document.getElementById('giProdSearch') || {}).value || '';
+    query = query.toLowerCase().trim();
+    var sortField = (document.getElementById('giSortField') || {}).value || '';
+    var allProds = window._currentSpaceProds || [];
+
+    var fCat = _filterChipState.gicat || '';
+    var fBrand = _filterChipState.gibrand || '';
+    var fColor = _filterChipState.gicolor || '';
+    var fSpec = _filterChipState.gispec || '';
+
+    var filtered = [];
+    for (var j = 0; j < allProds.length; j++) {
+        var pr = allProds[j];
+
+        if (fCat && (pr.category || '') !== fCat) continue;
+        if (fBrand && (pr.brand || '') !== fBrand) continue;
+        if (fColor && (pr.color || '') !== fColor) continue;
+
+        if (fSpec) {
+            var specMatch = false;
+            if (pr.specifications) {
+                try {
+                    var so = (typeof pr.specifications === 'string') ? JSON.parse(pr.specifications) : pr.specifications;
+                    if (so && typeof so === 'object') {
+                        var sk = Object.keys(so);
+                        for (var x = 0; x < sk.length; x++) {
+                            var svFull = (so[sk[x]] || '').toLowerCase();
+                            if (svFull === fSpec.toLowerCase() || svFull.indexOf(fSpec.toLowerCase()) >= 0) {
+                                specMatch = true; break;
+                            }
+                        }
+                    }
+                } catch(e) {}
+            }
+            if (!specMatch) continue;
+        }
+
+        // Text search
+        var searchText = (pr.name || '') + ' ' + (pr.brand || '') + ' ' + (pr.category || '') + ' ' + (pr.color || '');
+        if (pr.specifications) {
+            try {
+                var so2 = (typeof pr.specifications === 'string') ? JSON.parse(pr.specifications) : pr.specifications;
+                if (so2 && typeof so2 === 'object') {
+                    var sk2 = Object.keys(so2);
+                    for (var x2 = 0; x2 < sk2.length; x2++) searchText += ' ' + (so2[sk2[x2]] || '');
+                }
+            } catch(e) {}
+        }
+        if (query && searchText.toLowerCase().indexOf(query) < 0) continue;
+
+        filtered.push(j);
+    }
+
+    // Sort
+    if (sortField) {
+        filtered.sort(function(a, b) {
+            var pa = allProds[a], pb = allProds[b];
+            var va, vb;
+            if (sortField === 'name') { va = (pa.name || '').toLowerCase(); vb = (pb.name || '').toLowerCase(); }
+            else if (sortField === 'brand') { va = (pa.brand || '').toLowerCase(); vb = (pb.brand || '').toLowerCase(); }
+            else if (sortField === 'qty') { va = pa.qty || 0; vb = pb.qty || 0; }
+            else if (sortField === '-qty') { va = -(pa.qty || 0); vb = -(pb.qty || 0); }
+            else if (sortField === 'price') { va = pa.price || 0; vb = pb.price || 0; }
+            else if (sortField === '-price') { va = -(pa.price || 0); vb = -(pb.price || 0); }
+            else if (sortField === 'cost') { va = pa.cost || 0; vb = pb.cost || 0; }
+            else if (sortField === '-cost') { va = -(pa.cost || 0); vb = -(pb.cost || 0); }
+            else if (sortField === 'category') { va = (pa.category || '').toLowerCase(); vb = (pb.category || '').toLowerCase(); }
+            else { va = 0; vb = 0; }
+            if (va < vb) return -1;
+            if (va > vb) return 1;
+            return 0;
+        });
+    }
+
+    renderGIFilteredProducts(filtered, allProds);
+}
+
+function renderGIFilteredProducts(filteredIdxs, allProds) {
+    var el = document.getElementById('giProdList');
+    if (!el) return;
+    var currentIdx = _giCurrentSpaceIdx;
+    if (filteredIdxs.length === 0) {
+        el.innerHTML = '<div class="card" style="padding:20px;text-align:center;color:var(--text3);font-size:13px;">Sin productos que coincidan</div>';
+        return;
+    }
+    var html = '<div class="card" style="padding:4px 14px;">';
+    for (var f = 0; f < filteredIdxs.length; f++) {
+        var i = filteredIdxs[f];
+        var pr = allProds[i];
+        var pName = pr.name || 'Producto';
+        if (pr.brand) pName += ' · ' + pr.brand;
+        var qty = pr.qty || 0;
+        var statusColor = '#2ed573';
+        var statusIcon = '✅';
+        if (qty === 0) { statusColor = '#ff4757'; statusIcon = '🚨'; }
+        else if (qty <= 3) { statusColor = '#ffa502'; statusIcon = '⚠️'; }
+
+        var specsHtml = '';
+        if (pr.specifications) {
+            try {
+                var specObj = (typeof pr.specifications === 'string') ? JSON.parse(pr.specifications) : pr.specifications;
+                if (specObj && typeof specObj === 'object') {
+                    var specKeys = Object.keys(specObj);
+                    for (var sk = 0; sk < specKeys.length; sk++) {
+                        var sv = (specObj[specKeys[sk]] || '').trim();
+                        if (sv) specsHtml += '<span class="product-spec-tag">' + escapeHtml(sv) + '</span>';
+                    }
+                }
+            } catch(e) {}
+        }
+
+        var catTag = pr.category ? '<span class="product-spec-tag" style="background:var(--primary-bg);color:var(--primary);">' + escapeHtml(pr.category) + '</span>' : '';
+
+        html += '<div style="display:flex;align-items:center;gap:6px;padding:9px 0;border-bottom:1px solid var(--border);">' +
+            '<span style="font-size:11px;color:' + statusColor + ';flex-shrink:0;">' + statusIcon + '</span>' +
+            '<div style="flex:1;min-width:0;">' +
+                '<div style="font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(pName) + '</div>' +
+                (specsHtml || catTag ? '<div class="product-specs" style="margin-top:2px;">' + catTag + specsHtml + '</div>' : '') +
+                '<div style="font-size:10px;color:var(--text3);margin-top:2px;">💰 $' + (pr.price || 0).toLocaleString() + ' · 💵 $' + (pr.cost || 0).toLocaleString() + '</div>' +
+            '</div>' +
+            '<div style="display:flex;align-items:center;gap:2px;flex-shrink:0;">' +
+                '<button onclick="openGIUnloadStock(' + currentIdx + ',' + i + ')" style="width:32px;height:32px;border-radius:8px;border:1px solid #ff475730;background:#ff475710;color:#ff4757;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;' + (qty === 0 ? 'opacity:0.3;pointer-events:none;' : '') + '" title="Descargar">📤</button>' +
+                '<div style="min-width:36px;text-align:center;padding:2px 4px;">' +
+                    '<div style="font-size:16px;font-weight:700;color:' + statusColor + ';">' + qty + '</div>' +
+                    '<div style="background:var(--bg2);border-radius:3px;height:3px;width:36px;margin-top:2px;overflow:hidden;"><div style="height:100%;width:' + (qty > 0 ? Math.min(100, qty * 10) : 0) + '%;background:' + statusColor + ';border-radius:3px;"></div></div>' +
+                '</div>' +
+                '<button onclick="openGILoadStock(' + currentIdx + ',' + i + ')" style="width:32px;height:32px;border-radius:8px;border:1px solid #2ed57330;background:#2ed57310;color:#2ed573;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;" title="Cargar">📥</button>' +
+            '</div>' +
+        '</div>';
+    }
+    html += '</div>';
+    el.innerHTML = html;
+}
+
+function clearGIFilters() {
+    _filterChipState.gicat = '';
+    _filterChipState.gibrand = '';
+    _filterChipState.gicolor = '';
+    _filterChipState.gispec = '';
+    var chipCat = document.getElementById('chipGICat');
+    var chipBrand = document.getElementById('chipGIBrand');
+    var chipColor = document.getElementById('chipGIColor');
+    var chipSpec = document.getElementById('chipGISpec');
+    if (chipCat) { chipCat.textContent = '📂 Cat.'; chipCat.classList.remove('active'); }
+    if (chipBrand) { chipBrand.textContent = '🏷️ Marca'; chipBrand.classList.remove('active'); }
+    if (chipColor) { chipColor.textContent = '🎨 Color'; chipColor.classList.remove('active'); }
+    if (chipSpec) { chipSpec.textContent = '⚙️ Specs'; chipSpec.classList.remove('active'); }
+    var sortSel = document.getElementById('giSortField');
+    if (sortSel) sortSel.value = '';
+    var searchEl = document.getElementById('giProdSearch');
+    if (searchEl) searchEl.value = '';
+    filterGIProducts();
+}
+
+function exitGISpace() {
+    var container = document.getElementById('giSpacesList');
+    var emptyEl = document.getElementById('giEmptyState');
+    var searchBar = document.getElementById('giSearchBar');
+    var spaceView = document.getElementById('giSpaceView');
+    spaceView.style.display = 'none';
+    spaceView.innerHTML = '';
+    container.style.display = 'block';
+    searchBar.style.display = 'block';
+    renderGI();
+}
+
+function openGICreateSpace() {
+    var html = '<div style="padding:0 4px;">' +
+        '<div class="input-group">' +
+            '<label class="input-label">📦 Nombre del Espacio</label>' +
+            '<input type="text" id="giNewSpaceName" class="input" placeholder="Ej: Bodega Principal" style="font-size:15px;">' +
+        '</div>' +
+        '<div style="display:flex;gap:8px;margin-top:16px;">' +
+            '<button class="btn btn-primary" style="flex:1;" onclick="saveGICreateSpace()">✅ Crear</button>' +
+            '<button class="btn btn-outline" onclick="closeModal(\'genericModal\')">Cancelar</button>' +
+        '</div>' +
+    '</div>';
+    document.getElementById('genericModalTitle').textContent = '📦 Nuevo Espacio';
+    document.getElementById('genericModalContent').innerHTML = html;
+    openModal('genericModal');
+    setTimeout(function() { var inp = document.getElementById('giNewSpaceName'); if (inp) inp.focus(); }, 300);
+}
+
+function saveGICreateSpace() {
+    var name = (document.getElementById('giNewSpaceName') || {}).value || '';
+    name = name.trim();
+    if (!name) { showToast('Ingresa un nombre para el espacio', 'error'); return; }
+    var spaces = getGeneralInventory();
+    spaces.push({ id: genId(), name: name, products: [] });
+    saveGeneralInventory(spaces);
+    closeModal('genericModal');
+    showToast('Espacio "' + name + '" creado', 'success');
+    renderGI();
+}
+
+function openGIAddProduct(spaceIdx) {
+    document.getElementById('genericModalTitle').textContent = '📥 Agregar Producto al Espacio';
+    document.getElementById('genericModalContent').innerHTML =
+        '<div style="padding:0 4px;">' +
+            '<div class="input-group">' +
+                '<label class="input-label">🔍 Buscar producto del catálogo</label>' +
+                '<input type="text" id="giAddProdSearch" class="input" placeholder="Nombre, SKU, marca..." oninput="searchGIProductToAdd(' + spaceIdx + ')" style="font-size:14px;">' +
+            '</div>' +
+            '<div id="giAddProdResults" style="max-height:300px;overflow-y:auto;"></div>' +
+            '<button class="btn btn-outline" onclick="closeModal(\'genericModal\')" style="width:100%;margin-top:12px;">Cancelar</button>' +
+        '</div>';
+    openModal('genericModal');
+    setTimeout(function() { var inp = document.getElementById('giAddProdSearch'); if (inp) inp.focus(); }, 300);
+}
+
+function searchGIProductToAdd(spaceIdx) {
+    var query = (document.getElementById('giAddProdSearch') || {}).value || '';
+    query = query.toLowerCase().trim();
+    var products = getProducts();
+    var spaces = getGeneralInventory();
+    var currentSpace = spaces[spaceIdx];
+    var existingIds = {};
+    if (currentSpace && currentSpace.products) {
+        for (var e = 0; e < currentSpace.products.length; e++) {
+            existingIds[currentSpace.products[e].productId] = true;
+        }
+    }
+
+    var results = [];
+    for (var i = 0; i < products.length; i++) {
+        var pr = products[i];
+        if (existingIds[pr.id]) continue;
+        var matchSearch = !query;
+        if (!matchSearch) {
+            matchSearch = (pr.name || '').toLowerCase().indexOf(query) >= 0 ||
+                (pr.sku || '').toLowerCase().indexOf(query) >= 0 ||
+                (pr.brand || '').toLowerCase().indexOf(query) >= 0;
+        }
+        if (matchSearch) results.push(pr);
+    }
+
+    var container = document.getElementById('giAddProdResults');
+    if (!container) return;
+    if (results.length === 0) {
+        container.innerHTML = '<div style="padding:12px;text-align:center;color:var(--text3);font-size:13px;">Sin resultados disponibles</div>';
+        return;
+    }
+    var html = '<div style="border:1px solid var(--border);border-radius:var(--radius);margin-top:6px;overflow:hidden;">';
+    for (var j = 0; j < Math.min(results.length, 50); j++) {
+        var rp = results[j];
+        var label = rp.name;
+        if (rp.brand) label += ' - ' + rp.brand;
+        if (rp.category) label += ' [' + rp.category + ']';
+        var stock = rp.stock !== undefined ? ' · Stock: ' + rp.stock : '';
+        var priceStr = rp.price ? ' · $' + rp.price.toLocaleString() : '';
+
+        var specTags = '';
+        if (rp.specifications) {
+            try {
+                var spObj = (typeof rp.specifications === 'string') ? JSON.parse(rp.specifications) : rp.specifications;
+                if (spObj && typeof spObj === 'object') {
+                    var spKeys = Object.keys(spObj);
+                    for (var si = 0; si < spKeys.length; si++) {
+                        var sv = (spObj[spKeys[si]] || '').trim();
+                        if (sv) specTags += '<span class="product-spec-tag">' + escapeHtml(sv) + '</span>';
+                    }
+                }
+            } catch(e) {}
+        }
+
+        html += '<div style="padding:10px 12px;border-bottom:1px solid var(--border);cursor:pointer;display:flex;align-items:center;gap:8px;" onclick="addGIToSpace(' + spaceIdx + ',\'' + rp.id + '\')" onmouseover="this.style.background=\'var(--bg2)\'" onmouseout="this.style.background=\'transparent\'">' +
+            '<div style="flex:1;min-width:0;">' +
+                '<div style="font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(label) + '</div>' +
+                (specTags ? '<div class="product-specs" style="margin-top:2px;">' + specTags + '</div>' : '') +
+                '<div style="font-size:10px;color:var(--text3);margin-top:2px;">' + stock + priceStr + '</div>' +
+            '</div>' +
+            '<span style="font-size:12px;color:var(--primary);font-weight:700;">+ Agregar</span>' +
+        '</div>';
+    }
+    html += '</div>';
+    container.innerHTML = html;
+}
+
+function addGIToSpace(spaceIdx, productId) {
+    var products = getProducts();
+    var catalog = null;
+    for (var i = 0; i < products.length; i++) {
+        if (products[i].id === productId) { catalog = products[i]; break; }
+    }
+    if (!catalog) { showToast('Producto no encontrado en catálogo', 'error'); return; }
+
+    var spaces = getGeneralInventory();
+    if (!spaces[spaceIdx]) return;
+    if (!spaces[spaceIdx].products) spaces[spaceIdx].products = [];
+
+    spaces[spaceIdx].products.push({
+        productId: catalog.id || '',
+        name: catalog.name || '',
+        brand: catalog.brand || '',
+        category: catalog.category || '',
+        color: catalog.color || '',
+        specifications: catalog.specifications || '{}',
+        qty: 0,
+        price: catalog.price || 0,
+        cost: catalog.cost || 0
+    });
+    saveGeneralInventory(spaces);
+    showToast('Producto agregado: ' + catalog.name, 'success');
+    closeModal('genericModal');
+    renderGISpaceView();
+}
+
+function openGILoadStock(spaceIdx, prodIdx) {
+    var spaces = getGeneralInventory();
+    var pr = null;
+    var spaceName = '';
+    if (spaces[spaceIdx] && spaces[spaceIdx].products) {
+        pr = spaces[spaceIdx].products[prodIdx];
+        spaceName = spaces[spaceIdx].name || '';
+    }
+    if (!pr) return;
+
+    var pName = (pr.name || 'Producto') + (pr.brand ? ' · ' + pr.brand : '');
+    var qty = pr.qty || 0;
+
+    var html = '<div style="padding:0 4px;">' +
+        '<div style="background:#2ed57310;border:1px solid #2ed57325;border-radius:10px;padding:10px 12px;margin-bottom:14px;">' +
+            '<div style="font-size:11px;color:var(--text3);margin-bottom:2px;">Producto</div>' +
+            '<div style="font-size:14px;font-weight:700;color:var(--text);">' + escapeHtml(pName) + '</div>' +
+            '<div style="font-size:11px;color:var(--text3);margin-top:2px;">' + escapeHtml(spaceName) + '</div>' +
+            '<div style="display:flex;align-items:center;gap:8px;margin-top:6px;">' +
+                '<div style="font-size:11px;color:var(--text3);">Stock actual:</div>' +
+                '<div style="font-size:22px;font-weight:800;color:#2ed573;">' + qty + '</div>' +
+                '<div style="font-size:10px;color:var(--text3);">uds</div>' +
+            '</div>' +
+        '</div>' +
+        '<div class="input-group">' +
+            '<label class="input-label">📦 Cantidad a cargar</label>' +
+            '<input type="number" id="giCargaQty" class="input" value="1" min="1" style="font-size:20px;text-align:center;font-weight:700;">' +
+        '</div>' +
+        '<div class="input-group">' +
+            '<label class="input-label">📅 Fecha y hora</label>' +
+            '<input type="text" class="input" value="' + formatDateTimeNow() + '" readonly style="font-size:14px;color:var(--text3);background:var(--bg);cursor:default;">' +
+        '</div>' +
+        '<div class="input-group">' +
+            '<label class="input-label">📝 Motivo</label>' +
+            '<select id="giCargaReason" class="input" style="font-size:14px;">' +
+                '<option value="compra">Compra / Adquisicion</option>' +
+                '<option value="traslado">Traslado</option>' +
+                '<option value="devolucion">Devolucion</option>' +
+                '<option value="ajuste">Ajuste de inventario</option>' +
+                '<option value="otro">Otro</option>' +
+            '</select>' +
+        '</div>' +
+        '<div id="giCargaPreview" style="background:var(--bg2);border-radius:8px;padding:8px 12px;margin-top:8px;text-align:center;font-size:13px;color:var(--text2);">Nuevo stock: ' + (qty + 1) + ' unidades</div>' +
+        '<div style="display:flex;gap:8px;margin-top:14px;">' +
+            '<button class="btn btn-primary" style="flex:1;background:#2ed573;border-color:#2ed573;" onclick="executeGICarga(' + spaceIdx + ',' + prodIdx + ')">📥 Confirmar Carga</button>' +
+            '<button class="btn btn-outline" onclick="closeModal(\'genericModal\')">Cancelar</button>' +
+        '</div>' +
+    '</div>';
+
+    document.getElementById('genericModalTitle').textContent = '📥 Cargar Stock';
+    document.getElementById('genericModalContent').innerHTML = html;
+    openModal('genericModal');
+
+    setTimeout(function() {
+        var qtyInput = document.getElementById('giCargaQty');
+        if (qtyInput) {
+            qtyInput.addEventListener('input', function() {
+                var add = parseInt(this.value) || 0;
+                document.getElementById('giCargaPreview').textContent = 'Nuevo stock: ' + (qty + add) + ' unidades';
+            });
+        }
+    }, 100);
+}
+
+function executeGICarga(spaceIdx, prodIdx) {
+    var addQty = parseInt(document.getElementById('giCargaQty').value) || 0;
+    if (addQty < 1) { showToast('La cantidad debe ser mayor a 0', 'error'); return; }
+
+    var spaces = getGeneralInventory();
+    if (!spaces[spaceIdx] || !spaces[spaceIdx].products || !spaces[spaceIdx].products[prodIdx]) return;
+
+    spaces[spaceIdx].products[prodIdx].qty = (spaces[spaceIdx].products[prodIdx].qty || 0) + addQty;
+    saveGeneralInventory(spaces);
+    closeModal('genericModal');
+    showToast('Carga exitosa: +' + addQty + ' unidades', 'success');
+    renderGISpaceView();
+}
+
+function openGIUnloadStock(spaceIdx, prodIdx) {
+    var spaces = getGeneralInventory();
+    var pr = null;
+    var spaceName = '';
+    if (spaces[spaceIdx] && spaces[spaceIdx].products) {
+        pr = spaces[spaceIdx].products[prodIdx];
+        spaceName = spaces[spaceIdx].name || '';
+    }
+    if (!pr) return;
+
+    var pName = (pr.name || 'Producto') + (pr.brand ? ' · ' + pr.brand : '');
+    var qty = pr.qty || 0;
+    if (qty === 0) { showToast('No hay stock para descargar', 'error'); return; }
+
+    var html = '<div style="padding:0 4px;">' +
+        '<div style="background:#ff475710;border:1px solid #ff475725;border-radius:10px;padding:10px 12px;margin-bottom:14px;">' +
+            '<div style="font-size:11px;color:var(--text3);margin-bottom:2px;">Producto</div>' +
+            '<div style="font-size:14px;font-weight:700;color:var(--text);">' + escapeHtml(pName) + '</div>' +
+            '<div style="font-size:11px;color:var(--text3);margin-top:2px;">' + escapeHtml(spaceName) + '</div>' +
+            '<div style="display:flex;align-items:center;gap:8px;margin-top:6px;">' +
+                '<div style="font-size:11px;color:var(--text3);">Stock actual:</div>' +
+                '<div style="font-size:22px;font-weight:800;color:#ff4757;">' + qty + '</div>' +
+                '<div style="font-size:10px;color:var(--text3);">uds</div>' +
+            '</div>' +
+        '</div>' +
+        '<div class="input-group">' +
+            '<label class="input-label">📤 Cantidad a descargar</label>' +
+            '<input type="number" id="giDescQty" class="input" value="1" min="1" max="' + qty + '" style="font-size:20px;text-align:center;font-weight:700;">' +
+        '</div>' +
+        '<div class="input-group">' +
+            '<label class="input-label">📅 Fecha y hora</label>' +
+            '<input type="text" class="input" value="' + formatDateTimeNow() + '" readonly style="font-size:14px;color:var(--text3);background:var(--bg);cursor:default;">' +
+        '</div>' +
+        '<div class="input-group">' +
+            '<label class="input-label">📝 Motivo</label>' +
+            '<select id="giDescReason" class="input" style="font-size:14px;">' +
+                '<option value="venta">Venta</option>' +
+                '<option value="traslado">Traslado</option>' +
+                '<option value="devolucion">Devolucion a proveedor</option>' +
+                '<option value="ajuste">Ajuste de inventario</option>' +
+                '<option value="otro">Otro</option>' +
+            '</select>' +
+        '</div>' +
+        '<div id="giDescPreview" style="background:var(--bg2);border-radius:8px;padding:8px 12px;margin-top:8px;text-align:center;font-size:13px;color:var(--text2);">Nuevo stock: ' + (qty - 1) + ' unidades</div>' +
+        '<div style="display:flex;gap:8px;margin-top:14px;">' +
+            '<button class="btn btn-primary" style="flex:1;background:#ff4757;border-color:#ff4757;" onclick="executeGIDescarga(' + spaceIdx + ',' + prodIdx + ')">📤 Confirmar Descarga</button>' +
+            '<button class="btn btn-outline" onclick="closeModal(\'genericModal\')">Cancelar</button>' +
+        '</div>' +
+    '</div>';
+
+    document.getElementById('genericModalTitle').textContent = '📤 Descargar Stock';
+    document.getElementById('genericModalContent').innerHTML = html;
+    openModal('genericModal');
+
+    setTimeout(function() {
+        var qtyInput = document.getElementById('giDescQty');
+        if (qtyInput) {
+            qtyInput.addEventListener('input', function() {
+                var rem = parseInt(this.value) || 0;
+                if (rem > qty) { rem = qty; this.value = qty; }
+                document.getElementById('giDescPreview').textContent = 'Nuevo stock: ' + (qty - rem) + ' unidades';
+            });
+        }
+    }, 100);
+}
+
+function executeGIDescarga(spaceIdx, prodIdx) {
+    var remQty = parseInt(document.getElementById('giDescQty').value) || 0;
+    var spaces = getGeneralInventory();
+    if (!spaces[spaceIdx] || !spaces[spaceIdx].products || !spaces[spaceIdx].products[prodIdx]) return;
+    var currentQty = spaces[spaceIdx].products[prodIdx].qty || 0;
+    if (remQty < 1 || remQty > currentQty) { showToast('Cantidad inválida (máx: ' + currentQty + ')', 'error'); return; }
+
+    spaces[spaceIdx].products[prodIdx].qty = currentQty - remQty;
+    saveGeneralInventory(spaces);
+    closeModal('genericModal');
+    showToast('Descarga exitosa: -' + remQty + ' unidades', 'success');
+    renderGISpaceView();
+}
+
+function deleteGISpace(spaceIdx) {
+    if (!confirm('¿Eliminar este espacio y todos sus productos? Esta acción no se puede deshacer.')) return;
+    var spaces = getGeneralInventory();
+    var name = spaces[spaceIdx] ? spaces[spaceIdx].name : '';
+    spaces.splice(spaceIdx, 1);
+    saveGeneralInventory(spaces);
+    showToast('Espacio "' + name + '" eliminado', 'success');
+    exitGISpace();
+}
+
+function editGISpace(spaceIdx) {
+    var spaces = getGeneralInventory();
+    var currentName = spaces[spaceIdx] ? spaces[spaceIdx].name : '';
+    var html = '<div style="padding:0 4px;">' +
+        '<div class="input-group">' +
+            '<label class="input-label">📦 Nombre del Espacio</label>' +
+            '<input type="text" id="giEditSpaceName" class="input" value="' + escapeHtml(currentName) + '" style="font-size:15px;">' +
+        '</div>' +
+        '<div style="display:flex;gap:8px;margin-top:16px;">' +
+            '<button class="btn btn-primary" style="flex:1;" onclick="saveGIEditSpace(' + spaceIdx + ')">✅ Guardar</button>' +
+            '<button class="btn btn-outline" onclick="closeModal(\'genericModal\')">Cancelar</button>' +
+        '</div>' +
+    '</div>';
+    document.getElementById('genericModalTitle').textContent = '✏️ Editar Espacio';
+    document.getElementById('genericModalContent').innerHTML = html;
+    openModal('genericModal');
+    setTimeout(function() { var inp = document.getElementById('giEditSpaceName'); if (inp) { inp.focus(); inp.select(); } }, 300);
+}
+
+function saveGIEditSpace(spaceIdx) {
+    var name = (document.getElementById('giEditSpaceName') || {}).value || '';
+    name = name.trim();
+    if (!name) { showToast('Ingresa un nombre', 'error'); return; }
+    var spaces = getGeneralInventory();
+    if (!spaces[spaceIdx]) return;
+    spaces[spaceIdx].name = name;
+    saveGeneralInventory(spaces);
+    closeModal('genericModal');
+    showToast('Espacio renombrado a "' + name + '"', 'success');
+    renderGISpaceView();
+}
+
+function exportGIToExcel(spaceIdx) {
+    var spaces = getGeneralInventory();
+    if (!spaces[spaceIdx]) return;
+    var space = spaces[spaceIdx];
+    var prods = space.products || [];
+    if (prods.length === 0) { showToast('No hay productos para exportar', 'error'); return; }
+
+    var rows = [['Producto', 'Marca', 'Categoría', 'Color', 'Especificaciones', 'Cantidad', 'Precio', 'Costo', 'Valor Total']];
+    for (var i = 0; i < prods.length; i++) {
+        var pr = prods[i];
+        var specsStr = '';
+        if (pr.specifications) {
+            try {
+                var specObj = (typeof pr.specifications === 'string') ? JSON.parse(pr.specifications) : pr.specifications;
+                if (specObj && typeof specObj === 'object') {
+                    var sk = Object.keys(specObj);
+                    var parts = [];
+                    for (var s = 0; s < sk.length; s++) parts.push(sk[s] + ': ' + (specObj[sk[s]] || ''));
+                    specsStr = parts.join(', ');
+                }
+            } catch(e) {}
+        }
+        var valTotal = (pr.qty || 0) * (pr.cost || 0);
+        rows.push([
+            pr.name || '',
+            pr.brand || '',
+            pr.category || '',
+            pr.color || '',
+            specsStr,
+            pr.qty || 0,
+            pr.price || 0,
+            pr.cost || 0,
+            valTotal
+        ]);
+    }
+    downloadExcelFile(rows, 'InvGeneral_' + (space.name || 'espacio'));
 }
 
 </script>
