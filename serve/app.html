@@ -690,6 +690,126 @@
 
         /* Full-height scroll areas */
         .scroll-area { max-height: 350px; overflow-y: auto; }
+
+        /* ================================================================
+           INVENTORY FLOW CONTROL
+           ================================================================ */
+        .inv-flow-card {
+            background: var(--card); border: 1px solid var(--border);
+            border-radius: var(--radius-lg); padding: 14px; margin-bottom: 10px;
+        }
+        .inv-flow-card-header {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 10px;
+        }
+        .inv-flow-card-title {
+            font-size: 13px; font-weight: 700; color: var(--text);
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1;
+        }
+        .inv-flow-row {
+            display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 6px;
+            text-align: center;
+        }
+        .inv-flow-item {
+            background: var(--bg2); border-radius: 8px; padding: 8px 4px;
+        }
+        .inv-flow-item-num {
+            font-size: 18px; font-weight: 800; line-height: 1.2;
+        }
+        .inv-flow-item-label {
+            font-size: 9px; font-weight: 600; color: var(--text3); margin-top: 2px;
+            text-transform: uppercase; letter-spacing: 0.3px;
+        }
+        .inv-flow-item.inicial .inv-flow-item-num { color: var(--info); }
+        .inv-flow-item.entradas .inv-flow-item-num { color: var(--primary); }
+        .inv-flow-item.salidas .inv-flow-item-num { color: var(--danger); }
+        .inv-flow-item.actual .inv-flow-item-num { color: var(--accent); }
+        .inv-flow-bar {
+            display: flex; height: 4px; border-radius: 2px; overflow: hidden;
+            margin-top: 8px; background: var(--bg3);
+        }
+        .inv-flow-bar-in { background: var(--primary); border-radius: 2px 0 0 2px; transition: width 0.3s; }
+        .inv-flow-bar-out { background: var(--danger); transition: width 0.3s; }
+        .inv-initial-badge {
+            display: inline-flex; align-items: center; gap: 3px;
+            font-size: 10px; font-weight: 700; padding: 2px 7px;
+            border-radius: 8px;
+        }
+        .inv-initial-badge.registered {
+            background: var(--primary-bg); color: var(--primary);
+            border: 1px solid rgba(34,197,94,0.2);
+        }
+        .inv-initial-badge.pending {
+            background: var(--warning-bg); color: var(--warning);
+            border: 1px solid rgba(245,158,11,0.2);
+        }
+        .inv-control-table {
+            width: 100%; border-collapse: collapse; font-size: 12px;
+        }
+        .inv-control-table th {
+            background: var(--bg2); padding: 8px 6px; font-size: 10px;
+            font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px;
+            color: var(--text3); border-bottom: 2px solid var(--border);
+            text-align: center;
+        }
+        .inv-control-table th:first-child { text-align: left; }
+        .inv-control-table td {
+            padding: 8px 6px; border-bottom: 1px solid var(--border);
+            text-align: center; font-weight: 600;
+        }
+        .inv-control-table td:first-child { text-align: left; font-weight: 500; }
+        .inv-warning-bar {
+            background: var(--warning-bg); border: 1px solid rgba(245,158,11,0.2);
+            border-radius: 8px; padding: 8px 12px; margin-bottom: 10px;
+            font-size: 12px; color: var(--warning); display: flex;
+            align-items: center; gap: 6px;
+        }
+        .inv-flow-arrow {
+            display: flex; align-items: center; justify-content: center;
+            gap: 4px; margin: 6px 0; font-size: 11px; color: var(--text3);
+        }
+        /* Cruce de Inventario styles */
+        .cruce-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 12px 14px; background: var(--bg3); border-radius: 10px;
+            margin-bottom: 12px;
+        }
+        .cruce-header-title { font-size: 14px; font-weight: 700; color: var(--text); }
+        .cruce-header-date { font-size: 11px; color: var(--text3); }
+        .cruce-summary {
+            display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;
+            margin-bottom: 14px;
+        }
+        .cruce-summary-item {
+            background: var(--bg2); border-radius: 10px; padding: 10px 8px;
+            text-align: center; border: 1px solid var(--border);
+        }
+        .cruce-summary-label { font-size: 9px; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: 0.3px; }
+        .cruce-summary-value { font-size: 18px; font-weight: 800; color: var(--text); margin-top: 2px; }
+        .cruce-product-card {
+            background: var(--bg2); border-radius: 10px; padding: 12px;
+            margin-bottom: 10px; border: 1px solid var(--border);
+            transition: border-color 0.2s;
+        }
+        .cruce-product-card.cruce-match { border-left: 4px solid var(--primary); }
+        .cruce-product-card.cruce-excess { border-left: 4px solid var(--info); }
+        .cruce-product-card.cruce-missing { border-left: 4px solid var(--danger); }
+        .cruce-product-name { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 2px; }
+        .cruce-product-brand { font-size: 11px; color: var(--text3); margin-bottom: 6px; }
+        .cruce-input {
+            width: 70px; text-align: center; font-size: 15px; font-weight: 700;
+            padding: 6px 8px; border-radius: 8px; border: 1px solid var(--border);
+            background: var(--bg3); color: var(--text);
+            -webkit-appearance: none; appearance: none;
+        }
+        .cruce-input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary-bg); }
+        .cruce-match .cruce-diff { color: var(--primary); }
+        .cruce-excess .cruce-diff { color: var(--info); }
+        .cruce-missing .cruce-diff { color: var(--danger); }
+        .cruce-diff { font-size: 13px; font-weight: 800; }
+        .cruce-actions { display: flex; gap: 8px; padding: 0 18px 18px; }
+        .cruce-space-title { font-size: 12px; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: 0.5px; margin: 14px 0 8px; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
+        .cruce-space-title:first-child { margin-top: 0; }
     </style>
 </head>
 <body>
@@ -965,6 +1085,12 @@
             </div>
             <!-- Global target banner (compact) -->
             <div id="globalTargetBanner" style="margin-bottom:10px;"></div>
+            <!-- Cruce de Inventario button -->
+            <div id="cruceBanner" style="margin-bottom:10px;">
+                <button class="btn btn-outline" onclick="openCruceSelector()" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;padding:12px;font-size:14px;font-weight:700;border:2px dashed var(--border2);color:var(--text2);">
+                    <span>🔍 Cruce de Inventario Real vs Stock</span>
+                </button>
+            </div>
             <!-- Locations list container -->
             <div id="locationsList"></div>
             <!-- Empty state -->
@@ -1609,6 +1735,49 @@
         <div style="display:flex;gap:8px;margin-top:12px;">
             <button class="btn btn-primary btn-sm" style="flex:1;" onclick="exportMovementsExcel()">📥 Exportar Excel</button>
             <button class="btn btn-outline btn-sm" onclick="closeModal('movementsModal')">Cerrar</button>
+        </div>
+    </div>
+</div>
+
+<!-- ===== INITIAL INVENTORY REGISTRATION MODAL ===== -->
+<div id="initInvModal" class="modal-overlay">
+    <div class="modal-content modal-lg">
+        <div class="modal-handle"></div>
+        <div class="modal-header">
+            <h2 class="modal-title" id="initInvTitle">📋 Inventario Inicial</h2>
+            <button class="modal-close" onclick="closeModal('initInvModal')">✕</button>
+        </div>
+        <div id="initInvContent" class="modal-scroll-inner"></div>
+        <div style="padding:0 18px 18px;">
+            <button class="btn btn-primary" style="width:100%;" onclick="saveInitialInventory()">💾 Registrar Inventario Inicial</button>
+        </div>
+    </div>
+</div>
+
+<!-- ===== INVENTORY CONTROL VIEW MODAL ===== -->
+<div id="invControlModal" class="modal-overlay">
+    <div class="modal-content modal-lg">
+        <div class="modal-handle"></div>
+        <div class="modal-header">
+            <h2 class="modal-title">📊 Control de Inventario</h2>
+            <button class="modal-close" onclick="closeModal('invControlModal')">✕</button>
+        </div>
+        <div id="invControlContent" class="modal-scroll-inner"></div>
+    </div>
+</div>
+
+<!-- ===== CRUCE DE INVENTARIO MODAL ===== -->
+<div id="cruceModal" class="modal-overlay">
+    <div class="modal-content modal-lg">
+        <div class="modal-handle"></div>
+        <div class="modal-header">
+            <h2 class="modal-title" id="cruceModalTitle">🔍 Cruce de Inventario</h2>
+            <button class="modal-close" onclick="closeModal('cruceModal')">✕</button>
+        </div>
+        <div id="cruceContent" class="modal-scroll-inner"></div>
+        <div style="display:flex;gap:8px;margin-top:12px;padding:0 18px 18px;">
+            <button class="btn btn-primary btn-sm" style="flex:1;" onclick="saveCruceResult()">💾 Guardar Cruce</button>
+            <button class="btn btn-outline btn-sm" style="flex:1;" onclick="exportCruceExcel()">📥 Exportar</button>
         </div>
     </div>
 </div>
@@ -5461,6 +5630,27 @@ function buildLocCards(locs) {
         }
         var alertBadge = alertCount > 0 ? ' <span style="background:#ff4757;color:#fff;font-size:9px;padding:1px 6px;border-radius:8px;margin-left:4px;">' + alertCount + ' ⚠️</span>' : '';
 
+        // Check initial inventory registration status
+        var invRegCount = 0;
+        var invTotalCount = 0;
+        for (var s4 = 0; s4 < totalSpaces; s4++) {
+            var s4Prods = (loc.spaces[s4].products || []);
+            for (var p4 = 0; p4 < s4Prods.length; p4++) {
+                invTotalCount++;
+                if (s4Prods[p4].initialStock !== undefined && s4Prods[p4].initialStock !== null) invRegCount++;
+            }
+        }
+        var invBadge = '';
+        if (invTotalCount > 0) {
+            if (invRegCount === invTotalCount) {
+                invBadge = ' <span class="inv-initial-badge registered" style="margin-left:4px;">✅ Inv.</span>';
+            } else if (invRegCount > 0) {
+                invBadge = ' <span class="inv-initial-badge pending" style="margin-left:4px;">⏳ ' + invRegCount + '/' + invTotalCount + '</span>';
+            } else {
+                invBadge = ' <span class="inv-initial-badge pending" style="margin-left:4px;">⏳ Pend.</span>';
+            }
+        }
+
         // Space chips
         var spaceChips = '';
         for (var s3 = 0; s3 < totalSpaces; s3++) {
@@ -5471,9 +5661,21 @@ function buildLocCards(locs) {
             spaceChips += '<span class="loc-space-badge">' + escapeHtml(spaceName) + ' (' + spaceCount + ')</span>';
         }
 
+        // Last cruce badge
+        var cruceBadge = '';
+        if (loc.lastCruce && loc.lastCruce.date) {
+            var cruceD = new Date(loc.lastCruce.date);
+            var cruceDay = String(cruceD.getDate()).padStart(2, '0');
+            var cruceMon = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'][cruceD.getMonth()];
+            var cruceTotals = loc.lastCruce.totals || {};
+            var cruceDiff = cruceTotals.diff || 0;
+            var cruceDiffStr = cruceDiff === 0 ? '✅ OK' : (cruceDiff > 0 ? '↑+' + cruceDiff : '↓' + cruceDiff);
+            cruceBadge = ' <span class="inv-initial-badge registered" style="margin-left:4px;" title="Cruce: ' + cruceDay + ' ' + cruceMon + ' - ' + cruceDiffStr + '">🔍 Cruce</span>';
+        }
+
         cards += '<div class="loc-card" onclick="openLocDetail(\'' + loc.id + '\')" style="cursor:pointer;">' +
             '<div class="loc-card-header">' +
-                '<span class="loc-card-title">🏪 ' + escapeHtml(loc.name) + '</span>' +
+                '<span class="loc-card-title">🏪 ' + escapeHtml(loc.name) + invBadge + cruceBadge + '</span>' +
                 '<span class="loc-card-count">' + totalProducts + ' uds' + alertBadge + '</span>' +
             '</div>' +
             (totalSpaces > 0 ? '<div class="loc-spaces">' + spaceChips + '</div>' : '') +
@@ -5562,6 +5764,7 @@ function renderLocSpaceView(loc) {
         if (t4.productId) window._locGlobalModelTargets[t4.productId] = { target: t4.target || 0, min: t4.min || 0 };
     }
     var globalModelTargets = window._locGlobalModelTargets;
+    var totalFaltantesSpace = 0;
     for (var p = 0; p < products.length; p++) {
         totalQty += (products[p].qty || 0);
         var pQty = products[p].qty || 0;
@@ -5574,6 +5777,13 @@ function renderLocSpaceView(loc) {
         else if (pTgt > 0 && pTotalQty >= pTgt) { /* OK, target met */ }
         else if (pMin > 0 && pTotalQty < pMin) lowCount++;
         else if (pTgt > 0 && pTotalQty < pTgt) lowCount++;
+        // Calculate faltantes for this product
+        if (products[p].initialStock !== undefined && products[p].initialStock !== null) {
+            var pFlowCalc = computeProductFlowBySpace(loc, products[p].productId, currentIdx);
+            var pTotal = pFlowCalc.inicial + pFlowCalc.entradas;
+            var pFalt = pTotal - pFlowCalc.actual;
+            if (pFalt > 0) totalFaltantesSpace += pFalt;
+        }
     }
 
     // Space tabs with capacity indicators
@@ -5685,6 +5895,40 @@ function renderLocSpaceView(loc) {
             if (target > 0) minMaxHtml += '<div style="font-size:9px;color:var(--text3);">obj:' + prTotalQty + '/' + target + '</div>';
             else if (min > 0) minMaxHtml += '<div style="font-size:9px;color:var(--text3);">mín:' + min + '</div>';
 
+            // Inventory slot visualization — show initial stock positions with empty/vacant for sold
+            var invSlotsHtml = '';
+            if (pr.initialStock !== undefined && pr.initialStock !== null) {
+                var pFlow = computeProductFlowBySpace(loc, pr.productId, currentIdx);
+                var totalSlots = pFlow.inicial + pFlow.entradas;
+                var faltantes = totalSlots - pFlow.actual;
+                if (faltantes < 0) faltantes = 0;
+                
+                // Build visual slot grid (max 30 shown, then summary)
+                var maxShow = Math.min(totalSlots, 30);
+                var slotGrid = '';
+                for (var slot = 0; slot < maxShow; slot++) {
+                    if (slot < pFlow.actual) {
+                        // Present/available slot
+                        slotGrid += '<span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:var(--primary);margin:1px;box-shadow:0 1px 3px rgba(34,197,94,0.3);"></span>';
+                    } else {
+                        // Empty/sold slot
+                        slotGrid += '<span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:var(--danger);opacity:0.6;margin:1px;border:1px dashed var(--danger);"></span>';
+                    }
+                }
+                if (totalSlots > 30) {
+                    slotGrid += '<span style="font-size:9px;color:var(--text3);margin-left:4px;">+' + (totalSlots - 30) + '</span>';
+                }
+                
+                invSlotsHtml = '<div style="margin-top:3px;">' +
+                    '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:0;">' + slotGrid + '</div>' +
+                    '<div style="display:flex;gap:8px;margin-top:3px;font-size:10px;">' +
+                        '<span style="color:var(--primary);font-weight:600;">' + pFlow.actual + ' presentes</span>' +
+                        (faltantes > 0 ? '<span style="color:var(--danger);font-weight:600;">' + faltantes + ' faltantes</span>' : '<span style="color:var(--text3);">0 faltantes</span>') +
+                        '<span style="color:var(--text3);">de ' + totalSlots + '</span>' +
+                    '</div>' +
+                '</div>';
+            }
+
             prodHtml += '<div style="display:flex;align-items:center;gap:6px;padding:9px 0;border-bottom:1px solid var(--border);' + (min > 0 && prTotalQty < min ? 'border-left:3px solid ' + statusColor + ';padding-left:6px;' : '') + ';transition:background 0.15s;' + (isChecked ? 'background:var(--primary);background:rgba(99,102,241,0.06);border-radius:8px;' : '') + '" data-prodidx="' + i + '">' +
                 // Checkbox for group selection
                 '<label style="flex-shrink:0;cursor:pointer;opacity:' + chkOpacity + ';transition:opacity 0.2s;' + chkStyle + '">' +
@@ -5694,6 +5938,7 @@ function renderLocSpaceView(loc) {
                 '<div style="flex:1;min-width:0;">' +
                     '<div style="font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(pName) + '</div>' +
                     (locSpecsHtml ? '<div class="product-specs" style="margin-top:2px;">' + locSpecsHtml + '</div>' : '') +
+                    invSlotsHtml +
                 '</div>' +
                 // Cargar / Descargar buttons
                 '<div style="display:flex;align-items:center;gap:2px;flex-shrink:0;">' +
@@ -5714,6 +5959,8 @@ function renderLocSpaceView(loc) {
     var toolbarHtml = '';
     toolbarHtml += '<div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;align-items:center;">';
     toolbarHtml += '<button class="btn btn-primary btn-sm" onclick="openSpaceProductModal(\'' + loc.id + '\',' + currentIdx + ')" style="font-size:12px;">📥 Agregar Producto</button>';
+    toolbarHtml += '<button class="btn btn-outline btn-sm" onclick="openInitialInventoryModal(\'' + loc.id + '\',' + currentIdx + ')" style="font-size:12px;">📋 Inv. Inicial</button>';
+    toolbarHtml += '<button class="btn btn-outline btn-sm" onclick="openInventoryControl(\'' + loc.id + '\')" style="font-size:12px;">📊 Control</button>';
     toolbarHtml += '<button class="btn btn-outline btn-sm" onclick="toggleGroupSelectMode()" style="font-size:12px;' + (_groupSelectMode ? 'background:var(--primary);color:#fff;border-color:var(--primary);' : '') + ';">☑️ Seleccionar Grupo</button>';
     if (_groupSelectMode) {
         toolbarHtml += '<button class="btn btn-outline btn-sm" onclick="selectAllProducts()" style="font-size:12px;">☑️ Todo</button>';
@@ -5737,6 +5984,7 @@ function renderLocSpaceView(loc) {
             '<div class="loc-stat-item"><div class="loc-stat-num">' + spaces.length + '</div><div class="loc-stat-label">Espacios</div></div>' +
             '<div class="loc-stat-item"><div class="loc-stat-num">' + totalTypes + '</div><div class="loc-stat-label">Tipos</div></div>' +
             '<div class="loc-stat-item"><div class="loc-stat-num" style="color:var(--primary);">' + totalQty + '</div><div class="loc-stat-label">Unidades</div></div>' +
+            (totalFaltantesSpace > 0 ? '<div class="loc-stat-item"><div class="loc-stat-num" style="color:var(--danger);">' + totalFaltantesSpace + '</div><div class="loc-stat-label">Faltantes</div></div>' : '') +
         '</div>' +
         (curMinU > 0 || curMaxU > 0 ?
             '<div style="display:flex;align-items:center;gap:8px;margin-top:8px;padding:6px 12px;background:var(--bg2);border-radius:8px;font-size:11px;">' +
@@ -5952,11 +6200,70 @@ function openLocControlPanel(locId, spaceIdx) {
         '<button class="btn btn-outline btn-sm" onclick="closeModal(\'locControlModal\');openLocMovements(\'' + loc.id + '\')" style="font-size:12px;">📋 Movimientos</button>' +
     '</div>';
 
+    // Section: Inventory Control
+    html += '<div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">📊 Control de Inventario</div>';
+    html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:14px;">' +
+        '<button class="btn btn-outline btn-sm" onclick="closeModal(\'locControlModal\');openInitialInventoryModal(\'' + loc.id + '\',' + spaceIdx + ')" style="font-size:12px;">📋 Inv. Inicial</button>' +
+        '<button class="btn btn-outline btn-sm" onclick="closeModal(\'locControlModal\');openInventoryControl(\'' + loc.id + '\')" style="font-size:12px;">📊 Control</button>' +
+        '<button class="btn btn-outline btn-sm" onclick="closeModal(\'locControlModal\');openCruceModal(\'' + loc.id + '\')" style="font-size:12px;">🔍 Cruce</button>' +
+    '</div>';
+
     // Section: Baja por Venta (sell from space) + Ingreso rápido
     if (loc.spaces && loc.spaces[spaceIdx] && (loc.spaces[spaceIdx].products || []).length > 0) {
         var currentProducts = loc.spaces[spaceIdx].products || [];
+
+        // Compute today's and yesterday's ventas summary from movements
+        var locMovements = loc.movements || [];
+        var todayStr = new Date().toISOString().slice(0, 10);
+        var yesterdayDate = new Date(); yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+        var yesterdayStr = yesterdayDate.toISOString().slice(0, 10);
+        var todayVentasCount = 0, todayVentasTotal = 0;
+        var yestVentasCount = 0, yestVentasTotal = 0;
+        for (var smi = 0; smi < locMovements.length; smi++) {
+            var sm = locMovements[smi];
+            if (sm.type !== 'descarga' && sm.type !== 'venta') continue;
+            var smDay = (sm.date || '').slice(0, 10);
+            if (smDay === todayStr) {
+                todayVentasCount++;
+                todayVentasTotal += (parseFloat(sm.totalSale) || parseFloat(sm.salePrice) * (parseInt(sm.qty) || 0) || 0);
+            } else if (smDay === yesterdayStr) {
+                yestVentasCount++;
+                yestVentasTotal += (parseFloat(sm.totalSale) || parseFloat(sm.salePrice) * (parseInt(sm.qty) || 0) || 0);
+            }
+        }
+
+        // Build last venta date lookup per productId for this space
+        var lastVentaMap = {};
+        for (var lmi = 0; lmi < locMovements.length; lmi++) {
+            var lm = locMovements[lmi];
+            if (lm.type !== 'descarga' && lm.type !== 'venta') continue;
+            if (lm.spaceIdx !== spaceIdx && lm.spaceName !== (loc.spaces[spaceIdx].name || '')) continue;
+            var lmPid = lm.productId;
+            if (!lmPid) continue;
+            if (!lastVentaMap[lmPid] || lm.date > lastVentaMap[lmPid]) {
+                lastVentaMap[lmPid] = lm.date;
+            }
+        }
+
         html += '<div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">💰 Ventas e Inventario</div>';
         html += '<div style="background:var(--bg2);border-radius:10px;padding:10px;margin-bottom:14px;">';
+
+        // Daily summary
+        html += '<div style="background:var(--bg3);border-radius:8px;padding:8px 10px;margin-bottom:10px;">';
+        html += '<div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.3px;margin-bottom:6px;">📊 Resumen de Ventas</div>';
+        html += '<div style="display:flex;gap:8px;">';
+        html += '<div style="flex:1;background:var(--primary-bg);border-radius:6px;padding:6px 8px;text-align:center;">';
+        html += '<div style="font-size:9px;color:var(--text3);font-weight:600;">HOY</div>';
+        html += '<div style="font-size:13px;font-weight:800;color:var(--primary);">' + todayVentasCount + '</div>';
+        html += '<div style="font-size:10px;color:var(--text2);">' + formatMoney(todayVentasTotal) + '</div>';
+        html += '</div>';
+        html += '<div style="flex:1;background:var(--info-bg);border-radius:6px;padding:6px 8px;text-align:center;">';
+        html += '<div style="font-size:9px;color:var(--text3);font-weight:600;">AYER</div>';
+        html += '<div style="font-size:13px;font-weight:800;color:var(--info);">' + yestVentasCount + '</div>';
+        html += '<div style="font-size:10px;color:var(--text2);">' + formatMoney(yestVentasTotal) + '</div>';
+        html += '</div>';
+        html += '</div></div>';
+
         html += '<p style="font-size:11px;color:var(--text2);margin-bottom:8px;">Registra ventas (baja) o ingresos rápidos de cada producto en ' + escapeHtml(spaceName) + '.</p>';
         for (var pi = 0; pi < currentProducts.length; pi++) {
             var cp = currentProducts[pi];
@@ -5968,11 +6275,27 @@ function openLocControlPanel(locId, spaceIdx) {
             else if (cpTarget > 0 && cpQty >= cpTarget) cpStatus = '✅';
             else cpStatus = '⚠️';
 
+            // Find last venta date for this product
+            var cpLastVentaDate = lastVentaMap[cp.productId] || null;
+            var cpLastVentaStr = '';
+            if (cpLastVentaDate) {
+                try {
+                    var lvd = new Date(cpLastVentaDate);
+                    var lvdDay = String(lvd.getDate()).padStart(2, '0');
+                    var lvdMon = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'][lvd.getMonth()];
+                    var lvdYear = lvd.getFullYear();
+                    var lvdH = String(lvd.getHours()).padStart(2, '0');
+                    var lvdM = String(lvd.getMinutes()).padStart(2, '0');
+                    cpLastVentaStr = '<div style="font-size:10px;color:var(--text3);margin-bottom:4px;">🕐 Última venta: ' + lvdDay + ' ' + lvdMon + ' ' + lvdYear + ' ' + lvdH + ':' + lvdM + '</div>';
+                } catch(e) {}
+            }
+
             html += '<div style="margin-bottom:' + (pi < currentProducts.length - 1 ? '8px' : '0') + ';padding-bottom:' + (pi < currentProducts.length - 1 ? '8px' : '0') + ';border-bottom:' + (pi < currentProducts.length - 1 ? '1px solid var(--border)' : 'none') + ';">';
             html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">';
             html += '<div style="font-size:12px;font-weight:700;color:var(--text);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + cpStatus + ' ' + escapeHtml(cpName) + '</div>';
             html += '<div style="font-size:11px;color:var(--text3);flex-shrink:0;">Stock: <b style="color:var(--primary);">' + cpQty + '</b></div>';
             html += '</div>';
+            html += cpLastVentaStr;
             html += '<div style="display:flex;gap:6px;">';
             html += '<button class="btn btn-outline btn-sm" onclick="sellFromSpace(\'' + loc.id + '\',' + spaceIdx + ',' + pi + ')" style="flex:1;font-size:11px;color:#ff4757;border-color:#ff4757;' + (cpQty === 0 ? 'opacity:0.4;pointer-events:none;' : '') + '">📤 Descargar</button>';
             html += '<button class="btn btn-primary btn-sm" onclick="quickIngress(\'' + loc.id + '\',' + spaceIdx + ',' + pi + ')" style="flex:1;font-size:11px;">📥 Cargar</button>';
@@ -6309,6 +6632,61 @@ function openStockEdit(locId, spaceIdx, prodIdx) {
     var qty = pr.qty || 0;
 
     document.getElementById('stockEditTitle').textContent = '📋 ' + pName;
+    var initialStockVal = (pr.initialStock !== undefined && pr.initialStock !== null) ? pr.initialStock : null;
+    var initialStockHtml = '';
+    if (initialStockVal !== null) {
+        var flow = computeProductFlowBySpace(
+            (function() { var locs = getLocations(); for (var x = 0; x < locs.length; x++) { if (locs[x].spaces) { for (var y = 0; y < locs[x].spaces.length; y++) { var sp = locs[x].spaces[y]; for (var z = 0; z < (sp.products||[]).length; z++) { if (sp.products[z] === pr) return locs[x]; } } } } return null; })(),
+            pr.productId, 0
+        );
+        var totalSlotsSe = flow.inicial + flow.entradas;
+        var faltantesSe = totalSlotsSe - flow.actual;
+        if (faltantesSe < 0) faltantesSe = 0;
+
+        // Slot visualization in stock edit modal
+        var slotGridSe = '';
+        var maxShowSe = Math.min(totalSlotsSe, 30);
+        for (var seSlot = 0; seSlot < maxShowSe; seSlot++) {
+            if (seSlot < flow.actual) {
+                slotGridSe += '<span style="display:inline-block;width:16px;height:16px;border-radius:3px;background:var(--primary);margin:1px;box-shadow:0 1px 3px rgba(34,197,94,0.3);"></span>';
+            } else {
+                slotGridSe += '<span style="display:inline-block;width:16px;height:16px;border-radius:3px;background:var(--danger);opacity:0.5;margin:1px;border:1px dashed var(--danger);"></span>';
+            }
+        }
+        if (totalSlotsSe > 30) {
+            slotGridSe += '<span style="font-size:10px;color:var(--text3);margin-left:4px;">+' + (totalSlotsSe - 30) + ' más</span>';
+        }
+
+        initialStockHtml = '<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:4px;margin-bottom:10px;text-align:center;">' +
+            '<div style="background:var(--info-bg);border-radius:8px;padding:6px 2px;">' +
+                '<div style="font-size:14px;font-weight:800;color:var(--info);">' + initialStockVal + '</div>' +
+                '<div style="font-size:8px;color:var(--text3);text-transform:uppercase;">Inicial</div>' +
+            '</div>' +
+            '<div style="background:var(--primary-bg);border-radius:8px;padding:6px 2px;">' +
+                '<div style="font-size:14px;font-weight:800;color:var(--primary);">+' + flow.entradas + '</div>' +
+                '<div style="font-size:8px;color:var(--text3);text-transform:uppercase;">Entradas</div>' +
+            '</div>' +
+            '<div style="background:var(--danger-bg);border-radius:8px;padding:6px 2px;">' +
+                '<div style="font-size:14px;font-weight:800;color:var(--danger);">-' + flow.salidas + '</div>' +
+                '<div style="font-size:8px;color:var(--text3);text-transform:uppercase;">Salidas</div>' +
+            '</div>' +
+            '<div style="background:var(--bg2);border-radius:8px;padding:6px 2px;">' +
+                '<div style="font-size:14px;font-weight:800;color:var(--accent);">' + qty + '</div>' +
+                '<div style="font-size:8px;color:var(--text3);text-transform:uppercase;">Actual</div>' +
+            '</div>' +
+        '</div>' +
+        // Slot grid visualization
+        '<div style="background:var(--bg2);border-radius:10px;padding:10px;margin-bottom:10px;">' +
+            '<div style="display:flex;flex-wrap:wrap;gap:0;">' + slotGridSe + '</div>' +
+            '<div style="display:flex;justify-content:space-between;margin-top:6px;font-size:11px;">' +
+                '<span style="color:var(--primary);font-weight:600;">' + flow.actual + ' presentes</span>' +
+                (faltantesSe > 0 ? '<span style="color:var(--danger);font-weight:600;">' + faltantesSe + ' faltantes (vendidos)</span>' : '<span style="color:var(--text3);">0 faltantes</span>') +
+                '<span style="color:var(--text3);">de ' + totalSlotsSe + '</span>' +
+            '</div>' +
+        '</div>';
+    } else {
+        initialStockHtml = '<div class="inv-warning-bar" style="margin-bottom:10px;">⚠️ Sin inventario inicial registrado. <span style="cursor:pointer;text-decoration:underline;" onclick="closeModal(\'stockEditModal\');openInitialInventoryModal(\'' + locId + '\',' + spaceIdx + ')">Registrar</span></div>';
+    }
     document.getElementById('stockEditContent').innerHTML =
         '<div style="padding:0 4px;">' +
         '<div style="text-align:center;margin-bottom:16px;">' +
@@ -6316,6 +6694,7 @@ function openStockEdit(locId, spaceIdx, prodIdx) {
             '<div style="font-size:36px;font-weight:800;color:var(--primary);">' + qty + '</div>' +
             '<div style="font-size:10px;color:var(--text3);margin-top:2px;">Para cambiar, usa Cargar (📥) o Descargar (📤)</div>' +
         '</div>' +
+        initialStockHtml +
         '<div style="display:flex;gap:8px;margin-bottom:14px;">' +
             '<button class="btn btn-primary" style="flex:1;background:#2ed573;border-color:#2ed573;font-size:13px;" onclick="closeModal(\'stockEditModal\');openCargaStock(\'' + locId + '\',' + spaceIdx + ',' + prodIdx + ')">📥 Cargar Stock</button>' +
             '<button class="btn btn-outline" style="flex:1;color:#ff4757;border-color:#ff4757;font-size:13px;' + (qty === 0 ? 'opacity:0.4;pointer-events:none;' : '') + '" onclick="closeModal(\'stockEditModal\');openDescargaStock(\'' + locId + '\',' + spaceIdx + ',' + prodIdx + ')">📤 Descargar Stock</button>' +
@@ -6408,10 +6787,8 @@ function saveStockEdit(locId, spaceIdx, prodIdx) {
                     spaceName: locs[i].spaces[spaceIdx].name || '',
                     qty: Math.abs(diff)
                 });
-                // Auto-remove if qty hits 0
-                if (newQty === 0) {
-                    locs[i].spaces[spaceIdx].products.splice(prodIdx, 1);
-                }
+                // Keep product even if qty hits 0 — show as agotado so faltantes are visible
+                // if (newQty === 0) { locs[i].spaces[spaceIdx].products.splice(prodIdx, 1); }
             }
             break;
         }
@@ -6571,8 +6948,13 @@ function openDescargaStock(locId, spaceIdx, prodIdx) {
     if (qty === 0) { showToast('Sin stock para descargar', 'error'); return; }
 
     document.getElementById('descargaStockTitle').textContent = '📤 Descargar Stock';
+    var noInitialWarning = '';
+    if (pr.initialStock === undefined || pr.initialStock === null) {
+        noInitialWarning = '<div class="inv-warning-bar">⚠️ Este producto no tiene inventario inicial registrado. <span style="cursor:pointer;text-decoration:underline;" onclick="closeModal(\'descargaStockModal\');openInitialInventoryModal(\'' + locId + '\',' + spaceIdx + ')">Registrar ahora</span></div>';
+    }
     document.getElementById('descargaStockContent').innerHTML =
         '<div style="padding:0 4px;">' +
+        noInitialWarning +
         '<div style="background:#ff475710;border:1px solid #ff475725;border-radius:10px;padding:10px 12px;margin-bottom:14px;">' +
             '<div style="font-size:11px;color:var(--text3);margin-bottom:2px;">Producto</div>' +
             '<div style="font-size:14px;font-weight:700;color:var(--text);">' + escapeHtml(pName) + '</div>' +
@@ -6680,10 +7062,8 @@ function executeDescarga(locId, spaceIdx, prodIdx) {
                 qty: subQty
             });
 
-            // Auto-remove if qty hits 0
-            if (newQty === 0) {
-                locs2[j].spaces[spaceIdx].products.splice(prodIdx, 1);
-            }
+            // Keep product even if qty hits 0 — show as agotado so user can see what was sold
+            // NO auto-remove: the product stays visible with qty=0 so faltantes are tracked
             break;
         }
     }
@@ -7022,10 +7402,10 @@ function executeBatchSell() {
             totalSale: sellQty * salePrice
         });
 
-        // Auto-remove if qty hits 0
-        if (pr.qty === 0) {
-            locs[locIdx].spaces[_locCurrentSpace].products.splice(idx, 1);
-        }
+        // Keep product even if qty hits 0 — show as agotado so faltantes are visible
+        // if (pr.qty === 0) {
+        //     locs[locIdx].spaces[_locCurrentSpace].products.splice(idx, 1);
+        // }
     }
 
     locs[locIdx].updatedAt = new Date().toISOString();
@@ -7592,6 +7972,7 @@ function renderStockDetailPage() {
                     (locAlerts > 0 ? '<span style="background:' + locColor + '20;color:' + locColor + ';font-size:9px;padding:1px 6px;border-radius:6px;font-weight:700;">' + locIcon + ' ' + locAlerts + '</span>' : '<span style="background:#2ed57320;color:#2ed573;font-size:9px;padding:1px 6px;border-radius:6px;font-weight:700;">✅ OK</span>') +
                 '</div>' +
                 '<div style="display:flex;align-items:center;gap:6px;">' +
+                    '<span onclick="event.stopPropagation();openInventoryControl(\'' + loc.id + '\')" style="background:var(--info-bg);color:var(--info);font-size:9px;padding:3px 8px;border-radius:6px;font-weight:700;cursor:pointer;">📊 Control</span>' +
                     '<span style="font-size:18px;font-weight:800;color:var(--primary);">' + locTotal + '</span>' +
                     '<span style="font-size:12px;color:var(--text3);">uds</span>' +
                     '<span style="font-size:14px;color:var(--text3);">→</span>' +
@@ -7725,6 +8106,7 @@ function renderStockDetailPage() {
                         (locAlerts > 0 ? '<span style="background:' + locColor + '20;color:' + locColor + ';font-size:9px;padding:1px 6px;border-radius:6px;font-weight:700;">' + locIcon + ' ' + locAlerts + '</span>' : '<span style="background:#2ed57320;color:#2ed573;font-size:9px;padding:1px 6px;border-radius:6px;font-weight:700;">✅ OK</span>') +
                     '</div>' +
                     '<div style="display:flex;align-items:center;gap:6px;">' +
+                        '<span onclick="event.stopPropagation();openInventoryControl(\'' + loc.id + '\')" style="background:var(--info-bg);color:var(--info);font-size:9px;padding:3px 8px;border-radius:6px;font-weight:700;cursor:pointer;">📊 Control</span>' +
                         '<span style="font-size:18px;font-weight:800;color:var(--primary);">' + locTotal + '</span>' +
                         '<span style="font-size:12px;color:var(--text3);">uds</span>' +
                         '<span style="font-size:14px;color:var(--text3);">→</span>' +
@@ -8643,8 +9025,14 @@ function confirmAddProductToSpace() {
             if (!found) {
                 space.products.push({
                     productId: _spSelectedProductId, name: prodName, brand: prodBrand,
-                    qty: qty, specifications: prodSpecs, targetQty: targetQty, minQty: minQty, maxQty: maxQty
+                    qty: qty, specifications: prodSpecs, targetQty: targetQty, minQty: minQty, maxQty: maxQty,
+                    initialStock: qty
                 });
+            } else {
+                // If product already exists, update initialStock if not set
+                if (space.products[j].initialStock === undefined || space.products[j].initialStock === null) {
+                    space.products[j].initialStock = space.products[j].qty;
+                }
             }
             locs[i].updatedAt = new Date().toISOString();
             if (qty > 0) {
@@ -8704,8 +9092,14 @@ function addCartToSpace(locId, spaceIdx) {
                 if (!found) {
                     space.products.push({
                         productId: pid, name: prodName, brand: prodBrand,
-                        qty: cartQty, specifications: prodSpecs, targetQty: 0, minQty: 0, maxQty: 0
+                        qty: cartQty, specifications: prodSpecs, targetQty: 0, minQty: 0, maxQty: 0,
+                        initialStock: cartQty
                     });
+                } else {
+                    // If product already exists, update initialStock if not set
+                    if (space.products[j].initialStock === undefined || space.products[j].initialStock === null) {
+                        space.products[j].initialStock = space.products[j].qty;
+                    }
                 }
                 totalAdded += cartQty;
 
@@ -8737,10 +9131,10 @@ function changeSpaceQty(locId, spaceIdx, prodIdx, delta) {
             if (prod) {
                 prod.qty = (prod.qty || 0) + delta;
                 if (prod.qty < 0) prod.qty = 0;
-                if (prod.qty === 0) {
-                    // Remove product when qty reaches 0
-                    locs[i].spaces[spaceIdx].products.splice(prodIdx, 1);
-                }
+                // Keep product even if qty reaches 0 — show as agotado so faltantes are visible
+                // if (prod.qty === 0) {
+                //     locs[i].spaces[spaceIdx].products.splice(prodIdx, 1);
+                // }
             }
             locs[i].updatedAt = new Date().toISOString();
             break;
@@ -10792,6 +11186,756 @@ document.getElementById('resetForm').addEventListener('submit', function(e) {
         errEl.style.display = 'block';
     });
 });
+
+// ====================================================================
+// INVENTORY FLOW CONTROL - Initial Stock Registration & Tracking
+// ====================================================================
+
+var _initInvLocId = '';
+var _initInvSpaceIdx = 0;
+
+/**
+ * Compute product flow: inicial, entradas, salidas, actual for a product in a locale
+ * @param {object} loc - The locale object
+ * @param {string} productId - The product ID
+ * @returns {object} { inicial, entradas, salidas, actual }
+ */
+function computeProductFlow(loc, productId) {
+    var inicial = 0;
+    var entradas = 0;
+    var salidas = 0;
+    var actual = 0;
+
+    // Get initialStock from all spaces for this product
+    var spaces = loc.spaces || [];
+    for (var s = 0; s < spaces.length; s++) {
+        var prods = spaces[s].products || [];
+        for (var p = 0; p < prods.length; p++) {
+            if (prods[p].productId === productId) {
+                inicial += (prods[p].initialStock || 0);
+                actual += (prods[p].qty || 0);
+            }
+        }
+    }
+
+    // Compute entradas/salidas from movements
+    var movements = loc.movements || [];
+    for (var m = 0; m < movements.length; m++) {
+        var mov = movements[m];
+        if (mov.productId === productId) {
+            if (mov.type === 'carga' || mov.type === 'ingreso') {
+                entradas += (mov.qty || 0);
+            } else if (mov.type === 'descarga' || mov.type === 'venta') {
+                salidas += (mov.qty || 0);
+            }
+        }
+    }
+
+    // If no initialStock registered, use current qty minus movements as baseline
+    if (inicial === 0 && actual > 0) {
+        inicial = actual - entradas + salidas;
+        if (inicial < 0) inicial = 0;
+    }
+
+    return { inicial: inicial, entradas: entradas, salidas: salidas, actual: actual };
+}
+
+/**
+ * Compute product flow for a specific space index
+ */
+function computeProductFlowBySpace(loc, productId, spaceIdx) {
+    var inicial = 0;
+    var entradas = 0;
+    var salidas = 0;
+    var actual = 0;
+
+    var space = (loc.spaces || [])[spaceIdx];
+    if (!space) return { inicial: 0, entradas: 0, salidas: 0, actual: 0 };
+
+    var prods = space.products || [];
+    for (var p = 0; p < prods.length; p++) {
+        if (prods[p].productId === productId) {
+            inicial = (prods[p].initialStock || 0);
+            actual = (prods[p].qty || 0);
+            break;
+        }
+    }
+
+    // Compute entradas/salidas from movements for this space
+    var movements = loc.movements || [];
+    for (var m = 0; m < movements.length; m++) {
+        var mov = movements[m];
+        if (mov.productId === productId && (mov.spaceIdx === spaceIdx)) {
+            if (mov.type === 'carga' || mov.type === 'ingreso') {
+                entradas += (mov.qty || 0);
+            } else if (mov.type === 'descarga' || mov.type === 'venta') {
+                salidas += (mov.qty || 0);
+            }
+        }
+    }
+
+    // If no initialStock registered, compute from current and movements
+    if (inicial === 0 && actual > 0) {
+        inicial = actual - entradas + salidas;
+        if (inicial < 0) inicial = 0;
+    }
+
+    return { inicial: inicial, entradas: entradas, salidas: salidas, actual: actual };
+}
+
+/**
+ * Open the Initial Inventory Registration Modal
+ */
+function openInitialInventoryModal(locId, spaceIdx) {
+    _initInvLocId = locId;
+    _initInvSpaceIdx = spaceIdx || 0;
+
+    var locs = getLocations();
+    var loc = null;
+    for (var i = 0; i < locs.length; i++) {
+        if (locs[i].id === locId) { loc = locs[i]; break; }
+    }
+    if (!loc) return;
+
+    var space = (loc.spaces || [])[spaceIdx];
+    if (!space) return;
+
+    var products = space.products || [];
+    var spaceName = space.name || ('Espacio ' + (spaceIdx + 1));
+
+    document.getElementById('initInvTitle').textContent = '📋 Inventario Inicial — ' + escapeHtml(loc.name) + ' / ' + escapeHtml(spaceName);
+
+    var html = '<div style="padding:4px 14px;">';
+    html += '<div style="font-size:12px;color:var(--text2);margin-bottom:12px;line-height:1.5;">' +
+        'Registra el stock inicial de cada TV. Este será el punto de referencia para controlar entradas y salidas posteriores.' +
+        '</div>';
+
+    if (products.length === 0) {
+        html += '<div style="text-align:center;padding:24px;color:var(--text3);">' +
+            '<div style="font-size:32px;margin-bottom:6px;">📦</div>' +
+            '<div style="font-size:13px;">Sin productos en este espacio</div>' +
+            '<div style="font-size:11px;margin-top:4px;">Agrega productos primero</div></div>';
+    } else {
+        for (var p = 0; p < products.length; p++) {
+            var pr = products[p];
+            var pName = (pr.name || 'Producto') + (pr.brand ? ' · ' + pr.brand : '');
+            var currentInitial = pr.initialStock || 0;
+            var currentQty = pr.qty || 0;
+            var hasInitial = pr.initialStock !== undefined && pr.initialStock !== null;
+
+            // Spec tags
+            var specHtml = '';
+            if (pr.specifications) {
+                try {
+                    var specObj = (typeof pr.specifications === 'string') ? JSON.parse(pr.specifications) : pr.specifications;
+                    if (specObj && typeof specObj === 'object') {
+                        var specKeys = Object.keys(specObj);
+                        for (var sk = 0; sk < specKeys.length; sk++) {
+                            var sv = (specObj[specKeys[sk]] || '').trim();
+                            if (sv) specHtml += '<span class="product-spec-tag">' + escapeHtml(sv) + '</span>';
+                        }
+                    }
+                } catch(e) {}
+            }
+
+            html += '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:8px;">';
+            html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">';
+            html += '<div style="flex:1;min-width:0;">';
+            html += '<div style="font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(pName) + '</div>';
+            if (specHtml) html += '<div class="product-specs" style="margin-top:2px;">' + specHtml + '</div>';
+            html += '</div>';
+            html += '<div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">';
+            html += '<span style="font-size:10px;color:var(--text3);">Actual: <b style="color:var(--primary);">' + currentQty + '</b></span>';
+            if (hasInitial) {
+                html += '<span class="inv-initial-badge registered">✅ Reg.</span>';
+            } else {
+                html += '<span class="inv-initial-badge pending">⏳ Pend.</span>';
+            }
+            html += '</div></div>';
+            html += '<div style="display:flex;align-items:center;gap:8px;">';
+            html += '<label style="font-size:11px;color:var(--text3);font-weight:600;white-space:nowrap;">Inv. Inicial:</label>';
+            html += '<input type="number" id="initInv_' + p + '" class="input" value="' + (hasInitial ? currentInitial : currentQty) + '" min="0" style="flex:1;font-size:14px;font-weight:700;text-align:center;padding:8px;">';
+            html += '</div>';
+            html += '</div>';
+        }
+    }
+
+    html += '</div>';
+    document.getElementById('initInvContent').innerHTML = html;
+    openModal('initInvModal');
+}
+
+/**
+ * Save initial inventory registration
+ */
+function saveInitialInventory() {
+    var locId = _initInvLocId;
+    var spaceIdx = _initInvSpaceIdx;
+
+    var locs = getLocations();
+    var loc = null;
+    var locIdx = -1;
+    for (var i = 0; i < locs.length; i++) {
+        if (locs[i].id === locId) { loc = locs[i]; locIdx = i; break; }
+    }
+    if (locIdx < 0) return;
+
+    var space = (loc.spaces || [])[spaceIdx];
+    if (!space) return;
+
+    var products = space.products || [];
+    var updated = 0;
+
+    for (var p = 0; p < products.length; p++) {
+        var input = document.getElementById('initInv_' + p);
+        if (input) {
+            var val = parseInt(input.value);
+            if (isNaN(val) || val < 0) val = 0;
+            products[p].initialStock = val;
+            updated++;
+        }
+    }
+
+    if (updated === 0) {
+        showToast('No hay productos para registrar', 'error');
+        return;
+    }
+
+    locs[locIdx].spaces[spaceIdx].products = products;
+    locs[locIdx].updatedAt = new Date().toISOString();
+    saveLocations(locs);
+    syncLocationsToServer();
+    closeModal('initInvModal');
+
+    // Re-render the space view
+    var updatedLoc = locs[locIdx];
+    renderLocSpaceView(updatedLoc);
+    showToast('Inventario inicial registrado: ' + updated + ' producto' + (updated > 1 ? 's' : ''), 'success');
+}
+
+/**
+ * Open the Inventory Control view for a locale
+ */
+function openInventoryControl(locId) {
+    var locs = getLocations();
+    var loc = null;
+    for (var i = 0; i < locs.length; i++) {
+        if (locs[i].id === locId) { loc = locs[i]; break; }
+    }
+    if (!loc) return;
+
+    var html = renderInventoryControl(loc);
+    document.getElementById('invControlContent').innerHTML = html;
+    openModal('invControlModal');
+}
+
+/**
+ * Render the Inventory Control view for a locale
+ */
+function renderInventoryControl(loc) {
+    var spaces = loc.spaces || [];
+    var html = '<div style="padding:4px 14px;">';
+
+    // Locale header
+    html += '<div style="text-align:center;margin-bottom:14px;">';
+    html += '<div style="font-size:18px;font-weight:800;color:var(--text);">🏪 ' + escapeHtml(loc.name) + '</div>';
+    html += '<div style="font-size:12px;color:var(--text3);margin-top:2px;">Control de Inventario</div>';
+    html += '</div>';
+
+    // Count products with and without initial inventory
+    var totalProducts = 0;
+    var registeredCount = 0;
+    var allProductFlows = [];
+    var totalFaltantes = 0;
+
+    for (var s = 0; s < spaces.length; s++) {
+        var prods = spaces[s].products || [];
+        for (var p = 0; p < prods.length; p++) {
+            totalProducts++;
+            var pr = prods[p];
+            var hasInitial = pr.initialStock !== undefined && pr.initialStock !== null;
+            if (hasInitial) registeredCount++;
+
+            var flow = computeProductFlowBySpace(loc, pr.productId, s);
+            var pName = (pr.name || 'Producto') + (pr.brand ? ' · ' + pr.brand : '');
+
+            // Spec tags
+            var specHtml = '';
+            if (pr.specifications) {
+                try {
+                    var specObj = (typeof pr.specifications === 'string') ? JSON.parse(pr.specifications) : pr.specifications;
+                    if (specObj && typeof specObj === 'object') {
+                        var specKeys = Object.keys(specObj);
+                        for (var sk = 0; sk < specKeys.length; sk++) {
+                            var sv = (specObj[specKeys[sk]] || '').trim();
+                            if (sv) specHtml += '<span class="product-spec-tag">' + escapeHtml(sv) + '</span>';
+                        }
+                    }
+                } catch(e) {}
+            }
+
+            var totalSlots = flow.inicial + flow.entradas;
+            var faltantes = totalSlots - flow.actual;
+            if (faltantes < 0) faltantes = 0;
+            totalFaltantes += faltantes;
+
+            allProductFlows.push({
+                spaceIdx: s,
+                spaceName: spaces[s].name || ('Espacio ' + (s+1)),
+                productId: pr.productId,
+                name: pName,
+                specs: specHtml,
+                hasInitial: hasInitial,
+                inicial: flow.inicial,
+                entradas: flow.entradas,
+                salidas: flow.salidas,
+                actual: flow.actual,
+                totalSlots: totalSlots,
+                faltantes: faltantes
+            });
+        }
+    }
+
+    // Summary stats — 3 columns: registered, pending, faltantes
+    var pendingCount = totalProducts - registeredCount;
+    html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:14px;">';
+    html += '<div style="background:var(--primary-bg);border:1px solid rgba(34,197,94,0.2);border-radius:10px;padding:10px;text-align:center;">';
+    html += '<div style="font-size:20px;font-weight:800;color:var(--primary);">' + registeredCount + '</div>';
+    html += '<div style="font-size:9px;color:var(--text3);">Con Inv. Inicial</div>';
+    html += '</div>';
+    html += '<div style="background:' + (pendingCount > 0 ? 'var(--warning-bg)' : 'var(--bg2)') + ';border:1px solid ' + (pendingCount > 0 ? 'rgba(245,158,11,0.2)' : 'var(--border)') + ';border-radius:10px;padding:10px;text-align:center;">';
+    html += '<div style="font-size:20px;font-weight:800;color:' + (pendingCount > 0 ? 'var(--warning)' : 'var(--text3)') + ';">' + pendingCount + '</div>';
+    html += '<div style="font-size:9px;color:var(--text3);">Sin Registrar</div>';
+    html += '</div>';
+    html += '<div style="background:' + (totalFaltantes > 0 ? 'var(--danger-bg)' : 'var(--bg2)') + ';border:1px solid ' + (totalFaltantes > 0 ? 'rgba(239,68,68,0.2)' : 'var(--border)') + ';border-radius:10px;padding:10px;text-align:center;">';
+    html += '<div style="font-size:20px;font-weight:800;color:' + (totalFaltantes > 0 ? 'var(--danger)' : 'var(--text3)') + ';">' + totalFaltantes + '</div>';
+    html += '<div style="font-size:9px;color:var(--text3);">Faltantes</div>';
+    html += '</div>';
+    html += '</div>';
+
+    if (pendingCount > 0) {
+        html += '<div class="inv-warning-bar">⚠️ ' + pendingCount + ' producto' + (pendingCount > 1 ? 's' : '') + ' sin inventario inicial registrado. Regístralo para un control completo.</div>';
+    }
+
+    // FALTANTES SECTION — show what was sold/missing
+    if (totalFaltantes > 0) {
+        html += '<div style="background:var(--danger-bg);border:1px solid rgba(239,68,68,0.25);border-radius:12px;padding:12px;margin-bottom:14px;">';
+        html += '<div style="font-size:13px;font-weight:800;color:var(--danger);margin-bottom:8px;">🔴 Faltantes — Lo que se vendió</div>';
+        for (var ff = 0; ff < allProductFlows.length; ff++) {
+            var pf2 = allProductFlows[ff];
+            if (pf2.faltantes > 0) {
+                html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(239,68,68,0.15);">';
+                html += '<div style="flex:1;min-width:0;">';
+                html += '<div style="font-size:12px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(pf2.name) + '</div>';
+                html += '<div style="font-size:10px;color:var(--text3);">' + escapeHtml(pf2.spaceName) + '</div>';
+                html += '</div>';
+                html += '<div style="text-align:right;flex-shrink:0;margin-left:8px;">';
+                html += '<div style="font-size:16px;font-weight:800;color:var(--danger);">-' + pf2.faltantes + '</div>';
+                html += '<div style="font-size:9px;color:var(--text3);">de ' + pf2.totalSlots + '</div>';
+                html += '</div>';
+                html += '</div>';
+            }
+        }
+        html += '</div>';
+    }
+
+    if (allProductFlows.length === 0) {
+        html += '<div style="text-align:center;padding:24px;color:var(--text3);">' +
+            '<div style="font-size:32px;margin-bottom:6px;">📦</div>' +
+            '<div style="font-size:13px;">Sin productos en este local</div></div>';
+    } else {
+        // Group by space
+        var currentSpaceIdx = -1;
+        for (var f = 0; f < allProductFlows.length; f++) {
+            var pf = allProductFlows[f];
+
+            // Space header
+            if (pf.spaceIdx !== currentSpaceIdx) {
+                if (currentSpaceIdx >= 0) html += '</div>';
+                currentSpaceIdx = pf.spaceIdx;
+                html += '<div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin:10px 0 6px;">📦 ' + escapeHtml(pf.spaceName) + '</div>';
+                html += '<div>';
+            }
+
+            // Flow card for each product — with slot visualization
+            html += '<div class="inv-flow-card">';
+            html += '<div class="inv-flow-card-header">';
+            html += '<div class="inv-flow-card-title">' + (pf.hasInitial ? '' : '⏳ ') + escapeHtml(pf.name) + '</div>';
+            if (!pf.hasInitial) {
+                html += '<span class="inv-initial-badge pending">Sin registro</span>';
+            } else if (pf.faltantes > 0) {
+                html += '<span style="background:var(--danger-bg);color:var(--danger);font-size:10px;font-weight:700;padding:2px 8px;border-radius:8px;">-' + pf.faltantes + ' faltante' + (pf.faltantes > 1 ? 's' : '') + '</span>';
+            } else {
+                html += '<span class="inv-initial-badge registered">✅ Completo</span>';
+            }
+            html += '</div>';
+            if (pf.specs) html += '<div style="margin-bottom:8px;">' + pf.specs + '</div>';
+            html += '<div class="inv-flow-row">';
+            html += '<div class="inv-flow-item inicial"><div class="inv-flow-item-num">' + pf.inicial + '</div><div class="inv-flow-item-label">Inicial</div></div>';
+            html += '<div class="inv-flow-item entradas"><div class="inv-flow-item-num">+' + pf.entradas + '</div><div class="inv-flow-item-label">Entradas</div></div>';
+            html += '<div class="inv-flow-item salidas"><div class="inv-flow-item-num">-' + pf.salidas + '</div><div class="inv-flow-item-label">Salidas</div></div>';
+            html += '<div class="inv-flow-item actual"><div class="inv-flow-item-num">' + pf.actual + '</div><div class="inv-flow-item-label">Actual</div></div>';
+            html += '</div>';
+
+            // Visual slot grid for this product
+            if (pf.hasInitial && pf.totalSlots > 0) {
+                var maxShowCtrl = Math.min(pf.totalSlots, 40);
+                var slotGridCtrl = '';
+                for (var sc = 0; sc < maxShowCtrl; sc++) {
+                    if (sc < pf.actual) {
+                        slotGridCtrl += '<span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:var(--primary);margin:1px;"></span>';
+                    } else {
+                        slotGridCtrl += '<span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:var(--danger);opacity:0.5;margin:1px;border:1px dashed var(--danger);"></span>';
+                    }
+                }
+                if (pf.totalSlots > 40) {
+                    slotGridCtrl += '<span style="font-size:9px;color:var(--text3);margin-left:3px;">+' + (pf.totalSlots - 40) + '</span>';
+                }
+                html += '<div style="margin-top:8px;">';
+                html += '<div style="display:flex;flex-wrap:wrap;gap:0;">' + slotGridCtrl + '</div>';
+                html += '<div style="display:flex;justify-content:space-between;margin-top:4px;font-size:10px;">';
+                html += '<span style="color:var(--primary);">' + pf.actual + ' presentes</span>';
+                html += '<span style="color:var(--danger);">' + pf.faltantes + ' faltantes</span>';
+                html += '<span style="color:var(--text3);">de ' + pf.totalSlots + '</span>';
+                html += '</div>';
+                html += '</div>';
+            }
+
+            // Flow arrow formula
+            html += '<div class="inv-flow-arrow">';
+            html += '<span style="color:var(--info);">' + pf.inicial + '</span>';
+            html += '<span>→ +</span>';
+            html += '<span style="color:var(--primary);">' + pf.entradas + '</span>';
+            html += '<span>→ -</span>';
+            html += '<span style="color:var(--danger);">' + pf.salidas + '</span>';
+            html += '<span>=</span>';
+            html += '<span style="color:var(--accent);font-weight:800;">' + pf.actual + '</span>';
+            html += '</div>';
+
+            html += '</div>';
+        }
+        if (currentSpaceIdx >= 0) html += '</div>';
+    }
+
+    html += '</div>';
+    return html;
+}
+
+// ====================================================================
+// CRUCE DE INVENTARIO REAL VS STOCK
+// ====================================================================
+var _cruceLocId = null;
+
+function openCruceModal(locId) {
+    _cruceLocId = locId;
+    var locs = getLocations();
+    var loc = null;
+    for (var i = 0; i < locs.length; i++) {
+        if (locs[i].id === locId) { loc = locs[i]; break; }
+    }
+    if (!loc) { showToast('Local no encontrado', 'error'); return; }
+
+    var titleEl = document.getElementById('cruceModalTitle');
+    if (titleEl) titleEl.textContent = '🔍 Cruce de Inventario: ' + loc.name;
+
+    renderCruceForm(locId);
+    openModal('cruceModal');
+}
+
+function renderCruceForm(locId) {
+    var locs = getLocations();
+    var loc = null;
+    for (var i = 0; i < locs.length; i++) {
+        if (locs[i].id === locId) { loc = locs[i]; break; }
+    }
+    if (!loc) return;
+
+    var spaces = loc.spaces || [];
+    var html = '';
+
+    // Header with locale name
+    html += '<div class="cruce-header">';
+    html += '<div class="cruce-header-title">🏪 ' + escapeHtml(loc.name) + '</div>';
+    html += '<div class="cruce-header-date">' + formatDate(new Date().toISOString()) + '</div>';
+    html += '</div>';
+
+    // Summary (updated live via updateCruceSummary)
+    html += '<div class="cruce-summary" id="cruceSummary">';
+    html += '<div class="cruce-summary-item"><div class="cruce-summary-label">Productos</div><div class="cruce-summary-value" id="cruceTotalProducts">0</div></div>';
+    html += '<div class="cruce-summary-item"><div class="cruce-summary-label">Stock Sistema</div><div class="cruce-summary-value" id="cruceSystemTotal" style="color:var(--primary);">0</div></div>';
+    html += '<div class="cruce-summary-item"><div class="cruce-summary-label">Conteo Real</div><div class="cruce-summary-value" id="cruceRealTotal" style="color:var(--info);">0</div></div>';
+    html += '</div>';
+
+    // Group by space
+    for (var si = 0; si < spaces.length; si++) {
+        var space = spaces[si];
+        var prods = space.products || [];
+        if (prods.length === 0) continue;
+
+        html += '<div class="cruce-space-title">📦 ' + escapeHtml(space.name || ('Espacio ' + (si + 1))) + ' (' + prods.length + ' productos)</div>';
+
+        for (var pi = 0; pi < prods.length; pi++) {
+            var p = prods[pi];
+            var pName = p.name || 'Producto';
+            var pBrand = p.brand || '';
+            var pQty = p.qty || 0;
+            var cardId = 'cruceCard_' + si + '_' + pi;
+
+            // Pre-fill with last cruce value if available
+            var prefill = '';
+            if (loc.lastCruce && loc.lastCruce.products) {
+                for (var lc = 0; lc < loc.lastCruce.products.length; lc++) {
+                    var lcp = loc.lastCruce.products[lc];
+                    if (lcp.productId === p.productId && lcp.spaceIdx === si) {
+                        prefill = lcp.realCount !== undefined ? lcp.realCount : '';
+                        break;
+                    }
+                }
+            }
+
+            // Specs label
+            var specsLabel = '';
+            if (p.specifications) {
+                try {
+                    var specObj = (typeof p.specifications === 'string') ? JSON.parse(p.specifications) : p.specifications;
+                    if (specObj && typeof specObj === 'object') {
+                        var sks = Object.keys(specObj);
+                        var spArr = [];
+                        for (var ski = 0; ski < sks.length; ski++) {
+                            var sv = (specObj[sks[ski]] || '').trim();
+                            if (sv) spArr.push(sv);
+                        }
+                        specsLabel = spArr.join(' · ');
+                    }
+                } catch(e) {}
+            }
+
+            html += '<div class="cruce-product-card" id="' + cardId + '">';
+            html += '<div class="cruce-product-name">' + escapeHtml(pName) + '</div>';
+            if (pBrand) html += '<div class="cruce-product-brand">' + escapeHtml(pBrand) + '</div>';
+            if (specsLabel) html += '<div style="font-size:10px;color:var(--text3);margin-bottom:6px;">' + escapeHtml(specsLabel) + '</div>';
+            html += '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">';
+            html += '<div style="display:flex;align-items:center;gap:6px;">';
+            html += '<span style="font-size:11px;color:var(--text3);">Sistema:</span>';
+            html += '<span style="font-size:16px;font-weight:800;color:var(--text);">' + pQty + '</span>';
+            html += '</div>';
+            html += '<div style="display:flex;align-items:center;gap:6px;">';
+            html += '<span style="font-size:11px;color:var(--text3);">Real:</span>';
+            html += '<input type="number" class="cruce-input" id="cruceInput_' + si + '_' + pi + '" data-space="' + si + '" data-prod="' + pi + '" data-sysqty="' + pQty + '" value="' + prefill + '" min="0" oninput="updateCruceCard(' + si + ',' + pi + ')" placeholder="0">';
+            html += '</div>';
+            html += '<div class="cruce-diff" id="cruceDiff_' + si + '_' + pi + '">—</div>';
+            html += '</div>';
+            html += '</div>';
+        }
+    }
+
+    if (spaces.length === 0 || (spaces.length === 1 && (spaces[0].products || []).length === 0)) {
+        html += '<div style="text-align:center;padding:40px 20px;color:var(--text3);">';
+        html += '<div style="font-size:36px;margin-bottom:10px;">📭</div>';
+        html += '<div>No hay productos en este local.</div>';
+        html += '</div>';
+    }
+
+    var contentEl = document.getElementById('cruceContent');
+    if (contentEl) contentEl.innerHTML = html;
+
+    // Initial summary
+    updateCruceSummary();
+}
+
+function updateCruceCard(si, pi) {
+    var input = document.getElementById('cruceInput_' + si + '_' + pi);
+    var diffEl = document.getElementById('cruceDiff_' + si + '_' + pi);
+    var cardEl = document.getElementById('cruceCard_' + si + '_' + pi);
+    if (!input || !diffEl || !cardEl) return;
+
+    var sysQty = parseInt(input.getAttribute('data-sysqty')) || 0;
+    var realCount = parseInt(input.value) || 0;
+    var diff = realCount - sysQty;
+
+    // Remove old classes
+    cardEl.classList.remove('cruce-match', 'cruce-excess', 'cruce-missing');
+
+    if (input.value === '') {
+        diffEl.textContent = '—';
+    } else if (diff === 0) {
+        diffEl.textContent = '✅ 0';
+        cardEl.classList.add('cruce-match');
+    } else if (diff > 0) {
+        diffEl.textContent = '↑ +' + diff + ' sobrante';
+        cardEl.classList.add('cruce-excess');
+    } else {
+        diffEl.textContent = '↓ ' + diff + ' faltante';
+        cardEl.classList.add('cruce-missing');
+    }
+
+    updateCruceSummary();
+}
+
+function updateCruceSummary() {
+    var inputs = document.querySelectorAll('.cruce-input');
+    var totalProducts = inputs.length;
+    var systemTotal = 0;
+    var realTotal = 0;
+
+    for (var i = 0; i < inputs.length; i++) {
+        var inp = inputs[i];
+        systemTotal += (parseInt(inp.getAttribute('data-sysqty')) || 0);
+        realTotal += (parseInt(inp.value) || 0);
+    }
+
+    var elProducts = document.getElementById('cruceTotalProducts');
+    var elSystem = document.getElementById('cruceSystemTotal');
+    var elReal = document.getElementById('cruceRealTotal');
+
+    if (elProducts) elProducts.textContent = totalProducts;
+    if (elSystem) elSystem.textContent = systemTotal;
+    if (elReal) {
+        elReal.textContent = realTotal;
+        elReal.style.color = realTotal === systemTotal ? 'var(--primary)' : (realTotal > systemTotal ? 'var(--info)' : 'var(--danger)');
+    }
+}
+
+function saveCruceResult() {
+    if (!_cruceLocId) return;
+
+    var locs = getLocations();
+    var locIdx = -1;
+    for (var i = 0; i < locs.length; i++) {
+        if (locs[i].id === _cruceLocId) { locIdx = i; break; }
+    }
+    if (locIdx < 0) { showToast('Local no encontrado', 'error'); return; }
+
+    var loc = locs[locIdx];
+    var spaces = loc.spaces || [];
+    var cruceProducts = [];
+    var systemTotal = 0, realTotal = 0, matchCount = 0, missingCount = 0, excessCount = 0;
+
+    for (var si = 0; si < spaces.length; si++) {
+        var prods = spaces[si].products || [];
+        for (var pi = 0; pi < prods.length; pi++) {
+            var p = prods[pi];
+            var input = document.getElementById('cruceInput_' + si + '_' + pi);
+            var realCount = input ? (parseInt(input.value) || 0) : 0;
+            var sysQty = p.qty || 0;
+            var diff = realCount - sysQty;
+
+            cruceProducts.push({
+                productId: p.productId || '',
+                name: p.name || 'Producto',
+                brand: p.brand || '',
+                spaceIdx: si,
+                spaceName: spaces[si].name || ('Espacio ' + (si + 1)),
+                systemQty: sysQty,
+                realCount: realCount,
+                diff: diff
+            });
+
+            systemTotal += sysQty;
+            realTotal += realCount;
+            if (diff === 0) matchCount++;
+            else if (diff < 0) missingCount++;
+            else excessCount++;
+        }
+    }
+
+    loc.lastCruce = {
+        date: new Date().toISOString(),
+        products: cruceProducts,
+        totals: {
+            systemTotal: systemTotal,
+            realTotal: realTotal,
+            diff: realTotal - systemTotal,
+            matchCount: matchCount,
+            missingCount: missingCount,
+            excessCount: excessCount,
+            totalProducts: cruceProducts.length
+        }
+    };
+
+    locs[locIdx] = loc;
+    saveLocations(locs);
+    syncLocationsToServer();
+
+    var msg = 'Cruce guardado: ' + matchCount + ' OK, ' + missingCount + ' faltantes, ' + excessCount + ' sobrantes';
+    showToast(msg, 'success');
+    closeModal('cruceModal');
+}
+
+function exportCruceExcel() {
+    if (!_cruceLocId) return;
+
+    var locs = getLocations();
+    var loc = null;
+    for (var i = 0; i < locs.length; i++) {
+        if (locs[i].id === _cruceLocId) { loc = locs[i]; break; }
+    }
+    if (!loc) return;
+
+    var spaces = loc.spaces || [];
+    var rows = [];
+    rows.push(['Espacio', 'Producto', 'Marca', 'Stock Sistema', 'Conteo Real', 'Diferencia', 'Estado']);
+
+    var systemTotal = 0, realTotal = 0;
+    for (var si = 0; si < spaces.length; si++) {
+        var prods = spaces[si].products || [];
+        for (var pi = 0; pi < prods.length; pi++) {
+            var p = prods[pi];
+            var input = document.getElementById('cruceInput_' + si + '_' + pi);
+            var realCount = input ? (parseInt(input.value) || 0) : 0;
+            var sysQty = p.qty || 0;
+            var diff = realCount - sysQty;
+            var estado = diff === 0 ? 'OK' : (diff > 0 ? 'Sobrante' : 'Faltante');
+
+            rows.push([
+                spaces[si].name || ('Espacio ' + (si + 1)),
+                p.name || 'Producto',
+                p.brand || '',
+                sysQty,
+                realCount,
+                diff,
+                estado
+            ]);
+            systemTotal += sysQty;
+            realTotal += realCount;
+        }
+    }
+
+    rows.push([]);
+    rows.push(['TOTALES', '', '', systemTotal, realTotal, realTotal - systemTotal, '']);
+
+    var filename = 'Cruce_' + (loc.name || 'Local').replace(/[^a-zA-Z0-9]/g, '_') + '_' + new Date().toISOString().slice(0, 10) + '.xls';
+    downloadExcelFile(rows, filename);
+    showToast('Excel exportado', 'success');
+}
+
+function openCruceSelector() {
+    var locs = getLocations();
+    if (locs.length === 0) { showToast('No hay locales registrados', 'error'); return; }
+    if (locs.length === 1) { openCruceModal(locs[0].id); return; }
+
+    var html = '<div style="padding:18px;">';
+    html += '<p style="font-size:13px;color:var(--text2);margin-bottom:14px;">Selecciona el local para realizar el cruce de inventario:</p>';
+    for (var i = 0; i < locs.length; i++) {
+        var loc = locs[i];
+        var totalProds = 0;
+        for (var s = 0; s < (loc.spaces || []).length; s++) {
+            totalProds += (loc.spaces[s].products || []).length;
+        }
+        html += '<button class="btn btn-outline" onclick="closeModal(\'cruceModal\');openCruceModal(\'' + loc.id + '\')" style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:12px;margin-bottom:8px;font-size:13px;">';
+        html += '<span style="font-weight:700;">🏪 ' + escapeHtml(loc.name) + '</span>';
+        html += '<span style="font-size:11px;color:var(--text3);">' + totalProds + ' productos</span>';
+        html += '</button>';
+    }
+    html += '</div>';
+
+    var titleEl = document.getElementById('cruceModalTitle');
+    if (titleEl) titleEl.textContent = '🔍 Cruce de Inventario';
+    var contentEl = document.getElementById('cruceContent');
+    if (contentEl) contentEl.innerHTML = html;
+    openModal('cruceModal');
+}
+
 </script>
 
 <!-- Global chip dropdown (at body level to avoid clipping) -->

@@ -768,6 +768,48 @@
             display: flex; align-items: center; justify-content: center;
             gap: 4px; margin: 6px 0; font-size: 11px; color: var(--text3);
         }
+        /* Cruce de Inventario styles */
+        .cruce-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 12px 14px; background: var(--bg3); border-radius: 10px;
+            margin-bottom: 12px;
+        }
+        .cruce-header-title { font-size: 14px; font-weight: 700; color: var(--text); }
+        .cruce-header-date { font-size: 11px; color: var(--text3); }
+        .cruce-summary {
+            display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;
+            margin-bottom: 14px;
+        }
+        .cruce-summary-item {
+            background: var(--bg2); border-radius: 10px; padding: 10px 8px;
+            text-align: center; border: 1px solid var(--border);
+        }
+        .cruce-summary-label { font-size: 9px; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: 0.3px; }
+        .cruce-summary-value { font-size: 18px; font-weight: 800; color: var(--text); margin-top: 2px; }
+        .cruce-product-card {
+            background: var(--bg2); border-radius: 10px; padding: 12px;
+            margin-bottom: 10px; border: 1px solid var(--border);
+            transition: border-color 0.2s;
+        }
+        .cruce-product-card.cruce-match { border-left: 4px solid var(--primary); }
+        .cruce-product-card.cruce-excess { border-left: 4px solid var(--info); }
+        .cruce-product-card.cruce-missing { border-left: 4px solid var(--danger); }
+        .cruce-product-name { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 2px; }
+        .cruce-product-brand { font-size: 11px; color: var(--text3); margin-bottom: 6px; }
+        .cruce-input {
+            width: 70px; text-align: center; font-size: 15px; font-weight: 700;
+            padding: 6px 8px; border-radius: 8px; border: 1px solid var(--border);
+            background: var(--bg3); color: var(--text);
+            -webkit-appearance: none; appearance: none;
+        }
+        .cruce-input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary-bg); }
+        .cruce-match .cruce-diff { color: var(--primary); }
+        .cruce-excess .cruce-diff { color: var(--info); }
+        .cruce-missing .cruce-diff { color: var(--danger); }
+        .cruce-diff { font-size: 13px; font-weight: 800; }
+        .cruce-actions { display: flex; gap: 8px; padding: 0 18px 18px; }
+        .cruce-space-title { font-size: 12px; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: 0.5px; margin: 14px 0 8px; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
+        .cruce-space-title:first-child { margin-top: 0; }
     </style>
 </head>
 <body>
@@ -1043,6 +1085,12 @@
             </div>
             <!-- Global target banner (compact) -->
             <div id="globalTargetBanner" style="margin-bottom:10px;"></div>
+            <!-- Cruce de Inventario button -->
+            <div id="cruceBanner" style="margin-bottom:10px;">
+                <button class="btn btn-outline" onclick="openCruceSelector()" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;padding:12px;font-size:14px;font-weight:700;border:2px dashed var(--border2);color:var(--text2);">
+                    <span>🔍 Cruce de Inventario Real vs Stock</span>
+                </button>
+            </div>
             <!-- Locations list container -->
             <div id="locationsList"></div>
             <!-- Empty state -->
@@ -1715,6 +1763,22 @@
             <button class="modal-close" onclick="closeModal('invControlModal')">✕</button>
         </div>
         <div id="invControlContent" class="modal-scroll-inner"></div>
+    </div>
+</div>
+
+<!-- ===== CRUCE DE INVENTARIO MODAL ===== -->
+<div id="cruceModal" class="modal-overlay">
+    <div class="modal-content modal-lg">
+        <div class="modal-handle"></div>
+        <div class="modal-header">
+            <h2 class="modal-title" id="cruceModalTitle">🔍 Cruce de Inventario</h2>
+            <button class="modal-close" onclick="closeModal('cruceModal')">✕</button>
+        </div>
+        <div id="cruceContent" class="modal-scroll-inner"></div>
+        <div style="display:flex;gap:8px;margin-top:12px;padding:0 18px 18px;">
+            <button class="btn btn-primary btn-sm" style="flex:1;" onclick="saveCruceResult()">💾 Guardar Cruce</button>
+            <button class="btn btn-outline btn-sm" style="flex:1;" onclick="exportCruceExcel()">📥 Exportar</button>
+        </div>
     </div>
 </div>
 
@@ -5597,9 +5661,21 @@ function buildLocCards(locs) {
             spaceChips += '<span class="loc-space-badge">' + escapeHtml(spaceName) + ' (' + spaceCount + ')</span>';
         }
 
+        // Last cruce badge
+        var cruceBadge = '';
+        if (loc.lastCruce && loc.lastCruce.date) {
+            var cruceD = new Date(loc.lastCruce.date);
+            var cruceDay = String(cruceD.getDate()).padStart(2, '0');
+            var cruceMon = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'][cruceD.getMonth()];
+            var cruceTotals = loc.lastCruce.totals || {};
+            var cruceDiff = cruceTotals.diff || 0;
+            var cruceDiffStr = cruceDiff === 0 ? '✅ OK' : (cruceDiff > 0 ? '↑+' + cruceDiff : '↓' + cruceDiff);
+            cruceBadge = ' <span class="inv-initial-badge registered" style="margin-left:4px;" title="Cruce: ' + cruceDay + ' ' + cruceMon + ' - ' + cruceDiffStr + '">🔍 Cruce</span>';
+        }
+
         cards += '<div class="loc-card" onclick="openLocDetail(\'' + loc.id + '\')" style="cursor:pointer;">' +
             '<div class="loc-card-header">' +
-                '<span class="loc-card-title">🏪 ' + escapeHtml(loc.name) + invBadge + '</span>' +
+                '<span class="loc-card-title">🏪 ' + escapeHtml(loc.name) + invBadge + cruceBadge + '</span>' +
                 '<span class="loc-card-count">' + totalProducts + ' uds' + alertBadge + '</span>' +
             '</div>' +
             (totalSpaces > 0 ? '<div class="loc-spaces">' + spaceChips + '</div>' : '') +
@@ -6126,16 +6202,68 @@ function openLocControlPanel(locId, spaceIdx) {
 
     // Section: Inventory Control
     html += '<div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">📊 Control de Inventario</div>';
-    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:14px;">' +
+    html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:14px;">' +
         '<button class="btn btn-outline btn-sm" onclick="closeModal(\'locControlModal\');openInitialInventoryModal(\'' + loc.id + '\',' + spaceIdx + ')" style="font-size:12px;">📋 Inv. Inicial</button>' +
         '<button class="btn btn-outline btn-sm" onclick="closeModal(\'locControlModal\');openInventoryControl(\'' + loc.id + '\')" style="font-size:12px;">📊 Control</button>' +
+        '<button class="btn btn-outline btn-sm" onclick="closeModal(\'locControlModal\');openCruceModal(\'' + loc.id + '\')" style="font-size:12px;">🔍 Cruce</button>' +
     '</div>';
 
     // Section: Baja por Venta (sell from space) + Ingreso rápido
     if (loc.spaces && loc.spaces[spaceIdx] && (loc.spaces[spaceIdx].products || []).length > 0) {
         var currentProducts = loc.spaces[spaceIdx].products || [];
+
+        // Compute today's and yesterday's ventas summary from movements
+        var locMovements = loc.movements || [];
+        var todayStr = new Date().toISOString().slice(0, 10);
+        var yesterdayDate = new Date(); yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+        var yesterdayStr = yesterdayDate.toISOString().slice(0, 10);
+        var todayVentasCount = 0, todayVentasTotal = 0;
+        var yestVentasCount = 0, yestVentasTotal = 0;
+        for (var smi = 0; smi < locMovements.length; smi++) {
+            var sm = locMovements[smi];
+            if (sm.type !== 'descarga' && sm.type !== 'venta') continue;
+            var smDay = (sm.date || '').slice(0, 10);
+            if (smDay === todayStr) {
+                todayVentasCount++;
+                todayVentasTotal += (parseFloat(sm.totalSale) || parseFloat(sm.salePrice) * (parseInt(sm.qty) || 0) || 0);
+            } else if (smDay === yesterdayStr) {
+                yestVentasCount++;
+                yestVentasTotal += (parseFloat(sm.totalSale) || parseFloat(sm.salePrice) * (parseInt(sm.qty) || 0) || 0);
+            }
+        }
+
+        // Build last venta date lookup per productId for this space
+        var lastVentaMap = {};
+        for (var lmi = 0; lmi < locMovements.length; lmi++) {
+            var lm = locMovements[lmi];
+            if (lm.type !== 'descarga' && lm.type !== 'venta') continue;
+            if (lm.spaceIdx !== spaceIdx && lm.spaceName !== (loc.spaces[spaceIdx].name || '')) continue;
+            var lmPid = lm.productId;
+            if (!lmPid) continue;
+            if (!lastVentaMap[lmPid] || lm.date > lastVentaMap[lmPid]) {
+                lastVentaMap[lmPid] = lm.date;
+            }
+        }
+
         html += '<div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">💰 Ventas e Inventario</div>';
         html += '<div style="background:var(--bg2);border-radius:10px;padding:10px;margin-bottom:14px;">';
+
+        // Daily summary
+        html += '<div style="background:var(--bg3);border-radius:8px;padding:8px 10px;margin-bottom:10px;">';
+        html += '<div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.3px;margin-bottom:6px;">📊 Resumen de Ventas</div>';
+        html += '<div style="display:flex;gap:8px;">';
+        html += '<div style="flex:1;background:var(--primary-bg);border-radius:6px;padding:6px 8px;text-align:center;">';
+        html += '<div style="font-size:9px;color:var(--text3);font-weight:600;">HOY</div>';
+        html += '<div style="font-size:13px;font-weight:800;color:var(--primary);">' + todayVentasCount + '</div>';
+        html += '<div style="font-size:10px;color:var(--text2);">' + formatMoney(todayVentasTotal) + '</div>';
+        html += '</div>';
+        html += '<div style="flex:1;background:var(--info-bg);border-radius:6px;padding:6px 8px;text-align:center;">';
+        html += '<div style="font-size:9px;color:var(--text3);font-weight:600;">AYER</div>';
+        html += '<div style="font-size:13px;font-weight:800;color:var(--info);">' + yestVentasCount + '</div>';
+        html += '<div style="font-size:10px;color:var(--text2);">' + formatMoney(yestVentasTotal) + '</div>';
+        html += '</div>';
+        html += '</div></div>';
+
         html += '<p style="font-size:11px;color:var(--text2);margin-bottom:8px;">Registra ventas (baja) o ingresos rápidos de cada producto en ' + escapeHtml(spaceName) + '.</p>';
         for (var pi = 0; pi < currentProducts.length; pi++) {
             var cp = currentProducts[pi];
@@ -6147,11 +6275,27 @@ function openLocControlPanel(locId, spaceIdx) {
             else if (cpTarget > 0 && cpQty >= cpTarget) cpStatus = '✅';
             else cpStatus = '⚠️';
 
+            // Find last venta date for this product
+            var cpLastVentaDate = lastVentaMap[cp.productId] || null;
+            var cpLastVentaStr = '';
+            if (cpLastVentaDate) {
+                try {
+                    var lvd = new Date(cpLastVentaDate);
+                    var lvdDay = String(lvd.getDate()).padStart(2, '0');
+                    var lvdMon = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'][lvd.getMonth()];
+                    var lvdYear = lvd.getFullYear();
+                    var lvdH = String(lvd.getHours()).padStart(2, '0');
+                    var lvdM = String(lvd.getMinutes()).padStart(2, '0');
+                    cpLastVentaStr = '<div style="font-size:10px;color:var(--text3);margin-bottom:4px;">🕐 Última venta: ' + lvdDay + ' ' + lvdMon + ' ' + lvdYear + ' ' + lvdH + ':' + lvdM + '</div>';
+                } catch(e) {}
+            }
+
             html += '<div style="margin-bottom:' + (pi < currentProducts.length - 1 ? '8px' : '0') + ';padding-bottom:' + (pi < currentProducts.length - 1 ? '8px' : '0') + ';border-bottom:' + (pi < currentProducts.length - 1 ? '1px solid var(--border)' : 'none') + ';">';
             html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">';
             html += '<div style="font-size:12px;font-weight:700;color:var(--text);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + cpStatus + ' ' + escapeHtml(cpName) + '</div>';
             html += '<div style="font-size:11px;color:var(--text3);flex-shrink:0;">Stock: <b style="color:var(--primary);">' + cpQty + '</b></div>';
             html += '</div>';
+            html += cpLastVentaStr;
             html += '<div style="display:flex;gap:6px;">';
             html += '<button class="btn btn-outline btn-sm" onclick="sellFromSpace(\'' + loc.id + '\',' + spaceIdx + ',' + pi + ')" style="flex:1;font-size:11px;color:#ff4757;border-color:#ff4757;' + (cpQty === 0 ? 'opacity:0.4;pointer-events:none;' : '') + '">📤 Descargar</button>';
             html += '<button class="btn btn-primary btn-sm" onclick="quickIngress(\'' + loc.id + '\',' + spaceIdx + ',' + pi + ')" style="flex:1;font-size:11px;">📥 Cargar</button>';
@@ -11475,6 +11619,321 @@ function renderInventoryControl(loc) {
 
     html += '</div>';
     return html;
+}
+
+// ====================================================================
+// CRUCE DE INVENTARIO REAL VS STOCK
+// ====================================================================
+var _cruceLocId = null;
+
+function openCruceModal(locId) {
+    _cruceLocId = locId;
+    var locs = getLocations();
+    var loc = null;
+    for (var i = 0; i < locs.length; i++) {
+        if (locs[i].id === locId) { loc = locs[i]; break; }
+    }
+    if (!loc) { showToast('Local no encontrado', 'error'); return; }
+
+    var titleEl = document.getElementById('cruceModalTitle');
+    if (titleEl) titleEl.textContent = '🔍 Cruce de Inventario: ' + loc.name;
+
+    renderCruceForm(locId);
+    openModal('cruceModal');
+}
+
+function renderCruceForm(locId) {
+    var locs = getLocations();
+    var loc = null;
+    for (var i = 0; i < locs.length; i++) {
+        if (locs[i].id === locId) { loc = locs[i]; break; }
+    }
+    if (!loc) return;
+
+    var spaces = loc.spaces || [];
+    var html = '';
+
+    // Header with locale name
+    html += '<div class="cruce-header">';
+    html += '<div class="cruce-header-title">🏪 ' + escapeHtml(loc.name) + '</div>';
+    html += '<div class="cruce-header-date">' + formatDate(new Date().toISOString()) + '</div>';
+    html += '</div>';
+
+    // Summary (updated live via updateCruceSummary)
+    html += '<div class="cruce-summary" id="cruceSummary">';
+    html += '<div class="cruce-summary-item"><div class="cruce-summary-label">Productos</div><div class="cruce-summary-value" id="cruceTotalProducts">0</div></div>';
+    html += '<div class="cruce-summary-item"><div class="cruce-summary-label">Stock Sistema</div><div class="cruce-summary-value" id="cruceSystemTotal" style="color:var(--primary);">0</div></div>';
+    html += '<div class="cruce-summary-item"><div class="cruce-summary-label">Conteo Real</div><div class="cruce-summary-value" id="cruceRealTotal" style="color:var(--info);">0</div></div>';
+    html += '</div>';
+
+    // Group by space
+    for (var si = 0; si < spaces.length; si++) {
+        var space = spaces[si];
+        var prods = space.products || [];
+        if (prods.length === 0) continue;
+
+        html += '<div class="cruce-space-title">📦 ' + escapeHtml(space.name || ('Espacio ' + (si + 1))) + ' (' + prods.length + ' productos)</div>';
+
+        for (var pi = 0; pi < prods.length; pi++) {
+            var p = prods[pi];
+            var pName = p.name || 'Producto';
+            var pBrand = p.brand || '';
+            var pQty = p.qty || 0;
+            var cardId = 'cruceCard_' + si + '_' + pi;
+
+            // Pre-fill with last cruce value if available
+            var prefill = '';
+            if (loc.lastCruce && loc.lastCruce.products) {
+                for (var lc = 0; lc < loc.lastCruce.products.length; lc++) {
+                    var lcp = loc.lastCruce.products[lc];
+                    if (lcp.productId === p.productId && lcp.spaceIdx === si) {
+                        prefill = lcp.realCount !== undefined ? lcp.realCount : '';
+                        break;
+                    }
+                }
+            }
+
+            // Specs label
+            var specsLabel = '';
+            if (p.specifications) {
+                try {
+                    var specObj = (typeof p.specifications === 'string') ? JSON.parse(p.specifications) : p.specifications;
+                    if (specObj && typeof specObj === 'object') {
+                        var sks = Object.keys(specObj);
+                        var spArr = [];
+                        for (var ski = 0; ski < sks.length; ski++) {
+                            var sv = (specObj[sks[ski]] || '').trim();
+                            if (sv) spArr.push(sv);
+                        }
+                        specsLabel = spArr.join(' · ');
+                    }
+                } catch(e) {}
+            }
+
+            html += '<div class="cruce-product-card" id="' + cardId + '">';
+            html += '<div class="cruce-product-name">' + escapeHtml(pName) + '</div>';
+            if (pBrand) html += '<div class="cruce-product-brand">' + escapeHtml(pBrand) + '</div>';
+            if (specsLabel) html += '<div style="font-size:10px;color:var(--text3);margin-bottom:6px;">' + escapeHtml(specsLabel) + '</div>';
+            html += '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">';
+            html += '<div style="display:flex;align-items:center;gap:6px;">';
+            html += '<span style="font-size:11px;color:var(--text3);">Sistema:</span>';
+            html += '<span style="font-size:16px;font-weight:800;color:var(--text);">' + pQty + '</span>';
+            html += '</div>';
+            html += '<div style="display:flex;align-items:center;gap:6px;">';
+            html += '<span style="font-size:11px;color:var(--text3);">Real:</span>';
+            html += '<input type="number" class="cruce-input" id="cruceInput_' + si + '_' + pi + '" data-space="' + si + '" data-prod="' + pi + '" data-sysqty="' + pQty + '" value="' + prefill + '" min="0" oninput="updateCruceCard(' + si + ',' + pi + ')" placeholder="0">';
+            html += '</div>';
+            html += '<div class="cruce-diff" id="cruceDiff_' + si + '_' + pi + '">—</div>';
+            html += '</div>';
+            html += '</div>';
+        }
+    }
+
+    if (spaces.length === 0 || (spaces.length === 1 && (spaces[0].products || []).length === 0)) {
+        html += '<div style="text-align:center;padding:40px 20px;color:var(--text3);">';
+        html += '<div style="font-size:36px;margin-bottom:10px;">📭</div>';
+        html += '<div>No hay productos en este local.</div>';
+        html += '</div>';
+    }
+
+    var contentEl = document.getElementById('cruceContent');
+    if (contentEl) contentEl.innerHTML = html;
+
+    // Initial summary
+    updateCruceSummary();
+}
+
+function updateCruceCard(si, pi) {
+    var input = document.getElementById('cruceInput_' + si + '_' + pi);
+    var diffEl = document.getElementById('cruceDiff_' + si + '_' + pi);
+    var cardEl = document.getElementById('cruceCard_' + si + '_' + pi);
+    if (!input || !diffEl || !cardEl) return;
+
+    var sysQty = parseInt(input.getAttribute('data-sysqty')) || 0;
+    var realCount = parseInt(input.value) || 0;
+    var diff = realCount - sysQty;
+
+    // Remove old classes
+    cardEl.classList.remove('cruce-match', 'cruce-excess', 'cruce-missing');
+
+    if (input.value === '') {
+        diffEl.textContent = '—';
+    } else if (diff === 0) {
+        diffEl.textContent = '✅ 0';
+        cardEl.classList.add('cruce-match');
+    } else if (diff > 0) {
+        diffEl.textContent = '↑ +' + diff + ' sobrante';
+        cardEl.classList.add('cruce-excess');
+    } else {
+        diffEl.textContent = '↓ ' + diff + ' faltante';
+        cardEl.classList.add('cruce-missing');
+    }
+
+    updateCruceSummary();
+}
+
+function updateCruceSummary() {
+    var inputs = document.querySelectorAll('.cruce-input');
+    var totalProducts = inputs.length;
+    var systemTotal = 0;
+    var realTotal = 0;
+
+    for (var i = 0; i < inputs.length; i++) {
+        var inp = inputs[i];
+        systemTotal += (parseInt(inp.getAttribute('data-sysqty')) || 0);
+        realTotal += (parseInt(inp.value) || 0);
+    }
+
+    var elProducts = document.getElementById('cruceTotalProducts');
+    var elSystem = document.getElementById('cruceSystemTotal');
+    var elReal = document.getElementById('cruceRealTotal');
+
+    if (elProducts) elProducts.textContent = totalProducts;
+    if (elSystem) elSystem.textContent = systemTotal;
+    if (elReal) {
+        elReal.textContent = realTotal;
+        elReal.style.color = realTotal === systemTotal ? 'var(--primary)' : (realTotal > systemTotal ? 'var(--info)' : 'var(--danger)');
+    }
+}
+
+function saveCruceResult() {
+    if (!_cruceLocId) return;
+
+    var locs = getLocations();
+    var locIdx = -1;
+    for (var i = 0; i < locs.length; i++) {
+        if (locs[i].id === _cruceLocId) { locIdx = i; break; }
+    }
+    if (locIdx < 0) { showToast('Local no encontrado', 'error'); return; }
+
+    var loc = locs[locIdx];
+    var spaces = loc.spaces || [];
+    var cruceProducts = [];
+    var systemTotal = 0, realTotal = 0, matchCount = 0, missingCount = 0, excessCount = 0;
+
+    for (var si = 0; si < spaces.length; si++) {
+        var prods = spaces[si].products || [];
+        for (var pi = 0; pi < prods.length; pi++) {
+            var p = prods[pi];
+            var input = document.getElementById('cruceInput_' + si + '_' + pi);
+            var realCount = input ? (parseInt(input.value) || 0) : 0;
+            var sysQty = p.qty || 0;
+            var diff = realCount - sysQty;
+
+            cruceProducts.push({
+                productId: p.productId || '',
+                name: p.name || 'Producto',
+                brand: p.brand || '',
+                spaceIdx: si,
+                spaceName: spaces[si].name || ('Espacio ' + (si + 1)),
+                systemQty: sysQty,
+                realCount: realCount,
+                diff: diff
+            });
+
+            systemTotal += sysQty;
+            realTotal += realCount;
+            if (diff === 0) matchCount++;
+            else if (diff < 0) missingCount++;
+            else excessCount++;
+        }
+    }
+
+    loc.lastCruce = {
+        date: new Date().toISOString(),
+        products: cruceProducts,
+        totals: {
+            systemTotal: systemTotal,
+            realTotal: realTotal,
+            diff: realTotal - systemTotal,
+            matchCount: matchCount,
+            missingCount: missingCount,
+            excessCount: excessCount,
+            totalProducts: cruceProducts.length
+        }
+    };
+
+    locs[locIdx] = loc;
+    saveLocations(locs);
+    syncLocationsToServer();
+
+    var msg = 'Cruce guardado: ' + matchCount + ' OK, ' + missingCount + ' faltantes, ' + excessCount + ' sobrantes';
+    showToast(msg, 'success');
+    closeModal('cruceModal');
+}
+
+function exportCruceExcel() {
+    if (!_cruceLocId) return;
+
+    var locs = getLocations();
+    var loc = null;
+    for (var i = 0; i < locs.length; i++) {
+        if (locs[i].id === _cruceLocId) { loc = locs[i]; break; }
+    }
+    if (!loc) return;
+
+    var spaces = loc.spaces || [];
+    var rows = [];
+    rows.push(['Espacio', 'Producto', 'Marca', 'Stock Sistema', 'Conteo Real', 'Diferencia', 'Estado']);
+
+    var systemTotal = 0, realTotal = 0;
+    for (var si = 0; si < spaces.length; si++) {
+        var prods = spaces[si].products || [];
+        for (var pi = 0; pi < prods.length; pi++) {
+            var p = prods[pi];
+            var input = document.getElementById('cruceInput_' + si + '_' + pi);
+            var realCount = input ? (parseInt(input.value) || 0) : 0;
+            var sysQty = p.qty || 0;
+            var diff = realCount - sysQty;
+            var estado = diff === 0 ? 'OK' : (diff > 0 ? 'Sobrante' : 'Faltante');
+
+            rows.push([
+                spaces[si].name || ('Espacio ' + (si + 1)),
+                p.name || 'Producto',
+                p.brand || '',
+                sysQty,
+                realCount,
+                diff,
+                estado
+            ]);
+            systemTotal += sysQty;
+            realTotal += realCount;
+        }
+    }
+
+    rows.push([]);
+    rows.push(['TOTALES', '', '', systemTotal, realTotal, realTotal - systemTotal, '']);
+
+    var filename = 'Cruce_' + (loc.name || 'Local').replace(/[^a-zA-Z0-9]/g, '_') + '_' + new Date().toISOString().slice(0, 10) + '.xls';
+    downloadExcelFile(rows, filename);
+    showToast('Excel exportado', 'success');
+}
+
+function openCruceSelector() {
+    var locs = getLocations();
+    if (locs.length === 0) { showToast('No hay locales registrados', 'error'); return; }
+    if (locs.length === 1) { openCruceModal(locs[0].id); return; }
+
+    var html = '<div style="padding:18px;">';
+    html += '<p style="font-size:13px;color:var(--text2);margin-bottom:14px;">Selecciona el local para realizar el cruce de inventario:</p>';
+    for (var i = 0; i < locs.length; i++) {
+        var loc = locs[i];
+        var totalProds = 0;
+        for (var s = 0; s < (loc.spaces || []).length; s++) {
+            totalProds += (loc.spaces[s].products || []).length;
+        }
+        html += '<button class="btn btn-outline" onclick="closeModal(\'cruceModal\');openCruceModal(\'' + loc.id + '\')" style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:12px;margin-bottom:8px;font-size:13px;">';
+        html += '<span style="font-weight:700;">🏪 ' + escapeHtml(loc.name) + '</span>';
+        html += '<span style="font-size:11px;color:var(--text3);">' + totalProds + ' productos</span>';
+        html += '</button>';
+    }
+    html += '</div>';
+
+    var titleEl = document.getElementById('cruceModalTitle');
+    if (titleEl) titleEl.textContent = '🔍 Cruce de Inventario';
+    var contentEl = document.getElementById('cruceContent');
+    if (contentEl) contentEl.innerHTML = html;
+    openModal('cruceModal');
 }
 
 </script>
