@@ -2131,9 +2131,12 @@ function showToast(msg, type) {
 // ====================================================================
 // MODAL HELPERS
 // ====================================================================
+var _modalZIndex = 200;
 function openModal(id) {
     var el = document.getElementById(id);
     if (!el) return;
+    _modalZIndex++;
+    el.style.zIndex = _modalZIndex;
     el.classList.add('open');
     // close on backdrop tap (outside modal-content)
     el.onclick = function(e) {
@@ -2144,6 +2147,18 @@ function closeModal(id) {
     var el = document.getElementById(id);
     if (!el) return;
     el.classList.remove('open');
+    // Reset z-index only if no other modals are open behind it
+    var allModals = document.querySelectorAll('.modal-overlay.open');
+    if (allModals.length === 0) _modalZIndex = 200;
+    else {
+        // Find the highest remaining modal z-index and adjust
+        var maxZ = 200;
+        for (var i = 0; i < allModals.length; i++) {
+            var z = parseInt(allModals[i].style.zIndex) || 200;
+            if (z > maxZ) maxZ = z;
+        }
+        _modalZIndex = maxZ;
+    }
 }
 
 // ====================================================================
@@ -6232,16 +6247,23 @@ function openLocControlPanel(locId, spaceIdx) {
             }
         }
 
-        // Build last venta date lookup per productId for this space
+        // Build last movement date lookup per productId for this space
         var lastVentaMap = {};
+        var lastMovementMap = {};
         for (var lmi = 0; lmi < locMovements.length; lmi++) {
             var lm = locMovements[lmi];
-            if (lm.type !== 'descarga' && lm.type !== 'venta') continue;
             if (lm.spaceIdx !== spaceIdx && lm.spaceName !== (loc.spaces[spaceIdx].name || '')) continue;
             var lmPid = lm.productId;
             if (!lmPid) continue;
-            if (!lastVentaMap[lmPid] || lm.date > lastVentaMap[lmPid]) {
-                lastVentaMap[lmPid] = lm.date;
+            // Track last venta/descarga
+            if (lm.type === 'descarga' || lm.type === 'venta') {
+                if (!lastVentaMap[lmPid] || lm.date > lastVentaMap[lmPid]) {
+                    lastVentaMap[lmPid] = lm.date;
+                }
+            }
+            // Track any last movement
+            if (!lastMovementMap[lmPid] || lm.date > lastMovementMap[lmPid].date) {
+                lastMovementMap[lmPid] = { date: lm.date, type: lm.type, reasonLabel: lm.reasonLabel || lm.type };
             }
         }
 
@@ -6275,9 +6297,10 @@ function openLocControlPanel(locId, spaceIdx) {
             else if (cpTarget > 0 && cpQty >= cpTarget) cpStatus = '✅';
             else cpStatus = '⚠️';
 
-            // Find last venta date for this product
+            // Find last movement date for this product (any type)
+            var cpLastMov = lastMovementMap[cp.productId] || null;
             var cpLastVentaDate = lastVentaMap[cp.productId] || null;
-            var cpLastVentaStr = '';
+            var cpDateStr = '';
             if (cpLastVentaDate) {
                 try {
                     var lvd = new Date(cpLastVentaDate);
@@ -6286,7 +6309,18 @@ function openLocControlPanel(locId, spaceIdx) {
                     var lvdYear = lvd.getFullYear();
                     var lvdH = String(lvd.getHours()).padStart(2, '0');
                     var lvdM = String(lvd.getMinutes()).padStart(2, '0');
-                    cpLastVentaStr = '<div style="font-size:10px;color:var(--text3);margin-bottom:4px;">🕐 Última venta: ' + lvdDay + ' ' + lvdMon + ' ' + lvdYear + ' ' + lvdH + ':' + lvdM + '</div>';
+                    cpDateStr = '<div style="font-size:10px;color:var(--danger);font-weight:600;margin-bottom:4px;">📤 Última venta: ' + lvdDay + ' ' + lvdMon + ' ' + lvdYear + ' ' + lvdH + ':' + lvdM + '</div>';
+                } catch(e) {}
+            } else if (cpLastMov) {
+                try {
+                    var lmd = new Date(cpLastMov.date);
+                    var lmdDay = String(lmd.getDate()).padStart(2, '0');
+                    var lmdMon = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'][lmd.getMonth()];
+                    var lmdYear = lmd.getFullYear();
+                    var lmdH = String(lmd.getHours()).padStart(2, '0');
+                    var lmdM = String(lmd.getMinutes()).padStart(2, '0');
+                    var lmdIcon = (cpLastMov.type === 'carga' || cpLastMov.type === 'ingreso') ? '📥' : '📤';
+                    cpDateStr = '<div style="font-size:10px;color:var(--text3);margin-bottom:4px;">' + lmdIcon + ' Último mov.: ' + lmdDay + ' ' + lmdMon + ' ' + lmdYear + ' ' + lmdH + ':' + lmdM + '</div>';
                 } catch(e) {}
             }
 
@@ -6295,7 +6329,7 @@ function openLocControlPanel(locId, spaceIdx) {
             html += '<div style="font-size:12px;font-weight:700;color:var(--text);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + cpStatus + ' ' + escapeHtml(cpName) + '</div>';
             html += '<div style="font-size:11px;color:var(--text3);flex-shrink:0;">Stock: <b style="color:var(--primary);">' + cpQty + '</b></div>';
             html += '</div>';
-            html += cpLastVentaStr;
+            html += cpDateStr;
             html += '<div style="display:flex;gap:6px;">';
             html += '<button class="btn btn-outline btn-sm" onclick="sellFromSpace(\'' + loc.id + '\',' + spaceIdx + ',' + pi + ')" style="flex:1;font-size:11px;color:#ff4757;border-color:#ff4757;' + (cpQty === 0 ? 'opacity:0.4;pointer-events:none;' : '') + '">📤 Descargar</button>';
             html += '<button class="btn btn-primary btn-sm" onclick="quickIngress(\'' + loc.id + '\',' + spaceIdx + ',' + pi + ')" style="flex:1;font-size:11px;">📥 Cargar</button>';
@@ -6596,14 +6630,16 @@ function _findLocIdx(locId) {
 
 // ===== SELL FROM SPACE (register sale) =====
 function sellFromSpace(locId, spaceIdx, prodIdx) {
-    // Redirect to formal Descarga modal
-    openDescargaStock(locId, spaceIdx, prodIdx);
+    // Close control panel first, then open descarga modal
+    closeModal('locControlModal');
+    setTimeout(function() { openDescargaStock(locId, spaceIdx, prodIdx); }, 50);
 }
 
 // ===== QUICK INGRESS (add stock to existing product in space) =====
 function quickIngress(locId, spaceIdx, prodIdx) {
-    // Redirect to formal Carga modal
-    openCargaStock(locId, spaceIdx, prodIdx);
+    // Close control panel first, then open carga modal
+    closeModal('locControlModal');
+    setTimeout(function() { openCargaStock(locId, spaceIdx, prodIdx); }, 50);
 }
 
 // ===== DIRECT +/- QUANTITY CHANGE (with movement log) =====
