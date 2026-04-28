@@ -2111,6 +2111,18 @@ function formatDate(iso) {
     } catch(e) { return iso; }
 }
 
+function formatDateTimeNow() {
+    try {
+        var d = new Date();
+        var day = String(d.getDate()).padStart(2, '0');
+        var mon = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'][d.getMonth()];
+        var year = d.getFullYear();
+        var h = String(d.getHours()).padStart(2, '0');
+        var m = String(d.getMinutes()).padStart(2, '0');
+        return day + ' ' + mon + ' ' + year + ' ' + h + ':' + m;
+    } catch(e) { return new Date().toISOString(); }
+}
+
 // ====================================================================
 // TOAST NOTIFICATIONS
 // ====================================================================
@@ -6875,6 +6887,10 @@ function openCargaStock(locId, spaceIdx, prodIdx) {
             '<input type="number" id="cargaQty" class="input" value="1" min="1" style="font-size:20px;text-align:center;font-weight:700;">' +
         '</div>' +
         '<div class="input-group">' +
+            '<label class="input-label">📅 Fecha y hora</label>' +
+            '<input type="text" class="input" value="' + formatDateTimeNow() + '" readonly style="font-size:14px;color:var(--text3);background:var(--bg);cursor:default;">' +
+        '</div>' +
+        '<div class="input-group">' +
             '<label class="input-label">📝 Motivo</label>' +
             '<select id="cargaReason" class="input" style="font-size:14px;">' +
                 '<option value="compra">Compra / Adquisicion</option>' +
@@ -6962,7 +6978,7 @@ function executeCarga(locId, spaceIdx, prodIdx) {
         if (locs[k].id === locId) { loc = locs[k]; break; }
     }
     if (loc) renderLocSpaceView(loc);
-    showToast('+' + addQty + ' uds cargadas (' + reasonLabel + ')', 'success');
+    showToast('+' + addQty + ' uds cargadas (' + reasonLabel + ') — ' + formatDateTimeNow(), 'success');
 }
 
 // ===== DESCARGA DE STOCK (Formal Inventory Exit) =====
@@ -7004,6 +7020,10 @@ function openDescargaStock(locId, spaceIdx, prodIdx) {
         '<div class="input-group">' +
             '<label class="input-label">📦 Cantidad a descargar</label>' +
             '<input type="number" id="descargaQty" class="input" value="' + Math.min(1, qty) + '" min="1" max="' + qty + '" style="font-size:20px;text-align:center;font-weight:700;color:#ff4757;">' +
+        '</div>' +
+        '<div class="input-group">' +
+            '<label class="input-label">📅 Fecha y hora</label>' +
+            '<input type="text" class="input" value="' + formatDateTimeNow() + '" readonly style="font-size:14px;color:var(--text3);background:var(--bg);cursor:default;">' +
         '</div>' +
         '<div class="input-group">' +
             '<label class="input-label">📝 Motivo</label>' +
@@ -7111,7 +7131,7 @@ function executeDescarga(locId, spaceIdx, prodIdx) {
         if (locs2[k].id === locId) { loc = locs2[k]; break; }
     }
     if (loc) renderLocSpaceView(loc);
-    showToast('-' + subQty + ' uds descargadas (' + reasonLabel + ')', 'success');
+    showToast('-' + subQty + ' uds descargadas (' + reasonLabel + ') — ' + formatDateTimeNow(), 'success');
 }
 
 // ===== GROUP SELECTION MODE =====
