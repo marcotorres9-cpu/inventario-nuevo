@@ -11738,6 +11738,8 @@ function renderCruceForm(locId) {
     // Reset cruce filter state
     _filterChipState.crucebrand = '';
     _filterChipState.crucespec = '';
+    window._cruceSpaceFilter = '';
+    window._cruceStatusFilter = 'all';
 
     // Filter chips + search bar
     html += '<div style="display:flex;gap:6px;margin:0 14px 8px;flex-wrap:wrap;align-items:center;">';
@@ -11749,6 +11751,29 @@ function renderCruceForm(locId) {
     html += '</div>';
     html += '<button class="filter-chip" onclick="clearCruceFilters()" style="font-size:11px;padding:5px 8px;color:var(--danger);font-weight:700;">✕</button>';
     html += '</div>';
+
+    // Pro filters: Space selector + Status filter
+    html += '<div style="display:flex;gap:8px;margin:0 14px 8px;flex-wrap:wrap;">';
+    // Space selector dropdown
+    html += '<select id="cruceSpaceFilter" onchange="filterCruceProducts()" style="flex:1;min-width:120px;font-size:12px;padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg2);color:var(--text);box-sizing:border-box;">';
+    html += '<option value="">📦 Todos los espacios</option>';
+    for (var sfi = 0; sfi < spaces.length; sfi++) {
+        var sfName = spaces[sfi].name || ('Espacio ' + (sfi + 1));
+        var sfCount = (spaces[sfi].products || []).length;
+        html += '<option value="' + sfi + '">' + escapeHtml(sfName) + ' (' + sfCount + ')</option>';
+    }
+    html += '</select>';
+    // Status filter dropdown
+    html += '<select id="cruceStatusFilter" onchange="filterCruceProducts()" style="flex:1;min-width:140px;font-size:12px;padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg2);color:var(--text);box-sizing:border-box;">';
+    html += '<option value="all">📋 Todos</option>';
+    html += '<option value="withCount">🔢 Solo con conteo</option>';
+    html += '<option value="noCount">⬜ Solo sin conteo</option>';
+    html += '<option value="diff">⚠️ Solo diferencias</option>';
+    html += '<option value="missing">🔴 Solo faltantes</option>';
+    html += '<option value="excess">🔵 Solo sobrantes</option>';
+    html += '</select>';
+    html += '</div>';
+
     html += '<div style="margin:0 14px 10px;position:relative;">';
     html += '<input type="text" id="cruceSearchInput" class="input" placeholder="🔍 Buscar TV..." oninput="filterCruceProducts()" style="font-size:13px;padding:8px 12px;width:100%;box-sizing:border-box;">';
     html += '</div>';
@@ -11886,8 +11911,31 @@ function filterCruceProducts() {
     var allItems = window._cruceAllProducts || [];
     var filtered = [];
 
+    // Read pro filter values
+    var spaceFilterEl = document.getElementById('cruceSpaceFilter');
+    var spaceFilter = spaceFilterEl ? spaceFilterEl.value : '';
+    var statusFilterEl = document.getElementById('cruceStatusFilter');
+    var statusFilter = statusFilterEl ? statusFilterEl.value : 'all';
+
     for (var i = 0; i < allItems.length; i++) {
         var item = allItems[i];
+
+        // Space filter
+        if (spaceFilter !== '' && String(item.si) !== String(spaceFilter)) continue;
+
+        // Status filter - check real count from the input field
+        var inputId = 'cruceInput_' + item.si + '_' + item.pi;
+        var inputEl = document.getElementById(inputId);
+        var realVal = inputEl ? (inputEl.value || '').trim() : '';
+        var hasCount = realVal !== '' && parseInt(realVal) >= 0;
+        var realNum = hasCount ? parseInt(realVal) : null;
+        var diff = hasCount ? (realNum - item.qty) : null;
+
+        if (statusFilter === 'withCount' && !hasCount) continue;
+        if (statusFilter === 'noCount' && hasCount) continue;
+        if (statusFilter === 'diff' && (diff === null || diff === 0)) continue;
+        if (statusFilter === 'missing' && (diff === null || diff >= 0)) continue;
+        if (statusFilter === 'excess' && (diff === null || diff <= 0)) continue;
 
         // Brand filter
         if (fBrand && item.brand !== fBrand) continue;
@@ -11951,6 +11999,11 @@ function clearCruceFilters() {
     if (chipSpec) { chipSpec.textContent = '⚙️ Specs'; chipSpec.classList.remove('active'); }
     var searchEl = document.getElementById('cruceSearchInput');
     if (searchEl) searchEl.value = '';
+    // Reset pro filters
+    var spaceEl = document.getElementById('cruceSpaceFilter');
+    if (spaceEl) spaceEl.value = '';
+    var statusEl = document.getElementById('cruceStatusFilter');
+    if (statusEl) statusEl.value = 'all';
     filterCruceProducts();
 }
 
@@ -11981,6 +12034,13 @@ function updateCruceCard(si, pi) {
     }
 
     updateCruceSummary();
+
+    // If status filter is active, re-apply to show/hide based on new count
+    var statusFilterEl = document.getElementById('cruceStatusFilter');
+    var statusFilter = statusFilterEl ? statusFilterEl.value : 'all';
+    if (statusFilter !== 'all') {
+        filterCruceProducts();
+    }
 }
 
 function updateCruceSummary() {
