@@ -3681,7 +3681,7 @@ function renderProductList() {
 // ====================================================================
 // FILTER CHIP SYSTEM — replaces native <select> in filter bars
 // ====================================================================
-var _filterChipState = { fcat: '', fbrand: '', fcolor: '', fspec: '', spcat: '', spbrand: '', spcolor: '', spspec: '', locbrand: '', locspec: '' };
+var _filterChipState = { fcat: '', fbrand: '', fcolor: '', fspec: '', spcat: '', spbrand: '', spcolor: '', spspec: '', locbrand: '', locspec: '', crucebrand: '', crucespec: '' };
 var _openChipDropdown = null;
 
 function toggleFilterDropdown(key) {
@@ -3698,13 +3698,15 @@ function toggleFilterDropdown(key) {
     // Find the button that was clicked to position the dropdown
     var chipMap = { fcat: 'chipFilterCat', fbrand: 'chipFilterBrand', fcolor: 'chipFilterColor', fspec: 'chipFilterSpec',
                     spcat: 'chipSpCat', spbrand: 'chipSpBrand', spcolor: 'chipSpColor', spspec: 'chipSpSpec',
-                    locbrand: 'chipLocBrand', locspec: 'chipLocSpec' };
+                    locbrand: 'chipLocBrand', locspec: 'chipLocSpec',
+                    crucebrand: 'chipCruceBrand', crucespec: 'chipCruceSpec' };
     var btn = document.getElementById(chipMap[key]);
     if (!btn) return;
 
-    // For loc prefix, use space products instead of catalog
+    // For loc/cruce prefix, use space products instead of catalog
     var isLoc = key.indexOf('loc') === 0;
-    if (isLoc) {
+    var isCruce = key.indexOf('cruce') === 0;
+    if (isLoc || isCruce) {
         populateLocChipDropdown(key, overlay);
     } else {
         populateChipDropdown(key, overlay);
@@ -3812,12 +3814,14 @@ function populateLocChipDropdown(key, overlay) {
     if (!overlay) return;
     var spaceProds = window._currentSpaceProds || [];
     var current = _filterChipState[key] || '';
-    var type = key.substring(3); // locbrand -> brand, locspec -> spec
+    var isCruce = key.indexOf('cruce') === 0;
+    var type = isCruce ? key.substring(5) : key.substring(3); // crucebrand -> brand, locbrand -> brand
 
     // Cascading: filter base products by sibling chips
     var baseProds = spaceProds;
-    if (type === 'spec' && _filterChipState.locbrand) {
-        baseProds = baseProds.filter(function(p){ return (p.brand || '') === _filterChipState.locbrand; });
+    var siblingBrandKey = isCruce ? 'crucebrand' : 'locbrand';
+    if (type === 'spec' && _filterChipState[siblingBrandKey]) {
+        baseProds = baseProds.filter(function(p){ return (p.brand || '') === _filterChipState[siblingBrandKey]; });
     }
 
     // Collect unique values
@@ -3863,10 +3867,12 @@ function selectChipValue(key, value) {
     // Update chip button appearance
     var chipMap = { fcat: 'chipFilterCat', fbrand: 'chipFilterBrand', fcolor: 'chipFilterColor', fspec: 'chipFilterSpec',
                     spcat: 'chipSpCat', spbrand: 'chipSpBrand', spcolor: 'chipSpColor', spspec: 'chipSpSpec',
-                    locbrand: 'chipLocBrand', locspec: 'chipLocSpec' };
+                    locbrand: 'chipLocBrand', locspec: 'chipLocSpec',
+                    crucebrand: 'chipCruceBrand', crucespec: 'chipCruceSpec' };
     var labelMap = { fcat: '📂 Categoría', fbrand: '🏷️ Marca', fcolor: '🎨 Color', fspec: '⚙️ Specs',
                      spcat: '📂 Cat.', spbrand: '🏷️ Marca', spcolor: '🎨 Color', spspec: '⚙️ Specs',
-                     locbrand: '🏷️ Marca', locspec: '⚙️ Specs' };
+                     locbrand: '🏷️ Marca', locspec: '⚙️ Specs',
+                     crucebrand: '🏷️ Marca', crucespec: '⚙️ Specs' };
     var chip = document.getElementById(chipMap[key]);
     if (chip) {
         chip.textContent = (labelMap[key] || '') + ': ' + value;
@@ -3881,9 +3887,14 @@ function selectChipValue(key, value) {
     // Cascading: reset downstream filters
     var isSp = key.indexOf('sp') === 0;
     var isLoc = key.indexOf('loc') === 0;
+    var isCruce = key.indexOf('cruce') === 0;
     var type, downstream, prefix;
 
-    if (isLoc) {
+    if (isCruce) {
+        type = key.substring(5); // crucebrand -> brand, crucespec -> spec
+        downstream = { brand: ['spec'], spec: [] };
+        prefix = 'cruce';
+    } else if (isLoc) {
         type = key.substring(3); // locbrand -> brand, locspec -> spec
         downstream = { brand: ['spec'], spec: [] };
         prefix = 'loc';
@@ -3906,7 +3917,9 @@ function selectChipValue(key, value) {
     }
 
     // Trigger re-render
-    if (isLoc) {
+    if (isCruce) {
+        filterCruceProducts();
+    } else if (isLoc) {
         var locId = _locCurrentLocId;
         var spaceIdx = _locCurrentSpace || 0;
         if (locId) filterSpaceProducts(locId, spaceIdx);
@@ -11722,22 +11735,31 @@ function renderCruceForm(locId) {
     html += '<div class="cruce-summary-item"><div class="cruce-summary-label">Conteo Real</div><div class="cruce-summary-value" id="cruceRealTotal" style="color:var(--info);">0</div></div>';
     html += '</div>';
 
-    // Group by space
+    // Reset cruce filter state
+    _filterChipState.crucebrand = '';
+    _filterChipState.crucespec = '';
+
+    // Filter chips + search bar
+    html += '<div style="display:flex;gap:6px;margin:0 14px 8px;flex-wrap:wrap;align-items:center;">';
+    html += '<div class="filter-chip-wrap">';
+    html += '<button class="filter-chip" id="chipCruceBrand" onclick="toggleFilterDropdown(\'crucebrand\')" style="font-size:11px;padding:5px 8px;">🏷️ Marca</button>';
+    html += '</div>';
+    html += '<div class="filter-chip-wrap">';
+    html += '<button class="filter-chip" id="chipCruceSpec" onclick="toggleFilterDropdown(\'crucespec\')" style="font-size:11px;padding:5px 8px;">⚙️ Specs</button>';
+    html += '</div>';
+    html += '<button class="filter-chip" onclick="clearCruceFilters()" style="font-size:11px;padding:5px 8px;color:var(--danger);font-weight:700;">✕</button>';
+    html += '</div>';
+    html += '<div style="margin:0 14px 10px;position:relative;">';
+    html += '<input type="text" id="cruceSearchInput" class="input" placeholder="🔍 Buscar TV..." oninput="filterCruceProducts()" style="font-size:13px;padding:8px 12px;width:100%;box-sizing:border-box;">';
+    html += '</div>';
+
+    // Build all cruce product cards and store data globally
+    window._cruceAllProducts = [];
     for (var si = 0; si < spaces.length; si++) {
         var space = spaces[si];
         var prods = space.products || [];
-        if (prods.length === 0) continue;
-
-        html += '<div class="cruce-space-title">📦 ' + escapeHtml(space.name || ('Espacio ' + (si + 1))) + ' (' + prods.length + ' productos)</div>';
-
         for (var pi = 0; pi < prods.length; pi++) {
             var p = prods[pi];
-            var pName = p.name || 'Producto';
-            var pBrand = p.brand || '';
-            var pQty = p.qty || 0;
-            var cardId = 'cruceCard_' + si + '_' + pi;
-
-            // Pre-fill with last cruce value if available
             var prefill = '';
             if (loc.lastCruce && loc.lastCruce.products) {
                 for (var lc = 0; lc < loc.lastCruce.products.length; lc++) {
@@ -11748,44 +11770,35 @@ function renderCruceForm(locId) {
                     }
                 }
             }
-
-            // Specs label
-            var specsLabel = '';
-            if (p.specifications) {
-                try {
-                    var specObj = (typeof p.specifications === 'string') ? JSON.parse(p.specifications) : p.specifications;
-                    if (specObj && typeof specObj === 'object') {
-                        var sks = Object.keys(specObj);
-                        var spArr = [];
-                        for (var ski = 0; ski < sks.length; ski++) {
-                            var sv = (specObj[sks[ski]] || '').trim();
-                            if (sv) spArr.push(sv);
-                        }
-                        specsLabel = spArr.join(' · ');
-                    }
-                } catch(e) {}
-            }
-
-            html += '<div class="cruce-product-card" id="' + cardId + '">';
-            html += '<div class="cruce-product-name">' + escapeHtml(pName) + '</div>';
-            if (pBrand) html += '<div class="cruce-product-brand">' + escapeHtml(pBrand) + '</div>';
-            if (specsLabel) html += '<div style="font-size:10px;color:var(--text3);margin-bottom:6px;">' + escapeHtml(specsLabel) + '</div>';
-            html += '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">';
-            html += '<div style="display:flex;align-items:center;gap:6px;">';
-            html += '<span style="font-size:11px;color:var(--text3);">Sistema:</span>';
-            html += '<span style="font-size:16px;font-weight:800;color:var(--text);">' + pQty + '</span>';
-            html += '</div>';
-            html += '<div style="display:flex;align-items:center;gap:6px;">';
-            html += '<span style="font-size:11px;color:var(--text3);">Real:</span>';
-            html += '<input type="number" class="cruce-input" id="cruceInput_' + si + '_' + pi + '" data-space="' + si + '" data-prod="' + pi + '" data-sysqty="' + pQty + '" value="' + prefill + '" min="0" oninput="updateCruceCard(' + si + ',' + pi + ')" placeholder="0">';
-            html += '</div>';
-            html += '<div class="cruce-diff" id="cruceDiff_' + si + '_' + pi + '">—</div>';
-            html += '</div>';
-            html += '</div>';
+            window._cruceAllProducts.push({
+                si: si, pi: pi,
+                productId: p.productId,
+                name: p.name || 'Producto',
+                brand: p.brand || '',
+                specifications: p.specifications || '',
+                qty: p.qty || 0,
+                spaceName: space.name || ('Espacio ' + (si + 1)),
+                prefill: prefill
+            });
         }
     }
 
-    if (spaces.length === 0 || (spaces.length === 1 && (spaces[0].products || []).length === 0)) {
+    // Also store space products for filter chip dropdowns (same data)
+    window._currentSpaceProds = [];
+    for (var si2 = 0; si2 < spaces.length; si2++) {
+        var sp2 = spaces[si2];
+        var pr2 = sp2.products || [];
+        for (var pi2 = 0; pi2 < pr2.length; pi2++) {
+            window._currentSpaceProds.push(pr2[pi2]);
+        }
+    }
+
+    // Render product cards
+    html += '<div id="cruceProductList">';
+    html += buildCruceProductCards(window._cruceAllProducts);
+    html += '</div>';
+
+    if (window._cruceAllProducts.length === 0) {
         html += '<div style="text-align:center;padding:40px 20px;color:var(--text3);">';
         html += '<div style="font-size:36px;margin-bottom:10px;">📭</div>';
         html += '<div>No hay productos en este local.</div>';
@@ -11797,6 +11810,148 @@ function renderCruceForm(locId) {
 
     // Initial summary
     updateCruceSummary();
+}
+
+function buildCruceProductCards(items) {
+    var html = '';
+    var lastSi = -1;
+    for (var idx = 0; idx < items.length; idx++) {
+        var item = items[idx];
+        var si = item.si;
+        var pi = item.pi;
+
+        // Space header when space changes
+        if (si !== lastSi) {
+            if (lastSi >= 0) html += '</div>';
+            // Count how many items belong to this space (in current filtered set)
+            var spaceItemCount = 0;
+            for (var ci = 0; ci < items.length; ci++) {
+                if (items[ci].si === si) spaceItemCount++;
+            }
+            html += '<div class="cruce-space-title">📦 ' + escapeHtml(item.spaceName) + ' (' + spaceItemCount + ' productos)</div>';
+            html += '<div id="cruceSpaceGroup_' + si + '">';
+            lastSi = si;
+        }
+
+        var pName = item.name;
+        var pBrand = item.brand;
+        var pQty = item.qty;
+        var cardId = 'cruceCard_' + si + '_' + pi;
+
+        // Specs label
+        var specsLabel = '';
+        if (item.specifications) {
+            try {
+                var specObj = (typeof item.specifications === 'string') ? JSON.parse(item.specifications) : item.specifications;
+                if (specObj && typeof specObj === 'object') {
+                    var sks = Object.keys(specObj);
+                    var spArr = [];
+                    for (var ski = 0; ski < sks.length; ski++) {
+                        var sv = (specObj[sks[ski]] || '').trim();
+                        if (sv) spArr.push(sv);
+                    }
+                    specsLabel = spArr.join(' · ');
+                }
+            } catch(e) {}
+        }
+
+        var prefill = item.prefill || '';
+
+        html += '<div class="cruce-product-card" id="' + cardId + '" data-brand="' + escapeHtml(pBrand) + '" data-specs="' + escapeHtml(specsLabel) + '" data-name="' + escapeHtml(pName) + '">';
+        html += '<div class="cruce-product-name">' + escapeHtml(pName) + '</div>';
+        if (pBrand) html += '<div class="cruce-product-brand">' + escapeHtml(pBrand) + '</div>';
+        if (specsLabel) html += '<div style="font-size:10px;color:var(--text3);margin-bottom:6px;">' + escapeHtml(specsLabel) + '</div>';
+        html += '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">';
+        html += '<div style="display:flex;align-items:center;gap:6px;">';
+        html += '<span style="font-size:11px;color:var(--text3);">Sistema:</span>';
+        html += '<span style="font-size:16px;font-weight:800;color:var(--text);">' + pQty + '</span>';
+        html += '</div>';
+        html += '<div style="display:flex;align-items:center;gap:6px;">';
+        html += '<span style="font-size:11px;color:var(--text3);">Real:</span>';
+        html += '<input type="number" class="cruce-input" id="cruceInput_' + si + '_' + pi + '" data-space="' + si + '" data-prod="' + pi + '" data-sysqty="' + pQty + '" value="' + prefill + '" min="0" oninput="updateCruceCard(' + si + ',' + pi + ')" placeholder="0">';
+        html += '</div>';
+        html += '<div class="cruce-diff" id="cruceDiff_' + si + '_' + pi + '">—</div>';
+        html += '</div>';
+        html += '</div>';
+    }
+    if (lastSi >= 0) html += '</div>';
+    return html;
+}
+
+function filterCruceProducts() {
+    var queryEl = document.getElementById('cruceSearchInput');
+    var query = queryEl ? (queryEl.value || '').toLowerCase().trim() : '';
+    var fBrand = _filterChipState.crucebrand || '';
+    var fSpec = _filterChipState.crucespec || '';
+    var allItems = window._cruceAllProducts || [];
+    var filtered = [];
+
+    for (var i = 0; i < allItems.length; i++) {
+        var item = allItems[i];
+
+        // Brand filter
+        if (fBrand && item.brand !== fBrand) continue;
+
+        // Spec filter
+        if (fSpec) {
+            var specMatch = false;
+            if (item.specifications) {
+                try {
+                    var so = (typeof item.specifications === 'string') ? JSON.parse(item.specifications) : item.specifications;
+                    if (so && typeof so === 'object') {
+                        var sk = Object.keys(so);
+                        for (var x = 0; x < sk.length; x++) {
+                            var svFull = (so[sk[x]] || '').toLowerCase();
+                            if (svFull === fSpec.toLowerCase() || svFull.indexOf(fSpec.toLowerCase()) >= 0) {
+                                specMatch = true; break;
+                            }
+                        }
+                    }
+                } catch(e) {}
+            }
+            if (!specMatch) continue;
+        }
+
+        // Text search
+        if (query) {
+            var searchText = item.name + ' ' + item.brand + ' ';
+            if (item.specifications) {
+                try {
+                    var so2 = (typeof item.specifications === 'string') ? JSON.parse(item.specifications) : item.specifications;
+                    if (so2 && typeof so2 === 'object') {
+                        var sk2 = Object.keys(so2);
+                        for (var x2 = 0; x2 < sk2.length; x2++) searchText += (so2[sk2[x2]] || '') + ' ';
+                    }
+                } catch(e) {}
+            }
+            if (searchText.toLowerCase().indexOf(query) < 0) continue;
+        }
+
+        filtered.push(item);
+    }
+
+    var listEl = document.getElementById('cruceProductList');
+    if (listEl) {
+        if (filtered.length === 0) {
+            listEl.innerHTML = '<div style="text-align:center;padding:24px 14px;color:var(--text3);font-size:13px;">Sin productos que coincidan</div>';
+        } else {
+            listEl.innerHTML = buildCruceProductCards(filtered);
+        }
+    }
+
+    updateCruceSummary();
+}
+
+function clearCruceFilters() {
+    _filterChipState.crucebrand = '';
+    _filterChipState.crucespec = '';
+    var chipBrand = document.getElementById('chipCruceBrand');
+    var chipSpec = document.getElementById('chipCruceSpec');
+    if (chipBrand) { chipBrand.textContent = '🏷️ Marca'; chipBrand.classList.remove('active'); }
+    if (chipSpec) { chipSpec.textContent = '⚙️ Specs'; chipSpec.classList.remove('active'); }
+    var searchEl = document.getElementById('cruceSearchInput');
+    if (searchEl) searchEl.value = '';
+    filterCruceProducts();
 }
 
 function updateCruceCard(si, pi) {
