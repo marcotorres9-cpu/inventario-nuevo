@@ -5564,7 +5564,7 @@ function renderGlobalTargetBanner() {
     var locs = getLocations();
     var globalTarget = getGlobalTarget();
 
-    // Build per-model totals across ALL locales
+    // Build per-model totals across ALL locales — use buildModelKey for consistent keys
     var modelMap = {};
     for (var i = 0; i < locs.length; i++) {
         var spaces = locs[i].spaces || [];
@@ -5572,36 +5572,57 @@ function renderGlobalTargetBanner() {
             var prods = spaces[s].products || [];
             for (var p = 0; p < prods.length; p++) {
                 var pr = prods[p];
-                var key = pr.productId || (pr.name + '|' + pr.brand);
+                var key = buildModelKey(pr.productId, pr.name, pr.brand, pr.specifications);
                 if (!modelMap[key]) {
-                    modelMap[key] = { name: pr.name || 'TV', brand: pr.brand || '', qty: 0 };
+                    modelMap[key] = { name: pr.name || 'TV', brand: pr.brand || '', qty: 0, productId: pr.productId || '', specifications: pr.specifications || null };
                 }
                 modelMap[key].qty += (pr.qty || 0);
             }
         }
     }
 
-    // Collect model targets from all locales' modelTargets
+    // Collect model targets from the FIRST locale only
+    // (saveGlobalTargets saves identical targets to ALL locales, so reading from one avoids multiplying)
     var allModelTargets = {};
-    for (var li = 0; li < locs.length; li++) {
-        var mt = locs[li].modelTargets || [];
-        for (var ti = 0; ti < mt.length; ti++) {
-            var t = mt[ti];
-            var tKey = t.productId || (t.name + '|' + t.brand);
-            if (!allModelTargets[tKey]) {
-                allModelTargets[tKey] = { name: t.name || 'TV', brand: t.brand || '', target: 0, min: 0 };
-            }
-            allModelTargets[tKey].target += (t.target || 0);
-            allModelTargets[tKey].min += (t.min || 0);
+    var refLoc = locs.length > 0 ? locs[0] : null;
+    var refMt = refLoc ? (refLoc.modelTargets || []) : [];
+    for (var ti = 0; ti < refMt.length; ti++) {
+        var t = refMt[ti];
+        var tKey = buildModelKey(t.productId, t.name, t.brand, t.specs);
+        if (!allModelTargets[tKey]) {
+            allModelTargets[tKey] = { name: t.name || 'TV', brand: t.brand || '', target: 0, min: 0 };
         }
+        allModelTargets[tKey].target = (t.target || 0);
+        allModelTargets[tKey].min = (t.min || 0);
     }
 
     // Merge: all models that exist in inventory OR have a target
+    // Use findModelTarget for fallback matching (specs mismatch, old data, etc.)
     var allKeys = {};
     var mKeys = Object.keys(modelMap);
     var atKeys = Object.keys(allModelTargets);
-    for (var mi = 0; mi < mKeys.length; mi++) allKeys[mKeys[mi]] = true;
+    for (var mi = 0; mi < mKeys.length; mi++) {
+        allKeys[mKeys[mi]] = true;
+        // If this inventory key has no direct target, try fallback matching
+        if (!allModelTargets[mKeys[mi]] && modelMap[mKeys[mi]]) {
+            var mm = modelMap[mKeys[mi]];
+            var fbTarget = findModelTarget(allModelTargets, mm.productId, mm.name, mm.brand, mm.specifications);
+            if (fbTarget) {
+                allModelTargets[mKeys[mi]] = fbTarget;
+            }
+        }
+    }
     for (var ai = 0; ai < atKeys.length; ai++) allKeys[atKeys[ai]] = true;
+    // Also try matching target keys that have no inventory entry
+    for (var ai2 = 0; ai2 < atKeys.length; ai2++) {
+        if (!modelMap[atKeys[ai2]]) {
+            var tInfo = allModelTargets[atKeys[ai2]];
+            // Try without specs (productId only)
+            var plainKey = tInfo.name ? ((tInfo.name || '') + '|' + (tInfo.brand || '')) : '';
+            // Just add the target key, qty will be 0
+            allKeys[atKeys[ai2]] = true;
+        }
+    }
     var keys = Object.keys(allKeys);
 
     // Calculate totals
