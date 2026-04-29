@@ -1122,6 +1122,7 @@
                 <div style="display:flex;gap:6px;">
                     <button class="btn btn-outline btn-sm" onclick="openGlobalTargets()" style="font-size:12px;">🎯 Objetivos</button>
                     <button class="btn btn-outline btn-sm" onclick="openStockSummary()" style="font-size:12px;">📊 Resumen</button>
+                    <button class="btn btn-outline btn-sm" onclick="resetAllLocalesInventory()" style="font-size:12px;color:var(--danger);border-color:var(--danger);">🗑️ Limpiar</button>
                     <button class="btn btn-primary btn-sm" onclick="openLocModal()">+ Nuevo Local</button>
                 </div>
             </div>
@@ -2223,6 +2224,22 @@ function closeModal(id) {
         }
         _modalZIndex = maxZ;
     }
+}
+
+// ===== GENERIC CONFIRM DIALOG =====
+function showConfirm(title, message, btnText, callback) {
+    document.getElementById('confirmIcon').textContent = '⚠️';
+    document.getElementById('confirmTitle').textContent = title;
+    document.getElementById('confirmMessage').textContent = message;
+    var btn = document.getElementById('confirmBtn');
+    btn.textContent = btnText || 'Confirmar';
+    btn.className = 'btn btn-danger';
+    btn.style.flex = '1';
+    btn.onclick = function() {
+        closeModal('confirmModal');
+        if (typeof callback === 'function') callback();
+    };
+    openModal('confirmModal');
 }
 
 // ====================================================================
@@ -8869,6 +8886,56 @@ function deleteLoc(locId) {
         renderLocations();
         showToast('Local eliminado', 'success');
     });
+}
+
+// ===== RESET ALL LOCALES INVENTORY =====
+function resetAllLocalesInventory() {
+    var locs = getLocations();
+    if (locs.length === 0) { showToast('No hay locales registrados', 'info'); return; }
+
+    // Count current stock to show in confirmation
+    var totalProducts = 0;
+    var totalStock = 0;
+    for (var i = 0; i < locs.length; i++) {
+        var spaces = locs[i].spaces || [];
+        for (var s = 0; s < spaces.length; s++) {
+            var prods = spaces[s].products || [];
+            totalProducts += prods.length;
+            for (var p = 0; p < prods.length; p++) {
+                totalStock += (prods[p].qty || 0);
+            }
+        }
+    }
+
+    showConfirm(
+        '¿Limpiar todo el inventario?',
+        'Se eliminará todo el stock, mínimos, objetivos, inventarios iniciales y movimientos de ' + locs.length + ' local(es) con ' + totalProducts + ' productos (' + totalStock + ' unidades). Los locales y espacios se mantendrán, solo se reinicia el inventario a 0.',
+        '🗑️ Limpiar Todo',
+        function() {
+            for (var i = 0; i < locs.length; i++) {
+                // Clear movements
+                locs[i].movements = [];
+                // Clear model targets
+                locs[i].modelTargets = [];
+                var spaces = locs[i].spaces || [];
+                for (var s = 0; s < spaces.length; s++) {
+                    var prods = spaces[s].products || [];
+                    for (var p = 0; p < prods.length; p++) {
+                        prods[p].qty = 0;
+                        prods[p].minQty = 0;
+                        prods[p].maxQty = 0;
+                        prods[p].targetQty = 0;
+                        prods[p].initialStock = null;
+                    }
+                }
+                locs[i].updatedAt = new Date().toISOString();
+            }
+            saveLocations(locs);
+            syncLocationsToServer();
+            renderLocations();
+            showToast('Inventario limpiado correctamente. Listo para cargar desde 0.', 'success');
+        }
+    );
 }
 
 // ===== SPACE PRODUCT MANAGEMENT =====
