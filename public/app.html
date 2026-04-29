@@ -5976,12 +5976,14 @@ function renderLocSpaceView(loc) {
         else if (pTgt > 0 && pTotalQty >= pTgt) { /* OK, target met */ }
         else if (pMin > 0 && pTotalQty < pMin) lowCount++;
         else if (pTgt > 0 && pTotalQty < pTgt) lowCount++;
-        // Calculate faltantes for this product
-        if (products[p].initialStock !== undefined && products[p].initialStock !== null) {
+        // Calculate faltantes for this product (only when formal descargas exist)
+        if (products[p].initialStock !== undefined && products[p].initialStock !== null && products[p].initialStock > 0) {
             var pFlowCalc = computeProductFlowBySpace(loc, products[p].productId, currentIdx);
-            var pTotal = pFlowCalc.inicial + pFlowCalc.entradas;
-            var pFalt = pTotal - pFlowCalc.actual;
-            if (pFalt > 0) totalFaltantesSpace += pFalt;
+            if (pFlowCalc.salidas > 0) {
+                var pTotal = pFlowCalc.inicial + pFlowCalc.entradas;
+                var pFalt = pTotal - pFlowCalc.actual;
+                if (pFalt > 0) totalFaltantesSpace += pFalt;
+            }
         }
     }
 
@@ -6094,38 +6096,40 @@ function renderLocSpaceView(loc) {
             if (target > 0) minMaxHtml += '<div style="font-size:9px;color:var(--text3);">obj:' + prTotalQty + '/' + target + '</div>';
             else if (min > 0) minMaxHtml += '<div style="font-size:9px;color:var(--text3);">mín:' + min + '</div>';
 
-            // Inventory slot visualization — show initial stock positions with empty/vacant for sold
+            // Inventory slot visualization — only show when there are formal salidas
+            // Without formal descargas, "faltantes" is meaningless (just initialStock > qty diff)
             var invSlotsHtml = '';
-            if (pr.initialStock !== undefined && pr.initialStock !== null) {
+            if (pr.initialStock !== undefined && pr.initialStock !== null && pr.initialStock > 0) {
                 var pFlow = computeProductFlowBySpace(loc, pr.productId, currentIdx);
-                var totalSlots = pFlow.inicial + pFlow.entradas;
-                var faltantes = totalSlots - pFlow.actual;
-                if (faltantes < 0) faltantes = 0;
-                
-                // Build visual slot grid (max 30 shown, then summary)
-                var maxShow = Math.min(totalSlots, 30);
-                var slotGrid = '';
-                for (var slot = 0; slot < maxShow; slot++) {
-                    if (slot < pFlow.actual) {
-                        // Present/available slot
-                        slotGrid += '<span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:var(--primary);margin:1px;box-shadow:0 1px 3px rgba(34,197,94,0.3);"></span>';
-                    } else {
-                        // Empty/sold slot
-                        slotGrid += '<span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:var(--danger);opacity:0.6;margin:1px;border:1px dashed var(--danger);"></span>';
+                // Only show slot tracking if there have been formal descargas/ventas
+                if (pFlow.salidas > 0) {
+                    var totalSlots = pFlow.inicial + pFlow.entradas;
+                    var faltantes = totalSlots - pFlow.actual;
+                    if (faltantes < 0) faltantes = 0;
+                    
+                    // Build visual slot grid (max 30 shown, then summary)
+                    var maxShow = Math.min(totalSlots, 30);
+                    var slotGrid = '';
+                    for (var slot = 0; slot < maxShow; slot++) {
+                        if (slot < pFlow.actual) {
+                            slotGrid += '<span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:var(--primary);margin:1px;box-shadow:0 1px 3px rgba(34,197,94,0.3);"></span>';
+                        } else {
+                            slotGrid += '<span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:var(--danger);opacity:0.6;margin:1px;border:1px dashed var(--danger);"></span>';
+                        }
                     }
+                    if (totalSlots > 30) {
+                        slotGrid += '<span style="font-size:9px;color:var(--text3);margin-left:4px;">+' + (totalSlots - 30) + '</span>';
+                    }
+                    
+                    invSlotsHtml = '<div style="margin-top:3px;">' +
+                        '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:0;">' + slotGrid + '</div>' +
+                        '<div style="display:flex;gap:8px;margin-top:3px;font-size:10px;">' +
+                            '<span style="color:var(--primary);font-weight:600;">' + pFlow.actual + ' presentes</span>' +
+                            (faltantes > 0 ? '<span style="color:var(--danger);font-weight:600;">' + faltantes + ' faltantes</span>' : '<span style="color:var(--text3);">0 faltantes</span>') +
+                            '<span style="color:var(--text3);">de ' + totalSlots + '</span>' +
+                        '</div>' +
+                    '</div>';
                 }
-                if (totalSlots > 30) {
-                    slotGrid += '<span style="font-size:9px;color:var(--text3);margin-left:4px;">+' + (totalSlots - 30) + '</span>';
-                }
-                
-                invSlotsHtml = '<div style="margin-top:3px;">' +
-                    '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:0;">' + slotGrid + '</div>' +
-                    '<div style="display:flex;gap:8px;margin-top:3px;font-size:10px;">' +
-                        '<span style="color:var(--primary);font-weight:600;">' + pFlow.actual + ' presentes</span>' +
-                        (faltantes > 0 ? '<span style="color:var(--danger);font-weight:600;">' + faltantes + ' faltantes</span>' : '<span style="color:var(--text3);">0 faltantes</span>') +
-                        '<span style="color:var(--text3);">de ' + totalSlots + '</span>' +
-                    '</div>' +
-                '</div>';
             }
 
             prodHtml += '<div style="display:flex;align-items:center;gap:6px;padding:9px 0;border-bottom:1px solid var(--border);' + (min > 0 && prTotalQty < min ? 'border-left:3px solid ' + statusColor + ';padding-left:6px;' : '') + ';transition:background 0.15s;' + (isChecked ? 'background:var(--primary);background:rgba(99,102,241,0.06);border-radius:8px;' : '') + '" data-prodidx="' + i + '">' +
@@ -6854,12 +6858,14 @@ function openStockEdit(locId, spaceIdx, prodIdx) {
     document.getElementById('stockEditTitle').textContent = '📋 ' + pName;
     var initialStockVal = (pr.initialStock !== undefined && pr.initialStock !== null) ? pr.initialStock : null;
     var initialStockHtml = '';
-    if (initialStockVal !== null) {
+    if (initialStockVal !== null && initialStockVal > 0) {
         var flow = computeProductFlowBySpace(
             (function() { var locs = getLocations(); for (var x = 0; x < locs.length; x++) { if (locs[x].spaces) { for (var y = 0; y < locs[x].spaces.length; y++) { var sp = locs[x].spaces[y]; for (var z = 0; z < (sp.products||[]).length; z++) { if (sp.products[z] === pr) return locs[x]; } } } } return null; })(),
             pr.productId, 0
         );
-        var totalSlotsSe = flow.inicial + flow.entradas;
+        // Only show slot tracking if there have been formal descargas
+        if (flow.salidas > 0) {
+            var totalSlotsSe = flow.inicial + flow.entradas;
         var faltantesSe = totalSlotsSe - flow.actual;
         if (faltantesSe < 0) faltantesSe = 0;
 
@@ -6904,6 +6910,7 @@ function openStockEdit(locId, spaceIdx, prodIdx) {
                 '<span style="color:var(--text3);">de ' + totalSlotsSe + '</span>' +
             '</div>' +
         '</div>';
+        } // end if salidas > 0
     } else {
         initialStockHtml = '<div class="inv-warning-bar" style="margin-bottom:10px;">⚠️ Sin inventario inicial registrado. <span style="cursor:pointer;text-decoration:underline;" onclick="closeModal(\'stockEditModal\');openInitialInventoryModal(\'' + locId + '\',' + spaceIdx + ')">Registrar</span></div>';
     }
