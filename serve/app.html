@@ -9218,13 +9218,8 @@ function confirmAddProductToSpace() {
                 space.products.push({
                     productId: _spSelectedProductId, name: prodName, brand: prodBrand,
                     qty: qty, specifications: prodSpecs, targetQty: targetQty, minQty: minQty, maxQty: maxQty,
-                    initialStock: qty
+                    initialStock: null
                 });
-            } else {
-                // If product already exists, update initialStock if not set
-                if (space.products[j].initialStock === undefined || space.products[j].initialStock === null) {
-                    space.products[j].initialStock = space.products[j].qty;
-                }
             }
             locs[i].updatedAt = new Date().toISOString();
             if (qty > 0) {
@@ -9285,13 +9280,8 @@ function addCartToSpace(locId, spaceIdx) {
                     space.products.push({
                         productId: pid, name: prodName, brand: prodBrand,
                         qty: cartQty, specifications: prodSpecs, targetQty: 0, minQty: 0, maxQty: 0,
-                        initialStock: cartQty
+                        initialStock: null
                     });
-                } else {
-                    // If product already exists, update initialStock if not set
-                    if (space.products[j].initialStock === undefined || space.products[j].initialStock === null) {
-                        space.products[j].initialStock = space.products[j].qty;
-                    }
                 }
                 totalAdded += cartQty;
 
@@ -11411,11 +11401,14 @@ function computeProductFlow(loc, productId) {
     }
 
     // Compute entradas/salidas from movements
+    // Only count 'carga' and 'descarga' movements (formal operations).
+    // 'ingreso' movements are auto-generated when adding a product and already
+    // reflected in initialStock — counting them would double-count.
     var movements = loc.movements || [];
     for (var m = 0; m < movements.length; m++) {
         var mov = movements[m];
         if (mov.productId === productId) {
-            if (mov.type === 'carga' || mov.type === 'ingreso') {
+            if (mov.type === 'carga') {
                 entradas += (mov.qty || 0);
             } else if (mov.type === 'descarga' || mov.type === 'venta') {
                 salidas += (mov.qty || 0);
@@ -11454,11 +11447,14 @@ function computeProductFlowBySpace(loc, productId, spaceIdx) {
     }
 
     // Compute entradas/salidas from movements for this space
+    // Only count 'carga' and 'descarga' movements (formal operations).
+    // 'ingreso' movements are auto-generated when adding a product and already
+    // reflected in initialStock — counting them would double-count.
     var movements = loc.movements || [];
     for (var m = 0; m < movements.length; m++) {
         var mov = movements[m];
         if (mov.productId === productId && (mov.spaceIdx === spaceIdx)) {
-            if (mov.type === 'carga' || mov.type === 'ingreso') {
+            if (mov.type === 'carga') {
                 entradas += (mov.qty || 0);
             } else if (mov.type === 'descarga' || mov.type === 'venta') {
                 salidas += (mov.qty || 0);
