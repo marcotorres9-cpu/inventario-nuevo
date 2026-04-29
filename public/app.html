@@ -236,11 +236,13 @@
             font-weight: 600; cursor: pointer; font-size: 15px;
             display: inline-flex; align-items: center; justify-content: center; gap: 8px;
             transition: transform 0.1s, opacity 0.2s;
+            flex-shrink: 0;
         }
         .btn:active { transform: scale(0.97); }
         .btn-primary {
             background: var(--primary); color: #fff; width: 100%;
             box-shadow: 0 4px 16px rgba(34,197,94,0.3);
+            flex-shrink: 0;
         }
         .btn-primary:active { background: var(--primary-dim); }
         .btn-outline {
@@ -1117,14 +1119,12 @@
     <div id="locationsSection" class="section">
         <div class="main">
             <!-- Header: title + add button -->
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-                <h2 style="font-size:22px;font-weight:800;">🏪 Mis Locales</h2>
-                <div style="display:flex;gap:6px;">
-                    <button class="btn btn-outline btn-sm" onclick="openGlobalTargets()" style="font-size:12px;">🎯 Objetivos</button>
-                    <button class="btn btn-outline btn-sm" onclick="openStockSummary()" style="font-size:12px;">📊 Resumen</button>
-                    <button class="btn btn-outline btn-sm" onclick="resetAllLocalesInventory()" style="font-size:12px;color:var(--danger);border-color:var(--danger);">🗑️ Limpiar</button>
-                    <button class="btn btn-primary btn-sm" onclick="openLocModal()">+ Nuevo Local</button>
-                </div>
+            <h2 style="font-size:22px;font-weight:800;margin-bottom:10px;">🏪 Mis Locales</h2>
+            <div id="locActionsRow" style="display:flex;gap:6px;margin-bottom:10px;">
+                <button class="btn btn-outline btn-sm" onclick="openGlobalTargets()" style="font-size:12px;flex:1;min-width:0;">🎯 Objetivos</button>
+                <button class="btn btn-outline btn-sm" onclick="openStockSummary()" style="font-size:12px;flex:1;min-width:0;">📊 Resumen</button>
+                <button class="btn btn-outline btn-sm" onclick="resetAllLocalesInventory()" style="font-size:12px;color:var(--danger);border-color:var(--danger);flex:1;min-width:0;">🗑️ Limpiar</button>
+                <button class="btn btn-primary btn-sm" onclick="openLocModal()" style="font-size:12px;flex:1;min-width:0;">+ Nuevo Local</button>
             </div>
             <!-- Global target banner (compact) -->
             <div id="globalTargetBanner" style="margin-bottom:10px;"></div>
@@ -5641,10 +5641,11 @@ function renderGlobalTargetBanner() {
     // Use modelTargets if set, otherwise fall back to globalTarget
     var displayTarget = hasModelTargets ? modelTargetSum : globalTarget;
 
-    // Count status per model
-    var modelsOk = 0;
-    var modelsMissing = 0;
-    var modelsEmpty = 0;
+    // Count status per model (units, not model types)
+    var unitsOk = 0;        // total units in models that meet their target
+    var unitsMissing = 0;   // total units in models below their target
+    var modelsMissing = 0;  // number of model types below target
+    var modelsEmpty = 0;    // number of model types with zero stock
     for (var ki2 = 0; ki2 < keys.length; ki2++) {
         var mk = keys[ki2];
         var mQty = modelMap[mk] ? modelMap[mk].qty : 0;
@@ -5652,11 +5653,20 @@ function renderGlobalTargetBanner() {
         var mTarget = mt ? mt.target : 0;
         var mMin = mt ? mt.min : 0;
 
-        if (mQty === 0) modelsEmpty++;
-        else if (mTarget > 0 && mQty >= mTarget) modelsOk++;
-        else if (mMin > 0 && mQty < mMin) modelsMissing++;
-        else if (mTarget > 0 && mQty < mTarget) modelsMissing++;
-        else modelsOk++;
+        if (mQty === 0) {
+            modelsEmpty++;
+        } else if (mTarget > 0 && mQty >= mTarget) {
+            unitsOk += mQty;
+        } else if (mMin > 0 && mQty < mMin) {
+            unitsMissing += mQty;
+            modelsMissing++;
+        } else if (mTarget > 0 && mQty < mTarget) {
+            unitsMissing += mQty;
+            modelsMissing++;
+        } else {
+            // No target defined, count as ok
+            unitsOk += mQty;
+        }
     }
 
     var missing = Math.max(0, displayTarget - grandCurrent);
@@ -5721,8 +5731,8 @@ function renderGlobalTargetBanner() {
         '<div style="display:flex;gap:12px;margin-top:8px;font-size:11px;">' +
             (isOk
                 ? '<span style="color:#2ed573;">✅ Stock completo: <b>' + grandCurrent + '</b> TVs</span>'
-                : '<span style="color:var(--text2);">✅ Completos: <b>' + modelsOk + '</b></span>' +
-                  (modelsMissing > 0 ? '<span style="color:#ffa502;">⚠️ Bajo mín: <b>' + modelsMissing + '</b></span>' : '') +
+                : '<span style="color:var(--text2);">✅ Completos: <b>' + unitsOk + '</b> TVs</span>' +
+                  (unitsMissing > 0 ? '<span style="color:#ffa502;">⚠️ Faltantes: <b>' + missing + '</b> TVs</span>' : '') +
                   (modelsEmpty > 0 ? '<span style="color:#ff4757;">🚨 Sin stock: <b>' + modelsEmpty + '</b></span>' : '')
             ) +
         '</div>' +
@@ -5760,8 +5770,8 @@ function renderLocations() {
     _locCurrentLocId = null;
 
     // Show header and banner
-    var header = container.parentElement.querySelector('div[style*="align-items:center"]');
-    if (header) header.style.display = 'flex';
+    var actionsRow = document.getElementById('locActionsRow');
+    if (actionsRow) actionsRow.style.display = 'flex';
     var banner = document.getElementById('globalTargetBanner');
     if (banner) banner.style.display = 'block';
 
@@ -5917,8 +5927,8 @@ function openLocDetail(locId) {
     document.getElementById('locationsEmpty').style.display = 'none';
 
     // Hide header with add button and global banner
-    var header = spaceView.parentElement.querySelector('div[style*="align-items:center"]');
-    if (header) header.style.display = 'none';
+    var actionsRow = document.getElementById('locActionsRow');
+    if (actionsRow) actionsRow.style.display = 'none';
     var banner = document.getElementById('globalTargetBanner');
     if (banner) banner.style.display = 'none';
 
