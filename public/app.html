@@ -5719,9 +5719,12 @@ function renderGlobalTargetBanner() {
             '<div style="height:100%;width:' + pct + '%;background:' + barColor + ';border-radius:4px;transition:width 0.4s;"></div>' +
         '</div>' +
         '<div style="display:flex;gap:12px;margin-top:8px;font-size:11px;">' +
-            '<span style="color:var(--text2);">✅ Completos: <b>' + modelsOk + '</b></span>' +
-            (modelsMissing > 0 ? '<span style="color:#ffa502;">⚠️ Bajo mín: <b>' + modelsMissing + '</b></span>' : '') +
-            (modelsEmpty > 0 ? '<span style="color:#ff4757;">🚨 Sin stock: <b>' + modelsEmpty + '</b></span>' : '') +
+            (isOk
+                ? '<span style="color:#2ed573;">✅ Stock completo: <b>' + grandCurrent + '</b> TVs</span>'
+                : '<span style="color:var(--text2);">✅ Completos: <b>' + modelsOk + '</b></span>' +
+                  (modelsMissing > 0 ? '<span style="color:#ffa502;">⚠️ Bajo mín: <b>' + modelsMissing + '</b></span>' : '') +
+                  (modelsEmpty > 0 ? '<span style="color:#ff4757;">🚨 Sin stock: <b>' + modelsEmpty + '</b></span>' : '')
+            ) +
         '</div>' +
         pillsHtml +
         '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">' +
