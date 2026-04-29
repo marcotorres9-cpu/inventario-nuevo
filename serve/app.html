@@ -12553,15 +12553,12 @@ function renderGISpaceView() {
             '</div>' +
         '</div>' +
         '<div class="gi-stat-row">' +
-            '<div class="gi-stat-item"><div class="gi-stat-num">' + spaces.length + '</div><div class="gi-stat-label">Espacios</div></div>' +
             '<div class="gi-stat-item"><div class="gi-stat-num">' + totalTypes + '</div><div class="gi-stat-label">Tipos</div></div>' +
             '<div class="gi-stat-item"><div class="gi-stat-num" style="color:var(--primary);">' + totalQty + '</div><div class="gi-stat-label">Unidades</div></div>' +
             '<div class="gi-stat-item"><div class="gi-stat-num" style="color:var(--info);font-size:14px;">' + valueStr + '</div><div class="gi-stat-label">Valor</div></div>' +
         '</div>' +
         alertHtml +
-        '<div style="margin:12px 0 6px;font-size:12px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;">Espacios</div>' +
-        (tabsHtml || '<div style="color:var(--text3);font-size:13px;padding:8px 0;">Sin espacios definidos</div>') +
-        '<div style="margin:12px 0 8px;font-size:14px;font-weight:700;">📦 ' + escapeHtml(currentSpace.name) + '</div>' +
+        (tabsHtml ? '<div style="margin:12px 0 6px;font-size:12px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;">Espacios</div>' + tabsHtml : '') +
         '<div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;align-items:center;">' +
             '<button class="btn btn-primary btn-sm" onclick="openGIAddProduct(' + currentIdx + ')" style="font-size:12px;">📥 Agregar Producto</button>' +
             '<button class="btn btn-outline btn-sm" onclick="deleteGISpace(' + currentIdx + ')" style="font-size:12px;color:var(--danger);border-color:var(--danger);">🗑️ Eliminar Espacio</button>' +
