@@ -7193,8 +7193,8 @@ function openDescargaStock(locId, spaceIdx, prodIdx) {
 
     document.getElementById('descargaStockTitle').textContent = '📤 Descargar Stock';
     var noInitialWarning = '';
-    if (pr.initialStock === undefined || pr.initialStock === null) {
-        noInitialWarning = '<div class="inv-warning-bar">⚠️ Este producto no tiene inventario inicial registrado. <span style="cursor:pointer;text-decoration:underline;" onclick="closeModal(\'descargaStockModal\');openInitialInventoryModal(\'' + locId + '\',' + spaceIdx + ')">Registrar ahora</span></div>';
+    if (pr.initialStock === undefined || pr.initialStock === null || pr.initialStock === 0) {
+        noInitialWarning = '<div class="inv-warning-bar" style="background:#2ed57310;border-color:#2ed57325;color:#2ed573;">✅ El inventario inicial se registrará automáticamente al confirmar la descarga. <span style="cursor:pointer;text-decoration:underline;color:var(--text2);" onclick="closeModal(\'descargaStockModal\');openInitialInventoryModal(\'' + locId + '\',' + spaceIdx + ')">O registrar manualmente</span></div>';
     }
     document.getElementById('descargaStockContent').innerHTML =
         '<div style="padding:0 4px;">' +
@@ -7290,6 +7290,17 @@ function executeDescarga(locId, spaceIdx, prodIdx) {
             var pr2 = locs2[j].spaces[spaceIdx].products[prodIdx];
             if (!pr2) break;
 
+            // Auto-set initialStock if null so faltantes tracking works after descarga
+            // Use back-calculation from computeProductFlowBySpace to correctly account
+            // for any prior cargas (otherwise totalSlots would double-count them)
+            if (pr2.initialStock === null || pr2.initialStock === undefined || pr2.initialStock === 0) {
+                var preDescFlow = computeProductFlowBySpace(locs2[j], pr2.productId, spaceIdx);
+                if (preDescFlow.inicial > 0) {
+                    pr2.initialStock = preDescFlow.inicial;
+                } else {
+                    pr2.initialStock = pr2.qty || 0;
+                }
+            }
             var newQty = Math.max(0, (pr2.qty || 0) - subQty);
             pr2.qty = newQty;
             locs2[j].updatedAt = new Date().toISOString();
@@ -7628,6 +7639,15 @@ function executeBatchSell() {
         if (sellQty > currentQty) sellQty = currentQty;
         if (sellQty < 1) continue;
 
+        // Auto-set initialStock if null so faltantes tracking works after descarga
+        if (pr.initialStock === null || pr.initialStock === undefined || pr.initialStock === 0) {
+            var batchFlow = computeProductFlowBySpace(locs[locIdx], pr.productId, _locCurrentSpace);
+            if (batchFlow.inicial > 0) {
+                pr.initialStock = batchFlow.inicial;
+            } else {
+                pr.initialStock = currentQty;
+            }
+        }
         pr.qty = currentQty - sellQty;
         totalSold += sellQty;
         totalSaleAmount += sellQty * salePrice;
