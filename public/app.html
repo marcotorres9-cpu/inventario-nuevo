@@ -5642,8 +5642,9 @@ function renderGlobalTargetBanner() {
     var displayTarget = hasModelTargets ? modelTargetSum : globalTarget;
 
     // Count status per model (units, not model types)
-    var unitsOk = 0;        // total units in models that meet their target
-    var unitsMissing = 0;   // total units in models below their target
+    // unitsOk = all units physically in stock (regardless of target)
+    // modelsMissing = model types whose target is not met
+    // modelsEmpty = model types with zero stock
     var modelsMissing = 0;  // number of model types below target
     var modelsEmpty = 0;    // number of model types with zero stock
     for (var ki2 = 0; ki2 < keys.length; ki2++) {
@@ -5655,17 +5656,10 @@ function renderGlobalTargetBanner() {
 
         if (mQty === 0) {
             modelsEmpty++;
-        } else if (mTarget > 0 && mQty >= mTarget) {
-            unitsOk += mQty;
-        } else if (mMin > 0 && mQty < mMin) {
-            unitsMissing += mQty;
-            modelsMissing++;
         } else if (mTarget > 0 && mQty < mTarget) {
-            unitsMissing += mQty;
             modelsMissing++;
-        } else {
-            // No target defined, count as ok
-            unitsOk += mQty;
+        } else if (mMin > 0 && mQty < mMin) {
+            modelsMissing++;
         }
     }
 
@@ -5731,8 +5725,8 @@ function renderGlobalTargetBanner() {
         '<div style="display:flex;gap:12px;margin-top:8px;font-size:11px;">' +
             (isOk
                 ? '<span style="color:#2ed573;">✅ Stock completo: <b>' + grandCurrent + '</b> TVs</span>'
-                : '<span style="color:var(--text2);">✅ Completos: <b>' + unitsOk + '</b> TVs</span>' +
-                  (unitsMissing > 0 ? '<span style="color:#ffa502;">⚠️ Faltantes: <b>' + missing + '</b> TVs</span>' : '') +
+                : '<span style="color:#2ed573;">✅ En stock: <b>' + grandCurrent + '</b> TVs</span>' +
+                  (missing > 0 ? '<span style="color:#ffa502;">⚠️ Faltan: <b>' + missing + '</b></span>' : '') +
                   (modelsEmpty > 0 ? '<span style="color:#ff4757;">🚨 Sin stock: <b>' + modelsEmpty + '</b></span>' : '')
             ) +
         '</div>' +
