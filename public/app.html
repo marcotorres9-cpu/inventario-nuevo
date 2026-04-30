@@ -5808,36 +5808,13 @@ function buildLocCards(locs) {
             }
         }
 
-        // Check for alerts using global model targets (sum across all spaces)
+        // Check for alerts — only products with qty=0 (agotados) are true space alerts
+        // Model-level target deficits are informational, shown per-product as bubbles
         var alertCount = 0;
-        // Build total qty per model across all spaces
-        var bLocModelMap = {};
         for (var s2 = 0; s2 < totalSpaces; s2++) {
             var bProds = (loc.spaces[s2].products || []);
             for (var p2 = 0; p2 < bProds.length; p2++) {
-                var bKey = buildModelKey(bProds[p2].productId, bProds[p2].name, bProds[p2].brand, bProds[p2].specifications);
-                if (!bLocModelMap[bKey]) bLocModelMap[bKey] = 0;
-                bLocModelMap[bKey] += (bProds[p2].qty || 0);
                 if (bProds[p2].qty === 0) alertCount++;
-            }
-        }
-        // Check against global targets
-        var bLocs = getLocations();
-        var bRefMt = (bLocs.length > 0 && bLocs[0].modelTargets) ? bLocs[0].modelTargets : [];
-        var bGtMap = {};
-        for (var bti = 0; bti < bRefMt.length; bti++) {
-            var bt = bRefMt[bti];
-            var btKey = buildModelKey(bt.productId, bt.name, bt.brand, bt.specs);
-            bGtMap[btKey] = { target: bt.target || 0, min: bt.min || 0 };
-            if (bt.productId) bGtMap[bt.productId] = { target: bt.target || 0, min: bt.min || 0 };
-        }
-        var bMkKeys = Object.keys(bLocModelMap);
-        for (var bmi = 0; bmi < bMkKeys.length; bmi++) {
-            var bGt = bGtMap[bMkKeys[bmi]] || null;
-            if (bGt) {
-                var bTotal = bLocModelMap[bMkKeys[bmi]];
-                if (bGt.target > 0 && bTotal < bGt.target) alertCount++;
-                else if (bGt.min > 0 && bTotal < bGt.min) alertCount++;
             }
         }
         var alertBadge = alertCount > 0 ? ' <span style="background:#ff4757;color:#fff;font-size:9px;padding:1px 6px;border-radius:8px;margin-left:4px;">' + alertCount + ' ⚠️</span>' : '';
@@ -5986,9 +5963,7 @@ function renderLocSpaceView(loc) {
         var pTgt = pGt ? pGt.target : 0;
         var pMin = pGt ? pGt.min : 0;
         if (pQty === 0) alertCount++;
-        else if (pTgt > 0 && pTotalQty >= pTgt) { /* OK, target met */ }
-        else if (pMin > 0 && pTotalQty < pMin) lowCount++;
-        else if (pTgt > 0 && pTotalQty < pTgt) lowCount++;
+        // Model-level deficit is informational, NOT a space warning — don't count as lowCount
         // Calculate faltantes for this product (only when formal descargas exist)
         if (products[p].initialStock !== undefined && products[p].initialStock !== null && products[p].initialStock > 0) {
             var pFlowCalc = computeProductFlowBySpace(loc, products[p].productId, currentIdx);
@@ -6071,13 +6046,17 @@ function renderLocSpaceView(loc) {
             var max = pr.maxQty || 0;
             var prTotalQty = window._locTotalMap[prMk] || 0;
 
-            // Status — use total across all spaces for comparison
+            // Status — space-level stock status (qty in THIS space)
+            // ⚠️ is only for qty=0 (agotado) or space-level max exceeded
+            // Model-level deficit is shown separately as an info bubble, NOT as a space alert
             var statusColor = '#2ed573';
             var statusIcon = '✅';
+            var modelDeficit = 0;  // How many units this model needs globally
             if (qty === 0) { statusColor = '#ff4757'; statusIcon = '🚨'; }
-            else if (target > 0 && prTotalQty >= target) { statusColor = '#2ed573'; statusIcon = '✅'; }
-            else if (min > 0 && prTotalQty < min) { statusColor = '#ffa502'; statusIcon = '⚠️'; }
             else if (max > 0 && qty > max) { statusColor = '#ffa502'; statusIcon = '📈'; }
+            // Calculate model-level deficit (global, not space-specific)
+            if (target > 0 && prTotalQty < target) { modelDeficit = target - prTotalQty; }
+            else if (min > 0 && prTotalQty < min) { modelDeficit = min - prTotalQty; }
 
             // Spec tags (compact)
             var locSpecsHtml = '';
@@ -6096,18 +6075,25 @@ function renderLocSpaceView(loc) {
                 } catch(e) {}
             }
 
-            // Progress bar (subtle) — use total across all spaces
+            // Progress bar — reflects model-level completion
             var pct = target > 0 ? Math.min(100, Math.round((prTotalQty / target) * 100)) : 100;
-            var barColor = qty === 0 ? '#ff4757' : (prTotalQty <= min && min > 0 ? '#ffa502' : '#2ed573');
+            var barColor = qty === 0 ? '#ff4757' : (modelDeficit > 0 ? '#ffa502' : '#2ed573');
 
             var isChecked = _groupSelected[i] ? ' checked' : '';
             var chkStyle = _groupSelectMode ? '' : 'display:none;';
             var chkOpacity = _groupSelectMode ? '1' : '0';
 
-            // Show min/target from global model targets (total across all spaces)
+            // Show model target as objective
             var minMaxHtml = '';
-            if (target > 0) minMaxHtml += '<div style="font-size:9px;color:var(--text3);">obj:' + prTotalQty + '/' + target + '</div>';
+            if (target > 0) minMaxHtml += '<div style="font-size:9px;color:' + (modelDeficit > 0 ? '#ffa502' : 'var(--text3)') + ';">obj:' + prTotalQty + '/' + target + '</div>';
             else if (min > 0) minMaxHtml += '<div style="font-size:9px;color:var(--text3);">mín:' + min + '</div>';
+
+            // Model deficit bubble — shows when model total is below target/min but THIS space has stock
+            // This clarifies the deficit is at the model level, NOT a faltante in this space
+            var modelBubbleHtml = '';
+            if (modelDeficit > 0 && qty > 0) {
+                modelBubbleHtml = '<div style="display:inline-flex;align-items:center;gap:2px;margin-top:2px;background:#ffa50212;color:#ffa502;font-size:8px;padding:1px 5px;border-radius:4px;border:1px solid #ffa50225;">📊 Total modelo: ' + prTotalQty + '/' + (target > 0 ? target : min) + '</div>';
+            }
 
             // Inventory slot visualization — only show when there are formal salidas
             // Without formal descargas, "faltantes" is meaningless (just initialStock > qty diff)
@@ -6145,7 +6131,7 @@ function renderLocSpaceView(loc) {
                 }
             }
 
-            prodHtml += '<div style="display:flex;align-items:center;gap:6px;padding:9px 0;border-bottom:1px solid var(--border);' + (min > 0 && prTotalQty < min ? 'border-left:3px solid ' + statusColor + ';padding-left:6px;' : '') + ';transition:background 0.15s;' + (isChecked ? 'background:var(--primary);background:rgba(99,102,241,0.06);border-radius:8px;' : '') + '" data-prodidx="' + i + '">' +
+            prodHtml += '<div style="display:flex;align-items:center;gap:6px;padding:9px 0;border-bottom:1px solid var(--border);transition:background 0.15s;' + (isChecked ? 'background:var(--primary);background:rgba(99,102,241,0.06);border-radius:8px;' : '') + '" data-prodidx="' + i + '">' +
                 // Checkbox for group selection
                 '<label style="flex-shrink:0;cursor:pointer;opacity:' + chkOpacity + ';transition:opacity 0.2s;' + chkStyle + '">' +
                     '<input type="checkbox" style="width:16px;height:16px;accent-color:var(--primary);cursor:pointer;"' + isChecked + ' onchange="toggleProductSelect(' + i + ',this.checked)">' +
@@ -6155,6 +6141,7 @@ function renderLocSpaceView(loc) {
                     '<div style="font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(pName) + '</div>' +
                     (locSpecsHtml ? '<div class="product-specs" style="margin-top:2px;">' + locSpecsHtml + '</div>' : '') +
                     invSlotsHtml +
+                    modelBubbleHtml +
                 '</div>' +
                 // Cargar / Descargar buttons
                 '<div style="display:flex;align-items:center;gap:2px;flex-shrink:0;">' +
@@ -6335,10 +6322,11 @@ function renderFilteredProducts(loc, spaceIdx, filteredIdxs, allProds) {
 
         var statusColor = '#2ed573';
         var statusIcon = '✅';
+        var fModelDeficit = 0;
         if (qty === 0) { statusColor = '#ff4757'; statusIcon = '🚨'; }
-        else if (target > 0 && fprTotalQty >= target) { statusColor = '#2ed573'; statusIcon = '✅'; }
-        else if (min > 0 && fprTotalQty < min) { statusColor = '#ffa502'; statusIcon = '⚠️'; }
         else if (max > 0 && qty > max) { statusColor = '#ffa502'; statusIcon = '📈'; }
+        if (target > 0 && fprTotalQty < target) { fModelDeficit = target - fprTotalQty; }
+        else if (min > 0 && fprTotalQty < min) { fModelDeficit = min - fprTotalQty; }
 
         var locSpecsHtml = '';
         if (pr.specifications) {
@@ -6355,16 +6343,21 @@ function renderFilteredProducts(loc, spaceIdx, filteredIdxs, allProds) {
         }
 
         var pct = target > 0 ? Math.min(100, Math.round((fprTotalQty / target) * 100)) : 100;
-        var barColor = qty === 0 ? '#ff4757' : (fprTotalQty <= min && min > 0 ? '#ffa502' : '#2ed573');
+        var barColor = qty === 0 ? '#ff4757' : (fModelDeficit > 0 ? '#ffa502' : '#2ed573');
         var isChecked = _groupSelected[i] ? ' checked' : '';
         var chkStyle = _groupSelectMode ? '' : 'display:none;';
         var chkOpacity = _groupSelectMode ? '1' : '0';
 
         var fMinMaxHtml = '';
-        if (target > 0) fMinMaxHtml += '<div style="font-size:9px;color:var(--text3);">obj:' + fprTotalQty + '/' + target + '</div>';
+        if (target > 0) fMinMaxHtml += '<div style="font-size:9px;color:' + (fModelDeficit > 0 ? '#ffa502' : 'var(--text3)') + ';">obj:' + fprTotalQty + '/' + target + '</div>';
         else if (min > 0) fMinMaxHtml += '<div style="font-size:9px;color:var(--text3);">mín:' + min + '</div>';
 
-        html += '<div style="display:flex;align-items:center;gap:6px;padding:9px 0;border-bottom:1px solid var(--border);' + (min > 0 && fprTotalQty < min ? 'border-left:3px solid ' + statusColor + ';padding-left:6px;' : '') + ';transition:background 0.15s;' + (isChecked ? 'background:rgba(99,102,241,0.06);border-radius:8px;' : '') + '" data-prodidx="' + i + '">' +
+        var fModelBubble = '';
+        if (fModelDeficit > 0 && qty > 0) {
+            fModelBubble = '<div style="display:inline-flex;align-items:center;gap:2px;margin-top:2px;background:#ffa50212;color:#ffa502;font-size:8px;padding:1px 5px;border-radius:4px;border:1px solid #ffa50225;">📊 Total modelo: ' + fprTotalQty + '/' + (target > 0 ? target : min) + '</div>';
+        }
+
+        html += '<div style="display:flex;align-items:center;gap:6px;padding:9px 0;border-bottom:1px solid var(--border);transition:background 0.15s;' + (isChecked ? 'background:rgba(99,102,241,0.06);border-radius:8px;' : '') + '" data-prodidx="' + i + '">' +
             '<label style="flex-shrink:0;cursor:pointer;opacity:' + chkOpacity + ';transition:opacity 0.2s;' + chkStyle + '">' +
                 '<input type="checkbox" style="width:16px;height:16px;accent-color:var(--primary);cursor:pointer;"' + isChecked + ' onchange="toggleProductSelect(' + i + ',this.checked)">' +
             '</label>' +
@@ -6372,6 +6365,7 @@ function renderFilteredProducts(loc, spaceIdx, filteredIdxs, allProds) {
             '<div style="flex:1;min-width:0;">' +
                 '<div style="font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(pName) + '</div>' +
                 (locSpecsHtml ? '<div class="product-specs" style="margin-top:2px;">' + locSpecsHtml + '</div>' : '') +
+                fModelBubble +
             '</div>' +
             '<div style="display:flex;align-items:center;gap:2px;flex-shrink:0;">' +
                 '<button onclick="openDescargaStock(\'' + loc.id + '\',' + spaceIdx + ',' + i + ')" style="width:32px;height:32px;border-radius:8px;border:1px solid #ff475730;background:#ff475710;color:#ff4757;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;' + (qty === 0 ? 'opacity:0.3;pointer-events:none;' : '') + '" title="Descargar">📤</button>' +
