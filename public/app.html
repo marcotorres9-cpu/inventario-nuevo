@@ -550,8 +550,8 @@
             display: none; position: fixed; z-index: 9999;
             background: var(--card); border: 1px solid var(--border);
             border-top: 3px solid var(--primary);
-            border-radius: 14px; box-shadow: 0 16px 48px rgba(0,0,0,0.3), 0 4px 12px rgba(0,0,0,0.1);
-            min-width: 170px; max-width: 250px; max-height: 240px; overflow-y: auto;
+            border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+            min-width: 150px; max-width: 220px; max-height: 200px; overflow-y: auto;
             -webkit-overflow-scrolling: touch;
         }
         #chipDropdownOverlay.open {
@@ -3850,7 +3850,7 @@ function toggleFilterDropdown(key) {
     var top = rect.bottom + 4;
 
     // Ensure dropdown doesn't go off bottom of screen
-    var estHeight = Math.min(240, window.innerHeight * 0.4);
+    var estHeight = Math.min(200, window.innerHeight * 0.3);
     if (top + estHeight > window.innerHeight - 20) {
         top = rect.top - estHeight - 4; // show above button instead
     }
@@ -4022,8 +4022,8 @@ function populateSpaceFilterDropdown(key, overlay) {
                 if (products[p].space === val) count++;
             }
         }
-        html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 14px;cursor:pointer;' + (isActive ? 'background:var(--primary-bg);' : '') + '" onclick="selectFilterChip(\'' + key + '\',\'' + val.replace(/'/g, "\\'") + '\')">' +
-            '<span style="font-size:13px;color:' + (isActive ? 'var(--primary)' : 'var(--text)') + ';font-weight:' + (isActive ? '600' : '400') + ';">' + escapeHtml(label) + '</span>' +
+        html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 14px;cursor:pointer;' + (isActive ? 'background:var(--primary-bg);' : '') + '" onclick="selectChipValue(\'' + key + '\',\'' + val.replace(/'/g, "\\'") + '\')">' +
+            '<span style="font-size:12px;color:' + (isActive ? 'var(--primary)' : 'var(--text)') + ';font-weight:' + (isActive ? '600' : '400') + ';">' + escapeHtml(label) + '</span>' +
             (val ? '<span style="font-size:11px;color:var(--text3);">' + count + '</span>' : '') +
         '</div>';
     }
@@ -4088,7 +4088,7 @@ function selectChipValue(key, value) {
                     crucebrand: 'chipCruceBrand', crucespec: 'chipCruceSpec',
                     crucespace: 'chipCruceSpace', crucestatus: 'chipCruceStatus',
                     gicat: 'chipGICat', gibrand: 'chipGIBrand', gicolor: 'chipGIColor', gispec: 'chipGISpec' };
-    var labelMap = { fcat: '📂 Categoría', fbrand: '🏷️ Marca', fcolor: '🎨 Color', fspec: '⚙️ Specs',
+    var labelMap = { fspace: '📦 Espacio', fcat: '📂 Categoría', fbrand: '🏷️ Marca', fcolor: '🎨 Color', fspec: '⚙️ Specs',
                      spcat: '📂 Cat.', spbrand: '🏷️ Marca', spcolor: '🎨 Color', spspec: '⚙️ Specs',
                      locbrand: '🏷️ Marca', locspec: '⚙️ Specs',
                      crucebrand: '🏷️ Marca', crucespec: '⚙️ Specs',
