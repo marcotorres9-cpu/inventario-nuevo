@@ -1037,6 +1037,10 @@
                 <!-- Cascading filter bar -->
                 <div id="productFilterBar" style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;">
                     <div class="filter-chip-wrap">
+                        <button class="filter-chip" id="chipFilterSpace" onclick="toggleFilterDropdown('fspace')">📦 Espacio</button>
+                        <div class="filter-chip-dropdown" id="ddFspace"></div>
+                    </div>
+                    <div class="filter-chip-wrap">
                         <button class="filter-chip" id="chipFilterCat" onclick="toggleFilterDropdown('fcat')">📂 Categoría</button>
                         <div class="filter-chip-dropdown" id="ddFcat"></div>
                     </div>
@@ -1369,6 +1373,17 @@
                 <div class="cs-dropdown" id="csDropdown-color">
                     <input type="text" class="cs-search" id="csSearch-color" placeholder="🔍 Buscar..." oninput="filterCustomSelect('color', this.value)">
                     <div class="cs-options" id="csOptions-color"></div>
+                </div>
+            </div>
+
+            <!-- Space selector (ubicación del producto) -->
+            <div class="input-group">
+                <label class="input-label">📦 Espacio / Ubicación</label>
+                <div style="display:flex;gap:6px;">
+                    <select id="prodSpace" class="input" style="flex:1;font-size:13px;">
+                        <option value="">Sin asignar</option>
+                    </select>
+                    <button type="button" class="btn btn-outline btn-sm" onclick="openGICreateSpace()" style="font-size:11px;padding:6px 10px;white-space:nowrap;">+ Crear</button>
                 </div>
             </div>
 
@@ -3416,6 +3431,24 @@ function resetProductFormSelects() {
 // ====================================================================
 // PRODUCT MANAGEMENT
 // ====================================================================
+
+// Populate the space/ubicación dropdown in product form
+function populateSpaceSelector() {
+    var sel = document.getElementById('prodSpace');
+    if (!sel) return;
+    var currentVal = sel.value;
+    var spaces = getGeneralInventory();
+    sel.innerHTML = '<option value="">Sin asignar</option>';
+    for (var i = 0; i < spaces.length; i++) {
+        var opt = document.createElement('option');
+        opt.value = spaces[i].name;
+        opt.textContent = spaces[i].name;
+        sel.appendChild(opt);
+    }
+    // Restore previous selection if still valid
+    if (currentVal) sel.value = currentVal;
+}
+
 function openAddProduct() {
     document.getElementById('productModalTitle').textContent = 'Nuevo Producto';
     document.getElementById('editProductId').value = '';
@@ -3425,6 +3458,8 @@ function openAddProduct() {
     if (specContainer) specContainer.style.display = 'none';
     document.getElementById('prodMinStock').value = '5';
     resetProductFormSelects();
+    // Populate space selector
+    populateSpaceSelector();
     // Show "copy from existing" field
     var cfg = document.getElementById('copyFromGroup');
     if (cfg) cfg.style.display = 'block';
@@ -3457,6 +3492,9 @@ function openEditProduct(id) {
 
     // Populate all selects first, then set values quietly
     populateAllSelects();
+    // Populate space selector and set value
+    populateSpaceSelector();
+    if (product.space) document.getElementById('prodSpace').value = product.space;
 
     // --- Set values ---
     if (product.category) setCustomSelectValue('category', product.category);
@@ -3490,6 +3528,7 @@ function saveProduct(e) {
     var stock = parseInt(document.getElementById('prodStock').value) || 0;
     var minStock = parseInt(document.getElementById('prodMinStock').value) || 5;
     var description = document.getElementById('prodDesc').value.trim();
+    var space = document.getElementById('prodSpace').value.trim();
     var specifications = collectProductSpecs();
 
     if (!name) { showToast('El nombre del producto es obligatorio', 'error'); return; }
@@ -3514,6 +3553,7 @@ function saveProduct(e) {
                 products[i].minStock = minStock;
                 products[i].description = description;
                 products[i].specifications = specifications;
+                products[i].space = space;
                 products[i].updatedAt = now;
                 break;
             }
@@ -3537,6 +3577,7 @@ function saveProduct(e) {
             minStock: minStock,
             description: description,
             specifications: specifications,
+            space: space,
             createdAt: now,
             updatedAt: now
         };
@@ -3609,6 +3650,7 @@ function renderProductList() {
 
     // Get filter values from chips
     var fv = getProductFilterValues();
+    var fSpace = fv.space;
     var fCat = fv.cat;
     var fBrand = fv.brand;
     var fColor = fv.color;
@@ -3620,10 +3662,13 @@ function renderProductList() {
         // Apply text search
         var matchSearch = !search;
         if (!matchSearch) {
-            var haystack = (p.name + ' ' + p.brand + ' ' + p.sku + ' ' + p.barcode + ' ' + p.category + ' ' + p.color + ' ' + (p.description || '') + ' ' + (p.specifications || '')).toLowerCase();
+            var haystack = (p.name + ' ' + p.brand + ' ' + p.sku + ' ' + p.barcode + ' ' + p.category + ' ' + p.color + ' ' + (p.description || '') + ' ' + (p.specifications || '') + ' ' + (p.space || '')).toLowerCase();
             matchSearch = haystack.indexOf(search) >= 0;
         }
         if (!matchSearch) continue;
+
+        // Apply space filter
+        if (fSpace && (p.space || '') !== fSpace) continue;
 
         // Apply category filter
         if (fCat && (p.category || '') !== fCat) continue;
@@ -3739,6 +3784,7 @@ function renderProductList() {
                 '<div class="product-name">' + escapeHtml(pr.name) + '</div>' +
                 (specsHtml ? '<div class="product-specs">' + specsHtml + '</div>' : '') +
                 '<div class="product-meta">' +
+                    (pr.space ? '<span style="color:var(--primary);">📦 ' + escapeHtml(pr.space) + '</span>' : '') +
                     '<span>' + escapeHtml(pr.brand || '—') + '</span>' +
                     '<span>' + escapeHtml(pr.category || '—') + '</span>' +
                 '</div>' +
@@ -3762,7 +3808,7 @@ function renderProductList() {
 // ====================================================================
 // FILTER CHIP SYSTEM — replaces native <select> in filter bars
 // ====================================================================
-var _filterChipState = { fcat: '', fbrand: '', fcolor: '', fspec: '', spcat: '', spbrand: '', spcolor: '', spspec: '', locbrand: '', locspec: '', crucebrand: '', crucespec: '', crucespace: '', crucestatus: '', gicat: '', gibrand: '', gicolor: '', gispec: '' };
+var _filterChipState = { fspace: '', fcat: '', fbrand: '', fcolor: '', fspec: '', spcat: '', spbrand: '', spcolor: '', spspec: '', locbrand: '', locspec: '', crucebrand: '', crucespec: '', crucespace: '', crucestatus: '', gicat: '', gibrand: '', gicolor: '', gispec: '' };
 var _openChipDropdown = null;
 
 function toggleFilterDropdown(key) {
@@ -3777,7 +3823,7 @@ function toggleFilterDropdown(key) {
     }
 
     // Find the button that was clicked to position the dropdown
-    var chipMap = { fcat: 'chipFilterCat', fbrand: 'chipFilterBrand', fcolor: 'chipFilterColor', fspec: 'chipFilterSpec',
+    var chipMap = { fspace: 'chipFilterSpace', fcat: 'chipFilterCat', fbrand: 'chipFilterBrand', fcolor: 'chipFilterColor', fspec: 'chipFilterSpec',
                     spcat: 'chipSpCat', spbrand: 'chipSpBrand', spcolor: 'chipSpColor', spspec: 'chipSpSpec',
                     locbrand: 'chipLocBrand', locspec: 'chipLocSpec',
                     crucebrand: 'chipCruceBrand', crucespec: 'chipCruceSpec',
@@ -3794,6 +3840,9 @@ function toggleFilterDropdown(key) {
         populateCruceSpaceDropdown(key, overlay);
     } else if (key === 'crucestatus') {
         populateCruceStatusDropdown(key, overlay);
+    } else if (key === 'fspace') {
+        // Space filter: populate from spaces list
+        populateSpaceFilterDropdown(key, overlay);
     } else if (isGi && key === 'gispec') {
         populateLocChipDropdown(key, overlay);
     } else if (isGi) {
@@ -3953,6 +4002,33 @@ function populateLocChipDropdown(key, overlay) {
     overlay.innerHTML = html;
 }
 
+// Populate space/ubicación filter dropdown (for catalog product list)
+function populateSpaceFilterDropdown(key, overlay) {
+    if (!overlay) return;
+    var current = _filterChipState[key] || '';
+    var spaces = getGeneralInventory();
+    var items = ['Todos'].concat(spaces.map(function(s) { return s.name; }));
+    var html = '<div style="padding:8px 0;">';
+    for (var i = 0; i < items.length; i++) {
+        var val = i === 0 ? '' : items[i];
+        var label = items[i];
+        var isActive = val === current;
+        var count = 0;
+        if (val) {
+            var products = getProducts();
+            for (var p = 0; p < products.length; p++) {
+                if (products[p].space === val) count++;
+            }
+        }
+        html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 14px;cursor:pointer;' + (isActive ? 'background:var(--primary-bg);' : '') + '" onclick="selectFilterChip(\'' + key + '\',\'' + val + '\')">' +
+            '<span style="font-size:13px;color:' + (isActive ? 'var(--primary)' : 'var(--text)') + ';font-weight:' + (isActive ? '600' : '400') + ';">' + escapeHtml(label) + '</span>' +
+            (val ? '<span style="font-size:11px;color:var(--text3);">' + count + '</span>' : '') +
+        '</div>';
+    }
+    html += '</div>';
+    overlay.innerHTML = html;
+}
+
 function populateCruceSpaceDropdown(key, overlay) {
     if (!overlay) return;
     var current = _filterChipState[key] || '';
@@ -4004,7 +4080,7 @@ function selectChipValue(key, value) {
     _filterChipState[key] = value;
 
     // Update chip button appearance
-    var chipMap = { fcat: 'chipFilterCat', fbrand: 'chipFilterBrand', fcolor: 'chipFilterColor', fspec: 'chipFilterSpec',
+    var chipMap = { fspace: 'chipFilterSpace', fcat: 'chipFilterCat', fbrand: 'chipFilterBrand', fcolor: 'chipFilterColor', fspec: 'chipFilterSpec',
                     spcat: 'chipSpCat', spbrand: 'chipSpBrand', spcolor: 'chipSpColor', spspec: 'chipSpSpec',
                     locbrand: 'chipLocBrand', locspec: 'chipLocSpec',
                     crucebrand: 'chipCruceBrand', crucespec: 'chipCruceSpec',
@@ -4082,9 +4158,9 @@ function selectChipValue(key, value) {
 }
 
 function clearProductFilters() {
-    var keys = ['fcat','fbrand','fcolor','fspec'];
-    var chipMap = { fcat: 'chipFilterCat', fbrand: 'chipFilterBrand', fcolor: 'chipFilterColor', fspec: 'chipFilterSpec' };
-    var labelMap = { fcat: '📂 Categoría', fbrand: '🏷️ Marca', fcolor: '🎨 Color', fspec: '⚙️ Specs' };
+    var keys = ['fspace','fcat','fbrand','fcolor','fspec'];
+    var chipMap = { fspace: 'chipFilterSpace', fcat: 'chipFilterCat', fbrand: 'chipFilterBrand', fcolor: 'chipFilterColor', fspec: 'chipFilterSpec' };
+    var labelMap = { fspace: '📦 Espacio', fcat: '📂 Categoría', fbrand: '🏷️ Marca', fcolor: '🎨 Color', fspec: '⚙️ Specs' };
     for (var i = 0; i < keys.length; i++) {
         _filterChipState[keys[i]] = '';
         var chip = document.getElementById(chipMap[keys[i]]);
@@ -4101,7 +4177,7 @@ function onFilterChange() { /* handled by chip system */ }
 
 // Get filter values for product list rendering
 function getProductFilterValues() {
-    return { cat: _filterChipState.fcat || '', brand: _filterChipState.fbrand || '', color: _filterChipState.fcolor || '', spec: _filterChipState.fspec || '' };
+    return { space: _filterChipState.fspace || '', cat: _filterChipState.fcat || '', brand: _filterChipState.fbrand || '', color: _filterChipState.fcolor || '', spec: _filterChipState.fspec || '' };
 }
 function getSpFilterValues() {
     return { cat: _filterChipState.spcat || '', brand: _filterChipState.spbrand || '', color: _filterChipState.spcolor || '', spec: _filterChipState.spspec || '' };
@@ -12819,10 +12895,19 @@ function saveGICreateSpace() {
     name = name.trim();
     if (!name) { showToast('Ingresa un nombre para el espacio', 'error'); return; }
     var spaces = getGeneralInventory();
+    // Check for duplicate names
+    for (var i = 0; i < spaces.length; i++) {
+        if (spaces[i].name.toLowerCase() === name.toLowerCase()) {
+            showToast('Ya existe un espacio con ese nombre', 'error');
+            return;
+        }
+    }
     spaces.push({ id: genId(), name: name, products: [] });
     saveGeneralInventory(spaces);
     closeModal('genericModal');
     showToast('Espacio "' + name + '" creado', 'success');
+    // Refresh space selector in product form if open
+    populateSpaceSelector();
     renderGI();
 }
 
