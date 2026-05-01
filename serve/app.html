@@ -1024,7 +1024,6 @@
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
                 <h2 style="font-size:22px;font-weight:800;">📋 Catálogo</h2>
                 <div style="display:flex;gap:6px;">
-                    <button class="btn btn-outline btn-sm" id="btnGICatalogView" onclick="toggleGICatalogView()" style="font-size:12px;">📦 Espacios</button>
                     <button class="btn btn-primary btn-sm" onclick="openAddProduct()">+ Nuevo Producto</button>
                 </div>
             </div>
@@ -1083,23 +1082,7 @@
                 <div id="productList"></div>
             </div>
 
-            <!-- SPACES VIEW (hidden by default) -->
-            <div id="giSpacesView" style="display:none;">
-                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-                    <div class="loc-back" onclick="toggleGICatalogView()" style="margin-bottom:0;">← Catálogo</div>
-                    <button class="btn btn-primary btn-sm" onclick="openGICreateSpace()" style="font-size:12px;">+ Nuevo Espacio</button>
-                </div>
-                <div id="giSearchBar" style="margin-bottom:10px;position:relative;">
-                    <input type="text" id="giSpaceSearch" class="input" placeholder="🔍 Buscar espacio..." oninput="filterGASpaces()" style="font-size:13px;padding:10px 14px;width:100%;box-sizing:border-box;">
-                </div>
-                <div id="giSpacesList"></div>
-                <div id="giEmptyState" style="text-align:center;padding:40px 20px;display:none;">
-                    <div style="font-size:48px;margin-bottom:12px;">📦</div>
-                    <div style="color:var(--text2);font-size:14px;margin-bottom:16px;">Aún no tienes espacios en el catálogo</div>
-                    <button class="btn btn-primary" onclick="openGICreateSpace()" style="width:auto;display:inline-flex;">+ Agregar Espacio</button>
-                </div>
-                <div id="giSpaceView" style="display:none;"></div>
-            </div>
+
         </div>
     </div>
 
@@ -1379,12 +1362,8 @@
             <!-- Space selector (ubicación del producto) -->
             <div class="input-group">
                 <label class="input-label">📦 Espacio / Ubicación</label>
-                <div style="display:flex;gap:6px;">
-                    <select id="prodSpace" class="input" style="flex:1;font-size:13px;">
-                        <option value="">Sin asignar</option>
-                    </select>
-                    <button type="button" class="btn btn-outline btn-sm" onclick="openGICreateSpace()" style="font-size:11px;padding:6px 10px;white-space:nowrap;">+ Crear</button>
-                </div>
+                <input type="text" id="prodSpace" class="input" list="prodSpaceList" placeholder="Escribir o seleccionar..." style="font-size:13px;" autocomplete="off">
+                <datalist id="prodSpaceList"></datalist>
             </div>
 
             <!-- Dynamic Specification Fields (shown based on category) -->
@@ -3434,19 +3413,30 @@ function resetProductFormSelects() {
 
 // Populate the space/ubicación dropdown in product form
 function populateSpaceSelector() {
-    var sel = document.getElementById('prodSpace');
-    if (!sel) return;
-    var currentVal = sel.value;
-    var spaces = getGeneralInventory();
-    sel.innerHTML = '<option value="">Sin asignar</option>';
-    for (var i = 0; i < spaces.length; i++) {
-        var opt = document.createElement('option');
-        opt.value = spaces[i].name;
-        opt.textContent = spaces[i].name;
-        sel.appendChild(opt);
+    var input = document.getElementById('prodSpace');
+    var datalist = document.getElementById('prodSpaceList');
+    if (!input || !datalist) return;
+    var currentVal = input.value;
+
+    // Collect unique space names from products
+    var products = getProducts();
+    var seen = {};
+    var spaces = [];
+    for (var i = 0; i < products.length; i++) {
+        var s = (products[i].space || '').trim();
+        if (s && !seen[s]) {
+            seen[s] = true;
+            spaces.push(s);
+        }
     }
-    // Restore previous selection if still valid
-    if (currentVal) sel.value = currentVal;
+    spaces.sort();
+
+    var html = '';
+    for (var j = 0; j < spaces.length; j++) {
+        html += '<option value="' + escapeHtml(spaces[j]) + '">';
+    }
+    datalist.innerHTML = html;
+    input.value = currentVal;
 }
 
 function openAddProduct() {
@@ -4006,8 +3996,21 @@ function populateLocChipDropdown(key, overlay) {
 function populateSpaceFilterDropdown(key, overlay) {
     if (!overlay) return;
     var current = _filterChipState[key] || '';
-    var spaces = getGeneralInventory();
-    var items = ['Todos'].concat(spaces.map(function(s) { return s.name; }));
+
+    // Collect unique space names from products
+    var products = getProducts();
+    var seen = {};
+    var spaceNames = [];
+    for (var i = 0; i < products.length; i++) {
+        var s = (products[i].space || '').trim();
+        if (s && !seen[s]) {
+            seen[s] = true;
+            spaceNames.push(s);
+        }
+    }
+    spaceNames.sort();
+
+    var items = ['Todos'].concat(spaceNames);
     var html = '<div style="padding:8px 0;">';
     for (var i = 0; i < items.length; i++) {
         var val = i === 0 ? '' : items[i];
@@ -4015,12 +4018,11 @@ function populateSpaceFilterDropdown(key, overlay) {
         var isActive = val === current;
         var count = 0;
         if (val) {
-            var products = getProducts();
             for (var p = 0; p < products.length; p++) {
                 if (products[p].space === val) count++;
             }
         }
-        html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 14px;cursor:pointer;' + (isActive ? 'background:var(--primary-bg);' : '') + '" onclick="selectFilterChip(\'' + key + '\',\'' + val + '\')">' +
+        html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 14px;cursor:pointer;' + (isActive ? 'background:var(--primary-bg);' : '') + '" onclick="selectFilterChip(\'' + key + '\',\'' + val.replace(/'/g, "\\'") + '\')">' +
             '<span style="font-size:13px;color:' + (isActive ? 'var(--primary)' : 'var(--text)') + ';font-weight:' + (isActive ? '600' : '400') + ';">' + escapeHtml(label) + '</span>' +
             (val ? '<span style="font-size:11px;color:var(--text3);">' + count + '</span>' : '') +
         '</div>';
