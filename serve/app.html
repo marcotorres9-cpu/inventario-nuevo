@@ -1059,21 +1059,10 @@
                 </div>
                 <!-- Sort bar -->
                 <div id="productSortBar" style="display:flex;gap:6px;margin-bottom:10px;align-items:center;flex-wrap:wrap;">
-                    <span style="font-size:11px;color:#888;white-space:nowrap;">⬇️ Ordenar:</span>
-                    <select id="sortField" class="input" style="flex:1;min-width:100px;font-size:12px;padding:6px 8px;" onchange="renderProductList()">
-                        <option value="">Sin ordenar</option>
-                        <option value="price_asc">Precio: menor a mayor</option>
-                        <option value="price_desc">Precio: mayor a menor</option>
-                        <option value="name_asc">Nombre: A-Z</option>
-                        <option value="name_desc">Nombre: Z-A</option>
-                        <option value="brand_asc">Marca: A-Z</option>
-                        <option value="category_asc">Categoría: A-Z</option>
-                        <option value="stock_asc">Stock: menor a mayor</option>
-                        <option value="stock_desc">Stock: mayor a menor</option>
-                        <option value="color_asc">Color: A-Z</option>
-                        <option value="cost_asc">Costo: menor a mayor</option>
-                        <option value="cost_desc">Costo: mayor a menor</option>
-                    </select>
+                    <div class="filter-chip-wrap">
+                        <button class="filter-chip" id="chipFilterSort" onclick="toggleFilterDropdown('fsort')">⬇️ Sin ordenar</button>
+                    </div>
+                    <input type="hidden" id="sortField" value="">
                 </div>
                 <div style="display:flex;gap:8px;margin-bottom:14px;">
                     <button class="btn btn-primary btn-sm" onclick="openAddProduct()" style="flex:1;">➕ Nuevo Producto</button>
@@ -3813,7 +3802,7 @@ function toggleFilterDropdown(key) {
     }
 
     // Find the button that was clicked to position the dropdown
-    var chipMap = { fspace: 'chipFilterSpace', fcat: 'chipFilterCat', fbrand: 'chipFilterBrand', fcolor: 'chipFilterColor', fspec: 'chipFilterSpec',
+    var chipMap = { fsort: 'chipFilterSort', fspace: 'chipFilterSpace', fcat: 'chipFilterCat', fbrand: 'chipFilterBrand', fcolor: 'chipFilterColor', fspec: 'chipFilterSpec',
                     spcat: 'chipSpCat', spbrand: 'chipSpBrand', spcolor: 'chipSpColor', spspec: 'chipSpSpec',
                     locbrand: 'chipLocBrand', locspec: 'chipLocSpec',
                     crucebrand: 'chipCruceBrand', crucespec: 'chipCruceSpec',
@@ -3826,12 +3815,13 @@ function toggleFilterDropdown(key) {
     var isLoc = key.indexOf('loc') === 0;
     var isCruce = key.indexOf('cruce') === 0;
     var isGi = key.indexOf('gi') === 0;
-    if (key === 'crucespace') {
+    if (key === 'fsort') {
+        populateSortDropdown(key, overlay);
+    } else if (key === 'crucespace') {
         populateCruceSpaceDropdown(key, overlay);
     } else if (key === 'crucestatus') {
         populateCruceStatusDropdown(key, overlay);
     } else if (key === 'fspace') {
-        // Space filter: populate from spaces list
         populateSpaceFilterDropdown(key, overlay);
     } else if (isGi && key === 'gispec') {
         populateLocChipDropdown(key, overlay);
@@ -3990,6 +3980,49 @@ function populateLocChipDropdown(key, overlay) {
             escapeHtml(values[j]) + '<span class="chip-check">✓</span></div>';
     }
     overlay.innerHTML = html;
+}
+
+// Populate sort dropdown for catalog product list
+function populateSortDropdown(key, overlay) {
+    if (!overlay) return;
+    var current = document.getElementById('sortField') ? document.getElementById('sortField').value : '';
+    var options = [
+        { val: '', label: 'Sin ordenar' },
+        { val: 'price_asc', label: 'Precio: menor a mayor' },
+        { val: 'price_desc', label: 'Precio: mayor a menor' },
+        { val: 'name_asc', label: 'Nombre: A-Z' },
+        { val: 'name_desc', label: 'Nombre: Z-A' },
+        { val: 'brand_asc', label: 'Marca: A-Z' },
+        { val: 'category_asc', label: 'Categoría: A-Z' },
+        { val: 'stock_asc', label: 'Stock: menor a mayor' },
+        { val: 'stock_desc', label: 'Stock: mayor a menor' },
+        { val: 'color_asc', label: 'Color: A-Z' },
+        { val: 'cost_asc', label: 'Costo: menor a mayor' },
+        { val: 'cost_desc', label: 'Costo: mayor a menor' }
+    ];
+    var html = '';
+    for (var i = 0; i < options.length; i++) {
+        var sel = current === options[i].val ? ' selected' : '';
+        html += '<div class="filter-chip-opt' + sel + '" onclick="selectSortValue(\'' + options[i].val + '\')">' +
+            '<span>' + escapeHtml(options[i].label) + '</span><span class="chip-check">✓</span></div>';
+    }
+    overlay.innerHTML = html;
+}
+
+function selectSortValue(val) {
+    document.getElementById('sortField').value = val;
+    // Update chip label
+    var labels = { '': '⬇️ Sin ordenar', 'price_asc': '💰 Precio ↑', 'price_desc': '💰 Precio ↓', 'name_asc': '🔤 A-Z', 'name_desc': '🔤 Z-A', 'brand_asc': '🏷️ Marca A-Z', 'category_asc': '📂 Cat. A-Z', 'stock_asc': '📦 Stock ↑', 'stock_desc': '📦 Stock ↓', 'color_asc': '🎨 Color A-Z', 'cost_asc': '💵 Costo ↑', 'cost_desc': '💵 Costo ↓' };
+    var chip = document.getElementById('chipFilterSort');
+    if (chip) {
+        chip.textContent = labels[val] || '⬇️ Sin ordenar';
+        if (val) chip.classList.add('active'); else chip.classList.remove('active');
+    }
+    // Close dropdown
+    var overlay = document.getElementById('chipDropdownOverlay');
+    if (overlay) overlay.classList.remove('open');
+    _openChipDropdown = null;
+    renderProductList();
 }
 
 // Populate space/ubicación filter dropdown (for catalog product list)
@@ -4168,6 +4201,8 @@ function clearProductFilters() {
     }
     var sortSel = document.getElementById('sortField');
     if (sortSel) sortSel.value = '';
+    var sortChip = document.getElementById('chipFilterSort');
+    if (sortChip) { sortChip.textContent = '⬇️ Sin ordenar'; sortChip.classList.remove('active'); }
     renderProductList();
 }
 
