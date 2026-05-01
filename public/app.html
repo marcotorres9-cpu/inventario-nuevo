@@ -1797,6 +1797,18 @@
     </div>
 </div>
 
+<!-- ===== GENERIC MODAL (used by Catálogo Espacios: create space, add product, load/unload stock) ===== -->
+<div id="genericModal" class="modal-overlay">
+    <div class="modal-content">
+        <div class="modal-handle"></div>
+        <div class="modal-header">
+            <h2 class="modal-title" id="genericModalTitle">Modal</h2>
+            <button class="modal-close" onclick="closeModal('genericModal')">✕</button>
+        </div>
+        <div id="genericModalContent" class="modal-scroll-inner"></div>
+    </div>
+</div>
+
 <!-- ===== INVENTORY CONTROL VIEW MODAL ===== -->
 <div id="invControlModal" class="modal-overlay">
     <div class="modal-content modal-lg">
@@ -12826,7 +12838,12 @@ function openGIAddProduct(spaceIdx) {
             '<button class="btn btn-outline" onclick="closeModal(\'genericModal\')" style="width:100%;margin-top:12px;">Cancelar</button>' +
         '</div>';
     openModal('genericModal');
-    setTimeout(function() { var inp = document.getElementById('giAddProdSearch'); if (inp) inp.focus(); }, 300);
+    // Auto-load all available products immediately
+    setTimeout(function() {
+        var inp = document.getElementById('giAddProdSearch');
+        if (inp) inp.focus();
+        searchGIProductToAdd(spaceIdx);
+    }, 300);
 }
 
 function searchGIProductToAdd(spaceIdx) {
