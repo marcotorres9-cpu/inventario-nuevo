@@ -6220,9 +6220,15 @@ function renderLocSpaceView(loc) {
                 // Only show slot tracking if there have been formal descargas/ventas
                 if (pFlow.salidas > 0) {
                     var totalSlots = pFlow.inicial + pFlow.entradas;
-                    var faltantes = totalSlots - pFlow.actual;
-                    if (faltantes < 0) faltantes = 0;
-                    
+                    var spaceFaltantes = totalSlots - pFlow.actual;
+                    if (spaceFaltantes < 0) spaceFaltantes = 0;
+
+                    // Use model-level deficit for faltantes display when target is defined
+                    // This avoids confusion: "2 faltantes de 2" when globally only 1 is missing
+                    var displayFaltantes = modelDeficit;
+                    var displayTotal = target > 0 ? target : totalSlots;
+                    var displayLabel = target > 0 ? '' : '';
+
                     // Build visual slot grid (max 30 shown, then summary)
                     var maxShow = Math.min(totalSlots, 30);
                     var slotGrid = '';
@@ -6236,14 +6242,22 @@ function renderLocSpaceView(loc) {
                     if (totalSlots > 30) {
                         slotGrid += '<span style="font-size:9px;color:var(--text3);margin-left:4px;">+' + (totalSlots - 30) + '</span>';
                     }
-                    
+
+                    var faltantesText = '';
+                    if (displayFaltantes > 0) {
+                        faltantesText = '<span style="color:var(--danger);font-weight:600;">' + displayFaltantes + ' faltante' + (displayFaltantes > 1 ? 's' : '') + '</span>';
+                    } else {
+                        faltantesText = '<span style="color:var(--text3);">0 faltantes</span>';
+                    }
+
                     invSlotsHtml = '<div style="margin-top:3px;">' +
                         '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:0;">' + slotGrid + '</div>' +
                         '<div style="display:flex;gap:8px;margin-top:3px;font-size:10px;">' +
-                            '<span style="color:var(--primary);font-weight:600;">' + pFlow.actual + ' presentes</span>' +
-                            (faltantes > 0 ? '<span style="color:var(--danger);font-weight:600;">' + faltantes + ' faltantes</span>' : '<span style="color:var(--text3);">0 faltantes</span>') +
-                            '<span style="color:var(--text3);">de ' + totalSlots + '</span>' +
+                            '<span style="color:var(--primary);font-weight:600;">' + prTotalQty + ' en stock</span>' +
+                            faltantesText +
+                            '<span style="color:var(--text3);">de ' + displayTotal + '</span>' +
                         '</div>' +
+                        (spaceFaltantes > 0 && spaceFaltantes !== displayFaltantes ? '<div style="font-size:9px;color:var(--text3);margin-top:1px;">' + pFlow.salidas + ' vendido' + (pFlow.salidas > 1 ? 's' : '') + ' en este espacio</div>' : '') +
                     '</div>';
                 }
             }
