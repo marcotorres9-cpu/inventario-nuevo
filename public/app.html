@@ -5812,9 +5812,13 @@ function renderGlobalTargetBanner() {
         var mBrand = modelMap[mk2] ? modelMap[mk2].brand : (mt2 ? mt2.brand : '');
         var mTarget2 = mt2 ? mt2.target : 0;
         var label = mName + (mBrand ? ' ' + mBrand : '');
+        // Extract SO type from specifications
+        var mSO = '';
+        var mSpecs = modelMap[mk2] ? modelMap[mk2].specifications : null;
+        if (mSpecs) { try { var sp = JSON.parse(mSpecs); mSO = sp['SISTEMA OPERATIVO'] || sp['sistema operativo'] || ''; } catch(e){} }
 
-        if (mQty2 === 0) missingModels.push({ label: label, qty: 0, target: mTarget2, status: 'empty' });
-        else if (mTarget2 > 0 && mQty2 < mTarget2) missingModels.push({ label: label, qty: mQty2, target: mTarget2, status: 'low' });
+        if (mQty2 === 0) missingModels.push({ label: label, so: mSO, qty: 0, target: mTarget2, status: 'empty' });
+        else if (mTarget2 > 0 && mQty2 < mTarget2) missingModels.push({ label: label, so: mSO, qty: mQty2, target: mTarget2, status: 'low' });
     }
     missingModels.sort(function(a, b) { return (a.qty - a.target) - (b.qty - b.target); });
 
@@ -5826,7 +5830,7 @@ function renderGlobalTargetBanner() {
             var mColor = mm.status === 'empty' ? '#ff4757' : '#ffa502';
             var mIcon = mm.status === 'empty' ? '🚨' : '⚠️';
             pillsHtml += '<span onclick="openStockSummary()" style="display:inline-flex;align-items:center;gap:3px;background:' + mColor + '18;color:' + mColor + ';font-size:10px;padding:3px 7px;border-radius:6px;margin:0 3px 3px 0;cursor:pointer;border:1px solid ' + mColor + '30;">' +
-                mIcon + ' ' + escapeHtml(mm.label) + (mm.qty > 0 ? ' (' + mm.qty + '/' + mm.target + ')' : ' (0)') +
+                mIcon + ' ' + escapeHtml(mm.label) + (mm.so ? ' <b style="color:var(--text3);font-size:9px;">[' + escapeHtml(mm.so) + ']</b>' : '') + (mm.qty > 0 ? ' (' + mm.qty + '/' + mm.target + ')' : ' (0)') +
             '</span>';
         }
         pillsHtml += '</div>';
@@ -8856,37 +8860,69 @@ function exportFaltantesReport() {
 
     var allFaltantes = [];
 
+    // Build per-model totals across ALL locales (same logic as renderGlobalTargetBanner)
+    var modelMap = {};
     for (var li = 0; li < locs.length; li++) {
         var loc = locs[li];
         var spaces = loc.spaces || [];
         for (var si = 0; si < spaces.length; si++) {
-            var space = spaces[si];
-            var prods = space.products || [];
+            var prods = spaces[si].products || [];
             for (var pi = 0; pi < prods.length; pi++) {
                 var pr = prods[pi];
-                var prInit = pr.initialStock;
-                if (prInit === undefined || prInit === null || prInit <= 0) continue;
-                var flow = computeProductFlowBySpace(loc, pr.productId, si);
-                if (flow.salidas > 0) {
-                    var faltantes = (flow.inicial + flow.entradas) - flow.actual;
-                    if (faltantes > 0) {
-                        var specs = {};
-                        try { specs = JSON.parse(pr.specifications || '{}'); } catch(e) {}
-                        var soType = specs['SISTEMA OPERATIVO'] || specs['sistema operativo'] || '';
-                        allFaltantes.push({
-                            space: space.name,
-                            product: pr.name || '',
-                            brand: pr.brand || '',
-                            tipo: soType,
-                            faltantes: faltantes,
-                            salidas: flow.salidas,
-                            actual: flow.actual
-                        });
-                    }
+                var key = buildModelKey(pr.productId, pr.name, pr.brand, pr.specifications);
+                if (!modelMap[key]) {
+                    modelMap[key] = { name: pr.name || 'TV', brand: pr.brand || '', qty: 0, productId: pr.productId || '', specifications: pr.specifications || null };
                 }
+                modelMap[key].qty += (pr.qty || 0);
             }
         }
     }
+
+    // Collect model targets from first locale
+    var allModelTargets = {};
+    var refLoc = locs.length > 0 ? locs[0] : null;
+    var refMt = refLoc ? (refLoc.modelTargets || []) : [];
+    for (var ti = 0; ti < refMt.length; ti++) {
+        var t = refMt[ti];
+        var tKey = buildModelKey(t.productId, t.name, t.brand, t.specs);
+        if (!allModelTargets[tKey]) {
+            allModelTargets[tKey] = { name: t.name || 'TV', brand: t.brand || '', target: 0, min: 0 };
+        }
+        allModelTargets[tKey].target = (t.target || 0);
+        allModelTargets[tKey].min = (t.min || 0);
+    }
+
+    // Merge all keys
+    var allKeys = {};
+    var mKeys = Object.keys(modelMap);
+    var atKeys = Object.keys(allModelTargets);
+    for (var mi = 0; mi < mKeys.length; mi++) allKeys[mKeys[mi]] = true;
+    for (var ai = 0; ai < atKeys.length; ai++) allKeys[atKeys[ai]] = true;
+    var reportKeys = Object.keys(allKeys);
+
+    for (var ri = 0; ri < reportKeys.length; ri++) {
+        var mk = reportKeys[ri];
+        var mQty = modelMap[mk] ? modelMap[mk].qty : 0;
+        var mt = allModelTargets[mk];
+        var mTarget = mt ? mt.target : 0;
+        if (mTarget > 0 && mQty < mTarget) {
+            var specs = {};
+            var mSpecs = modelMap[mk] ? modelMap[mk].specifications : null;
+            if (mSpecs) { try { specs = JSON.parse(mSpecs); } catch(e){} }
+            var soType = specs['SISTEMA OPERATIVO'] || specs['sistema operativo'] || '';
+            var mName = modelMap[mk] ? modelMap[mk].name : (mt ? mt.name : 'TV');
+            var mBrand = modelMap[mk] ? modelMap[mk].brand : (mt ? mt.brand : '');
+            allFaltantes.push({
+                product: mName + (mBrand ? ' ' + mBrand : ''),
+                tipo: soType,
+                faltantes: mTarget - mQty,
+                actual: mQty,
+                target: mTarget
+            });
+        }
+    }
+
+    allFaltantes.sort(function(a, b) { return (a.target - a.actual) - (b.target - b.actual); });
 
     var totalFalt = 0;
     for (var f = 0; f < allFaltantes.length; f++) totalFalt += allFaltantes[f].faltantes;
@@ -8915,16 +8951,16 @@ function exportFaltantesReport() {
         '<div class="date">' + dateStr + ' — ' + timeStr + '</div>' +
         '<div class="platform">📱 Plataforma: ' + platform + '</div>' +
         '<div class="total-box"><div class="num">' + totalFalt + '</div><div class="lbl">Total faltantes</div></div>' +
-        '<table><thead><tr><th>Espacio</th><th>Producto</th><th>Marca</th><th>Tipo</th><th>Faltantes</th></tr></thead><tbody>';
+        '<table><thead><tr><th>Producto</th><th>Tipo</th><th>Stock</th><th>Objetivo</th><th>Faltantes</th></tr></thead><tbody>';
 
     for (var r = 0; r < allFaltantes.length; r++) {
         var it = allFaltantes[r];
-        reportHtml += '<tr><td style="text-align:left;">' + escapeHtml(it.space) + '</td><td style="text-align:left;">' + escapeHtml(it.product) + '</td><td>' + escapeHtml(it.brand) + '</td><td>' + escapeHtml(it.tipo) + '</td><td class="falt">' + it.faltantes + '</td></tr>';
+        reportHtml += '<tr><td style="text-align:left;">' + escapeHtml(it.product) + '</td><td>' + escapeHtml(it.tipo) + '</td><td>' + it.actual + '</td><td>' + it.target + '</td><td class="falt">' + it.faltantes + '</td></tr>';
     }
 
     reportHtml += '<tr class="total-row"><td></td><td></td><td></td><td style="text-align:right;padding-right:12px;">TOTAL</td><td class="falt">' + totalFalt + '</td></tr>';
     reportHtml += '</tbody></table>';
-    reportHtml += '<div class="note">Faltantes = (stock inicial + cargas) - stock actual, solo con salidas registradas.</div>';
+    reportHtml += '<div class="note">Faltantes = Objetivo por tipo - Stock actual.</div>';
     reportHtml += '</body></html>';
 
     // Store for printing later
@@ -8953,24 +8989,24 @@ function exportFaltantesReport() {
     if (allFaltantes.length === 0) {
         viewHtml += '<div style="text-align:center;color:var(--text3);padding:30px;font-size:14px;">Sin faltantes registrados</div>';
     } else {
-        viewHtml += '<table style="width:100%;border-collapse:collapse;font-size:12px;">' +
+        viewHtml += '<table style="width:100%;border-collapse:collapse;font-size:11px;">' +
             '<thead><tr>' +
-                '<th style="background:var(--primary);color:#fff;padding:8px;text-align:center;font-weight:600;">Espacio</th>' +
-                '<th style="background:var(--primary);color:#fff;padding:8px;text-align:center;font-weight:600;">Producto</th>' +
-                '<th style="background:var(--primary);color:#fff;padding:7px 5px;text-align:center;font-weight:600;">Marca</th>' +
+                '<th style="background:var(--primary);color:#fff;padding:7px 5px;text-align:center;font-weight:600;">Producto</th>' +
                 '<th style="background:var(--primary);color:#fff;padding:7px 5px;text-align:center;font-weight:600;">Tipo</th>' +
+                '<th style="background:var(--primary);color:#fff;padding:7px 5px;text-align:center;font-weight:600;">Stock</th>' +
+                '<th style="background:var(--primary);color:#fff;padding:7px 5px;text-align:center;font-weight:600;">Obj.</th>' +
                 '<th style="background:var(--primary);color:#fff;padding:7px 5px;text-align:center;font-weight:600;">Falt.</th>' +
             '</tr></thead><tbody>';
         for (var r = 0; r < allFaltantes.length; r++) {
             var it = allFaltantes[r];
             var bgStyle = r % 2 === 0 ? '' : 'background:var(--bg2);';
-            viewHtml += '<tr style="' + bgStyle + '"><td style="padding:6px 5px;text-align:left;border-bottom:1px solid var(--border);color:var(--text);">' + escapeHtml(it.space) + '</td><td style="padding:6px 5px;text-align:left;border-bottom:1px solid var(--border);color:var(--text);">' + escapeHtml(it.product) + '</td><td style="padding:6px 5px;text-align:center;border-bottom:1px solid var(--border);color:var(--text2);">' + escapeHtml(it.brand) + '</td><td style="padding:6px 5px;text-align:center;border-bottom:1px solid var(--border);color:var(--text2);">' + escapeHtml(it.tipo) + '</td><td style="padding:6px 5px;text-align:center;border-bottom:1px solid var(--border);color:var(--danger);font-weight:700;">' + it.faltantes + '</td></tr>';
+            viewHtml += '<tr style="' + bgStyle + '"><td style="padding:6px 5px;text-align:left;border-bottom:1px solid var(--border);color:var(--text);">' + escapeHtml(it.product) + '</td><td style="padding:6px 5px;text-align:center;border-bottom:1px solid var(--border);color:var(--text2);">' + escapeHtml(it.tipo) + '</td><td style="padding:6px 5px;text-align:center;border-bottom:1px solid var(--border);color:var(--text);">' + it.actual + '</td><td style="padding:6px 5px;text-align:center;border-bottom:1px solid var(--border);color:var(--text);">' + it.target + '</td><td style="padding:6px 5px;text-align:center;border-bottom:1px solid var(--border);color:var(--danger);font-weight:700;">' + it.faltantes + '</td></tr>';
         }
-        viewHtml += '<tr style="background:var(--bg2);font-weight:700;border-top:2px solid var(--primary);"><td style="color:var(--text);"></td><td style="color:var(--text);"></td><td></td><td style="text-align:right;padding:6px 5px;color:var(--text);">TOTAL</td><td style="padding:6px 5px;text-align:center;color:var(--danger);">' + totalFalt + '</td></tr>';
+        viewHtml += '<tr style="background:var(--bg2);font-weight:700;border-top:2px solid var(--primary);"><td></td><td></td><td></td><td style="text-align:right;padding:6px 5px;color:var(--text);">TOTAL</td><td style="padding:6px 5px;text-align:center;color:var(--danger);">' + totalFalt + '</td></tr>';
         viewHtml += '</tbody></table>';
     }
 
-    viewHtml += '<div style="font-size:9px;color:var(--text3);text-align:center;margin-top:14px;">Faltantes = (stock inicial + cargas) - stock actual, solo con salidas registradas.</div>';
+    viewHtml += '<div style="font-size:9px;color:var(--text3);text-align:center;margin-top:14px;">Faltantes = Objetivo por tipo - Stock actual.</div>';
     viewHtml += '</div></div></div>';
 
     // Inject into page
