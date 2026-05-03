@@ -8866,13 +8866,13 @@ function exportFaltantesReport() {
     var totalFalt = 0;
     for (var f = 0; f < allFaltantes.length; f++) totalFalt += allFaltantes[f].faltantes;
 
-    // Build print-friendly HTML
-    var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Faltantes</title>' +
+    // Build the report HTML for printing
+    var reportHtml = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Faltantes</title>' +
         '<style>' +
         '* { margin:0; padding:0; box-sizing:border-box; }' +
         'body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding:24px; color:#1d1d1b; }' +
         '.title { font-size:18px; font-weight:700; color:#1b7897; text-align:center; margin-bottom:4px; }' +
-        '.date { font-size:11px; color:#7e7b72; text-align:center; margin-bottom:16px; }' +
+        '.date { font-size:11px; color:#7e7b72; text-align:center; margin-bottom:4px; }' +
         '.platform { font-size:9px; color:#7e7b72; text-align:center; margin-bottom:18px; }' +
         '.total-box { background:#fdf2f2; border:1.5px solid #c0392b; border-radius:8px; padding:10px; text-align:center; margin-bottom:18px; max-width:200px; margin-left:auto; margin-right:auto; }' +
         '.total-box .num { font-size:22px; font-weight:800; color:#c0392b; }' +
@@ -8884,7 +8884,7 @@ function exportFaltantesReport() {
         '.falt { color:#c0392b; font-weight:700; }' +
         '.total-row { background:#f0f0f0 !important; font-weight:700; border-top:2px solid #1b7897; }' +
         '.note { font-size:9px; color:#7e7b72; text-align:center; margin-top:14px; }' +
-        '@media print { body { padding:12px; } }' +
+        '@media print { body { padding:12px; } .no-print { display:none !important; } }' +
         '</style></head><body>' +
         '<div class="title">Faltantes</div>' +
         '<div class="date">' + dateStr + ' — ' + timeStr + '</div>' +
@@ -8894,53 +8894,107 @@ function exportFaltantesReport() {
 
     for (var r = 0; r < allFaltantes.length; r++) {
         var it = allFaltantes[r];
-        html += '<tr><td style="text-align:left;">' + escapeHtml(it.space) + '</td><td style="text-align:left;">' + escapeHtml(it.product) + '</td><td>' + escapeHtml(it.brand) + '</td><td class="falt">' + it.faltantes + '</td></tr>';
+        reportHtml += '<tr><td style="text-align:left;">' + escapeHtml(it.space) + '</td><td style="text-align:left;">' + escapeHtml(it.product) + '</td><td>' + escapeHtml(it.brand) + '</td><td class="falt">' + it.faltantes + '</td></tr>';
     }
 
-    html += '<tr class="total-row"><td></td><td></td><td style="text-align:right;padding-right:12px;">TOTAL</td><td class="falt">' + totalFalt + '</td></tr>';
-    html += '</tbody></table>';
-    html += '<div class="note">Los faltantes se calculan como (inicial + entradas) - actual, solo cuando hay salidas registradas.</div>';
-    html += '</body></html>';
+    reportHtml += '<tr class="total-row"><td></td><td></td><td style="text-align:right;padding-right:12px;">TOTAL</td><td class="falt">' + totalFalt + '</td></tr>';
+    reportHtml += '</tbody></table>';
+    reportHtml += '<div class="note">Los faltantes se calculan como (inicial + entradas) - actual, solo cuando hay salidas registradas.</div>';
+    reportHtml += '</body></html>';
 
-    // Try native print (works in Android WebView / APK)
-    if (window.AndroidBridge || (navigator.userAgent.indexOf('wv') > -1)) {
-        // In APK: open print dialog via Blob URL
-        var printWin = window.open('', '_blank');
-        if (printWin) {
-            printWin.document.write(html);
-            printWin.document.close();
-            printWin.onload = function() {
-                printWin.print();
-            };
-        } else {
-            // Fallback: download as HTML file
-            var blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-            var url = URL.createObjectURL(blob);
-            var a = document.createElement('a');
-            a.href = url;
-            a.download = 'Faltantes_' + dateStr + '.html';
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-        }
+    // Store for printing later
+    window._faltantesReportHtml = reportHtml;
+
+    // Show in-app view (full screen overlay with back button)
+    var viewHtml = '<div style="position:fixed;inset:0;z-index:9999;background:var(--bg);display:flex;flex-direction:column;">' +
+        '<div style="display:flex;align-items:center;padding:12px 16px;background:var(--bg2);border-bottom:1px solid var(--border);gap:8px;flex-shrink:0;">' +
+            '<button onclick="closeFaltantesView()" style="font-size:18px;background:none;border:none;color:var(--primary);cursor:pointer;padding:4px 8px;">✕</button>' +
+            '<span style="font-weight:700;font-size:14px;">Reporte de Faltantes</span>' +
+            '<div style="margin-left:auto;display:flex;gap:6px;">' +
+                '<button onclick="printFaltantesReport()" class="btn btn-primary btn-sm" style="font-size:11px;">🖨️ Imprimir</button>' +
+                '<button onclick="downloadFaltantesReport()" class="btn btn-outline btn-sm" style="font-size:11px;">📥 Descargar</button>' +
+            '</div>' +
+        '</div>' +
+        '<div style="flex:1;overflow-y:auto;padding:16px;" id="faltantesReportBody">' +
+            '<div style="max-width:500px;margin:0 auto;">' +
+                '<div style="font-size:18px;font-weight:700;color:#1b7897;text-align:center;margin-bottom:4px;">Faltantes</div>' +
+                '<div style="font-size:11px;color:var(--text3);text-align:center;margin-bottom:2px;">' + dateStr + ' — ' + timeStr + '</div>' +
+                '<div style="font-size:9px;color:var(--text3);text-align:center;margin-bottom:16px;">' + platform + '</div>' +
+                '<div style="background:#fdf2f2;border:1.5px solid #c0392b;border-radius:8px;padding:10px;text-align:center;margin-bottom:16px;max-width:180px;margin-left:auto;margin-right:auto;">' +
+                    '<div style="font-size:24px;font-weight:800;color:#c0392b;">' + totalFalt + '</div>' +
+                    '<div style="font-size:11px;color:#1d1d1b;">Total faltantes</div>' +
+                '</div>';
+
+    if (allFaltantes.length === 0) {
+        viewHtml += '<div style="text-align:center;color:var(--text3);padding:30px;font-size:14px;">Sin faltantes registrados</div>';
     } else {
-        // Browser: open print dialog
-        var printFrame = document.createElement('iframe');
-        printFrame.style.cssText = 'position:fixed;left:-9999px;width:0;height:0;border:none;';
-        document.body.appendChild(printFrame);
-        var doc2 = printFrame.contentDocument || printFrame.contentWindow.document;
-        doc2.open();
-        doc2.write(html);
-        doc2.close();
-        setTimeout(function() {
-            printFrame.contentWindow.print();
-            setTimeout(function() { document.body.removeChild(printFrame); }, 1000);
-        }, 300);
+        viewHtml += '<table style="width:100%;border-collapse:collapse;font-size:12px;">' +
+            '<thead><tr>' +
+                '<th style="background:#1b7897;color:#fff;padding:8px;text-align:center;font-weight:600;">Espacio</th>' +
+                '<th style="background:#1b7897;color:#fff;padding:8px;text-align:center;font-weight:600;">Producto</th>' +
+                '<th style="background:#1b7897;color:#fff;padding:8px;text-align:center;font-weight:600;">Marca</th>' +
+                '<th style="background:#1b7897;color:#fff;padding:8px;text-align:center;font-weight:600;">Faltantes</th>' +
+            '</tr></thead><tbody>';
+        for (var r = 0; r < allFaltantes.length; r++) {
+            var it = allFaltantes[r];
+            var bgStyle = r % 2 === 0 ? '' : 'background:#f7f7f7;';
+            viewHtml += '<tr style="' + bgStyle + '"><td style="padding:7px 8px;text-align:left;border-bottom:1px solid #e0e0e0;">' + escapeHtml(it.space) + '</td><td style="padding:7px 8px;text-align:left;border-bottom:1px solid #e0e0e0;">' + escapeHtml(it.product) + '</td><td style="padding:7px 8px;text-align:center;border-bottom:1px solid #e0e0e0;">' + escapeHtml(it.brand) + '</td><td style="padding:7px 8px;text-align:center;border-bottom:1px solid #e0e0e0;color:#c0392b;font-weight:700;">' + it.faltantes + '</td></tr>';
+        }
+        viewHtml += '<tr style="background:#f0f0f0;font-weight:700;border-top:2px solid #1b7897;"><td></td><td></td><td style="text-align:right;padding:7px 8px;">TOTAL</td><td style="padding:7px 8px;text-align:center;color:#c0392b;">' + totalFalt + '</td></tr>';
+        viewHtml += '</tbody></table>';
     }
+
+    viewHtml += '<div style="font-size:9px;color:var(--text3);text-align:center;margin-top:14px;">Los faltantes se calculan como (inicial + entradas) - actual, solo cuando hay salidas registradas.</div>';
+    viewHtml += '</div></div></div>';
+
+    // Inject into page
+    var overlay = document.createElement('div');
+    overlay.id = 'faltantesReportOverlay';
+    overlay.innerHTML = viewHtml;
+    document.body.appendChild(overlay);
 
     if (totalFalt === 0) showToast('No hay faltantes registrados', 'success');
-    else showToast('Reporte de ' + totalFalt + ' faltante(s) generado', 'success');
+    else showToast('Reporte de ' + totalFalt + ' faltante(s)', 'success');
+}
+
+function closeFaltantesView() {
+    var overlay = document.getElementById('faltantesReportOverlay');
+    if (overlay) overlay.remove();
+    window._faltantesReportHtml = null;
+}
+
+function printFaltantesReport() {
+    var html = window._faltantesReportHtml;
+    if (!html) { showToast('No hay reporte para imprimir', 'error'); return; }
+    // Use hidden iframe to print
+    var printFrame = document.createElement('iframe');
+    printFrame.style.cssText = 'position:fixed;left:-9999px;width:0;height:0;border:none;';
+    document.body.appendChild(printFrame);
+    var doc2 = printFrame.contentDocument || printFrame.contentWindow.document;
+    doc2.open();
+    doc2.write(html);
+    doc2.close();
+    setTimeout(function() {
+        printFrame.contentWindow.print();
+        setTimeout(function() { document.body.removeChild(printFrame); }, 2000);
+    }, 400);
+}
+
+function downloadFaltantesReport() {
+    var html = window._faltantesReportHtml;
+    if (!html) { showToast('No hay reporte para descargar', 'error'); return; }
+    var today = new Date();
+    var dateStr = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
+    var blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'Faltantes_' + dateStr + '.html';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast('Archivo descargado', 'success');
 }
 
 // ===== MOVEMENTS HISTORY =====
