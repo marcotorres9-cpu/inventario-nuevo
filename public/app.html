@@ -6833,10 +6833,10 @@ function openLocControlPanel(locId, spaceIdx) {
     // Section: Exportar y herramientas
     html += '<div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Herramientas</div>';
     html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">' +
+        '<button class="btn btn-primary btn-sm" onclick="closeModal(\'locControlModal\');exportFaltantesReport()" style="font-size:12px;grid-column:1/-1;">🔴 Reporte Faltantes</button>' +
         '<button class="btn btn-outline btn-sm" onclick="closeModal(\'locControlModal\');openGlobalTargets()" style="font-size:12px;">🎯 Objetivos</button>' +
         '<button class="btn btn-outline btn-sm" onclick="closeModal(\'locControlModal\');openStockSummary()" style="font-size:12px;">📊 Resumen Stock</button>' +
         '<button class="btn btn-outline btn-sm" onclick="closeModal(\'locControlModal\');exportLocaleExcel()" style="font-size:12px;">📥 Excel</button>' +
-        '<button class="btn btn-primary btn-sm" onclick="closeModal(\'locControlModal\');exportFaltantesReport()" style="font-size:12px;grid-column:1/-1;">🔴 Reporte Faltantes</button>' +
     '</div>';
 
     html += '</div>';
@@ -8873,7 +8873,7 @@ function exportFaltantesReport() {
         'body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding:24px; color:#1d1d1b; }' +
         '.title { font-size:18px; font-weight:700; color:#1b7897; text-align:center; margin-bottom:4px; }' +
         '.date { font-size:11px; color:#7e7b72; text-align:center; margin-bottom:4px; }' +
-        '.platform { font-size:9px; color:#7e7b72; text-align:center; margin-bottom:18px; }' +
+        '.platform { font-size:12px; color:#1d1d1b; text-align:center; margin-bottom:18px; font-weight:600; background:#f0f0f0; display:inline-block; padding:4px 14px; border-radius:12px; }' +
         '.total-box { background:#fdf2f2; border:1.5px solid #c0392b; border-radius:8px; padding:10px; text-align:center; margin-bottom:18px; max-width:200px; margin-left:auto; margin-right:auto; }' +
         '.total-box .num { font-size:22px; font-weight:800; color:#c0392b; }' +
         '.total-box .lbl { font-size:11px; color:#1d1d1b; }' +
@@ -8888,7 +8888,7 @@ function exportFaltantesReport() {
         '</style></head><body>' +
         '<div class="title">Faltantes</div>' +
         '<div class="date">' + dateStr + ' — ' + timeStr + '</div>' +
-        '<div class="platform">' + platform + '</div>' +
+        '<div class="platform">📱 Plataforma: ' + platform + '</div>' +
         '<div class="total-box"><div class="num">' + totalFalt + '</div><div class="lbl">Total faltantes</div></div>' +
         '<table><thead><tr><th>Espacio</th><th>Producto</th><th>Marca</th><th>Faltantes</th></tr></thead><tbody>';
 
@@ -8919,7 +8919,7 @@ function exportFaltantesReport() {
             '<div style="max-width:500px;margin:0 auto;">' +
                 '<div style="font-size:18px;font-weight:700;color:var(--primary);text-align:center;margin-bottom:4px;">Faltantes</div>' +
                 '<div style="font-size:11px;color:var(--text3);text-align:center;margin-bottom:2px;">' + dateStr + ' — ' + timeStr + '</div>' +
-                '<div style="font-size:9px;color:var(--text3);text-align:center;margin-bottom:14px;">' + platform + '</div>' +
+                '<div style="font-size:13px;color:var(--text);text-align:center;margin-bottom:14px;background:var(--bg2);padding:5px 14px;border-radius:12px;width:fit-content;margin:0 auto;font-weight:600;">📱 Plataforma: ' + platform + '</div>' +
                 '<div style="background:var(--danger-bg,rgba(239,68,68,0.1));border:1.5px solid var(--danger);border-radius:8px;padding:10px;text-align:center;margin-bottom:14px;max-width:180px;margin-left:auto;margin-right:auto;">' +
                     '<div style="font-size:24px;font-weight:800;color:var(--danger);">' + totalFalt + '</div>' +
                     '<div style="font-size:11px;color:var(--text);">Total faltantes</div>' +
