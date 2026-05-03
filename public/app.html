@@ -8868,12 +8868,16 @@ function exportFaltantesReport() {
                 if (prInit === undefined || prInit === null || prInit <= 0) continue;
                 var flow = computeProductFlowBySpace(loc, pr.productId, si);
                 if (flow.salidas > 0) {
-                    var faltantes = flow.inicial - flow.actual;
+                    var faltantes = (flow.inicial + flow.entradas) - flow.actual;
                     if (faltantes > 0) {
+                        var specs = {};
+                        try { specs = JSON.parse(pr.specifications || '{}'); } catch(e) {}
+                        var soType = specs['SISTEMA OPERATIVO'] || specs['sistema operativo'] || '';
                         allFaltantes.push({
                             space: space.name,
                             product: pr.name || '',
                             brand: pr.brand || '',
+                            tipo: soType,
                             faltantes: faltantes,
                             salidas: flow.salidas,
                             actual: flow.actual
@@ -8911,16 +8915,16 @@ function exportFaltantesReport() {
         '<div class="date">' + dateStr + ' — ' + timeStr + '</div>' +
         '<div class="platform">📱 Plataforma: ' + platform + '</div>' +
         '<div class="total-box"><div class="num">' + totalFalt + '</div><div class="lbl">Total faltantes</div></div>' +
-        '<table><thead><tr><th>Espacio</th><th>Producto</th><th>Marca</th><th>Faltantes</th></tr></thead><tbody>';
+        '<table><thead><tr><th>Espacio</th><th>Producto</th><th>Marca</th><th>Tipo</th><th>Faltantes</th></tr></thead><tbody>';
 
     for (var r = 0; r < allFaltantes.length; r++) {
         var it = allFaltantes[r];
-        reportHtml += '<tr><td style="text-align:left;">' + escapeHtml(it.space) + '</td><td style="text-align:left;">' + escapeHtml(it.product) + '</td><td>' + escapeHtml(it.brand) + '</td><td class="falt">' + it.faltantes + '</td></tr>';
+        reportHtml += '<tr><td style="text-align:left;">' + escapeHtml(it.space) + '</td><td style="text-align:left;">' + escapeHtml(it.product) + '</td><td>' + escapeHtml(it.brand) + '</td><td>' + escapeHtml(it.tipo) + '</td><td class="falt">' + it.faltantes + '</td></tr>';
     }
 
-    reportHtml += '<tr class="total-row"><td></td><td></td><td style="text-align:right;padding-right:12px;">TOTAL</td><td class="falt">' + totalFalt + '</td></tr>';
+    reportHtml += '<tr class="total-row"><td></td><td></td><td></td><td style="text-align:right;padding-right:12px;">TOTAL</td><td class="falt">' + totalFalt + '</td></tr>';
     reportHtml += '</tbody></table>';
-    reportHtml += '<div class="note">Los faltantes se calculan como stock inicial - stock actual, solo cuando hay salidas registradas.</div>';
+    reportHtml += '<div class="note">Faltantes = (stock inicial + cargas) - stock actual, solo con salidas registradas.</div>';
     reportHtml += '</body></html>';
 
     // Store for printing later
@@ -8953,19 +8957,20 @@ function exportFaltantesReport() {
             '<thead><tr>' +
                 '<th style="background:var(--primary);color:#fff;padding:8px;text-align:center;font-weight:600;">Espacio</th>' +
                 '<th style="background:var(--primary);color:#fff;padding:8px;text-align:center;font-weight:600;">Producto</th>' +
-                '<th style="background:var(--primary);color:#fff;padding:8px;text-align:center;font-weight:600;">Marca</th>' +
-                '<th style="background:var(--primary);color:#fff;padding:8px;text-align:center;font-weight:600;">Faltantes</th>' +
+                '<th style="background:var(--primary);color:#fff;padding:7px 5px;text-align:center;font-weight:600;">Marca</th>' +
+                '<th style="background:var(--primary);color:#fff;padding:7px 5px;text-align:center;font-weight:600;">Tipo</th>' +
+                '<th style="background:var(--primary);color:#fff;padding:7px 5px;text-align:center;font-weight:600;">Falt.</th>' +
             '</tr></thead><tbody>';
         for (var r = 0; r < allFaltantes.length; r++) {
             var it = allFaltantes[r];
             var bgStyle = r % 2 === 0 ? '' : 'background:var(--bg2);';
-            viewHtml += '<tr style="' + bgStyle + '"><td style="padding:7px 8px;text-align:left;border-bottom:1px solid var(--border);color:var(--text);">' + escapeHtml(it.space) + '</td><td style="padding:7px 8px;text-align:left;border-bottom:1px solid var(--border);color:var(--text);">' + escapeHtml(it.product) + '</td><td style="padding:7px 8px;text-align:center;border-bottom:1px solid var(--border);color:var(--text2);">' + escapeHtml(it.brand) + '</td><td style="padding:7px 8px;text-align:center;border-bottom:1px solid var(--border);color:var(--danger);font-weight:700;">' + it.faltantes + '</td></tr>';
+            viewHtml += '<tr style="' + bgStyle + '"><td style="padding:6px 5px;text-align:left;border-bottom:1px solid var(--border);color:var(--text);">' + escapeHtml(it.space) + '</td><td style="padding:6px 5px;text-align:left;border-bottom:1px solid var(--border);color:var(--text);">' + escapeHtml(it.product) + '</td><td style="padding:6px 5px;text-align:center;border-bottom:1px solid var(--border);color:var(--text2);">' + escapeHtml(it.brand) + '</td><td style="padding:6px 5px;text-align:center;border-bottom:1px solid var(--border);color:var(--text2);">' + escapeHtml(it.tipo) + '</td><td style="padding:6px 5px;text-align:center;border-bottom:1px solid var(--border);color:var(--danger);font-weight:700;">' + it.faltantes + '</td></tr>';
         }
-        viewHtml += '<tr style="background:var(--bg2);font-weight:700;border-top:2px solid var(--primary);"><td style="color:var(--text);"></td><td style="color:var(--text);"></td><td style="text-align:right;padding:7px 8px;color:var(--text);">TOTAL</td><td style="padding:7px 8px;text-align:center;color:var(--danger);">' + totalFalt + '</td></tr>';
+        viewHtml += '<tr style="background:var(--bg2);font-weight:700;border-top:2px solid var(--primary);"><td style="color:var(--text);"></td><td style="color:var(--text);"></td><td></td><td style="text-align:right;padding:6px 5px;color:var(--text);">TOTAL</td><td style="padding:6px 5px;text-align:center;color:var(--danger);">' + totalFalt + '</td></tr>';
         viewHtml += '</tbody></table>';
     }
 
-    viewHtml += '<div style="font-size:9px;color:var(--text3);text-align:center;margin-top:14px;">Los faltantes se calculan como stock inicial - stock actual, solo cuando hay salidas registradas.</div>';
+    viewHtml += '<div style="font-size:9px;color:var(--text3);text-align:center;margin-top:14px;">Faltantes = (stock inicial + cargas) - stock actual, solo con salidas registradas.</div>';
     viewHtml += '</div></div></div>';
 
     // Inject into page
