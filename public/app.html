@@ -8820,13 +8820,35 @@ function exportFaltantesReport() {
     // Detect platform
     var platform = 'Navegador';
     var ua = navigator.userAgent || '';
-    if (/Android/i.test(ua) && window.AndroidBridge) platform = 'Android (APK)';
-    else if (/Android/i.test(ua)) platform = 'Android (Navegador)';
-    else if (/iPhone|iPad|iPod/i.test(ua)) platform = 'iOS';
-    else if (/Chrome/i.test(ua) && !/Edge|Edg|OPR/i.test(ua)) platform = 'Google Chrome';
-    else if (/Firefox/i.test(ua)) platform = 'Firefox';
-    else if (/Safari/i.test(ua) && !/Chrome/i.test(ua)) platform = 'Safari';
-    else if (/Edge|Edg/i.test(ua)) platform = 'Microsoft Edge';
+    // Detect device brand
+    var brand = '';
+    if (/Samsung/i.test(ua)) brand = 'Samsung';
+    else if (/Huawei/i.test(ua)) brand = 'Huawei';
+    else if (/Xiaomi/i.test(ua)) brand = 'Xiaomi';
+    else if (/Motorola/i.test(ua)) brand = 'Motorola';
+    else if (/LG/i.test(ua)) brand = 'LG';
+    else if (/Sony/i.test(ua)) brand = 'Sony';
+    else if (/Oppo/i.test(ua)) brand = 'Oppo';
+    else if (/OnePlus/i.test(ua)) brand = 'OnePlus';
+    else if (/Google Pixel/i.test(ua)) brand = 'Google';
+
+    // Detect type (OS/Browser)
+    var type = '';
+    if (/Android/i.test(ua)) type = 'Android';
+    else if (/iPhone|iPad|iPod/i.test(ua)) type = 'iOS';
+    else if (/Chrome/i.test(ua) && !/Edge|Edg|OPR/i.test(ua)) type = 'Google Chrome';
+    else if (/Firefox/i.test(ua)) type = 'Firefox';
+    else if (/Safari/i.test(ua) && !/Chrome/i.test(ua)) type = 'Safari';
+    else if (/Edge|Edg/i.test(ua)) type = 'Microsoft Edge';
+
+    // Build platform string
+    if (window.AndroidBridge) {
+        platform = 'Android (APK)' + (brand ? ' - ' + brand : '');
+    } else if (/Android/i.test(ua)) {
+        platform = 'Android (Navegador)' + (brand ? ' - ' + brand : '');
+    } else {
+        platform = type || 'Navegador';
+    }
 
     var today = new Date();
     var dateStr = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
@@ -8846,8 +8868,7 @@ function exportFaltantesReport() {
                 if (prInit === undefined || prInit === null || prInit <= 0) continue;
                 var flow = computeProductFlowBySpace(loc, pr.productId, si);
                 if (flow.salidas > 0) {
-                    var expected = flow.inicial + flow.entradas;
-                    var faltantes = expected - flow.actual;
+                    var faltantes = flow.inicial - flow.actual;
                     if (faltantes > 0) {
                         allFaltantes.push({
                             space: space.name,
@@ -8899,7 +8920,7 @@ function exportFaltantesReport() {
 
     reportHtml += '<tr class="total-row"><td></td><td></td><td style="text-align:right;padding-right:12px;">TOTAL</td><td class="falt">' + totalFalt + '</td></tr>';
     reportHtml += '</tbody></table>';
-    reportHtml += '<div class="note">Los faltantes se calculan como (inicial + entradas) - actual, solo cuando hay salidas registradas.</div>';
+    reportHtml += '<div class="note">Los faltantes se calculan como stock inicial - stock actual, solo cuando hay salidas registradas.</div>';
     reportHtml += '</body></html>';
 
     // Store for printing later
@@ -8944,7 +8965,7 @@ function exportFaltantesReport() {
         viewHtml += '</tbody></table>';
     }
 
-    viewHtml += '<div style="font-size:9px;color:var(--text3);text-align:center;margin-top:14px;">Los faltantes se calculan como (inicial + entradas) - actual, solo cuando hay salidas registradas.</div>';
+    viewHtml += '<div style="font-size:9px;color:var(--text3);text-align:center;margin-top:14px;">Los faltantes se calculan como stock inicial - stock actual, solo cuando hay salidas registradas.</div>';
     viewHtml += '</div></div></div>';
 
     // Inject into page
