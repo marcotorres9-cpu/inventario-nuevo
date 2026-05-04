@@ -5929,13 +5929,13 @@ function buildLocCards(locs) {
             }
         }
 
-        // Check for alerts — only products with qty=0 (agotados) are true space alerts
-        // Model-level target deficits are informational, shown per-product as bubbles
+        // Check for alerts — only products that had stock before (initialStock set) and now qty=0
+        // Products that were never stocked should not trigger alerts
         var alertCount = 0;
         for (var s2 = 0; s2 < totalSpaces; s2++) {
             var bProds = (loc.spaces[s2].products || []);
             for (var p2 = 0; p2 < bProds.length; p2++) {
-                if (bProds[p2].qty === 0) alertCount++;
+                if (bProds[p2].qty === 0 && bProds[p2].initialStock !== undefined && bProds[p2].initialStock !== null && bProds[p2].initialStock > 0) alertCount++;
             }
         }
         var alertBadge = alertCount > 0 ? ' <span style="background:#ff4757;color:#fff;font-size:9px;padding:1px 6px;border-radius:8px;margin-left:4px;">' + alertCount + ' ⚠️</span>' : '';
