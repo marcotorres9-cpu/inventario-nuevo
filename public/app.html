@@ -1607,7 +1607,7 @@
                 <input type="text" id="spSearch" class="input" placeholder="🔍 Buscar producto por nombre..." oninput="searchProductsForSpace(this.value)">
             </div>
             <!-- Cascading filter row for space product modal -->
-            <div style="display:flex;gap:5px;margin-bottom:8px;flex-wrap:wrap;">
+            <div id="spFilterRow" style="display:flex;gap:5px;margin-bottom:8px;flex-wrap:wrap;">
                 <div class="filter-chip-wrap">
                     <button class="filter-chip" id="chipSpCat" onclick="toggleFilterDropdown('spcat')" style="font-size:11px;padding:5px 8px;">📂 Cat.</button>
                     <div class="filter-chip-dropdown" id="ddSpcat"></div>
@@ -1624,6 +1624,7 @@
                     <button class="filter-chip" id="chipSpSpec" onclick="toggleFilterDropdown('spspec')" style="font-size:11px;padding:5px 8px;">⚙️ Specs</button>
                     <div class="filter-chip-dropdown" id="ddSpspec"></div>
                 </div>
+                <button id="spClearFilters" onclick="clearSpFilters()" style="display:none;font-size:10px;padding:5px 8px;background:var(--danger);color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:600;">✕ Limpiar</button>
             </div>
             <div id="spResults" style="position:relative;"></div>
             <!-- Cart for multi-select -->
@@ -4137,6 +4138,12 @@ function selectChipValue(key, value) {
     var overlay = document.getElementById('chipDropdownOverlay');
     if (overlay) overlay.classList.remove('open');
     _openChipDropdown = null;
+
+    // Show/hide sp clear button
+    if (isSp) {
+        var clearBtn = document.getElementById('spClearFilters');
+        if (clearBtn) clearBtn.style.display = 'block';
+    }
 
     // Cascading: reset downstream filters
     var isSp = key.indexOf('sp') === 0;
@@ -9376,6 +9383,7 @@ function resetAllLocalesInventory() {
 function openSpaceProductModal(locId, spaceIdx) {
     _spSelectedProductId = null;
     _spCart = {};
+    clearSpFilters();
     document.getElementById('spLocId').value = locId;
     document.getElementById('spSpaceIdx').value = spaceIdx;
     document.getElementById('spSearch').value = '';
@@ -9387,6 +9395,26 @@ function openSpaceProductModal(locId, spaceIdx) {
     document.getElementById('spSingleFields').style.display = 'flex';
     openModal('spaceProductModal');
     setTimeout(function() { document.getElementById('spSearch').focus(); }, 300);
+}
+
+function clearSpFilters() {
+    _filterChipState.spcat = '';
+    _filterChipState.spbrand = '';
+    _filterChipState.spcolor = '';
+    _filterChipState.spspec = '';
+    // Reset chip labels
+    var spChips = { chipSpCat: '📂 Cat.', chipSpBrand: '🏷️ Marca', chipSpColor: '🎨 Color', chipSpSpec: '⚙️ Specs' };
+    var spIds = Object.keys(spChips);
+    for (var i = 0; i < spIds.length; i++) {
+        var el = document.getElementById(spIds[i]);
+        if (el) { el.textContent = spChips[spIds[i]]; el.classList.remove('active'); }
+    }
+    // Hide clear button
+    var btn = document.getElementById('spClearFilters');
+    if (btn) btn.style.display = 'none';
+    // Re-search if there's a query
+    var search = document.getElementById('spSearch');
+    if (search && search.value) searchProductsForSpace(search.value);
 }
 
 function searchProductsForSpace(query) {
