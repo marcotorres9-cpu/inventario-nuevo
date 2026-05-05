@@ -8208,10 +8208,34 @@ function drillCatalog(type, value) {
 }
 
 function toggleCatalogDrillFilter(key, value) {
-    if (_catalogDrillFilters[key] === value) {
-        _catalogDrillFilters[key] = null;
+    if (key === 'spec') {
+        // spec stores as object { key: '...', value: '...' } or null
+        var current = _catalogDrillFilters.spec;
+        if (current && current.key === value && !current.value) {
+            // Clicking the same spec key again — deactivate
+            _catalogDrillFilters.spec = null;
+        } else {
+            // Activate spec key (no value yet — shows value pills next)
+            _catalogDrillFilters.spec = { key: value, value: null };
+        }
     } else {
-        _catalogDrillFilters[key] = value;
+        // brand stores as plain string or null
+        if (_catalogDrillFilters[key] === value) {
+            _catalogDrillFilters[key] = null;
+        } else {
+            _catalogDrillFilters[key] = value;
+        }
+    }
+    renderCatalogSummaryPage();
+}
+
+function toggleSpecValue(specKey, specValue) {
+    var current = _catalogDrillFilters.spec;
+    if (current && current.key === specKey && current.value === specValue) {
+        // Clicking same value again — go back to key-only mode
+        _catalogDrillFilters.spec = { key: specKey, value: null };
+    } else {
+        _catalogDrillFilters.spec = { key: specKey, value: specValue };
     }
     renderCatalogSummaryPage();
 }
@@ -8392,7 +8416,8 @@ function renderCatalogSummaryPage() {
             var specVals = getUniqueSpecValues(drillProducts, fSpecKey.key);
             html += '<div style="display:flex;gap:4px;margin-bottom:10px;flex-wrap:wrap;">';
             for (var svi = 0; svi < specVals.length; svi++) {
-                html += '<button onclick="toggleCatalogDrillFilter(\'spec\',\'' + escapeHtml(fSpecKey.key).replace(/'/g, "\\'") + '\');_catalogDrillFilters.spec={key:\'' + escapeHtml(fSpecKey.key).replace(/'/g, "\\'") + '\',value:\'' + escapeHtml(specVals[svi]).replace(/'/g, "\\'") + '\'};renderCatalogSummaryPage();" style="font-size:10px;padding:4px 10px;border-radius:16px;border:1px solid var(--border);background:var(--bg2);color:var(--text2);cursor:pointer;font-weight:500;white-space:nowrap;">' + escapeHtml(specVals[svi]) + '</button>';
+                var svEsc = escapeHtml(specVals[svi]).replace(/'/g, "\\'");
+                html += '<button onclick="toggleSpecValue(\'' + escapeHtml(fSpecKey.key).replace(/'/g, "\\'") + '\',\'' + svEsc + '\')" style="font-size:10px;padding:4px 10px;border-radius:16px;border:1px solid var(--border);background:var(--bg2);color:var(--text2);cursor:pointer;font-weight:500;white-space:nowrap;">' + escapeHtml(specVals[svi]) + '</button>';
             }
             html += '</div>';
         }
@@ -8460,7 +8485,10 @@ function renderCatalogSummaryPage() {
     var avgPrice = allProducts.length > 0 ? Math.round(totalValue / allProducts.length) : 0;
     var globalMargin = totalValue > 0 ? Math.round(((totalValue - totalCost) / totalValue) * 100) : 0;
 
-    html += '<h2 style="font-size:20px;font-weight:800;margin-bottom:14px;">\uD83D\uDCCA Resumen del Catalogo</h2>';
+    html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">' +
+        '<h2 style="font-size:20px;font-weight:800;margin:0;">\uD83D\uDCCA Resumen del Catalogo</h2>' +
+        '<button onclick="exportCatalogReport()" class="btn btn-primary btn-sm" style="font-size:12px;white-space:nowrap;">\uD83D\uDCC4 Reporte PDF</button>' +
+    '</div>';
 
     // Main header
     html += '<div style="background:linear-gradient(135deg, var(--primary), #6c5ce7);border-radius:14px;padding:16px;margin-bottom:14px;color:#fff;">' +
