@@ -1469,22 +1469,26 @@
             <button class="btn btn-outline btn-sm" onclick="showQuotCustomProduct()" style="flex:1;border-color:var(--primary);color:var(--primary);">➕ Personalizado</button>
         </div>
         
-        <!-- Discount -->
-        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px;margin-bottom:10px;">
-            <div style="display:flex;align-items:center;gap:8px;">
-                <span style="font-size:12px;font-weight:600;color:var(--text3);">Dto:</span>
-                <select id="quotDiscountType" class="input" style="width:60px;padding:6px 8px;font-size:12px;" onchange="calcQuotTotals()">
-                    <option value="percentage">%</option>
-                    <option value="fixed">$</option>
-                </select>
-                <input type="number" id="quotDiscountValue" class="input" placeholder="0" value="0" min="0" oninput="calcQuotTotals()" style="flex:1;padding:6px 10px;font-size:13px;">
-            </div>
+        <!-- (Global discount removed — per-product discounts only) -->
+        <div id="quotDiscountHidden" style="display:none;">
+            <select id="quotDiscountType" class="input"><option value="fixed">$</option><option value="percentage">%</option></select>
+            <input type="number" id="quotDiscountValue" class="input" value="0" min="0">
         </div>
         
-        <!-- Total -->
-        <div style="background:var(--primary-bg);border:2px solid var(--primary);border-radius:12px;padding:14px;margin-bottom:10px;text-align:center;">
-            <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text3);margin-bottom:4px;">Total</div>
-            <div id="quotTotal" style="font-size:24px;font-weight:800;color:var(--primary);">$0.00</div>
+        <!-- Totals Summary -->
+        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:10px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                <span style="font-size:12px;font-weight:600;color:var(--text3);">COSTO TOTAL</span>
+                <span id="quotSubtotal" style="font-size:16px;font-weight:700;color:var(--text2);">$0.00</span>
+            </div>
+            <div id="quotDiscRow" style="display:none;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                <span style="font-size:12px;font-weight:600;color:#f59e0b;">DESCUENTOS</span>
+                <span id="quotTotalDisc" style="font-size:14px;font-weight:700;color:#f59e0b;">-$0.00</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding-top:8px;border-top:2px solid var(--primary);">
+                <span style="font-size:13px;font-weight:700;color:var(--primary);">TOTAL FINAL</span>
+                <span id="quotTotal" style="font-size:22px;font-weight:800;color:var(--primary);">$0.00</span>
+            </div>
         </div>
         
         <!-- Notes -->
@@ -4401,16 +4405,27 @@ function renderQuotItemsColumn(tab, items, isActive) {
         '</div>';
 
     if (items.length === 0) {
-        h += '<div style="text-align:center;padding:16px 8px;color:var(--text3);font-size:11px;border:1px dashed var(--border);border-radius:8px;">Sin productos<br><span style="font-size:9px;">Cambia a esta pestaña para agregar</span></div>';
+        h += '<div style="text-align:center;padding:16px 8px;color:var(--text3);font-size:11px;border:1px dashed var(--border);border-radius:8px;">Sin productos<br><span style="font-size:9px;">Cambia a esta pesta\u00f1a para agregar</span></div>';
     } else {
         h += renderQuotItemsList(items, tab);
     }
 
     if (items.length > 0) {
-        h += '<div style="margin-top:6px;padding-top:6px;border-top:1px solid var(--border);display:flex;justify-content:space-between;font-size:10px;">' +
-            '<span style="color:var(--text3);">Costo: $' + subtotalVal.toFixed(2) + '</span>' +
-            (totalLineDisc > 0 ? '<span style="font-weight:700;color:#f59e0b;">Dto: -$' + totalLineDisc.toFixed(2) + '</span>' : '') +
-            '<span style="font-weight:700;color:#00b894;">Final: $' + totalVal.toFixed(2) + '</span>' +
+        h += '<div style="margin-top:6px;padding-top:6px;border-top:1px solid var(--border);">' +
+            '<div style="display:flex;justify-content:space-between;font-size:10px;margin-bottom:2px;">' +
+                '<span style="color:var(--text3);">Costo Total</span>' +
+                '<span style="font-weight:700;color:#e17055;">$' + subtotalVal.toFixed(2) + '</span>' +
+            '</div>';
+        if (totalLineDisc > 0) {
+            h += '<div style="display:flex;justify-content:space-between;font-size:10px;margin-bottom:2px;">' +
+                '<span style="color:var(--text3);">Descuentos</span>' +
+                '<span style="font-weight:700;color:#f59e0b;">-$' + totalLineDisc.toFixed(2) + '</span>' +
+            '</div>';
+        }
+        h += '<div style="display:flex;justify-content:space-between;font-size:11px;padding-top:4px;border-top:1px solid var(--border);">' +
+                '<span style="font-weight:700;color:var(--primary);">Total Final</span>' +
+                '<span style="font-weight:800;color:#00b894;">$' + totalVal.toFixed(2) + '</span>' +
+            '</div>' +
         '</div>';
     }
 
@@ -4444,70 +4459,38 @@ function renderQuotItemsList(items, tab) {
             } catch(e) {}
         }
 
-        // Price row: Unit price (editable) + Descuento (editable) + Precio final (calculated)
-        var priceRow = '<div style="display:flex;align-items:center;gap:5px;margin-top:6px;flex-wrap:wrap;">' +
-            // Unit price
-            '<div style="display:flex;align-items:center;gap:3px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.25);border-radius:6px;padding:4px 8px;">' +
-                '<span style="font-size:9px;font-weight:700;color:#3b82f6;text-transform:uppercase;">Precio</span>' +
-                '<span style="font-size:10px;color:var(--text3);">$</span>' +
-                '<input type="number" class="input" value="' + unitPrice.toFixed(2) + '" min="0" step="0.01" onchange="setQuotItemPrice(' + i + ',this.value)" style="width:62px;text-align:center;padding:2px 4px;font-size:13px;font-weight:700;border:1px solid rgba(59,130,246,0.3);">' +
-            '</div>' +
-            '<span style="font-size:10px;color:var(--text3);">× ' + it.qty + '</span>' +
-            '<span style="font-size:9px;font-weight:700;color:#3b82f6;text-transform:uppercase;">=</span>' +
-            // Line total (cost for client)
-            '<div style="display:flex;align-items:center;gap:3px;background:rgba(225,112,85,0.1);border:1px solid rgba(225,112,85,0.25);border-radius:6px;padding:4px 8px;">' +
-                '<span style="font-size:9px;font-weight:700;color:#e17055;text-transform:uppercase;">Costo</span>' +
-                '<span style="font-size:13px;font-weight:800;color:#e17055;">$' + lineCost + '</span>' +
-            '</div>' +
-        '</div>';
-
-        // Discount + Final price row
-        var discFinalRow = '<div style="display:flex;align-items:center;gap:5px;margin-top:6px;flex-wrap:wrap;">' +
-            // Descuento input
-            '<div style="display:flex;align-items:center;gap:3px;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.25);border-radius:6px;padding:4px 8px;">' +
-                '<span style="font-size:9px;font-weight:700;color:#f59e0b;text-transform:uppercase;">Dto.</span>' +
-                '<span style="font-size:10px;color:var(--text3);">$</span>' +
-                '<input type="number" class="input" value="' + (lineDiscount > 0 ? lineDiscount.toFixed(2) : '0.00') + '" min="0" step="0.01" onchange="setQuotItemDiscount(' + i + ',this.value)" style="width:58px;text-align:center;padding:2px 4px;font-size:12px;font-weight:700;border:1px solid rgba(245,158,11,0.3);">' +
-            '</div>' +
-            '<span style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;">=</span>' +
-            // Final price
-            '<div style="display:flex;align-items:center;gap:3px;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.25);border-radius:6px;padding:4px 8px;margin-left:auto;">' +
-                '<span style="font-size:9px;font-weight:700;color:#00b894;text-transform:uppercase;">Final</span>' +
-                '<span style="font-size:14px;font-weight:800;color:#00b894;">$' + lineFinal + '</span>' +
-            '</div>' +
-        '</div>';
-
         h += '<div style="background:var(--bg2);border:1px solid ' + (hasDiscount ? 'rgba(34,197,94,0.3)' : 'var(--border)') + ';border-radius:10px;padding:10px;margin-bottom:6px;">' +
             '<div style="font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(it.productName) + '</div>' +
             specsHtml +
-            priceRow +
-            discFinalRow +
-            '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;padding-top:6px;border-top:1px solid var(--border);">' +
+            '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;">' +
                 '<div style="display:flex;align-items:center;gap:4px;">' +
                     '<button type="button" class="btn btn-xs btn-outline" onclick="updateQuotItemQty(' + i + ',-1)" style="padding:4px 8px;font-size:14px;">\u2212</button>' +
                     '<input type="number" class="input" value="' + it.qty + '" min="1" onchange="setQuotItemQty(' + i + ',this.value)" style="width:42px;text-align:center;padding:4px;font-size:13px;">' +
                     '<button type="button" class="btn btn-xs btn-outline" onclick="updateQuotItemQty(' + i + ',1)" style="padding:4px 8px;font-size:14px;">+</button>' +
+                    '<span style="font-size:11px;color:var(--text3);">uds</span>' +
                     stockInfo +
                 '</div>' +
                 '<button type="button" class="btn btn-xs" onclick="removeQuotItem(' + i + ')" style="padding:3px 10px;font-size:10px;color:var(--danger);background:transparent;border:1px solid var(--danger);border-radius:6px;opacity:0.7;">\u2715 Quitar</button>' +
             '</div>' +
+            '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;padding:6px 8px;background:rgba(225,112,85,0.08);border-radius:6px;">' +
+                '<span style="font-size:11px;font-weight:700;color:#e17055;text-transform:uppercase;">Costo Total</span>' +
+                '<span style="font-size:15px;font-weight:800;color:#e17055;">$' + lineCost + '</span>' +
+            '</div>' +
+            '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px;">' +
+                '<div style="display:flex;align-items:center;gap:4px;">' +
+                    '<span style="font-size:11px;font-weight:700;color:#f59e0b;text-transform:uppercase;">Descuento</span>' +
+                    '<span style="font-size:11px;color:var(--text3);">$</span>' +
+                    '<input type="number" class="input" value="' + (lineDiscount > 0 ? lineDiscount.toFixed(2) : '0.00') + '" min="0" step="0.01" onchange="setQuotItemDiscount(' + i + ',this.value)" style="width:70px;text-align:center;padding:3px 4px;font-size:13px;font-weight:700;border:1px solid rgba(245,158,11,0.3);background:rgba(245,158,11,0.06);">' +
+                '</div>' +
+                '<span style="font-size:9px;color:var(--text3);">$' + unitPrice.toFixed(2) + ' c/u</span>' +
+            '</div>' +
+            '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px;padding:6px 8px;background:rgba(34,197,94,0.06);border-radius:6px;">' +
+                '<span style="font-size:11px;font-weight:700;color:#00b894;text-transform:uppercase;">Precio Final</span>' +
+                '<span style="font-size:16px;font-weight:800;color:#00b894;">$' + lineFinal + '</span>' +
+            '</div>' +
         '</div>';
     }
     return h;
-}
-
-function setQuotItemPrice(index, val) {
-    var items = getCurrentItems();
-    if (!items[index]) return;
-    var newPrice = parseFloat(val) || 0;
-    // Store original price if not already stored
-    if (!items[index].originalPrice) {
-        items[index].originalPrice = items[index].price;
-    }
-    items[index].price = newPrice;
-    setCurrentItems(items);
-    renderQuotItems();
-    calcQuotTotals();
 }
 
 function setQuotItemDiscount(index, val) {
@@ -4798,18 +4781,17 @@ function calcQuotTotals() {
         totalDiscount += lineDisc;
     }
 
-    var discountType = document.getElementById('quotDiscountType').value;
-    var discountValue = parseFloat(document.getElementById('quotDiscountValue').value) || 0;
-    var extraDiscount = 0;
-
-    if (discountType === 'percentage') {
-        extraDiscount = subtotal * (discountValue / 100);
-    } else {
-        extraDiscount = discountValue;
-    }
-
-    var total = Math.max(0, subtotal - totalDiscount - extraDiscount);
+    // No global discount — only per-product line discounts
+    var total = Math.max(0, subtotal - totalDiscount);
     document.getElementById('quotTotal').textContent = formatMoney(total);
+
+    // Update summary: subtotal, discounts, total
+    var elSub = document.getElementById('quotSubtotal');
+    var elDisc = document.getElementById('quotTotalDisc');
+    var elDiscRow = document.getElementById('quotDiscRow');
+    if (elSub) elSub.textContent = formatMoney(subtotal);
+    if (elDisc) elDisc.textContent = '-' + formatMoney(totalDiscount);
+    if (elDiscRow) elDiscRow.style.display = totalDiscount > 0 ? 'flex' : 'none';
 
     // Update dual mini summary if in dual mode
     if (quotIsDualMode) {
@@ -4822,7 +4804,7 @@ function updateDualMiniSummary() {
     var elMiniB = document.getElementById('dualMiniB');
     if (!elMiniA || !elMiniB) return;
 
-    // Calculate totals for both options (including line discounts)
+    // Calculate totals for both options (line discounts only, no global discount)
     var subtotalA = 0, discA_line = 0;
     var subtotalB = 0, discB_line = 0;
     for (var i = 0; i < quotItemsA.length; i++) {
@@ -4834,11 +4816,8 @@ function updateDualMiniSummary() {
         discB_line += parseFloat(quotItemsB[i].lineDiscount) || 0;
     }
 
-    // Apply extra discounts
-    var extraA = quotDiscountA.type === 'percentage' ? subtotalA * (quotDiscountA.value / 100) : quotDiscountA.value;
-    var extraB = quotDiscountB.type === 'percentage' ? subtotalB * (quotDiscountB.value / 100) : quotDiscountB.value;
-    var totalA = Math.max(0, subtotalA - discA_line - extraA);
-    var totalB = Math.max(0, subtotalB - discB_line - extraB);
+    var totalA = Math.max(0, subtotalA - discA_line);
+    var totalB = Math.max(0, subtotalB - discB_line);
 
     document.getElementById('dualMiniATitle').textContent = quotOptionTitleA;
     document.getElementById('dualMiniACount').textContent = quotItemsA.length + ' producto' + (quotItemsA.length !== 1 ? 's' : '');
@@ -4959,8 +4938,7 @@ function saveQuotation() {
             sub += (items[i].qty || 0) * (items[i].price || 0);
             lineDiscTotal += parseFloat(items[i].lineDiscount) || 0;
         }
-        var disc = discount.type === 'percentage' ? sub * (discount.value / 100) : discount.value;
-        return { subtotal: sub, totalDiscount: lineDiscTotal + disc, total: Math.max(0, sub - lineDiscTotal - disc) };
+        return { subtotal: sub, totalDiscount: lineDiscTotal, total: Math.max(0, sub - lineDiscTotal) };
     }
 
     var totalsA = calcOptTotal(quotItemsA, quotDiscountA);
@@ -5014,7 +4992,8 @@ function saveQuotation() {
             }
         }
         saveQuotations(quotes);
-        try { syncToServer('quotation'); } catch(e) { console.log('[SAVE] sync skipped:', e); }
+        // Sync to server immediately and show result
+        syncToServer('quotation');
         addActivity('Cotización editada');
         showToast('Cotización actualizada', 'success');
     } else {
@@ -5043,7 +5022,8 @@ function saveQuotation() {
         };
         quotes.push(quot);
         saveQuotations(quotes);
-        try { syncToServer('quotation'); } catch(e) { console.log('[SAVE] sync skipped:', e); }
+        // Sync to server immediately and show result
+        syncToServer('quotation');
         addActivity('Cotización creada: ' + num);
         showToast('Cotización ' + num + ' guardada', 'success');
     }
@@ -5148,7 +5128,7 @@ function viewQuotation(id) {
         }
 
         h += '<table class="qv-table"><thead><tr>' +
-            '<th>Producto</th><th>Cant.</th><th>Precio</th><th>Costo</th><th>Dto.</th><th>Final</th>' +
+            '<th>Producto</th><th>Cant.</th><th>Costo Total</th><th>Descuento</th><th>Precio Final</th>' +
             '</tr></thead><tbody>';
         for (var j = 0; j < section.items.length; j++) {
             var item = section.items[j];
@@ -5158,18 +5138,18 @@ function viewQuotation(id) {
             h += '<tr>' +
                 '<td>' + escapeHtml(item.productName || item.name || '') + '</td>' +
                 '<td>' + item.qty + '</td>' +
-                '<td style="color:#3b82f6;">' + formatMoney(item.price) + '</td>' +
                 '<td style="color:#e17055;font-weight:600;">' + formatMoney(lineCost) + '</td>' +
-                '<td style="color:#f59e0b;">' + (lineDisc > 0 ? '-' + formatMoney(lineDisc) : '-') + '</td>' +
-                '<td><strong style="color:#00b894;">' + formatMoney(lineFinal) + '</strong></td>' +
+                '<td style="color:#f59e0b;">' + (lineDisc > 0 ? '-$' + lineDisc : '-') + '</td>' +
+                '<td><strong style="color:#00b894;">$' + lineFinal + '</strong></td>' +
                 '</tr>';
         }
         h += '</tbody></table>';
 
-        // Discount info
-        if (section.discount && section.discount.value > 0) {
-            var discLabel = section.discount.type === 'percentage' ? section.discount.value + '%' : formatMoney(section.discount.value);
-            h += '<div style="text-align:right;font-size:12px;color:var(--warning);margin-bottom:4px;">Dto: -' + discLabel + '</div>';
+        // Line discounts summary for this section
+        var secLineDisc = 0;
+        for (var d = 0; d < section.items.length; d++) secLineDisc += parseFloat(section.items[d].lineDiscount) || 0;
+        if (secLineDisc > 0) {
+            h += '<div style="text-align:right;font-size:12px;color:#f59e0b;margin-bottom:4px;">Descuentos: -$' + secLineDisc.toFixed(2) + '</div>';
         }
 
         // Section total
@@ -11606,8 +11586,15 @@ function doSyncToServer(url, reason) {
         _isSyncing = true;
         var quotes = getQuotations();
         if (quotes.length > 0) {
+            // Push the most recently modified quotation
             var latest = quotes[quotes.length - 1];
-            pushQuotationToServer(latest, url).then(function() { _isSyncing = false; }).catch(function() { _isSyncing = false; });
+            pushQuotationToServer(latest, url).then(function(resp) {
+                _isSyncing = false;
+                console.log('[SYNC] Quotation ' + latest.id + ' synced successfully');
+            }).catch(function(err) {
+                _isSyncing = false;
+                console.error('[SYNC] Quotation sync error:', err);
+            });
         } else {
             _isSyncing = false;
         }
@@ -11622,15 +11609,15 @@ function pushQuotationToServer(q, url) {
         isDualMode: q.isDualMode || false,
         optionTitleA: q.optionTitleA || 'Opcion A',
         optionTitleB: q.optionTitleB || 'Opcion B',
-        discountA: q.discountA || { type: 'percentage', value: 0 },
-        discountB: q.discountB || { type: 'percentage', value: 0 },
+        discountA: q.discountA || { type: 'fixed', value: 0 },
+        discountB: q.discountB || { type: 'fixed', value: 0 },
         customerPhone: q.customerPhone || '',
         customerEmail: q.customerEmail || '',
         notes: q.notes || '',
         validDays: q.validDays || 15
     };
-    var discA = q.discountA || { type: 'percentage', value: 0 };
-    var discB = q.discountB || { type: 'percentage', value: 0 };
+    var discA = q.discountA || { type: 'fixed', value: 0 };
+    var discB = q.discountB || { type: 'fixed', value: 0 };
     var isDual = q.isDualMode && q.itemsB && q.itemsB.length > 0;
 
     return fetch(url + '/api/sync/quotations', {
@@ -11651,7 +11638,7 @@ function pushQuotationToServer(q, url) {
             optionATitle: q.optionTitleA || 'Opcion A',
             optionBTitle: q.optionTitleB || 'Opcion B',
             optionBSubtotal: isDual ? (q.totalsB ? q.totalsB.subtotal : 0) : 0,
-            optionBDiscountType: discB.type || 'percentage',
+            optionBDiscountType: discB.type || 'fixed',
             optionBDiscountValue: discB.value || 0,
             optionBTotal: isDual ? (q.totalsB ? q.totalsB.total : 0) : 0,
             itemsAJson: JSON.stringify(q.itemsA || q.items || []),
@@ -11661,6 +11648,9 @@ function pushQuotationToServer(q, url) {
             totalsAJson: JSON.stringify(q.totalsA || null),
             totalsBJson: JSON.stringify(q.totalsB || null)
         })
+    }).then(function(r) {
+        if (!r.ok) console.error('[SYNC] Quotation push failed:', r.status);
+        return r;
     });
 }
 
@@ -11828,24 +11818,32 @@ function autoSyncFromServer() {
                     createdAt: rq.createdAt || new Date().toISOString()
                 });
             }
-            // Sync deletions: remove local quotations no longer on server
+            // Sync deletions: only remove if explicitly deleted on server AND local is older
+            // Do NOT remove local quotations that are not on server (they may be pending sync)
             var serverQIds = {};
             for (var d = 0; d < serverQuotations.length; d++) {
                 if (serverQuotations[d] && serverQuotations[d].id) serverQIds[serverQuotations[d].id] = true;
             }
-            var pendingCreateIds = {};
+            var pendingIds = {};
             for (var d = 0; d < _offlineQueue.length; d++) {
                 var op = _offlineQueue[d];
-                if (op && op.type === 'quotation' && op.action === 'create' && op.data && op.data.id) {
-                    pendingCreateIds[op.data.id] = true;
-                }
+                if (op && op.data && op.data.id) pendingIds[op.data.id] = true;
             }
-            localQ = localQ.filter(function(lq) {
-                return serverQIds[lq.id] || pendingCreateIds[lq.id];
-            });
-            syncChanges.quotesAdded = Math.max(0, localQ.length - prevQCount); // approximate
-            var removedCount = prevQCount - (localQ.length - syncChanges.quotesAdded);
+            var filteredQ = [];
+            for (var f = 0; f < localQ.length; f++) {
+                var lq = localQ[f];
+                // Keep if: on server OR in offline queue (pending sync) OR recently created (last 5 min)
+                var keep = serverQIds[lq.id] || pendingIds[lq.id];
+                if (!keep && lq.createdAt) {
+                    var age = Date.now() - new Date(lq.createdAt).getTime();
+                    if (age < 5 * 60 * 1000) keep = true; // Keep recently created
+                }
+                if (keep) filteredQ.push(lq);
+            }
+            syncChanges.quotesAdded = Math.max(0, filteredQ.length - prevQCount);
+            var removedCount = prevQCount - (filteredQ.length - syncChanges.quotesAdded);
             if (removedCount > 0) syncChanges.quotesRemoved = removedCount;
+            localQ = filteredQ;
             saveQuotations(localQ);
 
             // Sync locations from server
