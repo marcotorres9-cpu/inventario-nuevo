@@ -1024,6 +1024,7 @@
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
                 <h2 style="font-size:22px;font-weight:800;">📋 Catálogo</h2>
                 <div style="display:flex;gap:6px;">
+                    <button class="btn btn-outline btn-sm" onclick="openCatalogSummary()" style="font-size:12px;">📊 Resumen</button>
                     <button class="btn btn-primary btn-sm" onclick="openAddProduct()">+ Nuevo Producto</button>
                 </div>
             </div>
@@ -1071,6 +1072,8 @@
                 <div id="productList"></div>
             </div>
 
+            <!-- CATALOG SUMMARY VIEW (hidden by default) -->
+            <div id="giCatalogSummary" style="display:none;"></div>
 
         </div>
     </div>
@@ -8149,6 +8152,252 @@ function saveGlobalTargets(count) {
     closeModal('globalTargetsModal');
     showToast('Objetivos guardados: ' + targetSum + ' TVs en total (de ' + getGlobalTarget() + ')', 'success');
     renderLocations();
+}
+
+// ===== CATALOG SUMMARY =====
+var _catalogFilter = null;
+
+function openCatalogSummary() {
+    var catalogMain = document.getElementById('giCatalogMain');
+    var summaryView = document.getElementById('giCatalogSummary');
+    catalogMain.style.display = 'none';
+    renderCatalogSummaryPage();
+    summaryView.style.display = 'block';
+}
+
+function closeCatalogSummary() {
+    var catalogMain = document.getElementById('giCatalogMain');
+    var summaryView = document.getElementById('giCatalogSummary');
+    summaryView.style.display = 'none';
+    catalogMain.style.display = 'block';
+    _catalogFilter = null;
+}
+
+function toggleCatalogFilter(filter) {
+    if (_catalogFilter === filter) {
+        _catalogFilter = null;
+    } else {
+        _catalogFilter = filter;
+    }
+    renderCatalogSummaryPage();
+}
+
+function renderCatalogSummaryPage() {
+    var summaryView = document.getElementById('giCatalogSummary');
+    var products = getProducts();
+    var categories = getCategories();
+    var brands = getBrands();
+    var activeFilter = _catalogFilter;
+
+    // Build category map
+    var catMap = {};
+    var brandMap = {};
+    var usedCategories = [];
+    var usedBrands = [];
+    var totalValue = 0;
+
+    for (var i = 0; i < products.length; i++) {
+        var p = products[i];
+        var cat = p.category || 'Sin categoría';
+        var brand = p.brand || 'Sin marca';
+
+        // Category counting
+        if (!catMap[cat]) catMap[cat] = { name: cat, products: [] };
+        catMap[cat].products.push(p);
+
+        // Brand counting
+        if (!brandMap[brand]) brandMap[brand] = { name: brand, count: 0 };
+        brandMap[brand].count++;
+
+        // Track used categories/brands
+        if (usedCategories.indexOf(cat) === -1) usedCategories.push(cat);
+        if (usedBrands.indexOf(brand) === -1) usedBrands.push(brand);
+
+        totalValue += parseFloat(p.salePrice || p.price || 0);
+    }
+
+    var catKeys = Object.keys(catMap);
+    var brandKeys = Object.keys(brandMap);
+    catKeys.sort();
+    brandKeys.sort();
+
+    var html = '';
+
+    // Back button and title (same style as Locales resumen)
+    html += '<div class="loc-back" onclick="closeCatalogSummary()">&#8592; Volver</div>';
+    html += '<h2 style="font-size:20px;font-weight:800;margin-bottom:14px;">&#128202; Resumen del Cat&#225;logo</h2>';
+
+    // Main summary header (same gradient style as Locales)
+    html += '<div style="background:linear-gradient(135deg, var(--primary), #6c5ce7);border-radius:14px;padding:16px;margin-bottom:14px;color:#fff;">' +
+        '<div style="text-align:center;margin-bottom:12px;">' +
+            '<div style="font-size:11px;opacity:0.8;">Total de productos registrados</div>' +
+            '<div style="font-size:36px;font-weight:900;line-height:1.1;margin:4px 0;">' + products.length + '</div>' +
+        '</div>' +
+        '<div style="display:flex;justify-content:center;gap:16px;margin-top:10px;font-size:11px;">' +
+            '<span>&#128193; ' + usedCategories.length + ' categor&#237;as</span>' +
+            '<span>&#127991;&#65039; ' + usedBrands.length + ' marcas</span>' +
+            (totalValue > 0 ? '<span>&#128176; $' + totalValue.toLocaleString() + '</span>' : '') +
+        '</div>' +
+    '</div>';
+
+    // Quick stats cards (same grid as Locales: 3 columns)
+    var fCatStyle = (activeFilter === 'cat') ? 'transform:scale(1.05);box-shadow:0 0 0 2px var(--primary);' : '';
+    var fBrandStyle = (activeFilter === 'brand') ? 'transform:scale(1.05);box-shadow:0 0 0 2px var(--primary);' : '';
+    var fPriceStyle = (activeFilter === 'price') ? 'transform:scale(1.05);box-shadow:0 0 0 2px var(--primary);' : '';
+
+    // Average price
+    var avgPrice = products.length > 0 ? Math.round(totalValue / products.length) : 0;
+
+    html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px;">' +
+        '<div onclick="toggleCatalogFilter(\'cat\')" style="background:#6c5ce718;border:1px solid #6c5ce730;border-radius:10px;padding:10px;text-align:center;cursor:pointer;transition:all 0.15s;' + fCatStyle + '">' +
+            '<div style="font-size:22px;font-weight:800;color:#6c5ce7;">' + usedCategories.length + '</div>' +
+            '<div style="font-size:10px;color:var(--text3);">Categor&#237;as</div>' +
+            '<div style="font-size:9px;font-weight:700;color:#6c5ce7;margin-top:4px;">&#128071; Ver</div>' +
+        '</div>' +
+        '<div onclick="toggleCatalogFilter(\'brand\')" style="background:#00b89418;border:1px solid #00b89430;border-radius:10px;padding:10px;text-align:center;cursor:pointer;transition:all 0.15s;' + fBrandStyle + '">' +
+            '<div style="font-size:22px;font-weight:800;color:#00b894;">' + usedBrands.length + '</div>' +
+            '<div style="font-size:10px;color:var(--text3);">Marcas</div>' +
+            '<div style="font-size:9px;font-weight:700;color:#00b894;margin-top:4px;">&#128071; Ver</div>' +
+        '</div>' +
+        '<div onclick="toggleCatalogFilter(\'price\')" style="background:#e1705518;border:1px solid #e1705530;border-radius:10px;padding:10px;text-align:center;cursor:pointer;transition:all 0.15s;' + fPriceStyle + '">' +
+            '<div style="font-size:22px;font-weight:800;color:#e17055;">$' + avgPrice.toLocaleString() + '</div>' +
+            '<div style="font-size:10px;color:var(--text3);">Precio Prom.</div>' +
+            '<div style="font-size:9px;font-weight:700;color:#e17055;margin-top:4px;">&#128071; Ver</div>' +
+        '</div>' +
+    '</div>';
+
+    // Active filter banner (same style as Locales)
+    if (activeFilter) {
+        var filterLabels = { cat: 'Por Categoría', brand: 'Por Marca', price: 'Por Precio' };
+        html += '<div onclick="toggleCatalogFilter(\'' + activeFilter + '\')" style="display:flex;align-items:center;justify-content:space-between;background:var(--primary);color:#fff;border-radius:10px;padding:10px 14px;margin-bottom:12px;cursor:pointer;">' +
+            '<span style="font-size:12px;font-weight:700;">Filtrando: ' + (filterLabels[activeFilter] || activeFilter) + '</span>' +
+            '<span style="font-size:11px;background:rgba(255,255,255,0.25);padding:3px 10px;border-radius:6px;">&#10005; Mostrar todo</span>' +
+        '</div>';
+    }
+
+    // ===== CATEGORIES BREAKDOWN (always show, or filtered) =====
+    if (!activeFilter || activeFilter === 'cat') {
+        html += '<div style="font-size:12px;font-weight:800;color:var(--text3);margin:14px 0 8px;text-transform:uppercase;letter-spacing:0.5px;">&#128193; Categor&#237;as</div>';
+        for (var ci = 0; ci < catKeys.length; ci++) {
+            var cat = catMap[catKeys[ci]];
+            var catCount = cat.products.length;
+            var catValue = 0;
+            var catBrands = [];
+            for (var cp = 0; cp < cat.products.length; cp++) {
+                catValue += parseFloat(cat.products[cp].salePrice || cat.products[cp].price || 0);
+                var cb = cat.products[cp].brand || 'Sin marca';
+                if (catBrands.indexOf(cb) === -1) catBrands.push(cb);
+            }
+            var catAvg = catCount > 0 ? Math.round(catValue / catCount) : 0;
+
+            html += '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:8px;">' +
+                '<div style="display:flex;align-items:center;justify-content:space-between;">' +
+                    '<div style="display:flex;align-items:center;gap:8px;">' +
+                        '<span style="font-size:14px;font-weight:700;color:var(--text);">&#128193; ' + escapeHtml(cat.name) + '</span>' +
+                        '<span style="background:#6c5ce720;color:#6c5ce7;font-size:9px;padding:1px 6px;border-radius:6px;font-weight:700;">' + catCount + ' prod' + (catCount !== 1 ? 's' : '') + '</span>' +
+                    '</div>' +
+                    '<div style="text-align:right;">' +
+                        '<div style="font-size:18px;font-weight:800;color:var(--primary);">$' + catValue.toLocaleString() + '</div>' +
+                        '<div style="font-size:10px;color:var(--text3);">Prom: $' + catAvg.toLocaleString() + '</div>' +
+                    '</div>' +
+                '</div>' +
+                (catBrands.length > 0 ? '<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:2px;">' +
+                    catBrands.map(function(b) { return '<span style="display:inline-block;background:var(--bg);font-size:10px;padding:2px 7px;border-radius:5px;color:var(--text2);">' + escapeHtml(b) + '</span>'; }).join('') +
+                '</div>' : '') +
+            '</div>';
+        }
+    }
+
+    // ===== BRANDS BREAKDOWN (show when filtered by brand, or always after categories if no filter) =====
+    if (activeFilter === 'brand') {
+        html += '<div style="font-size:12px;font-weight:800;color:var(--text3);margin:14px 0 8px;text-transform:uppercase;letter-spacing:0.5px;">&#127991;&#65039; Marcas</div>';
+        for (var bi = 0; bi < brandKeys.length; bi++) {
+            var br = brandMap[brandKeys[bi]];
+            // Get categories this brand appears in
+            var brCategories = [];
+            var brValue = 0;
+            for (var pi2 = 0; pi2 < products.length; pi2++) {
+                if ((products[pi2].brand || 'Sin marca') === br.name) {
+                    brValue += parseFloat(products[pi2].salePrice || products[pi2].price || 0);
+                    var bc = products[pi2].category || 'Sin categoría';
+                    if (brCategories.indexOf(bc) === -1) brCategories.push(bc);
+                }
+            }
+
+            html += '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:8px;">' +
+                '<div style="display:flex;align-items:center;justify-content:space-between;">' +
+                    '<div style="display:flex;align-items:center;gap:8px;">' +
+                        '<span style="font-size:14px;font-weight:700;color:var(--text);">&#127991;&#65039; ' + escapeHtml(br.name) + '</span>' +
+                        '<span style="background:#00b89420;color:#00b894;font-size:9px;padding:1px 6px;border-radius:6px;font-weight:700;">' + br.count + ' prod' + (br.count !== 1 ? 's' : '') + '</span>' +
+                    '</div>' +
+                    '<div style="text-align:right;">' +
+                        '<div style="font-size:18px;font-weight:800;color:var(--primary);">$' + brValue.toLocaleString() + '</div>' +
+                        '<div style="font-size:10px;color:var(--text3);">' + brCategories.length + ' categor&#237;a' + (brCategories.length !== 1 ? 's' : '') + '</div>' +
+                    '</div>' +
+                '</div>' +
+                (brCategories.length > 0 ? '<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:2px;">' +
+                    brCategories.map(function(c) { return '<span style="display:inline-block;background:var(--bg);font-size:10px;padding:2px 7px;border-radius:5px;color:var(--text2);">' + escapeHtml(c) + '</span>'; }).join('') +
+                '</div>' : '') +
+            '</div>';
+        }
+    }
+
+    // ===== PRICE BREAKDOWN (show when filtered by price) =====
+    if (activeFilter === 'price') {
+        // Group products by price ranges
+        var priceRanges = [
+            { label: 'Económicos (hasta $50)', min: 0, max: 50, color: '#00b894', icon: '&#128176;' },
+            { label: 'Medio rango ($50 - $200)', min: 50, max: 200, color: '#6c5ce7', icon: '&#128176;' },
+            { label: 'Premium ($200 - $500)', min: 200, max: 500, color: '#e17055', icon: '&#128176;' },
+            { label: 'Alto valor (más de $500)', min: 500, max: Infinity, color: '#d63031', icon: '&#128142;' }
+        ];
+        var hasAnyInRange = false;
+
+        html += '<div style="font-size:12px;font-weight:800;color:var(--text3);margin:14px 0 8px;text-transform:uppercase;letter-spacing:0.5px;">&#128176; Rangos de Precio</div>';
+
+        for (var ri = 0; ri < priceRanges.length; ri++) {
+            var range = priceRanges[ri];
+            var rangeProducts = [];
+            var rangeTotal = 0;
+            for (var rp = 0; rp < products.length; rp++) {
+                var rPrice = parseFloat(products[rp].salePrice || products[rp].price || 0);
+                if (rPrice >= range.min && rPrice < range.max) {
+                    rangeProducts.push(products[rp]);
+                    rangeTotal += rPrice;
+                }
+            }
+            if (rangeProducts.length === 0) continue;
+            hasAnyInRange = true;
+            var rangeAvg = rangeProducts.length > 0 ? Math.round(rangeTotal / rangeProducts.length) : 0;
+
+            html += '<div style="background:' + range.color + '10;border:1px solid ' + range.color + '20;border-radius:10px;padding:10px 12px;margin-bottom:6px;">' +
+                '<div style="display:flex;justify-content:space-between;align-items:center;">' +
+                    '<div style="flex:1;min-width:0;">' +
+                        '<div style="font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + range.icon + ' ' + range.label + '</div>' +
+                    '</div>' +
+                    '<div style="text-align:right;flex-shrink:0;margin-left:8px;">' +
+                        '<div style="font-size:18px;font-weight:800;color:' + range.color + ';">' + rangeProducts.length + '</div>' +
+                        '<div style="font-size:10px;color:' + range.color + ';font-weight:600;">Total: $' + rangeTotal.toLocaleString() + '</div>' +
+                    '</div>' +
+                '</div>' +
+            '</div>';
+        }
+
+        if (!hasAnyInRange) {
+            html += '<div style="text-align:center;padding:30px 20px;color:var(--text3);font-size:13px;">No hay productos con precios registrados</div>';
+        }
+    }
+
+    // Empty state
+    if (products.length === 0) {
+        html += '<div style="text-align:center;padding:30px 20px;">' +
+            '<div style="font-size:48px;margin-bottom:12px;">&#128203;</div>' +
+            '<div style="color:var(--text2);font-size:14px;margin-bottom:16px;">A&#250;n no tienes productos en el cat&#225;logo</div>' +
+            '<button class="btn btn-primary" onclick="closeCatalogSummary();openAddProduct();" style="width:auto;display:inline-flex;">&#10133; Agregar Producto</button>' +
+        '</div>';
+    }
+
+    summaryView.innerHTML = html;
 }
 
 // ===== STOCK SUMMARY =====
