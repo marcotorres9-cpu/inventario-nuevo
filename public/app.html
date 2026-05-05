@@ -1437,6 +1437,19 @@
                     <span id="tabBBadge">0</span> <span id="tabBTitle">Opción B</span>
                 </button>
             </div>
+            <!-- Mini dual summary — always visible in dual mode -->
+            <div id="dualMiniSummary" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px;">
+                <div id="dualMiniA" style="background:var(--primary-bg);border:2px solid var(--primary);border-radius:8px;padding:8px;text-align:center;cursor:pointer;" onclick="switchQuotTab('A')">
+                    <div style="font-size:10px;font-weight:700;color:var(--text3);" id="dualMiniATitle">Opción A</div>
+                    <div style="font-size:9px;color:var(--text3);margin-top:2px;" id="dualMiniACount">0 productos</div>
+                    <div style="font-size:16px;font-weight:800;color:var(--primary);margin-top:2px;" id="dualMiniATotal">$0.00</div>
+                </div>
+                <div id="dualMiniB" style="background:var(--bg2);border:2px solid var(--border);border-radius:8px;padding:8px;text-align:center;cursor:pointer;" onclick="switchQuotTab('B')">
+                    <div style="font-size:10px;font-weight:700;color:var(--text3);" id="dualMiniBTitle">Opción B</div>
+                    <div style="font-size:9px;color:var(--text3);margin-top:2px;" id="dualMiniBCount">0 productos</div>
+                    <div style="font-size:16px;font-weight:800;color:var(--text2);margin-top:2px;" id="dualMiniBTotal">$0.00</div>
+                </div>
+            </div>
         </div>
         
         <!-- Option Title (editable, shown per tab in dual mode) -->
@@ -4358,9 +4371,12 @@ function renderQuotItems() {
     for (var i = 0; i < items.length; i++) {
         var it = items[i];
         var subtotal = (it.qty * it.price).toFixed(2);
+        var totalCost = ((it.qty || 0) * (it.costPrice || 0)).toFixed(2);
+        var profit = ((it.qty * it.price) - (it.qty * (it.costPrice || 0))).toFixed(2);
         var stockInfo = it.maxStock !== undefined ? ' | Stock: ' + it.maxStock : '';
         var isModified = it.originalPrice && it.price !== it.originalPrice;
         var priceLabel = isModified ? '<span style="text-decoration:line-through;opacity:0.5;font-size:10px;margin-right:4px;">$' + parseFloat(it.originalPrice).toFixed(2) + '</span>' : '';
+        var costLabel = (it.costPrice > 0) ? '<div style="font-size:10px;color:var(--text3);margin-top:1px;">Costo: $' + parseFloat(it.costPrice).toFixed(2) + ' | Ganancia: $' + parseFloat(profit).toFixed(2) + '</div>' : '';
         var specsHtml = '';
         if (it.specifications) {
             try {
@@ -4380,6 +4396,7 @@ function renderQuotItems() {
                 '<div style="flex:1;min-width:0;">' +
                     '<div style="font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(it.productName) + '</div>' +
                     specsHtml +
+                    costLabel +
                     '<div style="display:flex;align-items:center;gap:4px;margin-top:4px;">' +
                         '<span style="font-size:11px;color:var(--text3);">$</span>' +
                         '<input type="number" class="input" value="' + parseFloat(it.price).toFixed(2) + '" min="0" step="0.01" onchange="setQuotItemPrice(' + i + ',this.value)" style="width:80px;text-align:center;padding:3px 6px;font-size:12px;">' +
@@ -4458,7 +4475,10 @@ function showQuotProductPicker() {
     content.innerHTML = '<div class="modal-handle"></div>' +
         '<div class="modal-header">' +
             '<h3 class="modal-title">📦 Seleccionar Producto</h3>' +
-            '<button class="modal-close" onclick="document.body.removeChild(document.getElementById(\'quotProductPicker\'))">✕</button>' +
+            '<div style="display:flex;align-items:center;gap:6px;">' +
+                '<span id="pickerAddedCount" style="background:var(--primary);color:#fff;font-size:10px;padding:2px 8px;border-radius:10px;font-weight:700;">' + (quotItemsA.length + quotItemsB.length) + ' agregados</span>' +
+                '<button class="modal-close" onclick="closeQuotPicker()">✕</button>' +
+            '</div>' +
         '</div>' +
         '<div style="display:flex;gap:6px;margin-bottom:10px;">' +
             '<button class="btn btn-sm" id="pickerInvBtn" style="flex:1;" onclick="switchPickerTab(\'inv\')">📦 Inventario</button>' +
@@ -4472,6 +4492,19 @@ function showQuotProductPicker() {
     document.body.appendChild(overlay);
 
     switchPickerTab('inv');
+}
+
+function closeQuotPicker() {
+    var picker = document.getElementById('quotProductPicker');
+    if (picker) document.body.removeChild(picker);
+}
+
+function updatePickerBadge() {
+    var badge = document.getElementById('pickerAddedCount');
+    if (badge) {
+        var total = (quotCurrentTab === 'A' ? quotItemsA.length : quotItemsB.length);
+        badge.textContent = total + ' agregado' + (total !== 1 ? 's' : '');
+    }
 }
 
 function switchPickerTab(tab) {
@@ -4584,6 +4617,7 @@ function addProductToQuotation(productId) {
         qty: 1,
         price: parseFloat(product.salePrice) || parseFloat(product.price) || 0,
         originalPrice: parseFloat(product.salePrice) || parseFloat(product.price) || 0,
+        costPrice: parseFloat(product.costPrice) || 0,
         maxStock: parseInt(product.stock) || 0,
         specifications: product.specifications || null
     });
@@ -4591,7 +4625,10 @@ function addProductToQuotation(productId) {
     updateTabUI();
     renderQuotItems();
     calcQuotTotals();
+    updatePickerBadge();
     showToast(product.name + ' añadido', 'success');
+    // Don't close picker — refresh the picker list to show item as added
+    filterPickerProducts();
 }
 
 function addCustomProductToQuotation() {
@@ -4611,6 +4648,7 @@ function addCustomProductToQuotation() {
         productName: name + (brand ? ' - ' + brand : '') + (model ? ' ' + model : ''),
         qty: 1,
         price: price,
+        costPrice: 0,
         maxStock: undefined
     });
     setCurrentItems(items);
@@ -4639,9 +4677,17 @@ function addCustomProductToQuotation() {
     updateTabUI();
     renderQuotItems();
     calcQuotTotals();
+    updatePickerBadge();
 
-    var picker = document.getElementById('quotProductPicker');
-    if (picker) document.body.removeChild(picker);
+    // Clear custom form fields but keep picker open
+    var nameEl = document.getElementById('customProdName');
+    var brandEl = document.getElementById('customProdBrand');
+    var modelEl = document.getElementById('customProdModel');
+    var priceEl = document.getElementById('customProdPrice');
+    if (nameEl) nameEl.value = '';
+    if (brandEl) brandEl.value = '';
+    if (modelEl) modelEl.value = '';
+    if (priceEl) priceEl.value = '';
     showToast(name + ' añadido', 'success');
 }
 
@@ -4669,6 +4715,53 @@ function calcQuotTotals() {
 
     var total = Math.max(0, subtotal - discountAmount);
     document.getElementById('quotTotal').textContent = formatMoney(total);
+
+    // Update dual mini summary if in dual mode
+    if (quotIsDualMode) {
+        updateDualMiniSummary();
+    }
+}
+
+function updateDualMiniSummary() {
+    var elMiniA = document.getElementById('dualMiniA');
+    var elMiniB = document.getElementById('dualMiniB');
+    if (!elMiniA || !elMiniB) return;
+
+    // Calculate totals for both options
+    var totalA = 0, totalB = 0;
+    for (var i = 0; i < quotItemsA.length; i++) totalA += (quotItemsA[i].qty || 0) * (quotItemsA[i].price || 0);
+    for (var i = 0; i < quotItemsB.length; i++) totalB += (quotItemsB[i].qty || 0) * (quotItemsB[i].price || 0);
+
+    // Apply discounts
+    var discA = quotDiscountA.type === 'percentage' ? totalA * (quotDiscountA.value / 100) : quotDiscountA.value;
+    var discB = quotDiscountB.type === 'percentage' ? totalB * (quotDiscountB.value / 100) : quotDiscountB.value;
+    totalA = Math.max(0, totalA - discA);
+    totalB = Math.max(0, totalB - discB);
+
+    document.getElementById('dualMiniATitle').textContent = quotOptionTitleA;
+    document.getElementById('dualMiniACount').textContent = quotItemsA.length + ' producto' + (quotItemsA.length !== 1 ? 's' : '');
+    document.getElementById('dualMiniATotal').textContent = formatMoney(totalA);
+
+    document.getElementById('dualMiniBTitle').textContent = quotOptionTitleB;
+    document.getElementById('dualMiniBCount').textContent = quotItemsB.length + ' producto' + (quotItemsB.length !== 1 ? 's' : '');
+    document.getElementById('dualMiniBTotal').textContent = formatMoney(totalB);
+
+    // Highlight active tab
+    if (quotCurrentTab === 'A') {
+        elMiniA.style.background = 'var(--primary-bg)';
+        elMiniA.style.borderColor = 'var(--primary)';
+        elMiniA.querySelector('#dualMiniATotal').style.color = 'var(--primary)';
+        elMiniB.style.background = 'var(--bg2)';
+        elMiniB.style.borderColor = 'var(--border)';
+        elMiniB.querySelector('#dualMiniBTotal').style.color = 'var(--text2)';
+    } else {
+        elMiniB.style.background = 'var(--primary-bg)';
+        elMiniB.style.borderColor = 'var(--primary)';
+        elMiniB.querySelector('#dualMiniBTotal').style.color = 'var(--primary)';
+        elMiniA.style.background = 'var(--bg2)';
+        elMiniA.style.borderColor = 'var(--border)';
+        elMiniA.querySelector('#dualMiniATotal').style.color = 'var(--text2)';
+    }
 }
 
 function clearQuotation() {
@@ -4778,6 +4871,7 @@ function saveQuotation() {
                 qty: items[i].qty,
                 price: items[i].price,
                 originalPrice: items[i].originalPrice || items[i].price,
+                costPrice: items[i].costPrice || 0,
                 specifications: items[i].specifications || null
             });
         }
@@ -4942,14 +5036,16 @@ function viewQuotation(id) {
         }
 
         h += '<table class="qv-table"><thead><tr>' +
-            '<th>Producto</th><th>Cant.</th><th>Precio</th><th>Subtotal</th>' +
+            '<th>Producto</th><th>Cant.</th><th>Costo</th><th>Precio</th><th>Subtotal</th>' +
             '</tr></thead><tbody>';
         for (var j = 0; j < section.items.length; j++) {
             var item = section.items[j];
             var sub = (item.qty * (item.price || 0)).toFixed(2);
+            var itemCost = (item.qty * (item.costPrice || 0)).toFixed(2);
             h += '<tr>' +
                 '<td>' + escapeHtml(item.productName || item.name || '') + '</td>' +
                 '<td>' + item.qty + '</td>' +
+                '<td style="color:var(--text3);">' + (item.costPrice ? formatMoney(item.costPrice) : '-') + '</td>' +
                 '<td>' + formatMoney(item.price) + '</td>' +
                 '<td><strong>' + formatMoney(sub) + '</strong></td>' +
                 '</tr>';
@@ -8681,10 +8777,83 @@ function renderCatalogSummaryPage() {
     summaryView.innerHTML = html;
 }
 
-// ===== CATALOG REPORT (PDF/Print) — similar to Faltantes report =====
+// ===== CATALOG REPORT (PDF/Print) — with filters =====
 function exportCatalogReport() {
     var products = getProducts();
     if (!products || products.length === 0) { showToast('No hay productos', 'error'); return; }
+
+    // Build available filters
+    var allCats = {}, allBrands = {};
+    for (var i = 0; i < products.length; i++) {
+        var c = products[i].category || 'Sin categoria';
+        var b = products[i].brand || 'Sin marca';
+        allCats[c] = (allCats[c] || 0) + 1;
+        allBrands[b] = (allBrands[b] || 0) + 1;
+    }
+    var catKeys = Object.keys(allCats).sort();
+    var brandKeys = Object.keys(allBrands).sort();
+
+    // Show filter overlay
+    var filterHtml = '<div style="position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.6);display:flex;align-items:flex-end;justify-content:center;" id="catalogReportFilterOverlay" onclick="if(event.target===this)this.remove();">' +
+        '<div style="background:var(--bg);border-radius:16px 16px 0 0;padding:16px;width:100%;max-width:500px;max-height:85vh;overflow-y:auto;">' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">' +
+            '<h3 style="font-size:16px;font-weight:800;color:var(--text);margin:0;">\uD83D\uDCC4 Filtros del Reporte</h3>' +
+            '<button onclick="document.getElementById(\'catalogReportFilterOverlay\').remove()" style="font-size:20px;background:none;border:none;color:var(--danger);cursor:pointer;">\u2715</button>' +
+        '</div>' +
+        '<div style="font-size:12px;font-weight:700;color:var(--text3);margin-bottom:6px;">\uD83D\uDCC2 Categorias</div>' +
+        '<div id="reportFilterCats" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:12px;">';
+    for (var ci = 0; ci < catKeys.length; ci++) {
+        filterHtml += '<label style="display:flex;align-items:center;gap:4px;background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:4px 10px;font-size:11px;cursor:pointer;"><input type="checkbox" value="' + escapeHtml(catKeys[ci]).replace(/"/g, '&quot;') + '" style="width:14px;height:14px;" checked> ' + escapeHtml(catKeys[ci]) + ' <span style="color:var(--text3);">(' + allCats[catKeys[ci]] + ')</span></label>';
+    }
+    filterHtml += '</div>' +
+        '<div style="display:flex;gap:6px;margin-bottom:12px;"><button class="btn btn-xs btn-outline" onclick="document.querySelectorAll(\'#reportFilterCats input\').forEach(function(c){c.checked=true})" style="flex:1;font-size:10px;">\u2705 Todas</button><button class="btn btn-xs btn-outline" onclick="document.querySelectorAll(\'#reportFilterCats input\').forEach(function(c){c.checked=false})" style="flex:1;font-size:10px;">\u274C Ninguna</button></div>' +
+        '<div style="font-size:12px;font-weight:700;color:var(--text3);margin-bottom:6px;">\uD83C\uDFFE\uFE0F Marcas</div>' +
+        '<div id="reportFilterBrands" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:12px;">';
+    for (var bi = 0; bi < brandKeys.length; bi++) {
+        filterHtml += '<label style="display:flex;align-items:center;gap:4px;background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:4px 10px;font-size:11px;cursor:pointer;"><input type="checkbox" value="' + escapeHtml(brandKeys[bi]).replace(/"/g, '&quot;') + '" style="width:14px;height:14px;" checked> ' + escapeHtml(brandKeys[bi]) + ' <span style="color:var(--text3);">(' + allBrands[brandKeys[bi]] + ')</span></label>';
+    }
+    filterHtml += '</div>' +
+        '<div style="display:flex;gap:6px;margin-bottom:12px;"><button class="btn btn-xs btn-outline" onclick="document.querySelectorAll(\'#reportFilterBrands input\').forEach(function(c){c.checked=true})" style="flex:1;font-size:10px;">\u2705 Todas</button><button class="btn btn-xs btn-outline" onclick="document.querySelectorAll(\'#reportFilterBrands input\').forEach(function(c){c.checked=false})" style="flex:1;font-size:10px;">\u274C Ninguna</button></div>' +
+        '<div style="font-size:12px;font-weight:700;color:var(--text3);margin-bottom:6px;">\uD83D\uDCCB Tipo de Reporte</div>' +
+        '<div style="display:flex;gap:6px;margin-bottom:14px;">' +
+            '<button class="btn btn-sm" id="reportTypeFull" style="flex:1;" onclick="document.getElementById(\'reportTypeFull\').className=\'btn btn-sm\';document.getElementById(\'reportTypeReduced\').className=\'btn btn-sm btn-outline\';">\uD83D\uDCCB Completo</button>' +
+            '<button class="btn btn-sm btn-outline" id="reportTypeReduced" style="flex:1;" onclick="document.getElementById(\'reportTypeReduced\').className=\'btn btn-sm\';document.getElementById(\'reportTypeFull\').className=\'btn btn-sm btn-outline\';">\uD83D\uDD0D Reducido</button>' +
+        '</div>' +
+        '<div style="display:flex;gap:6px;margin-bottom:8px;">' +
+            '<button class="btn btn-xs btn-outline" onclick="document.querySelectorAll(\'#reportFilterCats input, #reportFilterBrands input\').forEach(function(c){c.checked=true});" style="flex:1;font-size:10px;">\uD83D\uDD04 Seleccionar Todo</button>' +
+            '<button class="btn btn-xs btn-outline" onclick="document.querySelectorAll(\'#reportFilterCats input, #reportFilterBrands input\').forEach(function(c){c.checked=false});" style="flex:1;font-size:10px;">\uD83D\uDD01 Deseleccionar Todo</button>' +
+        '</div>' +
+        '<button class="btn btn-primary" onclick="generateCatalogReport()" style="width:100%;font-size:14px;padding:12px;">\uD83D\uDCC4 Generar Reporte</button>' +
+    '</div></div>';
+    var overlay = document.createElement('div');
+    overlay.innerHTML = filterHtml;
+    document.body.appendChild(overlay);
+}
+
+function generateCatalogReport() {
+    // Gather filters
+    var selCats = [];
+    document.querySelectorAll('#reportFilterCats input:checked').forEach(function(cb) { selCats.push(cb.value); });
+    var selBrands = [];
+    document.querySelectorAll('#reportFilterBrands input:checked').forEach(function(cb) { selBrands.push(cb.value); });
+    var isReduced = document.getElementById('reportTypeReduced').className.indexOf('btn-outline') === -1;
+
+    // Close filter overlay
+    var filterOv = document.getElementById('catalogReportFilterOverlay');
+    if (filterOv) filterOv.remove();
+
+    var allProducts = getProducts();
+    // Apply filters
+    var products = [];
+    for (var i = 0; i < allProducts.length; i++) {
+        var p = allProducts[i];
+        var cat = p.category || 'Sin categoria';
+        var brand = p.brand || 'Sin marca';
+        var catOk = selCats.length === 0 || selCats.indexOf(cat) >= 0;
+        var brandOk = selBrands.length === 0 || selBrands.indexOf(brand) >= 0;
+        if (catOk && brandOk) products.push(p);
+    }
+    if (products.length === 0) { showToast('No hay productos con esos filtros', 'error'); return; }
 
     var today = new Date();
     var dateStr = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
@@ -8737,7 +8906,8 @@ function exportCatalogReport() {
             '<div class="summary-box"><div class="num">' + grandStock + '</div><div class="lbl">Stock Total</div></div>' +
         '</div>';
 
-    rHtml += '<table><thead><tr><th>Producto</th><th>SKU</th><th>Categoria</th><th>Marca</th><th>Color</th><th>Especificaciones</th><th>Costo</th><th>Venta</th><th>Margen</th><th>Stock</th></tr></thead><tbody>';
+    var reportCols = isReduced ? '<th>Producto</th><th>Marca</th><th>Venta</th><th>Costo</th><th>Margen</th>' : '<th>Producto</th><th>SKU</th><th>Categoria</th><th>Marca</th><th>Color</th><th>Especificaciones</th><th>Costo</th><th>Venta</th><th>Margen</th><th>Stock</th>';
+    rHtml += '<table><thead><tr>' + reportCols + '</tr></thead><tbody>';
 
     for (var ci = 0; ci < catKeys.length; ci++) {
         var catProds = catMap[catKeys[ci]];
@@ -8747,7 +8917,8 @@ function exportCatalogReport() {
             catVal += parseFloat(catProds[cp].salePrice || catProds[cp].price || 0);
             catCost += parseFloat(catProds[cp].costPrice || 0);
         }
-        rHtml += '<tr class="cat-row"><td colspan="7" style="text-align:left;padding-left:8px;">' + escapeHtml(catKeys[ci]) + ' (' + catProds.length + ')</td><td>$' + catVal.toLocaleString() + '</td><td>$' + catCost.toLocaleString() + '</td><td>' + (catVal > 0 ? Math.round(((catVal - catCost) / catVal) * 100) : 0) + '%</td></tr>';
+        var catSpan = isReduced ? 2 : 7;
+        rHtml += '<tr class="cat-row"><td colspan="' + catSpan + '" style="text-align:left;padding-left:8px;">' + escapeHtml(catKeys[ci]) + ' (' + catProds.length + ')</td><td>$' + catCost.toLocaleString() + '</td><td>$' + catVal.toLocaleString() + '</td><td>' + (catVal > 0 ? Math.round(((catVal - catCost) / catVal) * 100) : 0) + '%</td>' + (isReduced ? '' : '<td>' + catStock + '</td>') + '</tr>';
 
         for (var pi = 0; pi < catProds.length; pi++) {
             var pr = catProds[pi];
@@ -8761,12 +8932,17 @@ function exportCatalogReport() {
                 var svv = (sp[spk[si]] || '').trim();
                 if (svv) specsStr += (specsStr ? ', ' : '') + spk[si] + ': ' + svv;
             }
-            rHtml += '<tr><td class="name-col">' + escapeHtml(pr.name) + '</td><td>' + escapeHtml(pr.sku || '') + '</td><td>' + escapeHtml(pr.category || '') + '</td><td>' + escapeHtml(pr.brand || '') + '</td><td>' + escapeHtml(pr.color || '') + '</td><td style="font-size:9px;text-align:left;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(specsStr) + '</td><td>$' + prCost.toLocaleString() + '</td><td>$' + prSale.toLocaleString() + '</td><td>' + prMargin + '%</td><td>' + (parseInt(pr.stock) || 0) + '</td></tr>';
+            if (isReduced) {
+                rHtml += '<tr><td class="name-col">' + escapeHtml(pr.name) + '</td><td>' + escapeHtml(pr.brand || '') + '</td><td>$' + prSale.toLocaleString() + '</td><td>$' + prCost.toLocaleString() + '</td><td>' + prMargin + '%</td></tr>';
+            } else {
+                rHtml += '<tr><td class="name-col">' + escapeHtml(pr.name) + '</td><td>' + escapeHtml(pr.sku || '') + '</td><td>' + escapeHtml(pr.category || '') + '</td><td>' + escapeHtml(pr.brand || '') + '</td><td>' + escapeHtml(pr.color || '') + '</td><td style="font-size:9px;text-align:left;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(specsStr) + '</td><td>$' + prCost.toLocaleString() + '</td><td>$' + prSale.toLocaleString() + '</td><td>' + prMargin + '%</td><td>' + (parseInt(pr.stock) || 0) + '</td></tr>';
+            }
         }
     }
 
     var grandMargin = grandValue > 0 ? Math.round(((grandValue - grandCost) / grandValue) * 100) : 0;
-    rHtml += '<tr class="total-row"><td colspan="6" style="text-align:right;padding-right:12px;">TOTAL</td><td>$' + grandCost.toLocaleString() + '</td><td>$' + grandValue.toLocaleString() + '</td><td>' + grandMargin + '%</td><td>' + grandStock + '</td></tr>';
+    var totalSpan = isReduced ? 2 : 6;
+    rHtml += '<tr class="total-row"><td colspan="' + totalSpan + '" style="text-align:right;padding-right:12px;">TOTAL (' + products.length + ')</td><td>$' + grandCost.toLocaleString() + '</td><td>$' + grandValue.toLocaleString() + '</td><td>' + grandMargin + '%</td>' + (isReduced ? '' : '<td>' + grandStock + '</td>') + '</tr>';
     rHtml += '</tbody></table></body></html>';
 
     window._catalogReportHtml = rHtml;
@@ -8832,7 +9008,9 @@ function exportCatalogReport() {
     overlay.id = 'catalogReportOverlay';
     overlay.innerHTML = viewHtml;
     document.body.appendChild(overlay);
-    showToast('Reporte de ' + products.length + ' productos', 'success');
+    // Show filter info in toast
+    var filterInfo = (selCats.length > 0 ? selCats.length + ' cat(s)' : 'Todas') + ', ' + (selBrands.length > 0 ? selBrands.length + ' marca(s)' : 'Todas') + (isReduced ? ' [Reducido]' : ' [Completo]');
+    showToast('Reporte de ' + products.length + ' productos — ' + filterInfo, 'success');
 }
 
 function closeCatalogReport() {
