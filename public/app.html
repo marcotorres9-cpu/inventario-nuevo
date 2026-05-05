@@ -4359,14 +4359,68 @@ function copyProductsBetween() {
 }
 
 function renderQuotItems() {
-    var items = getCurrentItems();
     var container = document.getElementById('quotItems');
+
+    // ===== DUAL MODE: Show both options side by side =====
+    if (quotIsDualMode) {
+        var h = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">';
+        h += renderQuotItemsColumn('A', quotItemsA, quotCurrentTab === 'A');
+        h += renderQuotItemsColumn('B', quotItemsB, quotCurrentTab === 'B');
+        h += '</div>';
+        container.innerHTML = h;
+        return;
+    }
+
+    // ===== SIMPLE MODE: Single column =====
+    var items = getCurrentItems();
 
     if (items.length === 0) {
         container.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text3);font-size:13px;border:1px dashed var(--border);border-radius:10px;">Sin productos — toca "Agregar" para comenzar</div>';
         return;
     }
 
+    container.innerHTML = renderQuotItemsList(items, 'A');
+}
+
+// Renders a single column for dual mode
+function renderQuotItemsColumn(tab, items, isActive) {
+    var title = tab === 'A' ? quotOptionTitleA : quotOptionTitleB;
+    var borderColor = isActive ? 'var(--primary)' : 'var(--border)';
+    var bgHighlight = isActive ? 'var(--primary-bg)' : 'transparent';
+    var totalVal = 0, totalCost = 0;
+    for (var i = 0; i < items.length; i++) {
+        totalVal += (items[i].qty || 0) * (items[i].price || 0);
+        totalCost += (items[i].qty || 0) * (items[i].costPrice || 0);
+    }
+
+    var h = '<div style="border:2px solid ' + borderColor + ';border-radius:12px;padding:8px;background:' + bgHighlight + ';transition:border-color 0.2s,background 0.2s;">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">' +
+            '<span style="font-size:12px;font-weight:800;color:' + (isActive ? 'var(--primary)' : 'var(--text3)') + ';">' + escapeHtml(title) + '</span>' +
+            '<span style="font-size:16px;font-weight:800;color:' + (isActive ? 'var(--primary)' : 'var(--text2)') + ';">$' + totalVal.toFixed(2) + '</span>' +
+        '</div>';
+
+    if (items.length === 0) {
+        h += '<div style="text-align:center;padding:16px 8px;color:var(--text3);font-size:11px;border:1px dashed var(--border);border-radius:8px;">Sin productos<br><span style="font-size:9px;">Cambia a esta pestaña para agregar</span></div>';
+    } else {
+        h += renderQuotItemsList(items, tab);
+    }
+
+    if (totalCost > 0) {
+        var profit = totalVal - totalCost;
+        var pct = totalVal > 0 ? Math.round((profit / totalVal) * 100) : 0;
+        var pColor = profit >= 0 ? '#00b894' : 'var(--danger)';
+        h += '<div style="margin-top:6px;padding-top:6px;border-top:1px solid var(--border);display:flex;justify-content:space-between;font-size:10px;">' +
+            '<span style="color:var(--text3);">Costo: $' + totalCost.toFixed(2) + '</span>' +
+            '<span style="font-weight:700;color:' + pColor + ';">Ganancia: $' + profit.toFixed(2) + ' (' + pct + '%)</span>' +
+        '</div>';
+    }
+
+    h += '</div>';
+    return h;
+}
+
+// Renders the list of items for a given tab
+function renderQuotItemsList(items, tab) {
     var h = '';
     for (var i = 0; i < items.length; i++) {
         var it = items[i];
@@ -4439,7 +4493,7 @@ function renderQuotItems() {
             '</div>' +
         '</div>';
     }
-    container.innerHTML = h;
+    return h;
 }
 
 function setQuotItemPrice(index, val) {
@@ -4868,6 +4922,7 @@ function saveQuotation() {
     var notes = document.getElementById('quotNotes').value.trim();
     var validDays = parseInt(document.getElementById('quotValidDays').value) || 15;
 
+    // Save discount from current tab
     saveCurrentTabDiscount();
 
     var hasItemsA = quotItemsA.length > 0;
@@ -4904,6 +4959,9 @@ function saveQuotation() {
         return clean;
     }
 
+    var cleanA = cleanItems(quotItemsA);
+    var cleanB = cleanItems(quotItemsB);
+
     if (editId) {
         for (var u = 0; u < quotes.length; u++) {
             if (quotes[u].id === editId) {
@@ -4915,21 +4973,21 @@ function saveQuotation() {
                 quotes[u].isDualMode = quotIsDualMode;
                 quotes[u].optionTitleA = quotOptionTitleA;
                 quotes[u].optionTitleB = quotOptionTitleB;
-                quotes[u].itemsA = cleanItems(quotItemsA);
-                quotes[u].itemsB = cleanItems(quotItemsB);
-                quotes[u].discountA = quotDiscountA;
-                quotes[u].discountB = quotDiscountB;
+                quotes[u].itemsA = cleanA;
+                quotes[u].itemsB = cleanB;
+                quotes[u].discountA = JSON.parse(JSON.stringify(quotDiscountA));
+                quotes[u].discountB = JSON.parse(JSON.stringify(quotDiscountB));
                 quotes[u].subtotal = totalsA.subtotal;
                 quotes[u].total = quotIsDualMode ? (totalsA.total + totalsB.total) : totalsA.total;
                 quotes[u].totalsA = totalsA;
                 quotes[u].totalsB = quotIsDualMode ? totalsB : null;
-                quotes[u].items = quotItemsA;
+                quotes[u].items = cleanA;
                 quotes[u].updatedAt = new Date().toISOString();
                 break;
             }
         }
         saveQuotations(quotes);
-        syncToServer('quotation');
+        try { syncToServer('quotation'); } catch(e) { console.log('[SAVE] sync skipped:', e); }
         addActivity('Cotización editada');
         showToast('Cotización actualizada', 'success');
     } else {
@@ -4945,25 +5003,26 @@ function saveQuotation() {
             isDualMode: quotIsDualMode,
             optionTitleA: quotOptionTitleA,
             optionTitleB: quotOptionTitleB,
-            itemsA: cleanItems(quotItemsA),
-            itemsB: cleanItems(quotItemsB),
-            discountA: quotDiscountA,
-            discountB: quotDiscountB,
+            itemsA: cleanA,
+            itemsB: cleanB,
+            discountA: JSON.parse(JSON.stringify(quotDiscountA)),
+            discountB: JSON.parse(JSON.stringify(quotDiscountB)),
             subtotal: totalsA.subtotal,
             total: quotIsDualMode ? (totalsA.total + totalsB.total) : totalsA.total,
             totalsA: totalsA,
             totalsB: quotIsDualMode ? totalsB : null,
-            items: quotItemsA,
+            items: cleanA,
             createdAt: new Date().toISOString()
         };
         quotes.push(quot);
         saveQuotations(quotes);
-        syncToServer('quotation');
+        try { syncToServer('quotation'); } catch(e) { console.log('[SAVE] sync skipped:', e); }
         addActivity('Cotización creada: ' + num);
         showToast('Cotización ' + num + ' guardada', 'success');
     }
 
     closeModal('quotationModal');
+    showSavedQuotations();
     updateDashboard();
 }
 
