@@ -8156,11 +8156,16 @@ function saveGlobalTargets(count) {
 
 // ===== CATALOG SUMMARY =====
 var _catalogFilter = null;
+var _catalogDrill = null; // { type: 'category'|'brand'|'price', value: '...' }
+var _catalogDrillFilters = { brand: null, spec: null }; // sub-filters within drill
 
 function openCatalogSummary() {
     var catalogMain = document.getElementById('giCatalogMain');
     var summaryView = document.getElementById('giCatalogSummary');
     catalogMain.style.display = 'none';
+    _catalogDrill = null;
+    _catalogFilter = null;
+    _catalogDrillFilters = { brand: null, spec: null };
     renderCatalogSummaryPage();
     summaryView.style.display = 'block';
 }
@@ -8171,6 +8176,18 @@ function closeCatalogSummary() {
     summaryView.style.display = 'none';
     catalogMain.style.display = 'block';
     _catalogFilter = null;
+    _catalogDrill = null;
+    _catalogDrillFilters = { brand: null, spec: null };
+}
+
+function catalogGoBack() {
+    if (_catalogDrill) {
+        _catalogDrill = null;
+        _catalogDrillFilters = { brand: null, spec: null };
+        renderCatalogSummaryPage();
+    } else {
+        closeCatalogSummary();
+    }
 }
 
 function toggleCatalogFilter(filter) {
@@ -8179,225 +8196,654 @@ function toggleCatalogFilter(filter) {
     } else {
         _catalogFilter = filter;
     }
+    _catalogDrill = null;
+    _catalogDrillFilters = { brand: null, spec: null };
     renderCatalogSummaryPage();
+}
+
+function drillCatalog(type, value) {
+    _catalogDrill = { type: type, value: value };
+    _catalogDrillFilters = { brand: null, spec: null };
+    renderCatalogSummaryPage();
+}
+
+function toggleCatalogDrillFilter(key, value) {
+    if (_catalogDrillFilters[key] === value) {
+        _catalogDrillFilters[key] = null;
+    } else {
+        _catalogDrillFilters[key] = value;
+    }
+    renderCatalogSummaryPage();
+}
+
+// Helper: parse specifications from product
+function parseSpecs(p) {
+    if (!p.specifications) return {};
+    try { return (typeof p.specifications === 'string') ? JSON.parse(p.specifications) : p.specifications; }
+    catch(e) { return {}; }
+}
+
+// Helper: get all unique spec keys from a product array
+function getUniqueSpecKeys(prods) {
+    var keys = {};
+    for (var i = 0; i < prods.length; i++) {
+        var s = parseSpecs(prods[i]);
+        var sk = Object.keys(s);
+        for (var j = 0; j < sk.length; j++) {
+            var val = (s[sk[j]] || '').trim();
+            if (val) keys[sk[j]] = true;
+        }
+    }
+    return Object.keys(keys).sort();
+}
+
+// Helper: get all unique spec values for a given key
+function getUniqueSpecValues(prods, specKey) {
+    var vals = {};
+    for (var i = 0; i < prods.length; i++) {
+        var s = parseSpecs(prods[i]);
+        var v = (s[specKey] || '').trim();
+        if (v) vals[v] = true;
+    }
+    return Object.keys(vals).sort();
+}
+
+// Helper: render spec pills from a product
+function renderSpecPills(p, color) {
+    var s = parseSpecs(p);
+    var sk = Object.keys(s);
+    var html = '';
+    for (var i = 0; i < sk.length; i++) {
+        var v = (s[sk[i]] || '').trim();
+        if (v) html += '<span style="display:inline-block;background:' + color + '15;color:' + color + ';font-size:9px;padding:1px 5px;border-radius:3px;margin-right:3px;margin-bottom:2px;">' + escapeHtml(sk[i]) + ': ' + escapeHtml(v) + '</span>';
+    }
+    return html;
 }
 
 function renderCatalogSummaryPage() {
     var summaryView = document.getElementById('giCatalogSummary');
-    var products = getProducts();
+    var allProducts = getProducts();
     var categories = getCategories();
     var brands = getBrands();
     var activeFilter = _catalogFilter;
+    var drill = _catalogDrill;
 
-    // Build category map
+    // Build maps
     var catMap = {};
     var brandMap = {};
     var usedCategories = [];
     var usedBrands = [];
     var totalValue = 0;
+    var totalCost = 0;
 
-    for (var i = 0; i < products.length; i++) {
-        var p = products[i];
-        var cat = p.category || 'Sin categoría';
+    for (var i = 0; i < allProducts.length; i++) {
+        var p = allProducts[i];
+        var cat = p.category || 'Sin categoria';
         var brand = p.brand || 'Sin marca';
-
-        // Category counting
         if (!catMap[cat]) catMap[cat] = { name: cat, products: [] };
         catMap[cat].products.push(p);
-
-        // Brand counting
-        if (!brandMap[brand]) brandMap[brand] = { name: brand, count: 0 };
-        brandMap[brand].count++;
-
-        // Track used categories/brands
+        if (!brandMap[brand]) brandMap[brand] = { name: brand, products: [] };
+        brandMap[brand].products.push(p);
         if (usedCategories.indexOf(cat) === -1) usedCategories.push(cat);
         if (usedBrands.indexOf(brand) === -1) usedBrands.push(brand);
-
         totalValue += parseFloat(p.salePrice || p.price || 0);
+        totalCost += parseFloat(p.costPrice || 0);
     }
 
-    var catKeys = Object.keys(catMap);
-    var brandKeys = Object.keys(brandMap);
-    catKeys.sort();
-    brandKeys.sort();
+    var catKeys = Object.keys(catMap).sort();
+    var brandKeys = Object.keys(brandMap).sort();
 
     var html = '';
 
-    // Back button and title (same style as Locales resumen)
-    html += '<div class="loc-back" onclick="closeCatalogSummary()">&#8592; Volver</div>';
-    html += '<h2 style="font-size:20px;font-weight:800;margin-bottom:14px;">&#128202; Resumen del Cat&#225;logo</h2>';
+    // Back button — text changes based on drill level
+    var backLabel = drill ? '\u2190 Volver al Resumen' : '\u2190 Volver';
+    html += '<div class="loc-back" onclick="catalogGoBack()">' + backLabel + '</div>';
 
-    // Main summary header (same gradient style as Locales)
+    // Breadcrumb
+    if (drill) {
+        var drillLabel = '';
+        if (drill.type === 'category') drillLabel = '\uD83D\uDCC2 ' + escapeHtml(drill.value);
+        else if (drill.type === 'brand') drillLabel = '\uD83C\uDFFE\uFE0F ' + escapeHtml(drill.value);
+        else if (drill.type === 'price') drillLabel = '\uD83D\uDCB0 ' + drill.value;
+        html += '<div style="font-size:11px;color:var(--text3);margin-bottom:8px;">' +
+            '<span style="cursor:pointer;text-decoration:underline;" onclick="catalogGoBack()">Resumen</span>' +
+            ' <span style="opacity:0.5;">\u203A</span> ' + drillLabel + '</div>';
+    }
+
+    // ===== DRILL VIEW: showing products for a specific category/brand/price =====
+    if (drill) {
+        // Get filtered products
+        var drillProducts = [];
+        if (drill.type === 'category') {
+            drillProducts = (catMap[drill.value] || {}).products || [];
+        } else if (drill.type === 'brand') {
+            drillProducts = (brandMap[drill.value] || {}).products || [];
+        } else if (drill.type === 'price') {
+            var range = drill.value; // "0-50", "50-200", "200-500", "500+"
+            for (var rp = 0; rp < allProducts.length; rp++) {
+                var pr = parseFloat(allProducts[rp].salePrice || allProducts[rp].price || 0);
+                if (range === '0-50' && pr < 50) drillProducts.push(allProducts[rp]);
+                else if (range === '50-200' && pr >= 50 && pr < 200) drillProducts.push(allProducts[rp]);
+                else if (range === '200-500' && pr >= 200 && pr < 500) drillProducts.push(allProducts[rp]);
+                else if (range === '500+' && pr >= 500) drillProducts.push(allProducts[rp]);
+            }
+        }
+
+        // Apply sub-filters
+        var filteredProducts = [];
+        var fBrand = _catalogDrillFilters.brand;
+        var fSpecKey = _catalogDrillFilters.spec;
+
+        for (var fp = 0; fp < drillProducts.length; fp++) {
+            var dp = drillProducts[fp];
+            if (fBrand && (dp.brand || 'Sin marca') !== fBrand) continue;
+            if (fSpecKey && fSpecKey.key) {
+                var sp = parseSpecs(dp);
+                var spVal = (sp[fSpecKey.key] || '').trim();
+                if (fSpecKey.value && spVal !== fSpecKey.value) continue;
+            }
+            filteredProducts.push(dp);
+        }
+
+        // Title
+        var titleIcon = drill.type === 'category' ? '\uD83D\uDCC2' : (drill.type === 'brand' ? '\uD83C\uDFFE\uFE0F' : '\uD83D\uDCB0');
+        html += '<h2 style="font-size:20px;font-weight:800;margin-bottom:10px;">' + titleIcon + ' ' + escapeHtml(drill.value) + '</h2>';
+
+        // Sub-filter bar: brands within this drill + spec keys
+        var drillBrands = {};
+        var drillSpecKeys = {};
+        for (var ds = 0; ds < drillProducts.length; ds++) {
+            var db = drillProducts[ds].brand || 'Sin marca';
+            drillBrands[db] = (drillBrands[db] || 0) + 1;
+            var dsp = parseSpecs(drillProducts[ds]);
+            var dsk = Object.keys(dsp);
+            for (var dsi = 0; dsi < dsk.length; dsi++) {
+                var dsv = (dsp[dsk[dsi]] || '').trim();
+                if (dsv) drillSpecKeys[dsk[dsi]] = true;
+            }
+        }
+        var drillBrandKeys = Object.keys(drillBrands).sort();
+        var drillSpecKeyList = Object.keys(drillSpecKeys).sort();
+
+        // Render filter chips
+        if (drillBrandKeys.length > 1 || drillSpecKeyList.length > 0) {
+            html += '<div style="display:flex;gap:4px;margin-bottom:10px;flex-wrap:wrap;">';
+            // Brand chips
+            for (var dbi = 0; dbi < drillBrandKeys.length; dbi++) {
+                var dbk = drillBrandKeys[dbi];
+                var dbActive = (fBrand === dbk);
+                html += '<button onclick="toggleCatalogDrillFilter(\'brand\',\'' + escapeHtml(dbk).replace(/'/g, "\\'") + '\')" style="font-size:10px;padding:4px 10px;border-radius:16px;border:1px solid ' + (dbActive ? 'var(--primary)' : 'var(--border)') + ';background:' + (dbActive ? 'var(--primary)' : 'var(--bg2)') + ';color:' + (dbActive ? '#fff' : 'var(--text2)') + ';cursor:pointer;font-weight:' + (dbActive ? '700' : '500') + ';white-space:nowrap;">\uD83C\uDFFE\uFE0F ' + escapeHtml(dbk) + ' (' + drillBrands[dbk] + ')</button>';
+            }
+            // Spec key chips
+            for (var dki = 0; dki < drillSpecKeyList.length; dki++) {
+                var dskk = drillSpecKeyList[dki];
+                var dskActive = (fSpecKey && fSpecKey.key === dskk && !fSpecKey.value);
+                html += '<button onclick="toggleCatalogDrillFilter(\'spec\',\'' + escapeHtml(dskk).replace(/'/g, "\\'") + '\')" style="font-size:10px;padding:4px 10px;border-radius:16px;border:1px solid ' + (dskActive ? '#e17055' : 'var(--border)') + ';background:' + (dskActive ? '#e17055' : 'var(--bg2)') + ';color:' + (dskActive ? '#fff' : 'var(--text2)') + ';cursor:pointer;font-weight:' + (dskActive ? '700' : '500') + ';white-space:nowrap;">\u2699\uFE0F ' + escapeHtml(dskk) + '</button>';
+            }
+            // Clear filter button
+            if (fBrand || (fSpecKey && fSpecKey.key)) {
+                html += '<button onclick="_catalogDrillFilters={brand:null,spec:null};renderCatalogSummaryPage();" style="font-size:10px;padding:4px 10px;border-radius:16px;border:1px solid var(--danger);background:transparent;color:var(--danger);cursor:pointer;font-weight:700;white-space:nowrap;">\u2715 Limpiar</button>';
+            }
+            html += '</div>';
+        }
+
+        // If spec key selected but no value yet, show spec values
+        if (fSpecKey && fSpecKey.key && !fSpecKey.value) {
+            var specVals = getUniqueSpecValues(drillProducts, fSpecKey.key);
+            html += '<div style="display:flex;gap:4px;margin-bottom:10px;flex-wrap:wrap;">';
+            for (var svi = 0; svi < specVals.length; svi++) {
+                html += '<button onclick="toggleCatalogDrillFilter(\'spec\',\'' + escapeHtml(fSpecKey.key).replace(/'/g, "\\'") + '\');_catalogDrillFilters.spec={key:\'' + escapeHtml(fSpecKey.key).replace(/'/g, "\\'") + '\',value:\'' + escapeHtml(specVals[svi]).replace(/'/g, "\\'") + '\'};renderCatalogSummaryPage();" style="font-size:10px;padding:4px 10px;border-radius:16px;border:1px solid var(--border);background:var(--bg2);color:var(--text2);cursor:pointer;font-weight:500;white-space:nowrap;">' + escapeHtml(specVals[svi]) + '</button>';
+            }
+            html += '</div>';
+        }
+
+        // Summary stats for this drill
+        var drillValue = 0;
+        var drillCost = 0;
+        var drillStock = 0;
+        for (var ds2 = 0; ds2 < filteredProducts.length; ds2++) {
+            drillValue += parseFloat(filteredProducts[ds2].salePrice || filteredProducts[ds2].price || 0);
+            drillCost += parseFloat(filteredProducts[ds2].costPrice || 0);
+            drillStock += parseInt(filteredProducts[ds2].stock || 0);
+        }
+        var drillMargin = drillValue > 0 ? Math.round(((drillValue - drillCost) / drillValue) * 100) : 0;
+
+        html += '<div style="background:linear-gradient(135deg, var(--primary), #6c5ce7);border-radius:14px;padding:14px;margin-bottom:14px;color:#fff;">' +
+            '<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px;text-align:center;">' +
+                '<div><div style="font-size:20px;font-weight:900;">' + filteredProducts.length + '</div><div style="font-size:10px;opacity:0.8;">Productos</div></div>' +
+                '<div><div style="font-size:20px;font-weight:900;">$' + drillValue.toLocaleString() + '</div><div style="font-size:10px;opacity:0.8;">Valor Venta</div></div>' +
+                '<div><div style="font-size:20px;font-weight:900;">$' + drillCost.toLocaleString() + '</div><div style="font-size:10px;opacity:0.8;">Costo</div></div>' +
+                '<div><div style="font-size:20px;font-weight:900;">' + drillMargin + '%</div><div style="font-size:10px;opacity:0.8;">Margen</div></div>' +
+            '</div>' +
+            (fBrand || (fSpecKey && fSpecKey.value) ? '<div style="text-align:center;margin-top:8px;font-size:10px;opacity:0.7;">Mostrando ' + filteredProducts.length + ' de ' + drillProducts.length + ' productos</div>' : '') +
+        '</div>';
+
+        // Product list
+        if (filteredProducts.length === 0) {
+            html += '<div style="text-align:center;padding:30px 20px;color:var(--text3);font-size:13px;">No hay productos con estos filtros</div>';
+        } else {
+            for (var pi = 0; pi < filteredProducts.length; pi++) {
+                var pr = filteredProducts[pi];
+                var prPrice = parseFloat(pr.salePrice || pr.price || 0);
+                var prCost = parseFloat(pr.costPrice || 0);
+                var prMargin = prPrice > 0 ? Math.round(((prPrice - prCost) / prPrice) * 100) : 0;
+                var prStock = parseInt(pr.stock || 0);
+                var prColor = (pr.color || '');
+
+                html += '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:6px;">' +
+                    '<div style="display:flex;align-items:flex-start;justify-content:space-between;">' +
+                        '<div style="flex:1;min-width:0;">' +
+                            '<div style="font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(pr.name) + '</div>' +
+                            '<div style="display:flex;gap:4px;margin-top:3px;flex-wrap:wrap;">' +
+                                (pr.brand ? '<span style="font-size:9px;background:#00b89420;color:#00b894;padding:1px 6px;border-radius:4px;font-weight:600;">' + escapeHtml(pr.brand) + '</span>' : '') +
+                                (pr.sku ? '<span style="font-size:9px;background:var(--bg);color:var(--text3);padding:1px 6px;border-radius:4px;">SKU: ' + escapeHtml(pr.sku) + '</span>' : '') +
+                                (prColor ? '<span style="font-size:9px;background:#a29bfe20;color:#a29bfe;padding:1px 6px;border-radius:4px;">' + escapeHtml(prColor) + '</span>' : '') +
+                                (prStock > 0 ? '<span style="font-size:9px;background:#2ed57320;color:#2ed573;padding:1px 6px;border-radius:4px;font-weight:600;">Stock: ' + prStock + '</span>' : '') +
+                            '</div>' +
+                        '</div>' +
+                        '<div style="text-align:right;flex-shrink:0;margin-left:10px;">' +
+                            '<div style="font-size:16px;font-weight:800;color:var(--primary);">$' + prPrice.toLocaleString() + '</div>' +
+                            (prCost > 0 ? '<div style="font-size:9px;color:var(--text3);">Costo: $' + prCost.toLocaleString() + ' (' + prMargin + '%)</div>' : '') +
+                        '</div>' +
+                    '</div>' +
+                    renderSpecPills(pr, '#6c5ce7') +
+                    (pr.description ? '<div style="font-size:10px;color:var(--text3);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(pr.description) + '</div>' : '') +
+                '</div>';
+            }
+        }
+
+        summaryView.innerHTML = html;
+        return;
+    }
+
+    // ===== OVERVIEW: summary header =====
+    var avgPrice = allProducts.length > 0 ? Math.round(totalValue / allProducts.length) : 0;
+    var globalMargin = totalValue > 0 ? Math.round(((totalValue - totalCost) / totalValue) * 100) : 0;
+
+    html += '<h2 style="font-size:20px;font-weight:800;margin-bottom:14px;">\uD83D\uDCCA Resumen del Catalogo</h2>';
+
+    // Main header
     html += '<div style="background:linear-gradient(135deg, var(--primary), #6c5ce7);border-radius:14px;padding:16px;margin-bottom:14px;color:#fff;">' +
-        '<div style="text-align:center;margin-bottom:12px;">' +
-            '<div style="font-size:11px;opacity:0.8;">Total de productos registrados</div>' +
-            '<div style="font-size:36px;font-weight:900;line-height:1.1;margin:4px 0;">' + products.length + '</div>' +
+        '<div style="text-align:center;margin-bottom:10px;">' +
+            '<div style="font-size:11px;opacity:0.8;">Total de productos</div>' +
+            '<div style="font-size:36px;font-weight:900;line-height:1.1;margin:4px 0;">' + allProducts.length + '</div>' +
         '</div>' +
-        '<div style="display:flex;justify-content:center;gap:16px;margin-top:10px;font-size:11px;">' +
-            '<span>&#128193; ' + usedCategories.length + ' categor&#237;as</span>' +
-            '<span>&#127991;&#65039; ' + usedBrands.length + ' marcas</span>' +
-            (totalValue > 0 ? '<span>&#128176; $' + totalValue.toLocaleString() + '</span>' : '') +
+        '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;text-align:center;margin-top:8px;">' +
+            '<div><div style="font-size:14px;font-weight:800;">$' + totalValue.toLocaleString() + '</div><div style="font-size:10px;opacity:0.8;">Valor Venta</div></div>' +
+            '<div><div style="font-size:14px;font-weight:800;">$' + totalCost.toLocaleString() + '</div><div style="font-size:10px;opacity:0.8;">Costo Total</div></div>' +
+            '<div><div style="font-size:14px;font-weight:800;">' + globalMargin + '%</div><div style="font-size:10px;opacity:0.8;">Margen Prom.</div></div>' +
         '</div>' +
     '</div>';
 
-    // Quick stats cards (same grid as Locales: 3 columns)
+    // Quick stats (filter cards)
     var fCatStyle = (activeFilter === 'cat') ? 'transform:scale(1.05);box-shadow:0 0 0 2px var(--primary);' : '';
     var fBrandStyle = (activeFilter === 'brand') ? 'transform:scale(1.05);box-shadow:0 0 0 2px var(--primary);' : '';
     var fPriceStyle = (activeFilter === 'price') ? 'transform:scale(1.05);box-shadow:0 0 0 2px var(--primary);' : '';
 
-    // Average price
-    var avgPrice = products.length > 0 ? Math.round(totalValue / products.length) : 0;
-
     html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px;">' +
         '<div onclick="toggleCatalogFilter(\'cat\')" style="background:#6c5ce718;border:1px solid #6c5ce730;border-radius:10px;padding:10px;text-align:center;cursor:pointer;transition:all 0.15s;' + fCatStyle + '">' +
             '<div style="font-size:22px;font-weight:800;color:#6c5ce7;">' + usedCategories.length + '</div>' +
-            '<div style="font-size:10px;color:var(--text3);">Categor&#237;as</div>' +
-            '<div style="font-size:9px;font-weight:700;color:#6c5ce7;margin-top:4px;">&#128071; Ver</div>' +
+            '<div style="font-size:10px;color:var(--text3);">Categorias</div>' +
+            '<div style="font-size:9px;font-weight:700;color:#6c5ce7;margin-top:4px;">\uD83D\uDC47 Ver</div>' +
         '</div>' +
         '<div onclick="toggleCatalogFilter(\'brand\')" style="background:#00b89418;border:1px solid #00b89430;border-radius:10px;padding:10px;text-align:center;cursor:pointer;transition:all 0.15s;' + fBrandStyle + '">' +
             '<div style="font-size:22px;font-weight:800;color:#00b894;">' + usedBrands.length + '</div>' +
             '<div style="font-size:10px;color:var(--text3);">Marcas</div>' +
-            '<div style="font-size:9px;font-weight:700;color:#00b894;margin-top:4px;">&#128071; Ver</div>' +
+            '<div style="font-size:9px;font-weight:700;color:#00b894;margin-top:4px;">\uD83D\uDC47 Ver</div>' +
         '</div>' +
         '<div onclick="toggleCatalogFilter(\'price\')" style="background:#e1705518;border:1px solid #e1705530;border-radius:10px;padding:10px;text-align:center;cursor:pointer;transition:all 0.15s;' + fPriceStyle + '">' +
             '<div style="font-size:22px;font-weight:800;color:#e17055;">$' + avgPrice.toLocaleString() + '</div>' +
             '<div style="font-size:10px;color:var(--text3);">Precio Prom.</div>' +
-            '<div style="font-size:9px;font-weight:700;color:#e17055;margin-top:4px;">&#128071; Ver</div>' +
+            '<div style="font-size:9px;font-weight:700;color:#e17055;margin-top:4px;">\uD83D\uDC47 Ver</div>' +
         '</div>' +
     '</div>';
 
-    // Active filter banner (same style as Locales)
+    // Active filter banner
     if (activeFilter) {
-        var filterLabels = { cat: 'Por Categoría', brand: 'Por Marca', price: 'Por Precio' };
+        var filterLabels = { cat: 'Por Categoria', brand: 'Por Marca', price: 'Por Precio' };
         html += '<div onclick="toggleCatalogFilter(\'' + activeFilter + '\')" style="display:flex;align-items:center;justify-content:space-between;background:var(--primary);color:#fff;border-radius:10px;padding:10px 14px;margin-bottom:12px;cursor:pointer;">' +
             '<span style="font-size:12px;font-weight:700;">Filtrando: ' + (filterLabels[activeFilter] || activeFilter) + '</span>' +
-            '<span style="font-size:11px;background:rgba(255,255,255,0.25);padding:3px 10px;border-radius:6px;">&#10005; Mostrar todo</span>' +
+            '<span style="font-size:11px;background:rgba(255,255,255,0.25);padding:3px 10px;border-radius:6px;">\u2715 Mostrar todo</span>' +
         '</div>';
     }
 
-    // ===== CATEGORIES BREAKDOWN (always show, or filtered) =====
+    // ===== CATEGORIES (always shown, or when filter=cat) =====
     if (!activeFilter || activeFilter === 'cat') {
-        html += '<div style="font-size:12px;font-weight:800;color:var(--text3);margin:14px 0 8px;text-transform:uppercase;letter-spacing:0.5px;">&#128193; Categor&#237;as</div>';
+        html += '<div style="font-size:12px;font-weight:800;color:var(--text3);margin:14px 0 8px;text-transform:uppercase;letter-spacing:0.5px;">\uD83D\uDCC2 Categorias</div>';
         for (var ci = 0; ci < catKeys.length; ci++) {
             var cat = catMap[catKeys[ci]];
             var catCount = cat.products.length;
             var catValue = 0;
+            var catCost = 0;
             var catBrands = [];
+            var catStock = 0;
             for (var cp = 0; cp < cat.products.length; cp++) {
                 catValue += parseFloat(cat.products[cp].salePrice || cat.products[cp].price || 0);
+                catCost += parseFloat(cat.products[cp].costPrice || 0);
+                catStock += parseInt(cat.products[cp].stock || 0);
                 var cb = cat.products[cp].brand || 'Sin marca';
                 if (catBrands.indexOf(cb) === -1) catBrands.push(cb);
             }
             var catAvg = catCount > 0 ? Math.round(catValue / catCount) : 0;
+            var catMargin = catValue > 0 ? Math.round(((catValue - catCost) / catValue) * 100) : 0;
 
-            html += '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:8px;">' +
+            html += '<div onclick="drillCatalog(\'category\',\'' + escapeHtml(cat.name).replace(/'/g, "\\'") + '\')" style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:8px;cursor:pointer;transition:transform 0.15s,box-shadow 0.15s;" onmousedown="this.style.transform=\'scale(0.98)\'" onmouseup="this.style.transform=\'\'" onmouseleave="this.style.transform=\'\'">' +
                 '<div style="display:flex;align-items:center;justify-content:space-between;">' +
-                    '<div style="display:flex;align-items:center;gap:8px;">' +
-                        '<span style="font-size:14px;font-weight:700;color:var(--text);">&#128193; ' + escapeHtml(cat.name) + '</span>' +
-                        '<span style="background:#6c5ce720;color:#6c5ce7;font-size:9px;padding:1px 6px;border-radius:6px;font-weight:700;">' + catCount + ' prod' + (catCount !== 1 ? 's' : '') + '</span>' +
+                    '<div style="display:flex;align-items:center;gap:8px;flex:1;min-width:0;">' +
+                        '<span style="font-size:14px;font-weight:700;color:var(--text);">\uD83D\uDCC2 ' + escapeHtml(cat.name) + '</span>' +
+                        '<span style="background:#6c5ce720;color:#6c5ce7;font-size:9px;padding:1px 6px;border-radius:6px;font-weight:700;">' + catCount + '</span>' +
                     '</div>' +
-                    '<div style="text-align:right;">' +
-                        '<div style="font-size:18px;font-weight:800;color:var(--primary);">$' + catValue.toLocaleString() + '</div>' +
-                        '<div style="font-size:10px;color:var(--text3);">Prom: $' + catAvg.toLocaleString() + '</div>' +
+                    '<div style="display:flex;align-items:center;gap:10px;">' +
+                        (catStock > 0 ? '<span style="font-size:10px;color:var(--text3);">' + catStock + ' uds</span>' : '') +
+                        '<span style="font-size:14px;color:var(--text3);">\u2192</span>' +
                     '</div>' +
                 '</div>' +
-                (catBrands.length > 0 ? '<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:2px;">' +
-                    catBrands.map(function(b) { return '<span style="display:inline-block;background:var(--bg);font-size:10px;padding:2px 7px;border-radius:5px;color:var(--text2);">' + escapeHtml(b) + '</span>'; }).join('') +
-                '</div>' : '') +
+                '<div style="display:flex;align-items:center;justify-content:space-between;margin-top:6px;">' +
+                    '<div style="display:flex;flex-wrap:wrap;gap:2px;">' +
+                        catBrands.map(function(b) { return '<span style="display:inline-block;background:var(--bg);font-size:9px;padding:2px 6px;border-radius:5px;color:var(--text2);">' + escapeHtml(b) + '</span>'; }).join('') +
+                    '</div>' +
+                    '<div style="display:flex;gap:10px;flex-shrink:0;">' +
+                        '<span style="font-size:11px;color:var(--text3);">Prom $' + catAvg.toLocaleString() + '</span>' +
+                        '<span style="font-size:11px;font-weight:700;color:#00b894;">' + catMargin + '%</span>' +
+                    '</div>' +
+                '</div>' +
+                '<div style="display:flex;justify-content:space-between;margin-top:6px;font-size:10px;color:var(--text3);">' +
+                    '<span>Valor: $' + catValue.toLocaleString() + '</span>' +
+                    '<span>Costo: $' + catCost.toLocaleString() + '</span>' +
+                '</div>' +
             '</div>';
         }
     }
 
-    // ===== BRANDS BREAKDOWN (show when filtered by brand, or always after categories if no filter) =====
+    // ===== BRANDS (when filter=brand) =====
     if (activeFilter === 'brand') {
-        html += '<div style="font-size:12px;font-weight:800;color:var(--text3);margin:14px 0 8px;text-transform:uppercase;letter-spacing:0.5px;">&#127991;&#65039; Marcas</div>';
+        html += '<div style="font-size:12px;font-weight:800;color:var(--text3);margin:14px 0 8px;text-transform:uppercase;letter-spacing:0.5px;">\uD83C\uDFFE\uFE0F Marcas</div>';
         for (var bi = 0; bi < brandKeys.length; bi++) {
             var br = brandMap[brandKeys[bi]];
-            // Get categories this brand appears in
-            var brCategories = [];
             var brValue = 0;
-            for (var pi2 = 0; pi2 < products.length; pi2++) {
-                if ((products[pi2].brand || 'Sin marca') === br.name) {
-                    brValue += parseFloat(products[pi2].salePrice || products[pi2].price || 0);
-                    var bc = products[pi2].category || 'Sin categoría';
-                    if (brCategories.indexOf(bc) === -1) brCategories.push(bc);
-                }
+            var brCost = 0;
+            var brCats = [];
+            for (var bp2 = 0; bp2 < br.products.length; bp2++) {
+                brValue += parseFloat(br.products[bp2].salePrice || br.products[bp2].price || 0);
+                brCost += parseFloat(br.products[bp2].costPrice || 0);
+                var bc = br.products[bp2].category || 'Sin categoria';
+                if (brCats.indexOf(bc) === -1) brCats.push(bc);
             }
+            var brMargin = brValue > 0 ? Math.round(((brValue - brCost) / brValue) * 100) : 0;
 
-            html += '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:8px;">' +
+            html += '<div onclick="drillCatalog(\'brand\',\'' + escapeHtml(br.name).replace(/'/g, "\\'") + '\')" style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:8px;cursor:pointer;transition:transform 0.15s,box-shadow 0.15s;" onmousedown="this.style.transform=\'scale(0.98)\'" onmouseup="this.style.transform=\'\'" onmouseleave="this.style.transform=\'\'">' +
                 '<div style="display:flex;align-items:center;justify-content:space-between;">' +
-                    '<div style="display:flex;align-items:center;gap:8px;">' +
-                        '<span style="font-size:14px;font-weight:700;color:var(--text);">&#127991;&#65039; ' + escapeHtml(br.name) + '</span>' +
-                        '<span style="background:#00b89420;color:#00b894;font-size:9px;padding:1px 6px;border-radius:6px;font-weight:700;">' + br.count + ' prod' + (br.count !== 1 ? 's' : '') + '</span>' +
+                    '<div style="display:flex;align-items:center;gap:8px;flex:1;min-width:0;">' +
+                        '<span style="font-size:14px;font-weight:700;color:var(--text);">\uD83C\uDFFE\uFE0F ' + escapeHtml(br.name) + '</span>' +
+                        '<span style="background:#00b89420;color:#00b894;font-size:9px;padding:1px 6px;border-radius:6px;font-weight:700;">' + br.products.length + '</span>' +
                     '</div>' +
-                    '<div style="text-align:right;">' +
-                        '<div style="font-size:18px;font-weight:800;color:var(--primary);">$' + brValue.toLocaleString() + '</div>' +
-                        '<div style="font-size:10px;color:var(--text3);">' + brCategories.length + ' categor&#237;a' + (brCategories.length !== 1 ? 's' : '') + '</div>' +
+                    '<div style="display:flex;align-items:center;gap:10px;">' +
+                        '<span style="font-size:18px;font-weight:800;color:var(--primary);">$' + brValue.toLocaleString() + '</span>' +
+                        '<span style="font-size:14px;color:var(--text3);">\u2192</span>' +
                     '</div>' +
                 '</div>' +
-                (brCategories.length > 0 ? '<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:2px;">' +
-                    brCategories.map(function(c) { return '<span style="display:inline-block;background:var(--bg);font-size:10px;padding:2px 7px;border-radius:5px;color:var(--text2);">' + escapeHtml(c) + '</span>'; }).join('') +
-                '</div>' : '') +
+                '<div style="display:flex;align-items:center;justify-content:space-between;margin-top:6px;">' +
+                    '<div style="display:flex;flex-wrap:wrap;gap:2px;">' +
+                        brCats.map(function(c) { return '<span style="display:inline-block;background:var(--bg);font-size:9px;padding:2px 6px;border-radius:5px;color:var(--text2);">' + escapeHtml(c) + '</span>'; }).join('') +
+                    '</div>' +
+                    '<div style="display:flex;gap:10px;flex-shrink:0;">' +
+                        '<span style="font-size:11px;color:var(--text3);">Costo: $' + brCost.toLocaleString() + '</span>' +
+                        '<span style="font-size:11px;font-weight:700;color:#00b894;">' + brMargin + '%</span>' +
+                    '</div>' +
+                '</div>' +
             '</div>';
         }
     }
 
-    // ===== PRICE BREAKDOWN (show when filtered by price) =====
+    // ===== PRICE RANGES (when filter=price) =====
     if (activeFilter === 'price') {
-        // Group products by price ranges
         var priceRanges = [
-            { label: 'Económicos (hasta $50)', min: 0, max: 50, color: '#00b894', icon: '&#128176;' },
-            { label: 'Medio rango ($50 - $200)', min: 50, max: 200, color: '#6c5ce7', icon: '&#128176;' },
-            { label: 'Premium ($200 - $500)', min: 200, max: 500, color: '#e17055', icon: '&#128176;' },
-            { label: 'Alto valor (más de $500)', min: 500, max: Infinity, color: '#d63031', icon: '&#128142;' }
+            { label: 'Economicos (hasta $50)', key: '0-50', min: 0, max: 50, color: '#00b894' },
+            { label: 'Medio rango ($50 - $200)', key: '50-200', min: 50, max: 200, color: '#6c5ce7' },
+            { label: 'Premium ($200 - $500)', key: '200-500', min: 200, max: 500, color: '#e17055' },
+            { label: 'Alto valor (mas de $500)', key: '500+', min: 500, max: Infinity, color: '#d63031' }
         ];
-        var hasAnyInRange = false;
 
-        html += '<div style="font-size:12px;font-weight:800;color:var(--text3);margin:14px 0 8px;text-transform:uppercase;letter-spacing:0.5px;">&#128176; Rangos de Precio</div>';
+        html += '<div style="font-size:12px;font-weight:800;color:var(--text3);margin:14px 0 8px;text-transform:uppercase;letter-spacing:0.5px;">\uD83D\uDCB0 Rangos de Precio</div>';
 
         for (var ri = 0; ri < priceRanges.length; ri++) {
             var range = priceRanges[ri];
             var rangeProducts = [];
             var rangeTotal = 0;
-            for (var rp = 0; rp < products.length; rp++) {
-                var rPrice = parseFloat(products[rp].salePrice || products[rp].price || 0);
+            var rangeCost = 0;
+            for (var rp = 0; rp < allProducts.length; rp++) {
+                var rPrice = parseFloat(allProducts[rp].salePrice || allProducts[rp].price || 0);
                 if (rPrice >= range.min && rPrice < range.max) {
-                    rangeProducts.push(products[rp]);
+                    rangeProducts.push(allProducts[rp]);
                     rangeTotal += rPrice;
+                    rangeCost += parseFloat(allProducts[rp].costPrice || 0);
                 }
             }
             if (rangeProducts.length === 0) continue;
-            hasAnyInRange = true;
-            var rangeAvg = rangeProducts.length > 0 ? Math.round(rangeTotal / rangeProducts.length) : 0;
+            var rangeMargin = rangeTotal > 0 ? Math.round(((rangeTotal - rangeCost) / rangeTotal) * 100) : 0;
 
-            html += '<div style="background:' + range.color + '10;border:1px solid ' + range.color + '20;border-radius:10px;padding:10px 12px;margin-bottom:6px;">' +
-                '<div style="display:flex;justify-content:space-between;align-items:center;">' +
+            html += '<div onclick="drillCatalog(\'price\',\'' + range.key + '\')" style="background:' + range.color + '10;border:1px solid ' + range.color + '20;border-radius:12px;padding:12px 14px;margin-bottom:8px;cursor:pointer;transition:transform 0.15s;" onmousedown="this.style.transform=\'scale(0.98)\'" onmouseup="this.style.transform=\'\'" onmouseleave="this.style.transform=\'\'">' +
+                '<div style="display:flex;align-items:center;justify-content:space-between;">' +
                     '<div style="flex:1;min-width:0;">' +
-                        '<div style="font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + range.icon + ' ' + range.label + '</div>' +
+                        '<div style="font-size:13px;font-weight:700;color:var(--text);">\uD83D\uDCB0 ' + range.label + '</div>' +
                     '</div>' +
-                    '<div style="text-align:right;flex-shrink:0;margin-left:8px;">' +
-                        '<div style="font-size:18px;font-weight:800;color:' + range.color + ';">' + rangeProducts.length + '</div>' +
-                        '<div style="font-size:10px;color:' + range.color + ';font-weight:600;">Total: $' + rangeTotal.toLocaleString() + '</div>' +
+                    '<div style="display:flex;align-items:center;gap:10px;">' +
+                        '<span style="font-size:11px;font-weight:700;color:' + range.color + ';">' + rangeProducts.length + ' prod' + (rangeProducts.length !== 1 ? 's' : '') + '</span>' +
+                        '<span style="font-size:14px;color:var(--text3);">\u2192</span>' +
                     '</div>' +
                 '</div>' +
+                '<div style="display:flex;justify-content:space-between;margin-top:6px;font-size:10px;color:var(--text3);">' +
+                    '<span>Total: $' + rangeTotal.toLocaleString() + '</span>' +
+                    '<span>Costo: $' + rangeCost.toLocaleString() + '</span>' +
+                    '<span style="font-weight:700;color:' + range.color + ';">' + rangeMargin + '% margen</span>' +
+                '</div>' +
             '</div>';
-        }
-
-        if (!hasAnyInRange) {
-            html += '<div style="text-align:center;padding:30px 20px;color:var(--text3);font-size:13px;">No hay productos con precios registrados</div>';
         }
     }
 
     // Empty state
-    if (products.length === 0) {
+    if (allProducts.length === 0) {
         html += '<div style="text-align:center;padding:30px 20px;">' +
-            '<div style="font-size:48px;margin-bottom:12px;">&#128203;</div>' +
-            '<div style="color:var(--text2);font-size:14px;margin-bottom:16px;">A&#250;n no tienes productos en el cat&#225;logo</div>' +
-            '<button class="btn btn-primary" onclick="closeCatalogSummary();openAddProduct();" style="width:auto;display:inline-flex;">&#10133; Agregar Producto</button>' +
+            '<div style="font-size:48px;margin-bottom:12px;">\uD83D\uDCCB</div>' +
+            '<div style="color:var(--text2);font-size:14px;margin-bottom:16px;">Aun no tienes productos en el catalogo</div>' +
+            '<button class="btn btn-primary" onclick="closeCatalogSummary();openAddProduct();" style="width:auto;display:inline-flex;">\u2795 Agregar Producto</button>' +
         '</div>';
     }
 
     summaryView.innerHTML = html;
+}
+
+// ===== CATALOG REPORT (PDF/Print) — similar to Faltantes report =====
+function exportCatalogReport() {
+    var products = getProducts();
+    if (!products || products.length === 0) { showToast('No hay productos', 'error'); return; }
+
+    var today = new Date();
+    var dateStr = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
+    var timeStr = String(today.getHours()).padStart(2,'0') + ':' + String(today.getMinutes()).padStart(2,'0');
+
+    // Build category groups
+    var catMap = {};
+    var grandValue = 0;
+    var grandCost = 0;
+    var grandStock = 0;
+    for (var i = 0; i < products.length; i++) {
+        var p = products[i];
+        var cat = p.category || 'Sin categoria';
+        if (!catMap[cat]) catMap[cat] = [];
+        catMap[cat].push(p);
+        grandValue += parseFloat(p.salePrice || p.price || 0);
+        grandCost += parseFloat(p.costPrice || 0);
+        grandStock += parseInt(p.stock || 0);
+    }
+    var catKeys = Object.keys(catMap).sort();
+
+    // Build printable HTML
+    var rHtml = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Resumen de Catalogo</title>' +
+        '<style>' +
+        '* { margin:0; padding:0; box-sizing:border-box; }' +
+        'body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding:24px; color:#1d1d1b; }' +
+        '.title { font-size:18px; font-weight:700; color:#1b7897; text-align:center; margin-bottom:4px; }' +
+        '.date { font-size:11px; color:#7e7b72; text-align:center; margin-bottom:18px; }' +
+        '.summary { display:flex; gap:12px; margin-bottom:18px; justify-content:center; flex-wrap:wrap; }' +
+        '.summary-box { background:#f0f0f0; border-radius:8px; padding:8px 16px; text-align:center; min-width:100px; }' +
+        '.summary-box .num { font-size:20px; font-weight:800; color:#1b7897; }' +
+        '.summary-box .lbl { font-size:10px; color:#7e7b72; }' +
+        '.cat-title { font-size:14px; font-weight:700; color:#1b7897; margin:14px 0 6px; padding:4px 10px;background:#f0f0f0;border-radius:6px; }' +
+        'table { width:100%; border-collapse:collapse; font-size:10px; margin-bottom:8px; }' +
+        'th { background:#1b7897; color:#fff; padding:6px 4px; text-align:center; font-weight:600; font-size:9px; }' +
+        'td { padding:5px 4px; text-align:center; border-bottom:1px solid #e0e0e0; font-size:10px; }' +
+        'tr:nth-child(even) { background:#f7f7f7; }' +
+        '.cat-row { background:#e8f4f8 !important; font-weight:700; }' +
+        '.total-row { background:#f0f0f0 !important; font-weight:700; border-top:2px solid #1b7897; }' +
+        '.name-col { text-align:left !important; max-width:120px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }' +
+        '@media print { body { padding:12px; } .no-print { display:none !important; } }' +
+        '@page { size: landscape; }' +
+        '</style></head><body>' +
+        '<div class="title">Resumen de Catalogo</div>' +
+        '<div class="date">' + dateStr + ' \u2014 ' + timeStr + '</div>' +
+        '<div class="summary">' +
+            '<div class="summary-box"><div class="num">' + products.length + '</div><div class="lbl">Productos</div></div>' +
+            '<div class="summary-box"><div class="num">$' + grandValue.toLocaleString() + '</div><div class="lbl">Valor Venta</div></div>' +
+            '<div class="summary-box"><div class="num">$' + grandCost.toLocaleString() + '</div><div class="lbl">Costo Total</div></div>' +
+            '<div class="summary-box"><div class="num">' + grandStock + '</div><div class="lbl">Stock Total</div></div>' +
+        '</div>';
+
+    rHtml += '<table><thead><tr><th>Producto</th><th>SKU</th><th>Categoria</th><th>Marca</th><th>Color</th><th>Especificaciones</th><th>Costo</th><th>Venta</th><th>Margen</th><th>Stock</th></tr></thead><tbody>';
+
+    for (var ci = 0; ci < catKeys.length; ci++) {
+        var catProds = catMap[catKeys[ci]];
+        // Category subtotal row
+        var catVal = 0, catCost = 0;
+        for (var cp = 0; cp < catProds.length; cp++) {
+            catVal += parseFloat(catProds[cp].salePrice || catProds[cp].price || 0);
+            catCost += parseFloat(catProds[cp].costPrice || 0);
+        }
+        rHtml += '<tr class="cat-row"><td colspan="7" style="text-align:left;padding-left:8px;">' + escapeHtml(catKeys[ci]) + ' (' + catProds.length + ')</td><td>$' + catVal.toLocaleString() + '</td><td>$' + catCost.toLocaleString() + '</td><td>' + (catVal > 0 ? Math.round(((catVal - catCost) / catVal) * 100) : 0) + '%</td></tr>';
+
+        for (var pi = 0; pi < catProds.length; pi++) {
+            var pr = catProds[pi];
+            var prSale = parseFloat(pr.salePrice || pr.price || 0);
+            var prCost = parseFloat(pr.costPrice || 0);
+            var prMargin = prSale > 0 ? Math.round(((prSale - prCost) / prSale) * 100) : 0;
+            var specsStr = '';
+            var sp = parseSpecs(pr);
+            var spk = Object.keys(sp);
+            for (var si = 0; si < spk.length; si++) {
+                var svv = (sp[spk[si]] || '').trim();
+                if (svv) specsStr += (specsStr ? ', ' : '') + spk[si] + ': ' + svv;
+            }
+            rHtml += '<tr><td class="name-col">' + escapeHtml(pr.name) + '</td><td>' + escapeHtml(pr.sku || '') + '</td><td>' + escapeHtml(pr.category || '') + '</td><td>' + escapeHtml(pr.brand || '') + '</td><td>' + escapeHtml(pr.color || '') + '</td><td style="font-size:9px;text-align:left;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(specsStr) + '</td><td>$' + prCost.toLocaleString() + '</td><td>$' + prSale.toLocaleString() + '</td><td>' + prMargin + '%</td><td>' + (parseInt(pr.stock) || 0) + '</td></tr>';
+        }
+    }
+
+    var grandMargin = grandValue > 0 ? Math.round(((grandValue - grandCost) / grandValue) * 100) : 0;
+    rHtml += '<tr class="total-row"><td colspan="6" style="text-align:right;padding-right:12px;">TOTAL</td><td>$' + grandCost.toLocaleString() + '</td><td>$' + grandValue.toLocaleString() + '</td><td>' + grandMargin + '%</td><td>' + grandStock + '</td></tr>';
+    rHtml += '</tbody></table></body></html>';
+
+    window._catalogReportHtml = rHtml;
+
+    // In-app view
+    var viewHtml = '<div style="position:fixed;inset:0;z-index:9999;background:var(--bg);display:flex;flex-direction:column;">' +
+        '<div style="display:flex;align-items:center;padding:10px 12px;background:var(--bg2);border-bottom:1px solid var(--border);gap:8px;flex-shrink:0;">' +
+            '<button onclick="closeCatalogReport()" style="font-size:20px;background:none;border:none;color:var(--danger);cursor:pointer;padding:2px 6px;line-height:1;">\u2715</button>' +
+            '<span style="font-weight:700;font-size:14px;color:var(--text);">Reporte de Catalogo</span>' +
+            '<div style="margin-left:auto;display:flex;gap:6px;">' +
+                '<button onclick="printCatalogReport()" class="btn btn-primary btn-sm" style="font-size:11px;">\uD83D\uDDA8\uFE0F Imprimir</button>' +
+                '<button onclick="downloadCatalogReport()" class="btn btn-outline btn-sm" style="font-size:11px;">\uD83D\uDCE5 Descargar</button>' +
+            '</div>' +
+        '</div>' +
+        '<div style="flex:1;overflow-y:auto;padding:12px;" id="catalogReportBody">' +
+            '<div style="max-width:900px;margin:0 auto;">' +
+                '<div style="font-size:18px;font-weight:700;color:var(--primary);text-align:center;margin-bottom:4px;">Resumen de Catalogo</div>' +
+                '<div style="font-size:11px;color:var(--text3);text-align:center;margin-bottom:14px;">' + dateStr + ' \u2014 ' + timeStr + '</div>' +
+                '<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:14px;">' +
+                    '<div style="background:var(--bg2);border-radius:8px;padding:8px;text-align:center;"><div style="font-size:20px;font-weight:800;color:var(--primary);">' + products.length + '</div><div style="font-size:10px;color:var(--text3);">Productos</div></div>' +
+                    '<div style="background:var(--bg2);border-radius:8px;padding:8px;text-align:center;"><div style="font-size:20px;font-weight:800;color:var(--primary);">$' + grandValue.toLocaleString() + '</div><div style="font-size:10px;color:var(--text3);">Valor Venta</div></div>' +
+                    '<div style="background:var(--bg2);border-radius:8px;padding:8px;text-align:center;"><div style="font-size:20px;font-weight:800;color:#e17055;">$' + grandCost.toLocaleString() + '</div><div style="font-size:10px;color:var(--text3);">Costo Total</div></div>' +
+                    '<div style="background:var(--bg2);border-radius:8px;padding:8px;text-align:center;"><div style="font-size:20px;font-weight:800;color:#00b894;">' + grandMargin + '%</div><div style="font-size:10px;color:var(--text3);">Margen Prom.</div></div>' +
+                '</div>';
+
+    // In-app table
+    for (var ci2 = 0; ci2 < catKeys.length; ci2++) {
+        var catProds2 = catMap[catKeys[ci2]];
+        var catVal2 = 0, catCost2 = 0;
+        for (var cp2 = 0; cp2 < catProds2.length; cp2++) {
+            catVal2 += parseFloat(catProds2[cp2].salePrice || catProds2[cp2].price || 0);
+            catCost2 += parseFloat(catProds2[cp2].costPrice || 0);
+        }
+        viewHtml += '<div style="font-size:13px;font-weight:700;color:var(--primary);margin:12px 0 6px;padding:6px 10px;background:var(--bg2);border-radius:8px;">\uD83D\uDCC2 ' + escapeHtml(catKeys[ci2]) + ' (' + catProds2.length + ') \u2014 Valor: $' + catVal2.toLocaleString() + ' | Costo: $' + catCost2.toLocaleString() + '</div>';
+        viewHtml += '<table style="width:100%;border-collapse:collapse;font-size:10px;">' +
+            '<thead><tr><th style="background:var(--primary);color:#fff;padding:6px 4px;font-weight:600;">Producto</th><th style="background:var(--primary);color:#fff;padding:6px 4px;">Marca</th><th style="background:var(--primary);color:#fff;padding:6px 4px;">Specs</th><th style="background:var(--primary);color:#fff;padding:6px 4px;">Costo</th><th style="background:var(--primary);color:#fff;padding:6px 4px;">Venta</th><th style="background:var(--primary);color:#fff;padding:6px 4px;">Margen</th><th style="background:var(--primary);color:#fff;padding:6px 4px;">Stock</th></tr></thead><tbody>';
+        for (var pi2 = 0; pi2 < catProds2.length; pi2++) {
+            var pr2 = catProds2[pi2];
+            var prSale2 = parseFloat(pr2.salePrice || pr2.price || 0);
+            var prCost2 = parseFloat(pr2.costPrice || 0);
+            var prMargin2 = prSale2 > 0 ? Math.round(((prSale2 - prCost2) / prSale2) * 100) : 0;
+            var specsStr2 = '';
+            var sp2 = parseSpecs(pr2);
+            var spk2 = Object.keys(sp2);
+            for (var si2 = 0; si2 < spk2.length; si2++) {
+                var svv2 = (sp2[spk2[si2]] || '').trim();
+                if (svv2) specsStr2 += (specsStr2 ? ', ' : '') + svv2;
+            }
+            var bgStyle2 = pi2 % 2 === 0 ? '' : 'background:var(--bg2);';
+            viewHtml += '<tr style="' + bgStyle2 + '"><td style="padding:5px 4px;text-align:left;border-bottom:1px solid var(--border);color:var(--text);max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(pr2.name) + '</td><td style="padding:5px 4px;text-align:center;border-bottom:1px solid var(--border);color:var(--text2);">' + escapeHtml(pr2.brand || '') + '</td><td style="padding:5px 4px;text-align:left;border-bottom:1px solid var(--border);color:var(--text3);font-size:9px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(specsStr2) + '</td><td style="padding:5px 4px;text-align:center;border-bottom:1px solid var(--border);color:var(--text2);">$' + prCost2.toLocaleString() + '</td><td style="padding:5px 4px;text-align:center;border-bottom:1px solid var(--border);color:var(--text);font-weight:600;">$' + prSale2.toLocaleString() + '</td><td style="padding:5px 4px;text-align:center;border-bottom:1px solid var(--border);color:#00b894;font-weight:600;">' + prMargin2 + '%</td><td style="padding:5px 4px;text-align:center;border-bottom:1px solid var(--border);">' + (parseInt(pr2.stock) || 0) + '</td></tr>';
+        }
+        viewHtml += '</tbody></table>';
+    }
+
+    viewHtml += '<div style="background:var(--bg2);border-top:2px solid var(--primary);border-radius:8px;padding:10px;margin-top:14px;text-align:center;font-weight:700;">' +
+        '<span style="color:var(--text);">' + products.length + ' productos</span>' +
+        ' | <span style="color:var(--primary);">Venta: $' + grandValue.toLocaleString() + '</span>' +
+        ' | <span style="color:#e17055;">Costo: $' + grandCost.toLocaleString() + '</span>' +
+        ' | <span style="color:#00b894;">Margen: ' + grandMargin + '%</span>' +
+        '</div></div></div></div>';
+
+    var overlay = document.createElement('div');
+    overlay.id = 'catalogReportOverlay';
+    overlay.innerHTML = viewHtml;
+    document.body.appendChild(overlay);
+    showToast('Reporte de ' + products.length + ' productos', 'success');
+}
+
+function closeCatalogReport() {
+    var overlay = document.getElementById('catalogReportOverlay');
+    if (overlay) overlay.remove();
+    window._catalogReportHtml = null;
+}
+
+function printCatalogReport() {
+    var html = window._catalogReportHtml;
+    if (!html) { showToast('No hay reporte', 'error'); return; }
+    var printFrame = document.createElement('iframe');
+    printFrame.style.cssText = 'position:fixed;left:-9999px;width:0;height:0;border:none;';
+    document.body.appendChild(printFrame);
+    var doc2 = printFrame.contentDocument || printFrame.contentWindow.document;
+    doc2.open();
+    doc2.write(html);
+    doc2.close();
+    setTimeout(function() {
+        printFrame.contentWindow.print();
+        setTimeout(function() { document.body.removeChild(printFrame); }, 2000);
+    }, 400);
+}
+
+function downloadCatalogReport() {
+    var html = window._catalogReportHtml;
+    if (!html) { showToast('No hay reporte', 'error'); return; }
+    var today = new Date();
+    var dateStr = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
+    var blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'Catalogo_' + dateStr + '.html';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast('Archivo descargado', 'success');
 }
 
 // ===== STOCK SUMMARY =====
