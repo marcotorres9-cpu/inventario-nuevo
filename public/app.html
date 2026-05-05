@@ -509,6 +509,14 @@
         .modal-sm { max-width: 320px; max-height: 48vh; }
         .modal-md { max-width: 380px; max-height: 62vh; }
         .modal-lg { max-width: 480px; max-height: 74vh; }
+        .modal-fullscreen {
+            max-width: 100vw; max-height: 100vh; height: 100vh;
+            width: 100%; border-radius: 0; padding: 0;
+        }
+        .modal-fullscreen .modal-body { padding: 8px 14px 20px; }
+        @media (min-width: 700px) {
+            .modal-fullscreen { max-width: 640px; height: 92vh; border-radius: 18px; }
+        }
         /* handle */
         .modal-handle {
             width: 32px; height: 3px; background: var(--bg4); border-radius: 2px;
@@ -1403,60 +1411,66 @@
 <!-- MODAL: NEW QUOTATION                                         -->
 <!-- ============================================================ -->
 <div id="quotationModal" class="modal-overlay">
-    <div class="modal-content modal-md">
-        <div class="modal-handle"></div>
-        <div class="modal-header">
-            <h2 class="modal-title" id="quotModalTitle">📝 Cotizador</h2>
+    <div class="modal-content modal-fullscreen">
+        <div class="modal-header" style="margin-bottom:8px;">
+            <h2 class="modal-title" id="quotModalTitle" style="font-size:16px;">📝 Cotizador</h2>
             <button class="modal-close" onclick="closeModal('quotationModal')">✕</button>
         </div>
         <input type="hidden" id="editQuotId" value="">
         
-        <!-- Simple/Dual Toggle -->
-        <div style="display:flex;gap:8px;margin-bottom:14px;">
-            <button id="btnSimpleMode" class="btn btn-sm" style="flex:1;" onclick="setQuotMode(false)">📝 Simple</button>
-            <button id="btnDualMode" class="btn btn-sm btn-outline" style="flex:1;" onclick="setQuotMode(true)">↔️ Dual</button>
+        <!-- Simple/Dual Toggle (compact) -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:10px;">
+            <button id="btnSimpleMode" class="btn btn-sm" style="font-size:12px;padding:6px;" onclick="setQuotMode(false)">📝 Simple</button>
+            <button id="btnDualMode" class="btn btn-sm btn-outline" style="font-size:12px;padding:6px;" onclick="setQuotMode(true)">↔️ Dual</button>
         </div>
         
-        <!-- Customer Info (optional) -->
-        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:14px;">
-            <div style="font-size:13px;font-weight:700;margin-bottom:8px;">👤 Datos del Cliente <span style="color:var(--text3);font-weight:400;">(opcional)</span></div>
-            <input type="text" id="quotClient" class="input" placeholder="Nombre del cliente" style="margin-bottom:8px;font-size:13px;">
-            <div style="display:flex;gap:8px;">
-                <input type="tel" id="quotPhone" class="input" placeholder="📞 Teléfono" style="flex:1;font-size:13px;">
-                <input type="email" id="quotEmail" class="input" placeholder="📧 Email" style="flex:1;font-size:13px;">
-            </div>
-        </div>
-        
-        <!-- Dual Tabs (only shown in dual mode) -->
-        <div id="dualTabs" style="display:none;margin-bottom:12px;">
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;background:var(--bg3);border-radius:8px;padding:3px;">
-                <button id="tabA" class="btn btn-sm" style="border-radius:6px;" onclick="switchQuotTab('A')">
-                    <span id="tabABadge">0</span> <span id="tabATitle">Opción A</span>
-                </button>
-                <button id="tabB" class="btn btn-sm btn-outline" style="border-radius:6px;" onclick="switchQuotTab('B')">
-                    <span id="tabBBadge">0</span> <span id="tabBTitle">Opción B</span>
-                </button>
-            </div>
-            <!-- Mini dual summary — always visible in dual mode -->
-            <div id="dualMiniSummary" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px;">
-                <div id="dualMiniA" style="background:var(--primary-bg);border:2px solid var(--primary);border-radius:8px;padding:8px;text-align:center;cursor:pointer;" onclick="switchQuotTab('A')">
-                    <div style="font-size:10px;font-weight:700;color:var(--text3);" id="dualMiniATitle">Opción A</div>
-                    <div style="font-size:9px;color:var(--text3);margin-top:2px;" id="dualMiniACount">0 productos</div>
-                    <div style="font-size:16px;font-weight:800;color:var(--primary);margin-top:2px;" id="dualMiniATotal">$0.00</div>
+        <!-- Customer Info (collapsible) -->
+        <details style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;margin-bottom:10px;">
+            <summary style="padding:10px 12px;font-size:12px;font-weight:600;color:var(--text3);cursor:pointer;list-style:none;display:flex;align-items:center;gap:6px;">👤 Cliente <span style="font-size:10px;opacity:0.6;">(opcional)</span></summary>
+            <div style="padding:0 12px 10px;">
+                <input type="text" id="quotClient" class="input" placeholder="Nombre" style="margin-bottom:6px;font-size:13px;">
+                <div style="display:flex;gap:6px;">
+                    <input type="tel" id="quotPhone" class="input" placeholder="📞 Teléfono" style="flex:1;font-size:13px;">
+                    <input type="email" id="quotEmail" class="input" placeholder="📧 Email" style="flex:1;font-size:13px;">
                 </div>
-                <div id="dualMiniB" style="background:var(--bg2);border:2px solid var(--border);border-radius:8px;padding:8px;text-align:center;cursor:pointer;" onclick="switchQuotTab('B')">
-                    <div style="font-size:10px;font-weight:700;color:var(--text3);" id="dualMiniBTitle">Opción B</div>
-                    <div style="font-size:9px;color:var(--text3);margin-top:2px;" id="dualMiniBCount">0 productos</div>
-                    <div style="font-size:16px;font-weight:800;color:var(--text2);margin-top:2px;" id="dualMiniBTotal">$0.00</div>
+            </div>
+        </details>
+        
+        <!-- Dual Tabs (compact) -->
+        <div id="dualTabs" style="display:none;margin-bottom:8px;">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;">
+                <div id="dualMiniA" style="background:var(--primary-bg);border:2px solid var(--primary);border-radius:8px;padding:6px 8px;cursor:pointer;" onclick="switchQuotTab('A')">
+                    <div style="display:flex;justify-content:space-between;align-items:center;">
+                        <span style="font-size:11px;font-weight:800;color:var(--primary);" id="dualMiniATitle">Opción A</span>
+                        <span style="font-size:14px;font-weight:800;color:var(--primary);" id="dualMiniATotal">$0.00</span>
+                    </div>
+                    <div style="font-size:9px;color:var(--text3);margin-top:1px;" id="dualMiniACount">0 productos</div>
+                </div>
+                <div id="dualMiniB" style="background:var(--bg2);border:2px solid var(--border);border-radius:8px;padding:6px 8px;cursor:pointer;" onclick="switchQuotTab('B')">
+                    <div style="display:flex;justify-content:space-between;align-items:center;">
+                        <span style="font-size:11px;font-weight:800;color:var(--text2);" id="dualMiniBTitle">Opción B</span>
+                        <span style="font-size:14px;font-weight:800;color:var(--text2);" id="dualMiniBTotal">$0.00</span>
+                    </div>
+                    <div style="font-size:9px;color:var(--text3);margin-top:1px;" id="dualMiniBCount">0 productos</div>
                 </div>
             </div>
         </div>
         
-        <!-- Option Title (editable, shown per tab in dual mode) -->
-        <div id="optionTitleRow" style="display:none;margin-bottom:8px;">
+        <!-- Hidden compat elements for JS functions -->
+        <div style="display:none;">
+            <button id="tabA"></button>
+            <button id="tabB"></button>
+            <span id="tabABadge">0</span>
+            <span id="tabBBadge">0</span>
+            <span id="tabATitle"></span>
+            <span id="tabBTitle"></span>
+        </div>
+        
+        <!-- Option Title (inline in dual mode) -->
+        <div id="optionTitleRow" style="display:none;margin-bottom:6px;">
             <div style="display:flex;gap:6px;align-items:center;">
-                <input type="text" id="optionTitleInput" class="input" style="flex:1;font-size:14px;font-weight:600;" value="Opción A" oninput="updateOptionTitle()">
-                <button class="btn btn-xs btn-outline" onclick="copyProductsBetween()" title="Copiar productos">📋 Copiar</button>
+                <input type="text" id="optionTitleInput" class="input" style="flex:1;font-size:13px;font-weight:600;padding:6px 8px;" value="Opción A" oninput="updateOptionTitle()">
+                <button class="btn btn-xs btn-outline" onclick="copyProductsBetween()" title="Copiar productos" style="padding:4px 8px;font-size:10px;">📋 Copiar</button>
             </div>
         </div>
         
@@ -1464,9 +1478,9 @@
         <div id="quotItems"></div>
         
         <!-- Add Product Buttons -->
-        <div style="display:flex;gap:6px;margin:10px 0;">
-            <button class="btn btn-outline btn-sm" onclick="showQuotProductPicker()" style="flex:1;">📦 Del Inventario</button>
-            <button class="btn btn-outline btn-sm" onclick="showQuotCustomProduct()" style="flex:1;border-color:var(--primary);color:var(--primary);">➕ Personalizado</button>
+        <div style="display:flex;gap:4px;margin:6px 0;">
+            <button class="btn btn-outline btn-sm" onclick="showQuotProductPicker()" style="flex:1;font-size:11px;padding:6px;">📦 Inventario</button>
+            <button class="btn btn-outline btn-sm" onclick="showQuotCustomProduct()" style="flex:1;font-size:11px;padding:6px;border-color:var(--primary);color:var(--primary);">➕ Personalizado</button>
         </div>
         
         <!-- (Global discount removed — per-product discounts only) -->
@@ -1491,24 +1505,21 @@
             </div>
         </div>
         
-        <!-- Notes -->
-        <textarea id="quotNotes" class="input" placeholder="Notas adicionales..." rows="2" style="margin-bottom:10px;font-size:13px;resize:vertical;"></textarea>
-        
-        <!-- Valid Days -->
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
-            <span style="font-size:13px;">📅 Válida por:</span>
-            <select id="quotValidDays" class="input" style="width:100px;padding:8px 10px;font-size:13px;">
-                <option value="7">7 días</option>
-                <option value="15" selected>15 días</option>
-                <option value="30">30 días</option>
-                <option value="60">60 días</option>
+        <!-- Notes + Valid Days (compact) -->
+        <div style="display:flex;gap:6px;margin-bottom:10px;align-items:flex-start;">
+            <textarea id="quotNotes" class="input" placeholder="Notas..." rows="1" style="flex:1;font-size:12px;resize:vertical;min-height:32px;"></textarea>
+            <select id="quotValidDays" class="input" style="width:68px;padding:6px 4px;font-size:11px;flex-shrink:0;">
+                <option value="7">7d</option>
+                <option value="15" selected>15d</option>
+                <option value="30">30d</option>
+                <option value="60">60d</option>
             </select>
         </div>
         
         <!-- Actions -->
-        <div style="display:flex;gap:8px;">
-            <button class="btn btn-outline" onclick="clearQuotation()" style="flex:1;">🗑️ Limpiar</button>
-            <button class="btn btn-primary" onclick="saveQuotation()" style="flex:1;">💾 Guardar Cotización</button>
+        <div style="display:flex;gap:6px;">
+            <button class="btn btn-outline btn-sm" onclick="clearQuotation()" style="flex:1;">🗑️ Limpiar</button>
+            <button class="btn btn-primary btn-sm" onclick="saveQuotation()" style="flex:1;">💾 Guardar</button>
         </div>
     </div>
 </div>
@@ -1517,7 +1528,7 @@
 <!-- MODAL: VIEW QUOTATION                                        -->
 <!-- ============================================================ -->
 <div id="viewQuotationModal" class="modal-overlay">
-    <div class="modal-content modal-md">
+    <div class="modal-content modal-fullscreen">
         <div class="modal-handle"></div>
         <div class="modal-header">
             <h2 class="modal-title" id="viewQuotTitle">Cotización</h2>
@@ -4390,7 +4401,7 @@ function renderQuotItems() {
 function renderQuotItemsColumn(tab, items, isActive) {
     var title = tab === 'A' ? quotOptionTitleA : quotOptionTitleB;
     var borderColor = isActive ? 'var(--primary)' : 'var(--border)';
-    var bgHighlight = isActive ? 'var(--primary-bg)' : 'transparent';
+    var bgHighlight = isActive ? 'rgba(59,130,246,0.04)' : 'transparent';
     var subtotalVal = 0, totalLineDisc = 0;
     for (var i = 0; i < items.length; i++) {
         subtotalVal += (items[i].qty || 0) * (items[i].price || 0);
@@ -4398,33 +4409,23 @@ function renderQuotItemsColumn(tab, items, isActive) {
     }
     var totalVal = Math.max(0, subtotalVal - totalLineDisc);
 
-    var h = '<div style="border:2px solid ' + borderColor + ';border-radius:12px;padding:8px;background:' + bgHighlight + ';transition:border-color 0.2s,background 0.2s;">' +
-        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">' +
-            '<span style="font-size:12px;font-weight:800;color:' + (isActive ? 'var(--primary)' : 'var(--text3)') + ';">' + escapeHtml(title) + '</span>' +
-            '<span style="font-size:16px;font-weight:800;color:' + (isActive ? 'var(--primary)' : 'var(--text2)') + ';">$' + totalVal.toFixed(2) + '</span>' +
+    var h = '<div style="border:2px solid ' + borderColor + ';border-radius:10px;padding:6px;background:' + bgHighlight + ';overflow-y:auto;max-height:calc(100vh - 280px);">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;position:sticky;top:0;background:' + bgHighlight + ';padding:2px 0;z-index:1;">' +
+            '<span style="font-size:11px;font-weight:800;color:' + (isActive ? 'var(--primary)' : 'var(--text3)') + ';">' + escapeHtml(title) + '</span>' +
+            '<span style="font-size:14px;font-weight:800;color:' + (isActive ? 'var(--primary)' : 'var(--text2)') + ';">$' + totalVal.toFixed(2) + '</span>' +
         '</div>';
 
     if (items.length === 0) {
-        h += '<div style="text-align:center;padding:16px 8px;color:var(--text3);font-size:11px;border:1px dashed var(--border);border-radius:8px;">Sin productos<br><span style="font-size:9px;">Cambia a esta pesta\u00f1a para agregar</span></div>';
+        h += '<div style="text-align:center;padding:20px 8px;color:var(--text3);font-size:11px;border:1px dashed var(--border);border-radius:6px;">Sin productos</div>';
     } else {
         h += renderQuotItemsList(items, tab);
     }
 
     if (items.length > 0) {
-        h += '<div style="margin-top:6px;padding-top:6px;border-top:1px solid var(--border);">' +
-            '<div style="display:flex;justify-content:space-between;font-size:10px;margin-bottom:2px;">' +
-                '<span style="color:var(--text3);">Costo Total</span>' +
-                '<span style="font-weight:700;color:#e17055;">$' + subtotalVal.toFixed(2) + '</span>' +
-            '</div>';
-        if (totalLineDisc > 0) {
-            h += '<div style="display:flex;justify-content:space-between;font-size:10px;margin-bottom:2px;">' +
-                '<span style="color:var(--text3);">Descuentos</span>' +
-                '<span style="font-weight:700;color:#f59e0b;">-$' + totalLineDisc.toFixed(2) + '</span>' +
-            '</div>';
-        }
-        h += '<div style="display:flex;justify-content:space-between;font-size:11px;padding-top:4px;border-top:1px solid var(--border);">' +
-                '<span style="font-weight:700;color:var(--primary);">Total Final</span>' +
-                '<span style="font-weight:800;color:#00b894;">$' + totalVal.toFixed(2) + '</span>' +
+        h += '<div style="margin-top:4px;padding-top:4px;border-top:1px solid var(--border);font-size:10px;position:sticky;bottom:0;background:' + bgHighlight + ';">' +
+            '<div style="display:flex;justify-content:space-between;">' +
+                '<span style="color:var(--text3);">Costo: $' + subtotalVal.toFixed(2) + '</span>' +
+                (totalLineDisc > 0 ? '<span style="color:#f59e0b;">Dto: -$' + totalLineDisc.toFixed(2) + '</span>' : '') +
             '</div>' +
         '</div>';
     }
@@ -4439,54 +4440,43 @@ function renderQuotItemsList(items, tab) {
     for (var i = 0; i < items.length; i++) {
         var it = items[i];
         var unitPrice = parseFloat(it.price) || 0;
-        var lineCost = (it.qty * unitPrice).toFixed(2);
+        var lineCost = it.qty * unitPrice;
         var lineDiscount = parseFloat(it.lineDiscount) || 0;
-        var lineFinal = (it.qty * unitPrice - lineDiscount).toFixed(2);
+        var lineFinal = Math.max(0, lineCost - lineDiscount);
         var hasDiscount = lineDiscount > 0;
-        var stockInfo = it.maxStock !== undefined ? ' | Stock: ' + it.maxStock : '';
-        var specsHtml = '';
-        if (it.specifications) {
-            try {
-                var specObj = JSON.parse(it.specifications);
-                var specKeys = Object.keys(specObj);
-                if (specKeys.length > 0) {
-                    var specParts = [];
-                    for (var s = 0; s < Math.min(specKeys.length, 3); s++) {
-                        specParts.push(specKeys[s] + ': ' + specObj[specKeys[s]]);
-                    }
-                    specsHtml = '<div style="font-size:10px;color:var(--text3);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;">' + escapeHtml(specParts.join(' | ')) + '</div>';
-                }
-            } catch(e) {}
-        }
 
-        h += '<div style="background:var(--bg2);border:1px solid ' + (hasDiscount ? 'rgba(34,197,94,0.3)' : 'var(--border)') + ';border-radius:10px;padding:10px;margin-bottom:6px;">' +
-            '<div style="font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(it.productName) + '</div>' +
-            specsHtml +
-            '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;">' +
-                '<div style="display:flex;align-items:center;gap:4px;">' +
-                    '<button type="button" class="btn btn-xs btn-outline" onclick="updateQuotItemQty(' + i + ',-1)" style="padding:4px 8px;font-size:14px;">\u2212</button>' +
-                    '<input type="number" class="input" value="' + it.qty + '" min="1" onchange="setQuotItemQty(' + i + ',this.value)" style="width:42px;text-align:center;padding:4px;font-size:13px;">' +
-                    '<button type="button" class="btn btn-xs btn-outline" onclick="updateQuotItemQty(' + i + ',1)" style="padding:4px 8px;font-size:14px;">+</button>' +
-                    '<span style="font-size:11px;color:var(--text3);">uds</span>' +
-                    stockInfo +
+        h += '<div style="background:var(--bg2);border:1px solid ' + (hasDiscount ? 'rgba(34,197,94,0.3)' : 'var(--border)') + ';border-radius:8px;padding:8px 10px;margin-bottom:4px;">' +
+            // Row 1: Name + qty + remove
+            '<div style="display:flex;justify-content:space-between;align-items:center;">' +
+                '<div style="flex:1;min-width:0;">' +
+                    '<div style="font-weight:600;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(it.productName) + '</div>' +
+                    '<div style="font-size:10px;color:var(--text3);margin-top:1px;">$' + unitPrice.toFixed(2) + ' c/u</div>' +
                 '</div>' +
-                '<button type="button" class="btn btn-xs" onclick="removeQuotItem(' + i + ')" style="padding:3px 10px;font-size:10px;color:var(--danger);background:transparent;border:1px solid var(--danger);border-radius:6px;opacity:0.7;">\u2715 Quitar</button>' +
-            '</div>' +
-            '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;padding:6px 8px;background:rgba(225,112,85,0.08);border-radius:6px;">' +
-                '<span style="font-size:11px;font-weight:700;color:#e17055;text-transform:uppercase;">Costo Total</span>' +
-                '<span style="font-size:15px;font-weight:800;color:#e17055;">$' + lineCost + '</span>' +
-            '</div>' +
-            '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px;">' +
-                '<div style="display:flex;align-items:center;gap:4px;">' +
-                    '<span style="font-size:11px;font-weight:700;color:#f59e0b;text-transform:uppercase;">Descuento</span>' +
-                    '<span style="font-size:11px;color:var(--text3);">$</span>' +
-                    '<input type="number" class="input" value="' + (lineDiscount > 0 ? lineDiscount.toFixed(2) : '0.00') + '" min="0" step="0.01" onchange="setQuotItemDiscount(' + i + ',this.value)" style="width:70px;text-align:center;padding:3px 4px;font-size:13px;font-weight:700;border:1px solid rgba(245,158,11,0.3);background:rgba(245,158,11,0.06);">' +
+                '<div style="display:flex;align-items:center;gap:3px;flex-shrink:0;margin-left:6px;">' +
+                    '<button type="button" class="btn btn-xs btn-outline" onclick="updateQuotItemQty(' + i + ',-1)" style="padding:2px 6px;font-size:13px;line-height:1;">-</button>' +
+                    '<span style="font-size:13px;font-weight:700;min-width:20px;text-align:center;">' + it.qty + '</span>' +
+                    '<button type="button" class="btn btn-xs btn-outline" onclick="updateQuotItemQty(' + i + ',1)" style="padding:2px 6px;font-size:13px;line-height:1;">+</button>' +
+                    '<button type="button" onclick="removeQuotItem(' + i + ')" style="margin-left:4px;padding:2px 6px;font-size:11px;color:var(--danger);background:none;border:none;cursor:pointer;opacity:0.6;">x</button>' +
                 '</div>' +
-                '<span style="font-size:9px;color:var(--text3);">$' + unitPrice.toFixed(2) + ' c/u</span>' +
             '</div>' +
-            '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px;padding:6px 8px;background:rgba(34,197,94,0.06);border-radius:6px;">' +
-                '<span style="font-size:11px;font-weight:700;color:#00b894;text-transform:uppercase;">Precio Final</span>' +
-                '<span style="font-size:16px;font-weight:800;color:#00b894;">$' + lineFinal + '</span>' +
+            // Row 2: Costo Total + Descuento input + Precio Final
+            '<div style="display:flex;align-items:center;gap:6px;margin-top:6px;">' +
+                // Costo Total
+                '<div style="flex:1;display:flex;justify-content:space-between;padding:4px 8px;background:rgba(225,112,85,0.08);border-radius:6px;">' +
+                    '<span style="font-size:10px;font-weight:700;color:#e17055;">COSTO</span>' +
+                    '<span style="font-size:13px;font-weight:800;color:#e17055;">$' + lineCost.toFixed(2) + '</span>' +
+                '</div>' +
+                // Descuento input
+                '<div style="display:flex;align-items:center;gap:2px;flex-shrink:0;">' +
+                    '<span style="font-size:9px;font-weight:700;color:#f59e0b;">DTO</span>' +
+                    '<span style="font-size:9px;color:var(--text3);">$</span>' +
+                    '<input type="number" class="input" value="' + (lineDiscount > 0 ? lineDiscount.toFixed(2) : '0.00') + '" min="0" step="0.01" onchange="setQuotItemDiscount(' + i + ',this.value)" style="width:56px;text-align:center;padding:2px 3px;font-size:12px;font-weight:700;border:1px solid rgba(245,158,11,0.3);background:rgba(245,158,11,0.05);">' +
+                '</div>' +
+                // Precio Final
+                '<div style="flex:1;display:flex;justify-content:space-between;padding:4px 8px;background:rgba(34,197,94,0.06);border-radius:6px;">' +
+                    '<span style="font-size:10px;font-weight:700;color:#00b894;">FINAL</span>' +
+                    '<span style="font-size:13px;font-weight:800;color:#00b894;">$' + lineFinal.toFixed(2) + '</span>' +
+                '</div>' +
             '</div>' +
         '</div>';
     }
