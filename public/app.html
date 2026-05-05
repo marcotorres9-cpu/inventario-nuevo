@@ -4387,11 +4387,12 @@ function renderQuotItemsColumn(tab, items, isActive) {
     var title = tab === 'A' ? quotOptionTitleA : quotOptionTitleB;
     var borderColor = isActive ? 'var(--primary)' : 'var(--border)';
     var bgHighlight = isActive ? 'var(--primary-bg)' : 'transparent';
-    var totalVal = 0, totalCost = 0;
+    var subtotalVal = 0, totalLineDisc = 0;
     for (var i = 0; i < items.length; i++) {
-        totalVal += (items[i].qty || 0) * (items[i].price || 0);
-        totalCost += (items[i].qty || 0) * (items[i].costPrice || 0);
+        subtotalVal += (items[i].qty || 0) * (items[i].price || 0);
+        totalLineDisc += parseFloat(items[i].lineDiscount) || 0;
     }
+    var totalVal = Math.max(0, subtotalVal - totalLineDisc);
 
     var h = '<div style="border:2px solid ' + borderColor + ';border-radius:12px;padding:8px;background:' + bgHighlight + ';transition:border-color 0.2s,background 0.2s;">' +
         '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">' +
@@ -4405,13 +4406,11 @@ function renderQuotItemsColumn(tab, items, isActive) {
         h += renderQuotItemsList(items, tab);
     }
 
-    if (totalCost > 0) {
-        var profit = totalVal - totalCost;
-        var pct = totalVal > 0 ? Math.round((profit / totalVal) * 100) : 0;
-        var pColor = profit >= 0 ? '#00b894' : 'var(--danger)';
+    if (items.length > 0) {
         h += '<div style="margin-top:6px;padding-top:6px;border-top:1px solid var(--border);display:flex;justify-content:space-between;font-size:10px;">' +
-            '<span style="color:var(--text3);">Costo: $' + totalCost.toFixed(2) + '</span>' +
-            '<span style="font-weight:700;color:' + pColor + ';">Ganancia: $' + profit.toFixed(2) + ' (' + pct + '%)</span>' +
+            '<span style="color:var(--text3);">Costo: $' + subtotalVal.toFixed(2) + '</span>' +
+            (totalLineDisc > 0 ? '<span style="font-weight:700;color:#f59e0b;">Dto: -$' + totalLineDisc.toFixed(2) + '</span>' : '') +
+            '<span style="font-weight:700;color:#00b894;">Final: $' + totalVal.toFixed(2) + '</span>' +
         '</div>';
     }
 
@@ -4424,15 +4423,12 @@ function renderQuotItemsList(items, tab) {
     var h = '';
     for (var i = 0; i < items.length; i++) {
         var it = items[i];
-        var subtotal = (it.qty * it.price).toFixed(2);
-        var totalCostItem = ((it.qty || 0) * (it.costPrice || 0)).toFixed(2);
-        var profit = ((it.qty * it.price) - (it.qty * (it.costPrice || 0)));
-        var profitPct = it.price > 0 ? Math.round((profit / (it.qty * it.price)) * 100) : 0;
+        var unitPrice = parseFloat(it.price) || 0;
+        var lineCost = (it.qty * unitPrice).toFixed(2);
+        var lineDiscount = parseFloat(it.lineDiscount) || 0;
+        var lineFinal = (it.qty * unitPrice - lineDiscount).toFixed(2);
+        var hasDiscount = lineDiscount > 0;
         var stockInfo = it.maxStock !== undefined ? ' | Stock: ' + it.maxStock : '';
-        var isModified = it.originalPrice && it.price !== it.originalPrice;
-        var hasCost = (it.costPrice > 0);
-        var profitColor = profit >= 0 ? '#00b894' : 'var(--danger)';
-        var profitLabel = hasCost ? '<span style="font-weight:700;color:' + profitColor + ';">$' + profit.toFixed(2) + ' (' + profitPct + '%)</span>' : '';
         var specsHtml = '';
         if (it.specifications) {
             try {
@@ -4447,35 +4443,45 @@ function renderQuotItemsList(items, tab) {
                 }
             } catch(e) {}
         }
-        h += '<div style="background:var(--bg2);border:1px solid ' + (isModified ? 'var(--warning)' : 'var(--border)') + ';border-radius:10px;padding:10px;margin-bottom:6px;">' +
+
+        // Price row: Unit price (editable) + Descuento (editable) + Precio final (calculated)
+        var priceRow = '<div style="display:flex;align-items:center;gap:5px;margin-top:6px;flex-wrap:wrap;">' +
+            // Unit price
+            '<div style="display:flex;align-items:center;gap:3px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.25);border-radius:6px;padding:4px 8px;">' +
+                '<span style="font-size:9px;font-weight:700;color:#3b82f6;text-transform:uppercase;">Precio</span>' +
+                '<span style="font-size:10px;color:var(--text3);">$</span>' +
+                '<input type="number" class="input" value="' + unitPrice.toFixed(2) + '" min="0" step="0.01" onchange="setQuotItemPrice(' + i + ',this.value)" style="width:62px;text-align:center;padding:2px 4px;font-size:13px;font-weight:700;border:1px solid rgba(59,130,246,0.3);">' +
+            '</div>' +
+            '<span style="font-size:10px;color:var(--text3);">× ' + it.qty + '</span>' +
+            '<span style="font-size:9px;font-weight:700;color:#3b82f6;text-transform:uppercase;">=</span>' +
+            // Line total (cost for client)
+            '<div style="display:flex;align-items:center;gap:3px;background:rgba(225,112,85,0.1);border:1px solid rgba(225,112,85,0.25);border-radius:6px;padding:4px 8px;">' +
+                '<span style="font-size:9px;font-weight:700;color:#e17055;text-transform:uppercase;">Costo</span>' +
+                '<span style="font-size:13px;font-weight:800;color:#e17055;">$' + lineCost + '</span>' +
+            '</div>' +
+        '</div>';
+
+        // Discount + Final price row
+        var discFinalRow = '<div style="display:flex;align-items:center;gap:5px;margin-top:6px;flex-wrap:wrap;">' +
+            // Descuento input
+            '<div style="display:flex;align-items:center;gap:3px;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.25);border-radius:6px;padding:4px 8px;">' +
+                '<span style="font-size:9px;font-weight:700;color:#f59e0b;text-transform:uppercase;">Dto.</span>' +
+                '<span style="font-size:10px;color:var(--text3);">$</span>' +
+                '<input type="number" class="input" value="' + (lineDiscount > 0 ? lineDiscount.toFixed(2) : '0.00') + '" min="0" step="0.01" onchange="setQuotItemDiscount(' + i + ',this.value)" style="width:58px;text-align:center;padding:2px 4px;font-size:12px;font-weight:700;border:1px solid rgba(245,158,11,0.3);">' +
+            '</div>' +
+            '<span style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;">=</span>' +
+            // Final price
+            '<div style="display:flex;align-items:center;gap:3px;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.25);border-radius:6px;padding:4px 8px;margin-left:auto;">' +
+                '<span style="font-size:9px;font-weight:700;color:#00b894;text-transform:uppercase;">Final</span>' +
+                '<span style="font-size:14px;font-weight:800;color:#00b894;">$' + lineFinal + '</span>' +
+            '</div>' +
+        '</div>';
+
+        h += '<div style="background:var(--bg2);border:1px solid ' + (hasDiscount ? 'rgba(34,197,94,0.3)' : 'var(--border)') + ';border-radius:10px;padding:10px;margin-bottom:6px;">' +
             '<div style="font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(it.productName) + '</div>' +
             specsHtml +
-            (hasCost ?
-                // Price row: Costo (reference) + Venta (editable) + Ganancia
-                '<div style="display:flex;align-items:center;gap:6px;margin-top:6px;flex-wrap:wrap;">' +
-                    '<div style="display:flex;align-items:center;gap:3px;background:rgba(225,112,85,0.1);border:1px solid rgba(225,112,85,0.25);border-radius:6px;padding:4px 8px;">' +
-                        '<span style="font-size:9px;font-weight:700;color:#e17055;text-transform:uppercase;">Costo</span>' +
-                        '<span style="font-size:13px;font-weight:800;color:#e17055;">$' + parseFloat(it.costPrice).toFixed(2) + '</span>' +
-                    '</div>' +
-                    '<span style="font-size:10px;color:var(--text3);">\u2192</span>' +
-                    '<div style="display:flex;align-items:center;gap:3px;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.25);border-radius:6px;padding:4px 8px;">' +
-                        '<span style="font-size:9px;font-weight:700;color:#00b894;text-transform:uppercase;">Venta</span>' +
-                        '<span style="font-size:10px;color:var(--text3);">$</span>' +
-                        '<input type="number" class="input" value="' + parseFloat(it.price).toFixed(2) + '" min="0" step="0.01" onchange="setQuotItemPrice(' + i + ',this.value)" style="width:72px;text-align:center;padding:2px 4px;font-size:13px;font-weight:700;border:1px solid rgba(34,197,94,0.3);">' +
-                    '</div>' +
-                    (profitPct >= 0 ?
-                        '<span style="font-size:10px;font-weight:700;color:' + profitColor + ';margin-left:auto;white-space:nowrap;">\u2191 ' + profitLabel + '</span>' :
-                        '<span style="font-size:10px;font-weight:700;color:' + profitColor + ';margin-left:auto;white-space:nowrap;">\u2193 ' + profitLabel + '</span>'
-                    ) +
-                '</div>'
-            :
-                // No cost info — simple price input
-                '<div style="display:flex;align-items:center;gap:4px;margin-top:4px;">' +
-                    '<span style="font-size:11px;color:var(--text3);">$</span>' +
-                    '<input type="number" class="input" value="' + parseFloat(it.price).toFixed(2) + '" min="0" step="0.01" onchange="setQuotItemPrice(' + i + ',this.value)" style="width:80px;text-align:center;padding:3px 6px;font-size:12px;">' +
-                    '<span style="font-size:10px;color:var(--text3);">c/u</span>' +
-                '</div>'
-            ) +
+            priceRow +
+            discFinalRow +
             '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;padding-top:6px;border-top:1px solid var(--border);">' +
                 '<div style="display:flex;align-items:center;gap:4px;">' +
                     '<button type="button" class="btn btn-xs btn-outline" onclick="updateQuotItemQty(' + i + ',-1)" style="padding:4px 8px;font-size:14px;">\u2212</button>' +
@@ -4483,12 +4489,6 @@ function renderQuotItemsList(items, tab) {
                     '<button type="button" class="btn btn-xs btn-outline" onclick="updateQuotItemQty(' + i + ',1)" style="padding:4px 8px;font-size:14px;">+</button>' +
                     stockInfo +
                 '</div>' +
-                '<div style="display:flex;align-items:center;gap:8px;">' +
-                    (hasCost ? '<span style="font-size:10px;color:var(--text3);">Costo total: $' + totalCostItem + '</span>' : '') +
-                    '<span style="font-size:14px;font-weight:700;color:var(--primary);">$' + subtotal + '</span>' +
-                '</div>' +
-            '</div>' +
-            '<div style="text-align:right;margin-top:4px;">' +
                 '<button type="button" class="btn btn-xs" onclick="removeQuotItem(' + i + ')" style="padding:3px 10px;font-size:10px;color:var(--danger);background:transparent;border:1px solid var(--danger);border-radius:6px;opacity:0.7;">\u2715 Quitar</button>' +
             '</div>' +
         '</div>';
@@ -4505,6 +4505,15 @@ function setQuotItemPrice(index, val) {
         items[index].originalPrice = items[index].price;
     }
     items[index].price = newPrice;
+    setCurrentItems(items);
+    renderQuotItems();
+    calcQuotTotals();
+}
+
+function setQuotItemDiscount(index, val) {
+    var items = getCurrentItems();
+    if (!items[index]) return;
+    items[index].lineDiscount = Math.max(0, parseFloat(val) || 0);
     setCurrentItems(items);
     renderQuotItems();
     calcQuotTotals();
@@ -4699,7 +4708,8 @@ function addProductToQuotation(productId) {
         originalPrice: parseFloat(product.salePrice) || parseFloat(product.price) || 0,
         costPrice: parseFloat(product.costPrice) || 0,
         maxStock: parseInt(product.stock) || 0,
-        specifications: product.specifications || null
+        specifications: product.specifications || null,
+        lineDiscount: 0
     });
     setCurrentItems(items);
     updateTabUI();
@@ -4729,7 +4739,8 @@ function addCustomProductToQuotation() {
         qty: 1,
         price: price,
         costPrice: 0,
-        maxStock: undefined
+        maxStock: undefined,
+        lineDiscount: 0
     });
     setCurrentItems(items);
 
@@ -4779,21 +4790,25 @@ function showQuotCustomProduct() {
 function calcQuotTotals() {
     var items = getCurrentItems();
     var subtotal = 0;
+    var totalDiscount = 0;
     for (var i = 0; i < items.length; i++) {
-        subtotal += (items[i].qty || 0) * (items[i].price || 0);
+        var lineCost = (items[i].qty || 0) * (items[i].price || 0);
+        var lineDisc = parseFloat(items[i].lineDiscount) || 0;
+        subtotal += lineCost;
+        totalDiscount += lineDisc;
     }
 
     var discountType = document.getElementById('quotDiscountType').value;
     var discountValue = parseFloat(document.getElementById('quotDiscountValue').value) || 0;
-    var discountAmount = 0;
+    var extraDiscount = 0;
 
     if (discountType === 'percentage') {
-        discountAmount = subtotal * (discountValue / 100);
+        extraDiscount = subtotal * (discountValue / 100);
     } else {
-        discountAmount = discountValue;
+        extraDiscount = discountValue;
     }
 
-    var total = Math.max(0, subtotal - discountAmount);
+    var total = Math.max(0, subtotal - totalDiscount - extraDiscount);
     document.getElementById('quotTotal').textContent = formatMoney(total);
 
     // Update dual mini summary if in dual mode
@@ -4807,16 +4822,23 @@ function updateDualMiniSummary() {
     var elMiniB = document.getElementById('dualMiniB');
     if (!elMiniA || !elMiniB) return;
 
-    // Calculate totals for both options
-    var totalA = 0, totalB = 0;
-    for (var i = 0; i < quotItemsA.length; i++) totalA += (quotItemsA[i].qty || 0) * (quotItemsA[i].price || 0);
-    for (var i = 0; i < quotItemsB.length; i++) totalB += (quotItemsB[i].qty || 0) * (quotItemsB[i].price || 0);
+    // Calculate totals for both options (including line discounts)
+    var subtotalA = 0, discA_line = 0;
+    var subtotalB = 0, discB_line = 0;
+    for (var i = 0; i < quotItemsA.length; i++) {
+        subtotalA += (quotItemsA[i].qty || 0) * (quotItemsA[i].price || 0);
+        discA_line += parseFloat(quotItemsA[i].lineDiscount) || 0;
+    }
+    for (var i = 0; i < quotItemsB.length; i++) {
+        subtotalB += (quotItemsB[i].qty || 0) * (quotItemsB[i].price || 0);
+        discB_line += parseFloat(quotItemsB[i].lineDiscount) || 0;
+    }
 
-    // Apply discounts
-    var discA = quotDiscountA.type === 'percentage' ? totalA * (quotDiscountA.value / 100) : quotDiscountA.value;
-    var discB = quotDiscountB.type === 'percentage' ? totalB * (quotDiscountB.value / 100) : quotDiscountB.value;
-    totalA = Math.max(0, totalA - discA);
-    totalB = Math.max(0, totalB - discB);
+    // Apply extra discounts
+    var extraA = quotDiscountA.type === 'percentage' ? subtotalA * (quotDiscountA.value / 100) : quotDiscountA.value;
+    var extraB = quotDiscountB.type === 'percentage' ? subtotalB * (quotDiscountB.value / 100) : quotDiscountB.value;
+    var totalA = Math.max(0, subtotalA - discA_line - extraA);
+    var totalB = Math.max(0, subtotalB - discB_line - extraB);
 
     document.getElementById('dualMiniATitle').textContent = quotOptionTitleA;
     document.getElementById('dualMiniACount').textContent = quotItemsA.length + ' producto' + (quotItemsA.length !== 1 ? 's' : '');
@@ -4932,9 +4954,13 @@ function saveQuotation() {
 
     function calcOptTotal(items, discount) {
         var sub = 0;
-        for (var i = 0; i < items.length; i++) sub += (items[i].qty || 0) * (items[i].price || 0);
+        var lineDiscTotal = 0;
+        for (var i = 0; i < items.length; i++) {
+            sub += (items[i].qty || 0) * (items[i].price || 0);
+            lineDiscTotal += parseFloat(items[i].lineDiscount) || 0;
+        }
         var disc = discount.type === 'percentage' ? sub * (discount.value / 100) : discount.value;
-        return { subtotal: sub, total: Math.max(0, sub - disc) };
+        return { subtotal: sub, totalDiscount: lineDiscTotal + disc, total: Math.max(0, sub - lineDiscTotal - disc) };
     }
 
     var totalsA = calcOptTotal(quotItemsA, quotDiscountA);
@@ -4953,7 +4979,8 @@ function saveQuotation() {
                 price: items[i].price,
                 originalPrice: items[i].originalPrice || items[i].price,
                 costPrice: items[i].costPrice || 0,
-                specifications: items[i].specifications || null
+                specifications: items[i].specifications || null,
+                lineDiscount: parseFloat(items[i].lineDiscount) || 0
             });
         }
         return clean;
@@ -5121,18 +5148,20 @@ function viewQuotation(id) {
         }
 
         h += '<table class="qv-table"><thead><tr>' +
-            '<th>Producto</th><th>Cant.</th><th>Costo</th><th>Precio</th><th>Subtotal</th>' +
+            '<th>Producto</th><th>Cant.</th><th>Precio</th><th>Costo</th><th>Dto.</th><th>Final</th>' +
             '</tr></thead><tbody>';
         for (var j = 0; j < section.items.length; j++) {
             var item = section.items[j];
-            var sub = (item.qty * (item.price || 0)).toFixed(2);
-            var itemCost = (item.qty * (item.costPrice || 0)).toFixed(2);
+            var lineCost = (item.qty * (item.price || 0)).toFixed(2);
+            var lineDisc = parseFloat(item.lineDiscount) || 0;
+            var lineFinal = (item.qty * (item.price || 0) - lineDisc).toFixed(2);
             h += '<tr>' +
                 '<td>' + escapeHtml(item.productName || item.name || '') + '</td>' +
                 '<td>' + item.qty + '</td>' +
-                '<td style="color:var(--text3);">' + (item.costPrice ? formatMoney(item.costPrice) : '-') + '</td>' +
-                '<td>' + formatMoney(item.price) + '</td>' +
-                '<td><strong>' + formatMoney(sub) + '</strong></td>' +
+                '<td style="color:#3b82f6;">' + formatMoney(item.price) + '</td>' +
+                '<td style="color:#e17055;font-weight:600;">' + formatMoney(lineCost) + '</td>' +
+                '<td style="color:#f59e0b;">' + (lineDisc > 0 ? '-' + formatMoney(lineDisc) : '-') + '</td>' +
+                '<td><strong style="color:#00b894;">' + formatMoney(lineFinal) + '</strong></td>' +
                 '</tr>';
         }
         h += '</tbody></table>';
@@ -12084,9 +12113,14 @@ function buildQuotationText(id) {
 
         for (var j = 0; j < sec.items.length; j++) {
             var it = sec.items[j];
-            var sub = (it.qty * (it.price || 0)).toFixed(2);
+            var lineCost = (it.qty * (it.price || 0)).toFixed(2);
+            var lineDisc = parseFloat(it.lineDiscount) || 0;
+            var lineFinal = (it.qty * (it.price || 0) - lineDisc).toFixed(2);
             lines.push((j + 1) + '. ' + (it.productName || it.name || 'Producto'));
-            lines.push('   Cant: ' + it.qty + ' | Precio: $' + (it.price || 0).toFixed(2) + ' | Sub: $' + sub);
+            var detailLine = '   Cant: ' + it.qty + ' | Precio: $' + (it.price || 0).toFixed(2) + ' | Costo: $' + lineCost;
+            if (lineDisc > 0) detailLine += ' | Dto: -$' + lineDisc.toFixed(2);
+            detailLine += ' | Final: $' + lineFinal;
+            lines.push(detailLine);
         }
 
         // Discount
@@ -12457,12 +12491,16 @@ function downloadQuotationPDF(id) {
         var itemsRows = '';
         for (var j = 0; j < sec.items.length; j++) {
             var it = sec.items[j];
-            var sub = (it.qty * (it.price || 0)).toFixed(2);
+            var lineCost = (it.qty * (it.price || 0)).toFixed(2);
+            var lineDisc = parseFloat(it.lineDiscount) || 0;
+            var lineFinal = (it.qty * (it.price || 0) - lineDisc).toFixed(2);
             itemsRows += '<tr>' +
                 '<td style="border:1px solid #ddd;padding:8px;font-size:13px;">' + (it.productName || it.name || '') + '</td>' +
                 '<td style="border:1px solid #ddd;padding:8px;font-size:13px;text-align:center;">' + it.qty + '</td>' +
                 '<td style="border:1px solid #ddd;padding:8px;font-size:13px;text-align:right;">$' + (it.price || 0).toFixed(2) + '</td>' +
-                '<td style="border:1px solid #ddd;padding:8px;font-size:13px;text-align:right;font-weight:700;">$' + sub + '</td>' +
+                '<td style="border:1px solid #ddd;padding:8px;font-size:13px;text-align:right;color:#e17055;font-weight:600;">$' + lineCost + '</td>' +
+                '<td style="border:1px solid #ddd;padding:8px;font-size:13px;text-align:right;color:#f59e0b;">' + (lineDisc > 0 ? '-$' + lineDisc : '-') + '</td>' +
+                '<td style="border:1px solid #ddd;padding:8px;font-size:13px;text-align:right;font-weight:700;color:#00b894;">$' + lineFinal + '</td>' +
                 '</tr>';
         }
 
@@ -12479,7 +12517,9 @@ function downloadQuotationPDF(id) {
                     '<th style="background:' + sec.color + ';color:white;padding:10px 8px;font-size:12px;text-align:left;text-transform:uppercase;">Producto</th>' +
                     '<th style="background:' + sec.color + ';color:white;padding:10px 8px;font-size:12px;text-align:center;">Cant.</th>' +
                     '<th style="background:' + sec.color + ';color:white;padding:10px 8px;font-size:12px;text-align:right;">Precio</th>' +
-                    '<th style="background:' + sec.color + ';color:white;padding:10px 8px;font-size:12px;text-align:right;">Subtotal</th>' +
+                    '<th style="background:' + sec.color + ';color:white;padding:10px 8px;font-size:12px;text-align:right;">Costo</th>' +
+                    '<th style="background:' + sec.color + ';color:white;padding:10px 8px;font-size:12px;text-align:right;">Dto.</th>' +
+                    '<th style="background:' + sec.color + ';color:white;padding:10px 8px;font-size:12px;text-align:right;">Final</th>' +
                 '</tr></thead>' +
                 '<tbody>' + itemsRows + '</tbody></table>' +
                 discHtml +
@@ -12493,7 +12533,9 @@ function downloadQuotationPDF(id) {
                     '<th style="background:#22c55e;color:white;padding:10px 8px;font-size:12px;text-align:left;text-transform:uppercase;">Producto</th>' +
                     '<th style="background:#22c55e;color:white;padding:10px 8px;font-size:12px;text-align:center;">Cant.</th>' +
                     '<th style="background:#22c55e;color:white;padding:10px 8px;font-size:12px;text-align:right;">Precio</th>' +
-                    '<th style="background:#22c55e;color:white;padding:10px 8px;font-size:12px;text-align:right;">Subtotal</th>' +
+                    '<th style="background:#22c55e;color:white;padding:10px 8px;font-size:12px;text-align:right;">Costo</th>' +
+                    '<th style="background:#22c55e;color:white;padding:10px 8px;font-size:12px;text-align:right;">Dto.</th>' +
+                    '<th style="background:#22c55e;color:white;padding:10px 8px;font-size:12px;text-align:right;">Final</th>' +
                 '</tr></thead>' +
                 '<tbody>' + itemsRows + '</tbody></table>' +
                 discHtml;
