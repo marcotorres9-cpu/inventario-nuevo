@@ -1489,20 +1489,10 @@
             <input type="number" id="quotDiscountValue" class="input" value="0" min="0">
         </div>
         
-        <!-- Totals Summary -->
-        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:10px;">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-                <span style="font-size:12px;font-weight:600;color:var(--text3);">COSTO TOTAL</span>
-                <span id="quotSubtotal" style="font-size:16px;font-weight:700;color:var(--text2);">$0.00</span>
-            </div>
-            <div id="quotDiscRow" style="display:none;justify-content:space-between;align-items:center;margin-bottom:6px;">
-                <span style="font-size:12px;font-weight:600;color:#f59e0b;">DESCUENTOS</span>
-                <span id="quotTotalDisc" style="font-size:14px;font-weight:700;color:#f59e0b;">-$0.00</span>
-            </div>
-            <div style="display:flex;justify-content:space-between;align-items:center;padding-top:8px;border-top:2px solid var(--primary);">
-                <span style="font-size:13px;font-weight:700;color:var(--primary);">TOTAL FINAL</span>
-                <span id="quotTotal" style="font-size:22px;font-weight:800;color:var(--primary);">$0.00</span>
-            </div>
+        <!-- Total Final (compact, single line) -->
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:var(--primary-bg);border:2px solid var(--primary);border-radius:10px;margin-bottom:10px;">
+            <span style="font-size:13px;font-weight:700;color:var(--primary);">TOTAL FINAL</span>
+            <span id="quotTotal" style="font-size:20px;font-weight:800;color:var(--primary);">$0.00</span>
         </div>
         
         <!-- Notes + Valid Days (compact) -->
@@ -4443,44 +4433,48 @@ function renderQuotItemsList(items, tab) {
         var lineCost = it.qty * unitPrice;
         var lineDiscount = parseFloat(it.lineDiscount) || 0;
         var lineFinal = Math.max(0, lineCost - lineDiscount);
-        var hasDiscount = lineDiscount > 0;
 
-        h += '<div style="background:var(--bg2);border:1px solid ' + (hasDiscount ? 'rgba(34,197,94,0.3)' : 'var(--border)') + ';border-radius:8px;padding:8px 10px;margin-bottom:4px;">' +
-            // Row 1: Name + qty + remove
+        h += '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;margin-bottom:4px;">' +
             '<div style="display:flex;justify-content:space-between;align-items:center;">' +
-                '<div style="flex:1;min-width:0;">' +
-                    '<div style="font-weight:600;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(it.productName) + '</div>' +
-                    '<div style="font-size:10px;color:var(--text3);margin-top:1px;">$' + unitPrice.toFixed(2) + ' c/u</div>' +
-                '</div>' +
-                '<div style="display:flex;align-items:center;gap:3px;flex-shrink:0;margin-left:6px;">' +
-                    '<button type="button" class="btn btn-xs btn-outline" onclick="updateQuotItemQty(' + i + ',-1)" style="padding:2px 6px;font-size:13px;line-height:1;">-</button>' +
-                    '<span style="font-size:13px;font-weight:700;min-width:20px;text-align:center;">' + it.qty + '</span>' +
-                    '<button type="button" class="btn btn-xs btn-outline" onclick="updateQuotItemQty(' + i + ',1)" style="padding:2px 6px;font-size:13px;line-height:1;">+</button>' +
-                    '<button type="button" onclick="removeQuotItem(' + i + ')" style="margin-left:4px;padding:2px 6px;font-size:11px;color:var(--danger);background:none;border:none;cursor:pointer;opacity:0.6;">x</button>' +
+                '<div style="font-weight:600;font-size:12px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(it.productName) + '</div>' +
+                '<div style="display:flex;align-items:center;gap:2px;flex-shrink:0;margin-left:4px;">' +
+                    '<button type="button" class="btn btn-xs btn-outline" onclick="updateQuotItemQty(' + i + ',-1)" style="padding:1px 5px;font-size:12px;line-height:1;">-</button>' +
+                    '<span style="font-size:12px;font-weight:700;min-width:18px;text-align:center;">' + it.qty + '</span>' +
+                    '<button type="button" class="btn btn-xs btn-outline" onclick="updateQuotItemQty(' + i + ',1)" style="padding:1px 5px;font-size:12px;line-height:1;">+</button>' +
+                    '<button type="button" onclick="removeQuotItem(' + i + ')" style="margin-left:3px;padding:1px 5px;font-size:10px;color:var(--danger);background:none;border:none;cursor:pointer;opacity:0.5;">x</button>' +
                 '</div>' +
             '</div>' +
-            // Row 2: Costo Total + Descuento input + Precio Final
-            '<div style="display:flex;align-items:center;gap:6px;margin-top:6px;">' +
-                // Costo Total
-                '<div style="flex:1;display:flex;justify-content:space-between;padding:4px 8px;background:rgba(225,112,85,0.08);border-radius:6px;">' +
-                    '<span style="font-size:10px;font-weight:700;color:#e17055;">COSTO</span>' +
-                    '<span style="font-size:13px;font-weight:800;color:#e17055;">$' + lineCost.toFixed(2) + '</span>' +
+            '<div style="display:flex;align-items:center;gap:4px;margin-top:5px;">' +
+                '<div style="flex:1;display:flex;align-items:center;gap:2px;padding:3px 6px;background:rgba(225,112,85,0.08);border-radius:5px;">' +
+                    '<span style="font-size:9px;font-weight:700;color:#e17055;">COSTO</span>' +
+                    '<input type="number" class="input" value="' + unitPrice.toFixed(2) + '" min="0" step="0.01" onchange="setQuotItemPrice(' + i + ',this.value)" style="width:52px;text-align:right;padding:1px 3px;font-size:12px;font-weight:700;border:1px solid rgba(225,112,85,0.3);background:transparent;color:#e17055;">' +
+                    '<span style="font-size:8px;color:var(--text3);">x' + it.qty + '</span>' +
                 '</div>' +
-                // Descuento input
-                '<div style="display:flex;align-items:center;gap:2px;flex-shrink:0;">' +
-                    '<span style="font-size:9px;font-weight:700;color:#f59e0b;">DTO</span>' +
-                    '<span style="font-size:9px;color:var(--text3);">$</span>' +
-                    '<input type="number" class="input" value="' + (lineDiscount > 0 ? lineDiscount.toFixed(2) : '0.00') + '" min="0" step="0.01" onchange="setQuotItemDiscount(' + i + ',this.value)" style="width:56px;text-align:center;padding:2px 3px;font-size:12px;font-weight:700;border:1px solid rgba(245,158,11,0.3);background:rgba(245,158,11,0.05);">' +
+                '<span style="font-size:9px;color:var(--text3);flex-shrink:0;">=</span>' +
+                '<div style="width:68px;text-align:right;padding:3px 6px;background:rgba(225,112,85,0.12);border-radius:5px;">' +
+                    '<span style="font-size:12px;font-weight:800;color:#e17055;">$' + lineCost.toFixed(2) + '</span>' +
                 '</div>' +
-                // Precio Final
-                '<div style="flex:1;display:flex;justify-content:space-between;padding:4px 8px;background:rgba(34,197,94,0.06);border-radius:6px;">' +
-                    '<span style="font-size:10px;font-weight:700;color:#00b894;">FINAL</span>' +
+                '<div style="display:flex;align-items:center;gap:1px;flex-shrink:0;">' +
+                    '<span style="font-size:8px;font-weight:700;color:#f59e0b;">DTO</span>' +
+                    '<input type="number" class="input" value="' + (lineDiscount > 0 ? lineDiscount.toFixed(2) : '0.00') + '" min="0" step="0.01" onchange="setQuotItemDiscount(' + i + ',this.value)" style="width:48px;text-align:right;padding:1px 3px;font-size:11px;font-weight:700;border:1px solid rgba(245,158,11,0.3);background:rgba(245,158,11,0.05);color:#f59e0b;">' +
+                '</div>' +
+                '<span style="font-size:9px;color:var(--text3);flex-shrink:0;">=</span>' +
+                '<div style="width:68px;text-align:right;padding:3px 6px;background:rgba(34,197,94,0.08);border-radius:5px;">' +
                     '<span style="font-size:13px;font-weight:800;color:#00b894;">$' + lineFinal.toFixed(2) + '</span>' +
                 '</div>' +
             '</div>' +
         '</div>';
     }
     return h;
+}
+
+function setQuotItemPrice(index, val) {
+    var items = getCurrentItems();
+    if (!items[index]) return;
+    items[index].price = Math.max(0, parseFloat(val) || 0);
+    setCurrentItems(items);
+    renderQuotItems();
+    calcQuotTotals();
 }
 
 function setQuotItemDiscount(index, val) {
@@ -4770,23 +4764,9 @@ function calcQuotTotals() {
         subtotal += lineCost;
         totalDiscount += lineDisc;
     }
-
-    // No global discount — only per-product line discounts
     var total = Math.max(0, subtotal - totalDiscount);
     document.getElementById('quotTotal').textContent = formatMoney(total);
-
-    // Update summary: subtotal, discounts, total
-    var elSub = document.getElementById('quotSubtotal');
-    var elDisc = document.getElementById('quotTotalDisc');
-    var elDiscRow = document.getElementById('quotDiscRow');
-    if (elSub) elSub.textContent = formatMoney(subtotal);
-    if (elDisc) elDisc.textContent = '-' + formatMoney(totalDiscount);
-    if (elDiscRow) elDiscRow.style.display = totalDiscount > 0 ? 'flex' : 'none';
-
-    // Update dual mini summary if in dual mode
-    if (quotIsDualMode) {
-        updateDualMiniSummary();
-    }
+    if (quotIsDualMode) updateDualMiniSummary();
 }
 
 function updateDualMiniSummary() {
@@ -5118,7 +5098,7 @@ function viewQuotation(id) {
         }
 
         h += '<table class="qv-table"><thead><tr>' +
-            '<th>Producto</th><th>Cant.</th><th>Costo Total</th><th>Descuento</th><th>Precio Final</th>' +
+            '<th>Producto</th><th>Cant.</th><th>Costo</th><th>Dto.</th><th>Final</th>' +
             '</tr></thead><tbody>';
         for (var j = 0; j < section.items.length; j++) {
             var item = section.items[j];
@@ -5127,10 +5107,10 @@ function viewQuotation(id) {
             var lineFinal = (item.qty * (item.price || 0) - lineDisc).toFixed(2);
             h += '<tr>' +
                 '<td>' + escapeHtml(item.productName || item.name || '') + '</td>' +
-                '<td>' + item.qty + '</td>' +
-                '<td style="color:#e17055;font-weight:600;">' + formatMoney(lineCost) + '</td>' +
-                '<td style="color:#f59e0b;">' + (lineDisc > 0 ? '-$' + lineDisc : '-') + '</td>' +
-                '<td><strong style="color:#00b894;">$' + lineFinal + '</strong></td>' +
+                '<td style="text-align:center;">' + item.qty + '</td>' +
+                '<td style="text-align:right;color:#e17055;font-weight:600;">$' + lineCost + '</td>' +
+                '<td style="text-align:right;color:#f59e0b;">' + (lineDisc > 0 ? '-$' + lineDisc : '-') + '</td>' +
+                '<td style="text-align:right;"><strong style="color:#00b894;">$' + lineFinal + '</strong></td>' +
                 '</tr>';
         }
         h += '</tbody></table>';
@@ -12064,84 +12044,63 @@ function buildQuotationText(id) {
     var storeAddr = cfg.address || '';
 
     var lines = [];
-    lines.push('━━━━━━━━━━━━━━━━━━━');
-    lines.push('📋 *' + storeName + '*');
-    lines.push('━━━━━━━━━━━━━━━━━━━');
-    if (storeAddr) lines.push('📍 ' + storeAddr);
-    if (storePhone) lines.push('📞 ' + storePhone);
+    lines.push('*' + storeName + '*');
+    if (storeAddr) lines.push(storeAddr);
+    if (storePhone) lines.push('Tel: ' + storePhone);
     lines.push('');
-    lines.push('📝 *Cotización: ' + (q.number || 'COT-?') + '*');
-    if (q.clientName) lines.push('👤 Cliente: ' + q.clientName);
-    if (q.customerPhone) lines.push('📞 Tel: ' + q.customerPhone);
-    lines.push('📅 Fecha: ' + formatDate(q.createdAt));
+    lines.push('*' + (q.number || 'COT-?') + '*');
+    if (q.clientName) lines.push('Cliente: ' + q.clientName);
+    if (q.customerPhone) lines.push('Tel: ' + q.customerPhone);
+    lines.push('Fecha: ' + formatDate(q.createdAt));
     if (q.validDays) {
         var validDate = new Date(new Date(q.createdAt).getTime() + (q.validDays || 15) * 24 * 60 * 60 * 1000);
-        lines.push('⏳ Válida hasta: ' + formatDate(validDate));
+        lines.push('Válida hasta: ' + formatDate(validDate));
     }
     lines.push('');
 
     var isDual = q.isDualMode && q.itemsB && q.itemsB.length > 0;
     var sections = isDual ? [
-        { title: q.optionTitleA || 'Opción A', items: q.itemsA || q.items || [], discount: q.discountA, totals: q.totalsA },
-        { title: q.optionTitleB || 'Opción B', items: q.itemsB || [], discount: q.discountB, totals: q.totalsB }
+        { title: q.optionTitleA || 'Opción A', items: q.itemsA || q.items || [], totals: q.totalsA },
+        { title: q.optionTitleB || 'Opción B', items: q.itemsB || [], totals: q.totalsB }
     ] : [
-        { title: null, items: q.itemsA || q.items || [], discount: q.discountA, totals: q.totalsA }
+        { title: null, items: q.itemsA || q.items || [], totals: q.totalsA }
     ];
 
     for (var s = 0; s < sections.length; s++) {
         var sec = sections[s];
         if (sec.items.length === 0 && isDual) continue;
 
-        if (isDual) {
-            lines.push('─── *' + sec.title + '* ───');
-        } else {
-            lines.push('📦 *Productos:*');
-        }
-        lines.push('───────────────────');
+        if (isDual) lines.push('*' + sec.title + '*');
+        else lines.push('*Productos:*');
 
         for (var j = 0; j < sec.items.length; j++) {
             var it = sec.items[j];
             var lineCost = (it.qty * (it.price || 0)).toFixed(2);
             var lineDisc = parseFloat(it.lineDiscount) || 0;
             var lineFinal = (it.qty * (it.price || 0) - lineDisc).toFixed(2);
-            lines.push((j + 1) + '. ' + (it.productName || it.name || 'Producto'));
-            var detailLine = '   Cant: ' + it.qty + ' | Precio: $' + (it.price || 0).toFixed(2) + ' | Costo: $' + lineCost;
-            if (lineDisc > 0) detailLine += ' | Dto: -$' + lineDisc.toFixed(2);
-            detailLine += ' | Final: $' + lineFinal;
-            lines.push(detailLine);
+            lines.push((j + 1) + '. ' + (it.productName || it.name || '') + ' x' + it.qty);
+            var detail = '   Costo: $' + lineCost;
+            if (lineDisc > 0) detail += ' | Dto: -$' + lineDisc.toFixed(2);
+            detail += ' | *Final: $' + lineFinal + '*';
+            lines.push(detail);
         }
 
-        // Discount
-        if (sec.discount && sec.discount.value > 0) {
-            var discLabel = sec.discount.type === 'percentage' ? sec.discount.value + '%' : '$' + sec.discount.value.toFixed(2);
-            lines.push('🏷️ Descuento: -' + discLabel);
-        }
-
-        var secTotal = sec.totals ? sec.totals.total : (q.total || 0);
+        var secTotal = sec.totals ? sec.totals.total : 0;
         if (isDual) {
-            lines.push('───────────────────');
-            lines.push('💰 *Total ' + sec.title + ': $' + secTotal.toFixed(2) + '*');
+            lines.push('Total ' + sec.title + ': *$' + secTotal.toFixed(2) + '*');
             lines.push('');
         }
     }
 
     if (isDual) {
-        lines.push('━━━━━━━━━━━━━━━━━━━');
-        lines.push('💵 *TOTAL COMBINADO: $' + (q.total || 0).toFixed(2) + '*');
+        lines.push('*TOTAL: $' + (q.total || 0).toFixed(2) + '*');
     } else {
-        lines.push('───────────────────');
-        lines.push('💰 *TOTAL: $' + (q.total || 0).toFixed(2) + '*');
+        lines.push('*TOTAL: $' + (q.total || 0).toFixed(2) + '*');
     }
-    lines.push('━━━━━━━━━━━━━━━━━━━');
 
-    if (q.notes) {
-        lines.push('');
-        lines.push('📝 ' + q.notes);
-    }
-    if (cfg.footerText) {
-        lines.push('');
-        lines.push(cfg.footerText);
-    }
+    if (q.notes) lines.push('');
+    if (q.notes) lines.push(q.notes);
+    if (cfg.footerText) lines.push(cfg.footerText);
 
     return lines.join('\n');
 }
@@ -12452,159 +12411,29 @@ function downloadQuotationPDF(id) {
     }
     if (!q) { showToast('Cotización no encontrada', 'error'); return; }
 
-    var cfg = getStoreConfig();
-    var storeName = cfg.storeName || 'Mi Tienda';
-    var storeAddr = cfg.address || '';
-    var storePhone = cfg.phone || '';
-    var storeEmail = cfg.email || '';
-    var footerText = cfg.footerText || 'Gracias por su preferencia';
-
-    var isDual = q.isDualMode && q.itemsB && q.itemsB.length > 0;
-    var sections = isDual ? [
-        { title: q.optionTitleA || 'Opción A', items: q.itemsA || q.items || [], discount: q.discountA, totals: q.totalsA, color: '#22c55e' },
-        { title: q.optionTitleB || 'Opción B', items: q.itemsB || [], discount: q.discountB, totals: q.totalsB, color: '#3b82f6' }
-    ] : [
-        { title: null, items: q.itemsA || q.items || [], discount: q.discountA, totals: q.totalsA, color: '#22c55e' }
-    ];
-
-    var tablesHtml = '';
-    for (var s = 0; s < sections.length; s++) {
-        var sec = sections[s];
-        if (sec.items.length === 0 && isDual) continue;
-
-        if (isDual) {
-            tablesHtml += '<div style="margin-top:' + (s > 0 ? '24px' : '0') + ';"><h3 style="font-size:16px;font-weight:700;margin-bottom:8px;color:' + sec.color + ';">↔️ ' + sec.title + '</h3>';
+    // Push to server first, then open the printable QR page
+    var serverUrl = getServerUrl();
+    var doOpen = function() {
+        var printUrl = serverUrl + '/qr?id=' + encodeURIComponent(id);
+        // Try ServerBridge for APK WebView
+        if (window.ServerBridge && window.ServerBridge.openUrl) {
+            try { window.ServerBridge.openUrl(printUrl); return; } catch(e) {}
         }
+        // Open in new tab
+        window.open(printUrl, '_blank');
+    };
 
-        var itemsRows = '';
-        for (var j = 0; j < sec.items.length; j++) {
-            var it = sec.items[j];
-            var lineCost = (it.qty * (it.price || 0)).toFixed(2);
-            var lineDisc = parseFloat(it.lineDiscount) || 0;
-            var lineFinal = (it.qty * (it.price || 0) - lineDisc).toFixed(2);
-            itemsRows += '<tr>' +
-                '<td style="border:1px solid #ddd;padding:8px;font-size:13px;">' + (it.productName || it.name || '') + '</td>' +
-                '<td style="border:1px solid #ddd;padding:8px;font-size:13px;text-align:center;">' + it.qty + '</td>' +
-                '<td style="border:1px solid #ddd;padding:8px;font-size:13px;text-align:right;">$' + (it.price || 0).toFixed(2) + '</td>' +
-                '<td style="border:1px solid #ddd;padding:8px;font-size:13px;text-align:right;color:#e17055;font-weight:600;">$' + lineCost + '</td>' +
-                '<td style="border:1px solid #ddd;padding:8px;font-size:13px;text-align:right;color:#f59e0b;">' + (lineDisc > 0 ? '-$' + lineDisc : '-') + '</td>' +
-                '<td style="border:1px solid #ddd;padding:8px;font-size:13px;text-align:right;font-weight:700;color:#00b894;">$' + lineFinal + '</td>' +
-                '</tr>';
-        }
-
-        var discHtml = '';
-        if (sec.discount && sec.discount.value > 0) {
-            var discLabel = sec.discount.type === 'percentage' ? sec.discount.value + '%' : '$' + sec.discount.value.toFixed(2);
-            discHtml = '<div style="text-align:right;font-size:12px;color:#d97706;margin-top:4px;">Descuento: -' + discLabel + '</div>';
-        }
-
-        var secTotal = sec.totals ? sec.totals.total : (q.total || 0);
-        if (isDual) {
-            tablesHtml += '<table style="width:100%;border-collapse:collapse;margin-bottom:12px;">' +
-                '<thead><tr>' +
-                    '<th style="background:' + sec.color + ';color:white;padding:10px 8px;font-size:12px;text-align:left;text-transform:uppercase;">Producto</th>' +
-                    '<th style="background:' + sec.color + ';color:white;padding:10px 8px;font-size:12px;text-align:center;">Cant.</th>' +
-                    '<th style="background:' + sec.color + ';color:white;padding:10px 8px;font-size:12px;text-align:right;">Precio</th>' +
-                    '<th style="background:' + sec.color + ';color:white;padding:10px 8px;font-size:12px;text-align:right;">Costo</th>' +
-                    '<th style="background:' + sec.color + ';color:white;padding:10px 8px;font-size:12px;text-align:right;">Dto.</th>' +
-                    '<th style="background:' + sec.color + ';color:white;padding:10px 8px;font-size:12px;text-align:right;">Final</th>' +
-                '</tr></thead>' +
-                '<tbody>' + itemsRows + '</tbody></table>' +
-                discHtml +
-                '<div style="text-align:right;padding:12px;background:' + sec.color + '11;border:2px solid ' + sec.color + ';border-radius:8px;margin-bottom:8px;">' +
-                    '<div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#666;margin-bottom:4px;">Total ' + sec.title + '</div>' +
-                    '<div style="font-size:22px;font-weight:800;color:' + sec.color + ';">$' + secTotal.toFixed(2) + '</div>' +
-                '</div></div>';
-        } else {
-            tablesHtml = '<table style="width:100%;border-collapse:collapse;margin-bottom:20px;">' +
-                '<thead><tr>' +
-                    '<th style="background:#22c55e;color:white;padding:10px 8px;font-size:12px;text-align:left;text-transform:uppercase;">Producto</th>' +
-                    '<th style="background:#22c55e;color:white;padding:10px 8px;font-size:12px;text-align:center;">Cant.</th>' +
-                    '<th style="background:#22c55e;color:white;padding:10px 8px;font-size:12px;text-align:right;">Precio</th>' +
-                    '<th style="background:#22c55e;color:white;padding:10px 8px;font-size:12px;text-align:right;">Costo</th>' +
-                    '<th style="background:#22c55e;color:white;padding:10px 8px;font-size:12px;text-align:right;">Dto.</th>' +
-                    '<th style="background:#22c55e;color:white;padding:10px 8px;font-size:12px;text-align:right;">Final</th>' +
-                '</tr></thead>' +
-                '<tbody>' + itemsRows + '</tbody></table>' +
-                discHtml;
-        }
-    }
-
-    var grandTotalHtml = '';
-    if (isDual) {
-        grandTotalHtml = '<div style="text-align:center;margin:20px 0;padding:16px;background:#f0fdf4;border:3px solid #22c55e;border-radius:12px;">' +
-            '<div style="font-size:12px;font-weight:700;text-transform:uppercase;color:#666;margin-bottom:4px;">Total Combinado</div>' +
-            '<div style="font-size:28px;font-weight:800;color:#16a34a;">$' + (q.total || 0).toFixed(2) + '</div>' +
-            '</div>';
+    if (serverUrl && isOnline()) {
+        showToast('Preparando PDF...', 'success');
+        pushQuotationToServer(q, serverUrl).then(function() {
+            doOpen();
+        }).catch(function() {
+            // Even if sync fails, try to open (data might already be on server)
+            doOpen();
+        });
     } else {
-        grandTotalHtml = '<div style="text-align:right;margin-bottom:20px;padding:16px;background:#f0fdf4;border:2px solid #22c55e;border-radius:8px;display:inline-block;float:right;">' +
-            '<div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#666;margin-bottom:4px;">Total</div>' +
-            '<div style="font-size:26px;font-weight:800;color:#16a34a;">$' + (q.total || 0).toFixed(2) + '</div>' +
-            '</div><div style="clear:both;"></div>';
+        showToast('Necesitas conexión para generar PDF', 'error');
     }
-
-    var validHtml = '';
-    if (q.validDays || q.createdAt) {
-        var days = q.validDays || 15;
-        var validDate = new Date(new Date(q.createdAt).getTime() + days * 24 * 60 * 60 * 1000);
-        validHtml = '<div style="text-align:center;font-size:11px;color:#999;margin-top:8px;">Válida por ' + days + ' días — hasta ' + formatDate(validDate) + '</div>';
-    }
-
-    var notesHtml = q.notes ? '<div style="margin-bottom:16px;padding:10px;background:#f8f9fa;border-radius:8px;font-size:13px;color:#555;"><strong style="color:#666;">Notas:</strong> ' + q.notes + '</div>' : '';
-
-    var clientHtml = '<div style="margin-bottom:16px;padding:12px;background:#f8f9fa;border-radius:8px;">' +
-        (q.clientName ? '<div style="font-size:12px;color:#666;">Cliente:</div><div style="font-size:18px;font-weight:700;">' + q.clientName + '</div>' : '<div style="font-size:14px;color:#666;">Sin cliente especificado</div>') +
-        (q.customerPhone ? '<div style="font-size:12px;color:#666;margin-top:2px;">Tel: ' + q.customerPhone + '</div>' : '') +
-        (q.customerEmail ? '<div style="font-size:12px;color:#666;">Email: ' + q.customerEmail + '</div>' : '') +
-        '</div>';
-
-    var printHtml = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Cotización ' + (q.number || '') + '</title>' +
-        '<style>' +
-        '@page { size: A4; margin: 15mm; }' +
-        'body { font-family: Arial, Helvetica, sans-serif; color: #222; font-size: 14px; line-height: 1.4; }' +
-        '.header { text-align: center; margin-bottom: 20px; border-bottom: 3px solid #22c55e; padding-bottom: 15px; }' +
-        '.header h1 { font-size: 22px; margin: 0 0 4px; color: #22c55e; }' +
-        '.header .info { font-size: 12px; color: #666; }' +
-        '.meta { display: flex; justify-content: space-between; margin-bottom: 20px; padding: 12px; background: #f8f9fa; border-radius: 8px; }' +
-        '.meta div { font-size: 13px; }' +
-        '.meta strong { color: #333; }' +
-        '.footer { text-align: center; font-size: 12px; color: #999; margin-top: 30px; padding-top: 15px; border-top: 1px solid #eee; }' +
-        '</style></head><body>' +
-        '<div class="header">' +
-            '<h1>' + storeName + '</h1>' +
-            '<div class="info">' +
-                (storeAddr ? storeAddr + '<br>' : '') +
-                (storePhone ? 'Tel: ' + storePhone : '') +
-                (storeEmail ? ' | Email: ' + storeEmail : '') +
-            '</div>' +
-        '</div>' +
-        '<div class="meta">' +
-            '<div><strong>Cotización:</strong> ' + (q.number || 'COT-?') + '</div>' +
-            '<div><strong>Fecha:</strong> ' + formatDate(q.createdAt) + '</div>' +
-        '</div>' +
-        clientHtml +
-        notesHtml +
-        tablesHtml +
-        grandTotalHtml +
-        validHtml +
-        '<div class="footer">' + footerText + '</div>' +
-        '</body></html>';
-
-    var printFrame = document.createElement('iframe');
-    printFrame.style.cssText = 'position:fixed;left:-9999px;top:-9999px;width:0;height:0;border:none;';
-    document.body.appendChild(printFrame);
-    var doc = printFrame.contentDocument || printFrame.contentWindow.document;
-    doc.open();
-    doc.write(printHtml);
-    doc.close();
-
-    setTimeout(function() {
-        printFrame.contentWindow.focus();
-        if(window.ServerBridge&&window.ServerBridge.printHtml){window.ServerBridge.printHtml(printFrame.contentDocument.documentElement.outerHTML);}else{try{printFrame.contentWindow.print();}catch(e){window.print();}}
-        setTimeout(function() {
-            document.body.removeChild(printFrame);
-        }, 2000);
-    }, 500);
 }
 
 // ====================================================================

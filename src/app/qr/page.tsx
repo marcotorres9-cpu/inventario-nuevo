@@ -37,19 +37,12 @@ export default async function QRPage({ searchParams }: { searchParams: Promise<{
     );
   }
 
-  // Fetch quotation data directly from database
   let r: any = null;
   let error = false;
-
   try {
-    const rows = await query(
-      `SELECT * FROM "Quotation" WHERE id=$1`,
-      [qid]
-    );
+    const rows = await query(`SELECT * FROM "Quotation" WHERE id=$1`, [qid]);
     r = rows.length > 0 ? rows[0] : null;
-  } catch {
-    error = true;
-  }
+  } catch { error = true; }
 
   if (error || !r) {
     return (
@@ -63,27 +56,19 @@ export default async function QRPage({ searchParams }: { searchParams: Promise<{
     );
   }
 
-  // Fetch store info
   let store: any = {};
   try {
-    const storeRows = await query(
-      `SELECT name, address, phone, email, logo, footer, currency FROM "Store" LIMIT 1`
-    );
+    const storeRows = await query(`SELECT name, address, phone, email, logo, footer, currency FROM "Store" LIMIT 1`);
     store = storeRows.length > 0 ? storeRows[0] : {};
   } catch {}
 
-  // Parse quotation data
   let itemsA: any[] = [];
   let itemsB: any[] = [];
-  let discountA: any = { type: 'percentage', value: 0 };
-  let discountB: any = { type: 'percentage', value: 0 };
   let totalsA: any = null;
   let totalsB: any = null;
 
   try { itemsA = JSON.parse(r.itemsAJson || '[]'); } catch {}
   try { itemsB = JSON.parse(r.itemsBJson || '[]'); } catch {}
-  try { discountA = JSON.parse(r.discountAJson || '{}'); } catch {}
-  try { discountB = JSON.parse(r.discountBJson || '{}'); } catch {}
   try { totalsA = JSON.parse(r.totalsAJson || 'null'); } catch {}
   try { totalsB = JSON.parse(r.totalsBJson || 'null'); } catch {}
 
@@ -100,7 +85,6 @@ export default async function QRPage({ searchParams }: { searchParams: Promise<{
   const customerPhone = r.customerPhone || '';
   const customerEmail = r.customerEmail || '';
   const total = parseFloat(r.total) || 0;
-  const notes = r.notes || '';
   const storeName = store.name || 'Mi Tienda';
   const storeAddr = store.address || '';
   const storePhone = store.phone || '';
@@ -109,11 +93,11 @@ export default async function QRPage({ searchParams }: { searchParams: Promise<{
 
   const sections = isDual
     ? [
-        { title: r.optionATitle || 'Opción A', items: itemsA, discount: discountA, totals: totalsA, color: '#22c55e' },
-        { title: r.optionBTitle || 'Opción B', items: itemsB, discount: discountB, totals: totalsB, color: '#3b82f6' }
+        { title: r.optionATitle || 'Opción A', items: itemsA, totals: totalsA, color: '#22c55e' },
+        { title: r.optionBTitle || 'Opción B', items: itemsB, totals: totalsB, color: '#3b82f6' }
       ]
     : [
-        { title: null, items: itemsA, discount: discountA, totals: totalsA, color: '#22c55e' }
+        { title: null, items: itemsA, totals: totalsA, color: '#22c55e' }
       ];
 
   return (
@@ -131,42 +115,37 @@ export default async function QRPage({ searchParams }: { searchParams: Promise<{
             .no-print { display: none !important; }
             .container { max-width: 100%; box-shadow: none; }
           }
-          .header { text-align: center; padding: 28px 24px 20px; border-bottom: 3px solid #22c55e; }
-          .header h1 { font-size: 24px; color: #22c55e; margin-bottom: 4px; }
+          .header { text-align: center; padding: 24px 20px 16px; border-bottom: 3px solid #22c55e; }
+          .header h1 { font-size: 22px; color: #22c55e; margin-bottom: 4px; }
           .header .info { font-size: 12px; color: #6b7280; }
-          .meta { display: flex; justify-content: space-between; padding: 16px 24px; background: #f9fafb; border-bottom: 1px solid #e5e7eb; }
+          .meta { display: flex; justify-content: space-between; padding: 12px 20px; background: #f9fafb; border-bottom: 1px solid #e5e7eb; font-size: 13px; }
           .meta strong { color: #374151; }
-          .client { padding: 16px 24px; border-bottom: 1px solid #e5e7eb; }
-          .client-label { font-size: 11px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; }
-          .client-name { font-size: 18px; font-weight: 700; color: #111; margin-top: 2px; }
+          .client { padding: 12px 20px; border-bottom: 1px solid #e5e7eb; }
+          .client-label { font-size: 10px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; }
+          .client-name { font-size: 16px; font-weight: 700; color: #111; margin-top: 2px; }
           .client-info { font-size: 12px; color: #6b7280; margin-top: 2px; }
-          .notes { padding: 12px 24px; background: #fffbeb; border-left: 4px solid #f59e0b; font-size: 13px; color: #92400e; }
-          .section-title { padding: 16px 24px 8px; font-size: 15px; font-weight: 700; }
-          .items-table { width: 100%; border-collapse: collapse; margin: 0; }
-          .items-table th { padding: 10px 12px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #fff; text-align: left; }
-          .items-table th:nth-child(2),
-          .items-table th:nth-child(3),
-          .items-table th:nth-child(4) { text-align: right; }
-          .items-table td { padding: 10px 12px; font-size: 13px; border-bottom: 1px solid #f3f4f6; }
-          .items-table td:nth-child(2),
-          .items-table td:nth-child(3),
-          .items-table td:nth-child(4) { text-align: right; }
-          .items-table td:last-child { font-weight: 700; }
-          .total-box { padding: 16px 24px; text-align: right; }
-          .total-box-inner { display: inline-block; padding: 14px 24px; border: 2px solid #22c55e; border-radius: 10px; background: #f0fdf4; }
-          .total-label { font-size: 11px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; }
-          .total-value { font-size: 28px; font-weight: 800; color: #16a34a; }
-          .dual-total { text-align: center; padding: 20px 24px; margin: 0 24px 20px; border: 3px solid #22c55e; border-radius: 12px; background: #f0fdf4; }
-          .discount-line { text-align: right; padding: 4px 24px 12px; font-size: 12px; color: #d97706; }
-          .validity { text-align: center; padding: 12px 24px; font-size: 11px; color: #9ca3af; }
-          .footer { text-align: center; padding: 20px 24px; border-top: 1px solid #e5e7eb; font-size: 12px; color: #9ca3af; margin-top: 20px; }
-          .pdf-btn { position: fixed; bottom: 24px; right: 24px; z-index: 100; background: #22c55e; color: #fff; border: none; border-radius: 16px; padding: 16px 28px; font-size: 16px; font-weight: 700; cursor: pointer; box-shadow: 0 8px 32px rgba(34,197,94,0.4); display: flex; align-items: center; gap: 8px; }
+          .section-title { padding: 14px 20px 6px; font-size: 14px; font-weight: 700; }
+          .items-table { width: 100%; border-collapse: collapse; }
+          .items-table th { padding: 8px 10px; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; color: #fff; text-align: left; }
+          .items-table th.r { text-align: right; }
+          .items-table td { padding: 8px 10px; font-size: 13px; border-bottom: 1px solid #f3f4f6; }
+          .items-table td.r { text-align: right; }
+          .items-table .cost { color: #e17055; font-weight: 600; }
+          .items-table .disc { color: #f59e0b; }
+          .items-table .final { font-weight: 700; color: #00b894; }
+          .total-box { padding: 14px 20px; text-align: right; }
+          .total-box-inner { display: inline-block; padding: 12px 20px; border: 2px solid #22c55e; border-radius: 10px; background: #f0fdf4; }
+          .total-label { font-size: 10px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; }
+          .total-value { font-size: 26px; font-weight: 800; color: #16a34a; }
+          .dual-total { text-align: center; padding: 16px 20px; margin: 0 20px 16px; border: 3px solid #22c55e; border-radius: 12px; background: #f0fdf4; }
+          .validity { text-align: center; padding: 10px 20px; font-size: 11px; color: #9ca3af; }
+          .footer { text-align: center; padding: 16px 20px; border-top: 1px solid #e5e7eb; font-size: 12px; color: #9ca3af; margin-top: 16px; }
+          .pdf-btn { position: fixed; bottom: 20px; right: 20px; z-index: 100; background: #22c55e; color: #fff; border: none; border-radius: 14px; padding: 14px 24px; font-size: 15px; font-weight: 700; cursor: pointer; box-shadow: 0 8px 32px rgba(34,197,94,0.4); display: flex; align-items: center; gap: 8px; }
           .pdf-btn:hover { background: #16a34a; }
         ` }} />
       </head>
       <body>
         <div className="container">
-          {/* Header */}
           <div className="header">
             <h1>{storeName}</h1>
             <div className="info">
@@ -175,13 +154,11 @@ export default async function QRPage({ searchParams }: { searchParams: Promise<{
             </div>
           </div>
 
-          {/* Meta */}
           <div className="meta">
             <div><strong>Cotización:</strong> {qNumber}</div>
             <div><strong>Fecha:</strong> {createdDate}</div>
           </div>
 
-          {/* Client */}
           {(clientName || customerPhone) && (
             <div className="client">
               <div className="client-label">Cliente</div>
@@ -191,73 +168,72 @@ export default async function QRPage({ searchParams }: { searchParams: Promise<{
             </div>
           )}
 
-          {/* Notes */}
-          {notes && (
-            <div className="notes">
-              <strong>Notas:</strong> {notes}
-            </div>
-          )}
+          {sections.map((sec: any, sIdx: number) => {
+            const secItems = sec.items || [];
+            let secCost = 0, secDisc = 0;
+            for (const it of secItems) {
+              secCost += (it.qty || 1) * (parseFloat(it.price) || 0);
+              secDisc += parseFloat(it.lineDiscount) || 0;
+            }
+            const secTotal = Math.max(0, secCost - secDisc);
 
-          {/* Sections */}
-          {sections.map((sec: any, sIdx: number) => (
-            <div key={sIdx}>
-              {isDual && (
-                <div className="section-title" style={{ color: sec.color }}>
-                  ↔️ {sec.title}
-                </div>
-              )}
-              <table className="items-table">
-                <thead>
-                  <tr style={{ background: sec.color }}>
-                    <th>Producto</th>
-                    <th>Cant.</th>
-                    <th>Precio</th>
-                    <th>Subtotal</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {sec.items.map((it: any, i: number) => {
-                    const name = it.productName || it.name || '';
-                    const qty = it.qty || 1;
-                    const price = parseFloat(it.price) || 0;
-                    const sub = qty * price;
-                    const brand = it.brand || '';
-                    const model = it.model || '';
-                    return (
-                      <tr key={i}>
-                        <td>
-                          {name}
-                          {(brand || model) && <><br /><span style={{ fontSize: 11, color: '#6b7280' }}>{brand}{brand && model ? ' · ' : ''}{model}</span></>}
-                        </td>
-                        <td>{qty}</td>
-                        <td>{currency}{price.toFixed(2)}</td>
-                        <td>{currency}{sub.toFixed(2)}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-              {sec.discount && sec.discount.value > 0 && (
-                <div className="discount-line">
-                  Descuento: -{sec.discount.type === 'percentage' ? sec.discount.value + '%' : currency + sec.discount.value.toFixed(2)}
-                </div>
-              )}
-              {isDual && sec.totals && (
-                <div className="total-box">
-                  <div className="total-box-inner" style={{ borderColor: sec.color, background: sec.color + '11' }}>
-                    <div className="total-label">Total {sec.title}</div>
-                    <div className="total-value" style={{ color: sec.color }}>{currency}{(sec.totals.total || total).toFixed(2)}</div>
+            return (
+              <div key={sIdx}>
+                {isDual && (
+                  <div className="section-title" style={{ color: sec.color }}>
+                    {sec.title}
                   </div>
-                </div>
-              )}
-            </div>
-          ))}
+                )}
+                <table className="items-table">
+                  <thead>
+                    <tr style={{ background: sec.color }}>
+                      <th>Producto</th>
+                      <th className="r">Cant.</th>
+                      <th className="r">Costo</th>
+                      <th className="r">Descuento</th>
+                      <th className="r">Final</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {secItems.map((it: any, i: number) => {
+                      const qty = it.qty || 1;
+                      const price = parseFloat(it.price) || 0;
+                      const lineCost = qty * price;
+                      const disc = parseFloat(it.lineDiscount) || 0;
+                      const lineFinal = Math.max(0, lineCost - disc);
+                      return (
+                        <tr key={i}>
+                          <td>{it.productName || it.name || ''}</td>
+                          <td className="r">{qty}</td>
+                          <td className="r cost">{currency}{lineCost.toFixed(2)}</td>
+                          <td className="r disc">{disc > 0 ? '-' + currency + disc.toFixed(2) : '-'}</td>
+                          <td className="r final">{currency}{lineFinal.toFixed(2)}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+                {secDisc > 0 && (
+                  <div style={{ textAlign: 'right', padding: '4px 20px 8px', fontSize: 12, color: '#d97706' }}>
+                    Descuentos: -{currency}{secDisc.toFixed(2)}
+                  </div>
+                )}
+                {isDual && (
+                  <div className="total-box">
+                    <div className="total-box-inner" style={{ borderColor: sec.color, background: sec.color + '11' }}>
+                      <div className="total-label">Total {sec.title}</div>
+                      <div className="total-value" style={{ color: sec.color }}>{currency}{secTotal.toFixed(2)}</div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
 
-          {/* Grand Total */}
           {isDual ? (
             <div className="dual-total">
-              <div style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', color: '#6b7280', marginBottom: 4 }}>Total Combinado</div>
-              <div style={{ fontSize: 30, fontWeight: 800, color: '#16a34a' }}>{currency}{total.toFixed(2)}</div>
+              <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: '#6b7280', marginBottom: 4 }}>Total Combinado</div>
+              <div style={{ fontSize: 28, fontWeight: 800, color: '#16a34a' }}>{currency}{total.toFixed(2)}</div>
             </div>
           ) : (
             <div className="total-box">
@@ -268,20 +244,15 @@ export default async function QRPage({ searchParams }: { searchParams: Promise<{
             </div>
           )}
 
-          {/* Validity */}
           {(validDays || validDate) && (
             <div className="validity">
               Válida por {validDays} días — hasta {validDate}
             </div>
           )}
 
-          {/* Footer */}
-          <div className="footer">
-            {footerText}
-          </div>
+          <div className="footer">{footerText}</div>
         </div>
 
-        {/* PDF Button (hidden in print) */}
         <button className="pdf-btn no-print" onClick={() => window.print()}>
           📥 Descargar PDF
         </button>
