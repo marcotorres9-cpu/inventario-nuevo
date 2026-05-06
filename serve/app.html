@@ -12601,15 +12601,63 @@ function downloadQuotationPDF(id) {
     if (cfg.footerText) printHtml += '<div class="footer">' + escapeHtml(cfg.footerText) + '</div>';
 
     printHtml += '</body></html>';
-    // Open in new window
-    var printWin = window.open('', '_blank');
-    if (!printWin) {
-        showToast('Permite ventanas emergentes para generar PDF', 'error');
-        return;
-    }
-    printWin.document.write(printHtml);
-    printWin.document.close();
-    showToast('PDF listo para imprimir', 'success');
+
+    // Create fullscreen overlay modal (works on mobile WebView where window.open is blocked)
+    var pdfOverlay = document.createElement('div');
+    pdfOverlay.id = 'pdfPreviewOverlay';
+    pdfOverlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;z-index:9999;background:#fff;display:flex;flex-direction:column;';
+
+    var pdfHeader = document.createElement('div');
+    pdfHeader.style.cssText = 'display:flex;gap:8px;padding:10px;background:#f3f4f6;border-bottom:1px solid #ddd;flex-shrink:0;';
+
+    var closePdfBtn = document.createElement('button');
+    closePdfBtn.style.cssText = 'flex:1;padding:10px;background:#22c55e;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;';
+    closePdfBtn.innerHTML = '&#8592; Regresar';
+    closePdfBtn.onclick = function() { document.body.removeChild(pdfOverlay); };
+
+    var printPdfBtn = document.createElement('button');
+    printPdfBtn.style.cssText = 'flex:2;padding:10px;background:#3b82f6;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;';
+    printPdfBtn.innerHTML = '&#128424;&#65039; Imprimir / Guardar PDF';
+    printPdfBtn.onclick = function() { window.print(); };
+
+    var sharePdfBtn = document.createElement('button');
+    sharePdfBtn.style.cssText = 'flex:1;padding:10px;background:#25D366;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;';
+    sharePdfBtn.innerHTML = '&#128241;';
+    sharePdfBtn.onclick = function() {
+        // Share the quotation text via native share
+        var text = buildQuotationText(id);
+        if (text && navigator.share) {
+            navigator.share({ title: 'Cotizacion ' + (q.number || ''), text: text }).catch(function(){});
+        }
+    };
+
+    pdfHeader.appendChild(closePdfBtn);
+    pdfHeader.appendChild(printPdfBtn);
+    pdfHeader.appendChild(sharePdfBtn);
+    pdfOverlay.appendChild(pdfHeader);
+
+    var pdfBody = document.createElement('div');
+    pdfBody.style.cssText = 'flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;';
+    pdfBody.id = 'pdfPreviewBody';
+    pdfOverlay.appendChild(pdfBody);
+
+    document.body.appendChild(pdfOverlay);
+
+    // Write HTML content into an iframe for proper printing
+    var iframe = document.createElement('iframe');
+    iframe.style.cssText = 'width:100%;height:100%;border:none;';
+    pdfBody.appendChild(iframe);
+
+    iframe.onload = function() {
+        var doc = iframe.contentDocument || iframe.contentWindow.document;
+        doc.open();
+        doc.write(printHtml);
+        doc.close();
+    };
+    var iframeSrc = 'about:blank';
+    iframe.src = iframeSrc;
+
+    showToast('PDF listo', 'success');
 }
 
 // ====================================================================
