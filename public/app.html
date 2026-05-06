@@ -550,9 +550,8 @@
         }
         .filter-chip:active { transform: scale(0.96); }
         .filter-chip.active {
-            background: var(--primary-bg); color: var(--primary);
+            background: var(--primary); color: #fff;
             border-color: var(--primary);
-            box-shadow: 0 0 0 2px var(--primary-bg);
         }
         /* Global dropdown: rendered at body level so nothing clips it */
         #chipDropdownOverlay {
@@ -5243,10 +5242,17 @@ function viewQuotation(id) {
             h += '<div style="text-align:right;font-size:12px;color:#f59e0b;margin-bottom:4px;">Descuentos: -$' + secLineDisc.toFixed(2) + '</div>';
         }
 
-        // Section totals removed (user requested no sum)
+        // Individual section totals for dual mode
+        var secTotal = section.totals ? section.totals.total : 0;
+        if (isDual) {
+            h += '<div style="text-align:right;padding:8px 12px;background:var(--primary-bg);border-radius:8px;border:1px solid rgba(34,197,94,0.2);margin-bottom:4px;">' +
+                '<span style="font-size:11px;color:var(--text3);font-weight:600;">TOTAL ' + escapeHtml(section.title).toUpperCase() + ': </span>' +
+                '<span style="font-size:18px;font-weight:800;color:var(--primary);">' + formatMoney(secTotal) + '</span>' +
+                '</div>';
+        }
     }
 
-    // No grand total shown (user requested no sum)
+    // No grand/combined total in dual mode (only individual A/B totals shown)
 
     // Notes
     if (q.notes) {
@@ -12186,33 +12192,34 @@ function buildQuotationText(id) {
 // --- WhatsApp Sharing ---
 function shareQuotationWhatsApp(id) {
     try {
-        // Try Web Share API with PDF file first
-        if (navigator.share && navigator.canShare && window.Blob) {
-            generateQuotationPDFBlob(id).then(function(blob) {
-                if (blob && navigator.canShare({ files: [blob] })) {
-                    var file = new File([blob], 'cotizacion.pdf', { type: 'application/pdf' });
-                    navigator.share({
-                        title: 'Cotización',
-                        files: [file]
-                    }).catch(function(e) {
-                        if (e.name !== 'AbortError') shareQuotationWhatsAppText(id);
-                    });
-                } else {
-                    shareQuotationWhatsAppText(id);
-                }
-            }).catch(function() { shareQuotationWhatsAppText(id); });
+        var quotes = getQuotations();
+        var q = null;
+        for (var i = 0; i < quotes.length; i++) { if (quotes[i].id === id) { q = quotes[i]; break; } }
+        if (!q) { showToast('Cotizacion no encontrada', 'error'); return; }
+
+        var text = buildQuotationText(id);
+        if (!text) return;
+
+        // Use Web Share API (opens native share sheet with WhatsApp option)
+        if (navigator.share) {
+            navigator.share({
+                title: 'Cotizacion ' + (q.number || ''),
+                text: text
+            }).catch(function(e) {
+                if (e.name !== 'AbortError') openWhatsAppUrl(text);
+            });
             return;
         }
-        shareQuotationWhatsAppText(id);
+
+        // Fallback: direct WhatsApp URL
+        openWhatsAppUrl(text);
     } catch(err) {
         console.error('WhatsApp share error:', err);
-        showToast('Error al compartir: ' + err.message, 'error');
+        showToast('Error al compartir', 'error');
     }
 }
 
-function shareQuotationWhatsAppText(id) {
-    var text = buildQuotationText(id);
-    if (!text) { showToast('Cotización no encontrada', 'error'); return; }
+function openWhatsAppUrl(text) {
     var url = 'https://api.whatsapp.com/send?text=' + encodeURIComponent(text);
     if (window.ServerBridge && window.ServerBridge.openUrl) {
         try { window.ServerBridge.openUrl(url); return; } catch(e) {}
@@ -12221,95 +12228,6 @@ function shareQuotationWhatsAppText(id) {
     window.location.href = url;
 }
 
-function generateQuotationPDFBlob(id) {
-    return new Promise(function(resolve) {
-        var quotes = getQuotations();
-        var q = null;
-        for (var i = 0; i < quotes.length; i++) { if (quotes[i].id === id) { q = quotes[i]; break; } }
-        if (!q) { resolve(null); return; }
-        var cfg = getStoreConfig();
-        var isDual = q.isDualMode && q.itemsB && q.itemsB.length > 0;
-        var sections = isDual ? [
-            { title: q.optionTitleA || 'Opción A', items: q.itemsA || q.items || [], totals: q.totalsA },
-            { title: q.optionTitleB || 'Opción B', items: q.itemsB || [], totals: q.totalsB }
-        ] : [{ title: null, items: q.itemsA || q.items || [], totals: q.totalsA }];
-
-        var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><style>' +
-            '*{box-sizing:border-box;margin:0;padding:0;}' +
-            'body{font-family:Arial,sans-serif;padding:20px;color:#1a1a1a;font-size:12px;}' +
-            '.store-name{font-size:18px;font-weight:800;text-align:center;margin-bottom:2px;}' +
-            '.store-info{font-size:11px;color:#666;text-align:center;margin-bottom:14px;line-height:1.4;}' +
-            '.client-info{padding:8px 0;border-bottom:1px solid #ddd;margin-bottom:10px;}' +
-            '.client-name{font-size:14px;font-weight:600;}' +
-            '.client-detail{font-size:11px;color:#666;margin-top:2px;}' +
-            '.section-title{font-size:12px;font-weight:700;margin:12px 0 6px;padding:5px 8px;background:#f0fdf4;border-radius:5px;border-left:3px solid #22c55e;}' +
-            'table{width:100%;border-collapse:collapse;margin-bottom:6px;font-size:11px;}' +
-            'th{background:#f8f8f8;padding:5px 4px;font-size:9px;font-weight:700;text-transform:uppercase;text-align:left;border-bottom:2px solid #ddd;color:#888;}' +
-            'td{padding:5px 4px;border-bottom:1px solid #eee;}' +
-            '.total-box{text-align:right;padding:8px;background:#f0fdf4;border-radius:6px;border:1px solid #bbf7d0;margin-top:6px;}' +
-            '.total-box .label{font-size:9px;color:#888;font-weight:700;text-transform:uppercase;}' +
-            '.total-box .value{font-size:16px;font-weight:800;color:#16a34a;}' +
-            '.dual-container{display:flex;gap:10px;margin-top:10px;}' +
-            '.dual-col{flex:1;min-width:0;}' +
-            '.notes{margin-top:10px;padding:8px;background:#f9f9f9;border-radius:6px;font-size:11px;color:#555;}' +
-            '.valid-info{text-align:center;font-size:10px;color:#888;margin-top:6px;}' +
-            '.footer{text-align:center;font-size:10px;color:#888;margin-top:10px;}' +
-            '@media print{body{padding:0;}.dual-container{page-break-inside:avoid;}}' +
-            '</style></head><body>';
-
-        html += '<div class="store-name">' + (cfg.storeName || 'Mi Tienda') + '</div>';
-        html += '<div class="store-info">' + (cfg.address ? cfg.address + '<br>' : '') + (cfg.phone ? 'Tel: ' + cfg.phone : '') + (cfg.email ? ' | ' + cfg.email : '') + '</div>';
-        html += '<div class="client-info">';
-        if (q.clientName) html += '<div class="client-name">' + q.clientName + '</div>';
-        if (q.customerPhone) html += '<div class="client-detail">Tel: ' + q.customerPhone + '</div>';
-        if (q.customerEmail) html += '<div class="client-detail">Email: ' + q.customerEmail + '</div>';
-        html += '</div>';
-
-        if (isDual) {
-            html += '<div class="dual-container">';
-            for (var s = 0; s < sections.length; s++) {
-                var sec = sections[s]; if (sec.items.length === 0) continue;
-                html += '<div class="dual-col"><div class="section-title">' + (sec.title || '') + '</div><table><thead><tr><th>Producto</th><th>Cant.</th><th>Costo</th><th>Dto.</th><th style="text-align:right;">Final</th></tr></thead><tbody>';
-                for (var j = 0; j < sec.items.length; j++) {
-                    var it = sec.items[j];
-                    var lc = (it.qty * (it.price || 0)).toFixed(2);
-                    var ld = parseFloat(it.lineDiscount) || 0;
-                    var lf = (it.qty * (it.price || 0) - ld).toFixed(2);
-                    html += '<tr><td>' + (it.productName || it.name || '') + '</td><td style="text-align:center;">' + it.qty + '</td><td style="text-align:right;color:#e17055;font-weight:600;">$' + lc + '</td><td style="text-align:right;">' + (ld > 0 ? '-$' + ld : '-') + '</td><td style="text-align:right;"><strong style="color:#059669;">$' + lf + '</strong></td></tr>';
-                }
-                html += '</tbody></table>';
-                var st2 = sec.totals ? sec.totals.total : 0;
-                html += '<div class="total-box"><span class="label">Total ' + (sec.title || '') + ': </span><span class="value">$' + st2.toFixed(2) + '</span></div></div>';
-            }
-            html += '</div>';
-        } else {
-            html += '<table><thead><tr><th>Producto</th><th>Cant.</th><th>Costo</th><th>Dto.</th><th style="text-align:right;">Final</th></tr></thead><tbody>';
-            for (var j = 0; j < sections[0].items.length; j++) {
-                var it = sections[0].items[j];
-                var lc = (it.qty * (it.price || 0)).toFixed(2);
-                var ld = parseFloat(it.lineDiscount) || 0;
-                var lf = (it.qty * (it.price || 0) - ld).toFixed(2);
-                html += '<tr><td>' + (it.productName || it.name || '') + '</td><td style="text-align:center;">' + it.qty + '</td><td style="text-align:right;color:#e17055;font-weight:600;">$' + lc + '</td><td style="text-align:right;">' + (ld > 0 ? '-$' + ld : '-') + '</td><td style="text-align:right;"><strong style="color:#059669;">$' + lf + '</strong></td></tr>';
-            }
-            html += '</tbody></table>';
-            var st3 = sections[0].totals ? sections[0].totals.total : (q.total || 0);
-            html += '<div class="total-box"><span class="label">Total: </span><span class="value">$' + st3.toFixed(2) + '</span></div>';
-        }
-
-        if (q.notes) html += '<div class="notes"><b>Notas:</b><br>' + q.notes + '</div>';
-        if (q.validDays || q.createdAt) {
-            var days = q.validDays || 15;
-            html += '<div class="valid-info">V\u00e1lida por ' + days + ' d\u00edas</div>';
-        }
-        if (cfg.footerText) html += '<div class="footer">' + cfg.footerText + '</div>';
-        html += '</body></html>';
-
-        // Use html2canvas or just return null (PDF from HTML needs a library)
-        // For now, return the HTML as a blob for platforms that support it
-        var blob = new Blob([html], { type: 'text/html' });
-        resolve(blob);
-    });
-}
 
 // --- QR Code Generator (qrcode-generator v1.4.4 by Kazuhiko Arase) ---
 /**
