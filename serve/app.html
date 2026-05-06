@@ -3831,8 +3831,7 @@ function toggleFilterDropdown(key) {
                     locbrand: 'chipLocBrand', locspec: 'chipLocSpec',
                     crucebrand: 'chipCruceBrand', crucespec: 'chipCruceSpec',
                     crucespace: 'chipCruceSpace', crucestatus: 'chipCruceStatus',
-                    gicat: 'chipGICat', gibrand: 'chipGIBrand', gicolor: 'chipGIColor', gispec: 'chipGISpec',
-                    catsort: 'chipCatSort' };
+                    gicat: 'chipGICat', gibrand: 'chipGIBrand', gicolor: 'chipGIColor', gispec: 'chipGISpec' };
     var btn = document.getElementById(chipMap[key]);
     if (!btn) return;
 
@@ -3842,8 +3841,6 @@ function toggleFilterDropdown(key) {
     var isGi = key.indexOf('gi') === 0;
     if (key === 'fsort') {
         populateSortDropdown(key, overlay);
-    } else if (key === 'catsort') {
-        populateCatalogSortDropdown(key, overlay);
     } else if (key === 'crucespace') {
         populateCruceSpaceDropdown(key, overlay);
     } else if (key === 'crucestatus') {
@@ -4050,42 +4047,6 @@ function selectSortValue(val) {
     if (overlay) overlay.classList.remove('open');
     _openChipDropdown = null;
     renderProductList();
-}
-
-// Populate sort dropdown for catalog summary drill view
-function populateCatalogSortDropdown(key, overlay) {
-    if (!overlay) return;
-    var current = _catalogSort || '';
-    var options = [
-        { val: '', label: 'Sin ordenar' },
-        { val: 'price_asc', label: 'Precio: menor a mayor' },
-        { val: 'price_desc', label: 'Precio: mayor a menor' },
-        { val: 'name_asc', label: 'Nombre: A-Z' },
-        { val: 'name_desc', label: 'Nombre: Z-A' },
-        { val: 'brand_asc', label: 'Marca: A-Z' },
-        { val: 'category_asc', label: 'Categoría: A-Z' },
-        { val: 'stock_asc', label: 'Stock: menor a mayor' },
-        { val: 'stock_desc', label: 'Stock: mayor a menor' },
-        { val: 'color_asc', label: 'Color: A-Z' },
-        { val: 'cost_asc', label: 'Costo: menor a mayor' },
-        { val: 'cost_desc', label: 'Costo: mayor a menor' }
-    ];
-    var html = '';
-    for (var i = 0; i < options.length; i++) {
-        var sel = current === options[i].val ? ' selected' : '';
-        html += '<div class="filter-chip-opt' + sel + '" onclick="selectCatalogSortValue(\'' + options[i].val + '\')">' +
-            '<span>' + escapeHtml(options[i].label) + '</span><span class="chip-check">\u2713</span></div>';
-    }
-    overlay.innerHTML = html;
-}
-
-function selectCatalogSortValue(val) {
-    _catalogSort = val;
-    // Close dropdown
-    var overlay = document.getElementById('chipDropdownOverlay');
-    if (overlay) overlay.classList.remove('open');
-    _openChipDropdown = null;
-    renderCatalogSummaryPage();
 }
 
 // Populate space/ubicación filter dropdown (for catalog product list)
@@ -8704,11 +8665,27 @@ function renderCatalogSummaryPage() {
         var drillBrandKeys = Object.keys(drillBrands).sort();
         var drillSpecKeyList = Object.keys(drillSpecKeys).sort();
 
-        // Sort bar for catalog drill (always visible)
-        var sortLabels = { '': '\u2B07\uFE0F Sin ordenar', 'price_asc': '\uD83D\uDCB0 Precio \u2191', 'price_desc': '\uD83D\uDCB0 Precio \u2193', 'name_asc': '\uD83D\uDD24 A-Z', 'name_desc': '\uD83D\uDD24 Z-A', 'brand_asc': '\uD83C\uDFFE\uFE0F Marca A-Z', 'category_asc': '\uD83D\uDCC2 Cat. A-Z', 'stock_asc': '\uD83D\uDCE6 Stock \u2191', 'stock_desc': '\uD83D\uDCE6 Stock \u2193', 'color_asc': '\uD83C\uDFA8 Color A-Z', 'cost_asc': '\uD83D\uDCB5 Costo \u2191', 'cost_desc': '\uD83D\uDCB5 Costo \u2193' };
-        var sortLabel = sortLabels[_catalogSort] || sortLabels[''];
+        // Sort bar for catalog drill (visible inline chips)
+        var sortOpts = [
+            { val: '', label: '\u2B07\uFE0F Sin ordenar' },
+            { val: 'price_asc', label: '\uD83D\uDCB0 Precio \u2191' },
+            { val: 'price_desc', label: '\uD83D\uDCB0 Precio \u2193' },
+            { val: 'name_asc', label: '\uD83D\uDD24 A-Z' },
+            { val: 'name_desc', label: '\uD83D\uDD24 Z-A' },
+            { val: 'brand_asc', label: '\uD83C\uDFFE\uFE0F Marca A-Z' },
+            { val: 'category_asc', label: '\uD83D\uDCC2 Cat. A-Z' },
+            { val: 'stock_asc', label: '\uD83D\uDCE6 Stock \u2191' },
+            { val: 'stock_desc', label: '\uD83D\uDCE6 Stock \u2193' },
+            { val: 'color_asc', label: '\uD83C\uDFA8 Color A-Z' },
+            { val: 'cost_asc', label: '\uD83D\uDCB5 Costo \u2191' },
+            { val: 'cost_desc', label: '\uD83D\uDCB5 Costo \u2193' }
+        ];
         html += '<div style="display:flex;gap:4px;margin-bottom:10px;flex-wrap:wrap;align-items:center;">';
-        html += '<button id="chipCatSort" onclick="toggleFilterDropdown(\'catsort\')" style="font-size:11px;padding:5px 12px;border-radius:16px;border:1px solid ' + (_catalogSort ? 'var(--primary)' : 'var(--border)') + ';background:' + (_catalogSort ? 'var(--primary)' : 'var(--bg2)') + ';color:' + (_catalogSort ? '#fff' : 'var(--text2)') + ';cursor:pointer;font-weight:' + (_catalogSort ? '700' : '500') + ';white-space:nowrap;">' + sortLabel + '</button>';
+        for (var soi = 0; soi < sortOpts.length; soi++) {
+            var so = sortOpts[soi];
+            var soActive = (_catalogSort === so.val);
+            html += '<button onclick="_catalogSort=\'' + so.val + '\';renderCatalogSummaryPage();" style="font-size:10px;padding:4px 10px;border-radius:16px;border:1px solid ' + (soActive ? 'var(--primary)' : 'var(--border)') + ';background:' + (soActive ? 'var(--primary)' : 'var(--bg2)') + ';color:' + (soActive ? '#fff' : 'var(--text2)') + ';cursor:pointer;font-weight:' + (soActive ? '700' : '500') + ';white-space:nowrap;">' + so.label + '</button>';
+        }
         html += '</div>';
 
         // Render filter chips
