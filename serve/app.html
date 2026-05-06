@@ -12191,41 +12191,8 @@ function buildQuotationText(id) {
 
 // --- WhatsApp Sharing ---
 function shareQuotationWhatsApp(id) {
-    try {
-        var quotes = getQuotations();
-        var q = null;
-        for (var i = 0; i < quotes.length; i++) { if (quotes[i].id === id) { q = quotes[i]; break; } }
-        if (!q) { showToast('Cotizacion no encontrada', 'error'); return; }
-
-        var text = buildQuotationText(id);
-        if (!text) return;
-
-        // Use Web Share API (opens native share sheet with WhatsApp option)
-        if (navigator.share) {
-            navigator.share({
-                title: 'Cotizacion ' + (q.number || ''),
-                text: text
-            }).catch(function(e) {
-                if (e.name !== 'AbortError') openWhatsAppUrl(text);
-            });
-            return;
-        }
-
-        // Fallback: direct WhatsApp URL
-        openWhatsAppUrl(text);
-    } catch(err) {
-        console.error('WhatsApp share error:', err);
-        showToast('Error al compartir', 'error');
-    }
-}
-
-function openWhatsAppUrl(text) {
-    var url = 'https://api.whatsapp.com/send?text=' + encodeURIComponent(text);
-    if (window.ServerBridge && window.ServerBridge.openUrl) {
-        try { window.ServerBridge.openUrl(url); return; } catch(e) {}
-    }
-    try { window.open(url, '_blank'); return; } catch(e) {}
-    window.location.href = url;
+    // WhatsApp API only supports text — open PDF so user can save & share
+    downloadQuotationPDF(id);
 }
 
 
@@ -12396,7 +12363,15 @@ function shareQuotationQR(id) {
     infoArea.style.cssText = 'padding:0 24px 16px;display:flex;justify-content:space-around;text-align:center;border-bottom:1px solid #f0f0f0;';
     var infoParts = [];
     infoParts.push('<div><div style="font-size:11px;color:#9ca3af;">Cliente</div><div style="font-size:13px;font-weight:600;color:#1f2937;">' + (q.clientName || '—') + '</div></div>');
-    infoParts.push('<div><div style="font-size:11px;color:#9ca3af;">Total</div><div style="font-size:15px;font-weight:800;color:#10b981;">$' + (q.total || 0).toFixed(2) + '</div></div>');
+    // Show individual totals for dual, single total otherwise
+    if (isDual) {
+        var tA = q.totalsA ? q.totalsA.total : 0;
+        var tB = q.totalsB ? q.totalsB.total : 0;
+        infoParts.push('<div><div style="font-size:11px;color:#9ca3af;">Total A</div><div style="font-size:14px;font-weight:800;color:#10b981;">$' + tA.toFixed(2) + '</div></div>');
+        infoParts.push('<div><div style="font-size:11px;color:#9ca3af;">Total B</div><div style="font-size:14px;font-weight:800;color:#3b82f6;">$' + tB.toFixed(2) + '</div></div>');
+    } else {
+        infoParts.push('<div><div style="font-size:11px;color:#9ca3af;">Total</div><div style="font-size:15px;font-weight:800;color:#10b981;">$' + (q.total || 0).toFixed(2) + '</div></div>');
+    }
     infoParts.push('<div><div style="font-size:11px;color:#9ca3af;">Válido</div><div style="font-size:13px;font-weight:600;color:#1f2937;">' + (q.validDays || 15) + ' días</div></div>');
     infoArea.innerHTML = infoParts.join('');
 
@@ -12423,11 +12398,13 @@ function shareQuotationQR(id) {
     var waBtn = document.createElement('button');
     waBtn.className = 'btn btn-sm';
     waBtn.style.cssText = 'flex:1;background:#25D366;color:#fff;border:none;border-radius:12px;padding:14px 8px;font-size:14px;font-weight:700;cursor:pointer;';
-    waBtn.innerHTML = '&#128241; WhatsApp';
+    waBtn.innerHTML = '&#128241; WA';
     waBtn.onclick = function(e) {
         e.stopPropagation();
         document.body.removeChild(overlay);
-        shareQuotationWhatsApp(id);
+        // Open PDF first — user saves it, then shares via WhatsApp manually
+        // WhatsApp API only supports text, not file attachments
+        downloadQuotationPDF(id);
     };
 
     var closeBtn = document.createElement('button');
