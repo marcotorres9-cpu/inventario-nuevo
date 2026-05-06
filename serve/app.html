@@ -8707,8 +8707,8 @@ function renderCatalogSummaryPage() {
         html += '<div style="background:linear-gradient(135deg, var(--primary), #6c5ce7);border-radius:14px;padding:14px;margin-bottom:14px;color:#fff;">' +
             '<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px;text-align:center;">' +
                 '<div><div style="font-size:20px;font-weight:900;">' + filteredProducts.length + '</div><div style="font-size:10px;opacity:0.8;">Productos</div></div>' +
-                '<div><div style="font-size:20px;font-weight:900;">$' + drillValue.toLocaleString() + '</div><div style="font-size:10px;opacity:0.8;">Valor Venta</div></div>' +
-                '<div><div style="font-size:20px;font-weight:900;">$' + drillCost.toLocaleString() + '</div><div style="font-size:10px;opacity:0.8;">Costo</div></div>' +
+                '<div><div style="font-size:22px;font-weight:900;">$' + drillCost.toLocaleString() + '</div><div style="font-size:10px;opacity:0.9;">Costo Total</div></div>' +
+                '<div><div style="font-size:14px;font-weight:600;opacity:0.7;">$' + drillValue.toLocaleString() + '</div><div style="font-size:9px;opacity:0.6;">Valor Venta</div></div>' +
                 '<div><div style="font-size:20px;font-weight:900;">' + drillMargin + '%</div><div style="font-size:10px;opacity:0.8;">Margen</div></div>' +
             '</div>' +
             (fBrand || (fSpecKey && fSpecKey.value) ? '<div style="text-align:center;margin-top:8px;font-size:10px;opacity:0.7;">Mostrando ' + filteredProducts.length + ' de ' + drillProducts.length + ' productos</div>' : '') +
@@ -8738,8 +8738,8 @@ function renderCatalogSummaryPage() {
                             '</div>' +
                         '</div>' +
                         '<div style="text-align:right;flex-shrink:0;margin-left:10px;">' +
-                            '<div style="font-size:16px;font-weight:800;color:var(--primary);">$' + prPrice.toLocaleString() + '</div>' +
-                            (prCost > 0 ? '<div style="font-size:9px;color:var(--text3);">Costo: $' + prCost.toLocaleString() + ' (' + prMargin + '%)</div>' : '') +
+                            '<div style="font-size:16px;font-weight:800;color:var(--primary);">$' + prCost.toLocaleString() + '</div>' +
+                            (prPrice > 0 ? '<div style="font-size:9px;color:var(--text3);">venta: $' + prPrice.toLocaleString() + ' (' + prMargin + '%)</div>' : '') +
                         '</div>' +
                     '</div>' +
                     renderSpecPills(pr, '#6c5ce7') +
@@ -8768,8 +8768,8 @@ function renderCatalogSummaryPage() {
             '<div style="font-size:36px;font-weight:900;line-height:1.1;margin:4px 0;">' + allProducts.length + '</div>' +
         '</div>' +
         '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;text-align:center;margin-top:8px;">' +
-            '<div><div style="font-size:14px;font-weight:800;">$' + totalValue.toLocaleString() + '</div><div style="font-size:10px;opacity:0.8;">Valor Venta</div></div>' +
-            '<div><div style="font-size:14px;font-weight:800;">$' + totalCost.toLocaleString() + '</div><div style="font-size:10px;opacity:0.8;">Costo Total</div></div>' +
+            '<div><div style="font-size:16px;font-weight:900;">$' + totalCost.toLocaleString() + '</div><div style="font-size:10px;opacity:0.8;">Costo Total</div></div>' +
+            '<div><div style="font-size:12px;font-weight:600;opacity:0.8;">$' + totalValue.toLocaleString() + '</div><div style="font-size:9px;opacity:0.6;">Valor Venta</div></div>' +
             '<div><div style="font-size:14px;font-weight:800;">' + globalMargin + '%</div><div style="font-size:10px;opacity:0.8;">Margen Prom.</div></div>' +
         '</div>' +
     '</div>';
@@ -8847,7 +8847,7 @@ function renderCatalogSummaryPage() {
                     '</div>' +
                 '</div>' +
                 '<div style="display:flex;justify-content:space-between;margin-top:6px;font-size:10px;color:var(--text3);">' +
-                    '<span>Valor: $' + catValue.toLocaleString() + '</span>' +
+                    '<span>Costo: $' + catCost.toLocaleString() + '</span><span style="font-size:10px;opacity:0.7;"> | Venta: $' + catValue.toLocaleString() + '</span>' +
                     '<span>Costo: $' + catCost.toLocaleString() + '</span>' +
                 '</div>' +
             '</div>';
@@ -8877,7 +8877,7 @@ function renderCatalogSummaryPage() {
                         '<span style="background:#00b89420;color:#00b894;font-size:9px;padding:1px 6px;border-radius:6px;font-weight:700;">' + br.products.length + '</span>' +
                     '</div>' +
                     '<div style="display:flex;align-items:center;gap:10px;">' +
-                        '<span style="font-size:18px;font-weight:800;color:var(--primary);">$' + brValue.toLocaleString() + '</span>' +
+                        '<span style="font-size:18px;font-weight:800;color:var(--primary);">$' + brCost.toLocaleString() + '</span>' +
                         '<span style="font-size:14px;color:var(--text3);">\u2192</span>' +
                     '</div>' +
                 '</div>' +
@@ -9138,8 +9138,8 @@ function generateCatalogReport() {
                 '<div style="font-size:11px;color:var(--text3);text-align:center;margin-bottom:14px;">' + dateStr + ' \u2014 ' + timeStr + '</div>' +
                 '<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:14px;">' +
                     '<div style="background:var(--bg2);border-radius:8px;padding:8px;text-align:center;"><div style="font-size:20px;font-weight:800;color:var(--primary);">' + products.length + '</div><div style="font-size:10px;color:var(--text3);">Productos</div></div>' +
-                    '<div style="background:var(--bg2);border-radius:8px;padding:8px;text-align:center;"><div style="font-size:20px;font-weight:800;color:var(--primary);">$' + grandValue.toLocaleString() + '</div><div style="font-size:10px;color:var(--text3);">Valor Venta</div></div>' +
-                    '<div style="background:var(--bg2);border-radius:8px;padding:8px;text-align:center;"><div style="font-size:20px;font-weight:800;color:#e17055;">$' + grandCost.toLocaleString() + '</div><div style="font-size:10px;color:var(--text3);">Costo Total</div></div>' +
+                    '<div style="background:var(--bg2);border-radius:8px;padding:8px;text-align:center;"><div style="font-size:22px;font-weight:900;color:var(--primary);">$' + grandCost.toLocaleString() + '</div><div style="font-size:10px;color:var(--text3);">Costo Total</div></div>' +
+                    '<div style="background:var(--bg2);border-radius:8px;padding:8px;text-align:center;"><div style="font-size:16px;font-weight:600;color:var(--text3);">$' + grandValue.toLocaleString() + '</div><div style="font-size:9px;color:var(--text3);">Valor Venta</div></div>' +
                     '<div style="background:var(--bg2);border-radius:8px;padding:8px;text-align:center;"><div style="font-size:20px;font-weight:800;color:#00b894;">' + grandMargin + '%</div><div style="font-size:10px;color:var(--text3);">Margen Prom.</div></div>' +
                 '</div>';
 
