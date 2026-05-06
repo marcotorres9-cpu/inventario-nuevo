@@ -3831,7 +3831,8 @@ function toggleFilterDropdown(key) {
                     locbrand: 'chipLocBrand', locspec: 'chipLocSpec',
                     crucebrand: 'chipCruceBrand', crucespec: 'chipCruceSpec',
                     crucespace: 'chipCruceSpace', crucestatus: 'chipCruceStatus',
-                    gicat: 'chipGICat', gibrand: 'chipGIBrand', gicolor: 'chipGIColor', gispec: 'chipGISpec' };
+                    gicat: 'chipGICat', gibrand: 'chipGIBrand', gicolor: 'chipGIColor', gispec: 'chipGISpec',
+                    catsort: 'chipCatSort' };
     var btn = document.getElementById(chipMap[key]);
     if (!btn) return;
 
@@ -3841,6 +3842,8 @@ function toggleFilterDropdown(key) {
     var isGi = key.indexOf('gi') === 0;
     if (key === 'fsort') {
         populateSortDropdown(key, overlay);
+    } else if (key === 'catsort') {
+        populateCatalogSortDropdown(key, overlay);
     } else if (key === 'crucespace') {
         populateCruceSpaceDropdown(key, overlay);
     } else if (key === 'crucestatus') {
@@ -4047,6 +4050,42 @@ function selectSortValue(val) {
     if (overlay) overlay.classList.remove('open');
     _openChipDropdown = null;
     renderProductList();
+}
+
+// Populate sort dropdown for catalog summary drill view
+function populateCatalogSortDropdown(key, overlay) {
+    if (!overlay) return;
+    var current = _catalogSort || '';
+    var options = [
+        { val: '', label: 'Sin ordenar' },
+        { val: 'price_asc', label: 'Precio: menor a mayor' },
+        { val: 'price_desc', label: 'Precio: mayor a menor' },
+        { val: 'name_asc', label: 'Nombre: A-Z' },
+        { val: 'name_desc', label: 'Nombre: Z-A' },
+        { val: 'brand_asc', label: 'Marca: A-Z' },
+        { val: 'category_asc', label: 'Categoría: A-Z' },
+        { val: 'stock_asc', label: 'Stock: menor a mayor' },
+        { val: 'stock_desc', label: 'Stock: mayor a menor' },
+        { val: 'color_asc', label: 'Color: A-Z' },
+        { val: 'cost_asc', label: 'Costo: menor a mayor' },
+        { val: 'cost_desc', label: 'Costo: mayor a menor' }
+    ];
+    var html = '';
+    for (var i = 0; i < options.length; i++) {
+        var sel = current === options[i].val ? ' selected' : '';
+        html += '<div class="filter-chip-opt' + sel + '" onclick="selectCatalogSortValue(\'' + options[i].val + '\')">' +
+            '<span>' + escapeHtml(options[i].label) + '</span><span class="chip-check">\u2713</span></div>';
+    }
+    overlay.innerHTML = html;
+}
+
+function selectCatalogSortValue(val) {
+    _catalogSort = val;
+    // Close dropdown
+    var overlay = document.getElementById('chipDropdownOverlay');
+    if (overlay) overlay.classList.remove('open');
+    _openChipDropdown = null;
+    renderCatalogSummaryPage();
 }
 
 // Populate space/ubicación filter dropdown (for catalog product list)
@@ -8429,6 +8468,7 @@ function saveGlobalTargets(count) {
 var _catalogFilter = null;
 var _catalogDrill = null; // { type: 'category'|'brand'|'price', value: '...' }
 var _catalogDrillFilters = { brand: null, spec: null }; // sub-filters within drill
+var _catalogSort = ''; // sort field for catalog summary drill view
 
 function openCatalogSummary() {
     var catalogMain = document.getElementById('giCatalogMain');
@@ -8437,6 +8477,7 @@ function openCatalogSummary() {
     _catalogDrill = null;
     _catalogFilter = null;
     _catalogDrillFilters = { brand: null, spec: null };
+    _catalogSort = '';
     renderCatalogSummaryPage();
     summaryView.style.display = 'block';
 }
@@ -8449,12 +8490,14 @@ function closeCatalogSummary() {
     _catalogFilter = null;
     _catalogDrill = null;
     _catalogDrillFilters = { brand: null, spec: null };
+    _catalogSort = '';
 }
 
 function catalogGoBack() {
     if (_catalogDrill) {
         _catalogDrill = null;
         _catalogDrillFilters = { brand: null, spec: null };
+        _catalogSort = '';
         renderCatalogSummaryPage();
     } else {
         closeCatalogSummary();
@@ -8475,6 +8518,7 @@ function toggleCatalogFilter(filter) {
 function drillCatalog(type, value) {
     _catalogDrill = { type: type, value: value };
     _catalogDrillFilters = { brand: null, spec: null };
+    _catalogSort = '';
     renderCatalogSummaryPage();
 }
 
@@ -8660,6 +8704,13 @@ function renderCatalogSummaryPage() {
         var drillBrandKeys = Object.keys(drillBrands).sort();
         var drillSpecKeyList = Object.keys(drillSpecKeys).sort();
 
+        // Sort bar for catalog drill (always visible)
+        var sortLabels = { '': '\u2B07\uFE0F Sin ordenar', 'price_asc': '\uD83D\uDCB0 Precio \u2191', 'price_desc': '\uD83D\uDCB0 Precio \u2193', 'name_asc': '\uD83D\uDD24 A-Z', 'name_desc': '\uD83D\uDD24 Z-A', 'brand_asc': '\uD83C\uDFFE\uFE0F Marca A-Z', 'category_asc': '\uD83D\uDCC2 Cat. A-Z', 'stock_asc': '\uD83D\uDCE6 Stock \u2191', 'stock_desc': '\uD83D\uDCE6 Stock \u2193', 'color_asc': '\uD83C\uDFA8 Color A-Z', 'cost_asc': '\uD83D\uDCB5 Costo \u2191', 'cost_desc': '\uD83D\uDCB5 Costo \u2193' };
+        var sortLabel = sortLabels[_catalogSort] || sortLabels[''];
+        html += '<div style="display:flex;gap:4px;margin-bottom:10px;flex-wrap:wrap;align-items:center;">';
+        html += '<button id="chipCatSort" onclick="toggleFilterDropdown(\'catsort\')" style="font-size:11px;padding:5px 12px;border-radius:16px;border:1px solid ' + (_catalogSort ? 'var(--primary)' : 'var(--border)') + ';background:' + (_catalogSort ? 'var(--primary)' : 'var(--bg2)') + ';color:' + (_catalogSort ? '#fff' : 'var(--text2)') + ';cursor:pointer;font-weight:' + (_catalogSort ? '700' : '500') + ';white-space:nowrap;">' + sortLabel + '</button>';
+        html += '</div>';
+
         // Render filter chips
         if (drillBrandKeys.length > 1 || drillSpecKeyList.length > 0) {
             html += '<div style="display:flex;gap:4px;margin-bottom:10px;flex-wrap:wrap;">';
@@ -8713,6 +8764,38 @@ function renderCatalogSummaryPage() {
             '</div>' +
             (fBrand || (fSpecKey && fSpecKey.value) ? '<div style="text-align:center;margin-top:8px;font-size:10px;opacity:0.7;">Mostrando ' + filteredProducts.length + ' de ' + drillProducts.length + ' productos</div>' : '') +
         '</div>';
+
+        // Apply sorting to filtered products
+        if (_catalogSort) {
+            filteredProducts.sort(function(a, b) {
+                var va, vb;
+                switch(_catalogSort) {
+                    case 'price_asc':
+                        va = parseFloat(a.salePrice || a.price || 0); vb = parseFloat(b.salePrice || b.price || 0); return va - vb;
+                    case 'price_desc':
+                        va = parseFloat(a.salePrice || a.price || 0); vb = parseFloat(b.salePrice || b.price || 0); return vb - va;
+                    case 'name_asc':
+                        return (a.name || '').toLowerCase().localeCompare((b.name || '').toLowerCase());
+                    case 'name_desc':
+                        return (b.name || '').toLowerCase().localeCompare((a.name || '').toLowerCase());
+                    case 'brand_asc':
+                        return (a.brand || '').toLowerCase().localeCompare((b.brand || '').toLowerCase());
+                    case 'category_asc':
+                        return (a.category || '').toLowerCase().localeCompare((b.category || '').toLowerCase());
+                    case 'stock_asc':
+                        return (parseInt(a.stock) || 0) - (parseInt(b.stock) || 0);
+                    case 'stock_desc':
+                        return (parseInt(b.stock) || 0) - (parseInt(a.stock) || 0);
+                    case 'color_asc':
+                        return (a.color || '').toLowerCase().localeCompare((b.color || '').toLowerCase());
+                    case 'cost_asc':
+                        va = parseFloat(a.costPrice || 0); vb = parseFloat(b.costPrice || 0); return va - vb;
+                    case 'cost_desc':
+                        va = parseFloat(a.costPrice || 0); vb = parseFloat(b.costPrice || 0); return vb - va;
+                    default: return 0;
+                }
+            });
+        }
 
         // Product list
         if (filteredProducts.length === 0) {
