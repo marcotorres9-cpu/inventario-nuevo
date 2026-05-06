@@ -3761,7 +3761,8 @@ function renderProductList() {
         if (stk === 0) { badgeClass = 'badge-out'; badgeText = 'AGOTADO'; }
         else if (stk <= minStk) { badgeClass = 'badge-low'; badgeText = 'BAJO: ' + stk; }
 
-        var price = parseFloat(pr.salePrice) || parseFloat(pr.price) || 0;
+        var costPrice = parseFloat(pr.costPrice) || 0;
+        var salePrice = parseFloat(pr.salePrice) || parseFloat(pr.price) || 0;
 
         // Build spec tags from specifications JSON
         var specsHtml = '';
@@ -3791,7 +3792,8 @@ function renderProductList() {
                 '</div>' +
             '</div>' +
             '<div class="product-right">' +
-                '<div class="product-price">' + formatMoney(price) + '</div>' +
+                '<div class="product-price">' + formatMoney(costPrice) + '</div>' +
+                '<div style="font-size:10px;color:var(--text3);">venta: $' + salePrice.toFixed(2) + '</div>' +
                 '<span class="badge ' + badgeClass + '">' + badgeText + '</span>' +
                 '<div class="product-actions">' +
                     '<button onclick="openEditProduct(\'' + pr.id + '\')">✏️</button>' +
@@ -4770,7 +4772,8 @@ function filterPickerProducts() {
                 qSpecLine +
             '</div>' +
             '<div style="text-align:right;flex-shrink:0;margin-left:8px;">' +
-                '<div style="font-weight:700;font-size:13px;color:var(--primary);">$' + (pr.salePrice || pr.price || 0).toFixed(2) + '</div>' +
+                '<div style="font-weight:700;font-size:13px;color:var(--primary);">$' + (pr.costPrice || 0).toFixed(2) + '</div>' +
+                '<div style="font-size:10px;color:var(--text3);">venta: $' + (pr.salePrice || pr.price || 0).toFixed(2) + '</div>' +
                 '<div style="font-size:10px;color:var(--text3);">Stock: ' + (pr.stock || 0) + '</div>' +
             '</div>' +
         '</div>';
@@ -9078,7 +9081,7 @@ function generateCatalogReport() {
             '<div class="summary-box"><div class="num">' + grandStock + '</div><div class="lbl">Stock Total</div></div>' +
         '</div>';
 
-    var reportCols = isReduced ? '<th>Producto</th><th>Marca</th><th>Venta</th><th>Costo</th><th>Margen</th>' : '<th>Producto</th><th>SKU</th><th>Categoria</th><th>Marca</th><th>Color</th><th>Especificaciones</th><th>Costo</th><th>Venta</th><th>Margen</th><th>Stock</th>';
+    var reportCols = isReduced ? '<th>Producto</th><th>Marca</th><th>Costo</th><th>Venta</th><th>Margen</th>' : '<th>Producto</th><th>SKU</th><th>Categoria</th><th>Marca</th><th>Color</th><th>Especificaciones</th><th>Costo</th><th>Venta</th><th>Margen</th><th>Stock</th>';
     rHtml += '<table><thead><tr>' + reportCols + '</tr></thead><tbody>';
 
     for (var ci = 0; ci < catKeys.length; ci++) {
@@ -9105,7 +9108,7 @@ function generateCatalogReport() {
                 if (svv) specsStr += (specsStr ? ', ' : '') + spk[si] + ': ' + svv;
             }
             if (isReduced) {
-                rHtml += '<tr><td class="name-col">' + escapeHtml(pr.name) + '</td><td>' + escapeHtml(pr.brand || '') + '</td><td>$' + prSale.toLocaleString() + '</td><td>$' + prCost.toLocaleString() + '</td><td>' + prMargin + '%</td></tr>';
+                rHtml += '<tr><td class="name-col">' + escapeHtml(pr.name) + '</td><td>' + escapeHtml(pr.brand || '') + '</td><td>$' + prCost.toLocaleString() + '</td><td>$' + prSale.toLocaleString() + '</td><td>' + prMargin + '%</td></tr>';
             } else {
                 rHtml += '<tr><td class="name-col">' + escapeHtml(pr.name) + '</td><td>' + escapeHtml(pr.sku || '') + '</td><td>' + escapeHtml(pr.category || '') + '</td><td>' + escapeHtml(pr.brand || '') + '</td><td>' + escapeHtml(pr.color || '') + '</td><td style="font-size:9px;text-align:left;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(specsStr) + '</td><td>$' + prCost.toLocaleString() + '</td><td>$' + prSale.toLocaleString() + '</td><td>' + prMargin + '%</td><td>' + (parseInt(pr.stock) || 0) + '</td></tr>';
             }
