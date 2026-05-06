@@ -4369,7 +4369,7 @@ function renderQuotItems() {
 
     // ===== DUAL MODE: Show both options side by side =====
     if (quotIsDualMode) {
-        var h = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">';
+        var h = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;">';
         h += renderQuotItemsColumn('A', quotItemsA, quotCurrentTab === 'A');
         h += renderQuotItemsColumn('B', quotItemsB, quotCurrentTab === 'B');
         h += '</div>';
@@ -4409,14 +4409,36 @@ function renderQuotItemsColumn(tab, items, isActive) {
     if (items.length === 0) {
         h += '<div style="text-align:center;padding:12px 6px;color:var(--text3);font-size:10px;border:1px dashed var(--border);border-radius:6px;">Sin productos</div>';
     } else {
-        h += renderQuotItemsList(items, tab);
+        h += renderQuotItemsListDual(items, tab);
     }
 
     h += '</div>';
     return h;
 }
 
-// Renders the list of items for a given tab
+// Ultra-compact dual mode: one thin line per item (name, qty controls, total)
+function renderQuotItemsListDual(items, tab) {
+    var h = '';
+    for (var i = 0; i < items.length; i++) {
+        var it = items[i];
+        var unitPrice = parseFloat(it.price) || 0;
+        var lineCost = it.qty * unitPrice;
+        var lineDiscount = parseFloat(it.lineDiscount) || 0;
+        var lineFinal = Math.max(0, lineCost - lineDiscount);
+
+        h += '<div style="display:flex;align-items:center;gap:3px;padding:3px 4px;margin-bottom:1px;border-bottom:1px solid var(--border);">' +
+            '<div style="flex:1;min-width:0;font-size:10px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(it.productName) + '</div>' +
+            '<button type="button" onclick="updateQuotItemQty(' + i + ',-1)" style="width:18px;height:18px;border-radius:4px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:10px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;line-height:1;flex-shrink:0;">-</button>' +
+            '<span style="font-size:10px;font-weight:700;min-width:14px;text-align:center;flex-shrink:0;">' + it.qty + '</span>' +
+            '<button type="button" onclick="updateQuotItemQty(' + i + ',1)" style="width:18px;height:18px;border-radius:4px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:10px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;line-height:1;flex-shrink:0;">+</button>' +
+            '<span style="font-size:11px;font-weight:800;color:#00b894;min-width:46px;text-align:right;flex-shrink:0;">$' + lineFinal.toFixed(2) + '</span>' +
+            '<button type="button" onclick="removeQuotItem(' + i + ')" style="width:14px;height:14px;border-radius:50%;border:none;background:rgba(239,68,68,0.08);color:var(--danger);font-size:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0;opacity:0.5;">x</button>' +
+        '</div>';
+    }
+    return h;
+}
+
+// Renders the list of items for a given tab (single mode - editable)
 function renderQuotItemsList(items, tab) {
     var h = '';
     for (var i = 0; i < items.length; i++) {
@@ -4513,10 +4535,7 @@ function showQuotProductPicker() {
     content.innerHTML = '<div class="modal-handle"></div>' +
         '<div class="modal-header">' +
             '<h3 class="modal-title">📦 Seleccionar Producto</h3>' +
-            '<div style="display:flex;align-items:center;gap:6px;">' +
-                '<span id="pickerAddedCount" style="background:var(--primary);color:#fff;font-size:10px;padding:2px 8px;border-radius:10px;font-weight:700;">' + (quotItemsA.length + quotItemsB.length) + ' agregados</span>' +
-                '<button class="modal-close" onclick="closeQuotPicker()">✕</button>' +
-            '</div>' +
+            '<button class="modal-close" onclick="closeQuotPicker()">✕</button>' +
         '</div>' +
         '<div style="display:flex;gap:6px;margin-bottom:10px;">' +
             '<button class="btn btn-sm" id="pickerInvBtn" style="flex:1;" onclick="switchPickerTab(\'inv\')">📦 Inventario</button>' +
@@ -12384,7 +12403,7 @@ function shareQuotationQR(id) {
 }
 
 
-// --- PDF Download (via window.print) ---
+// --- PDF Download (client-side print) ---
 function downloadQuotationPDF(id) {
     var quotes = getQuotations();
     var q = null;
@@ -12393,29 +12412,125 @@ function downloadQuotationPDF(id) {
     }
     if (!q) { showToast('Cotización no encontrada', 'error'); return; }
 
-    // Push to server first, then open the printable QR page
-    var serverUrl = getServerUrl();
-    var doOpen = function() {
-        var printUrl = serverUrl + '/qr?id=' + encodeURIComponent(id);
-        // Try ServerBridge for APK WebView
-        if (window.ServerBridge && window.ServerBridge.openUrl) {
-            try { window.ServerBridge.openUrl(printUrl); return; } catch(e) {}
-        }
-        // Open in new tab
-        window.open(printUrl, '_blank');
-    };
+    var cfg = getStoreConfig();
+    var isDual = q.isDualMode && q.itemsB && q.itemsB.length > 0;
+    var sections = isDual ? [
+        { title: q.optionTitleA || 'Opción A', items: q.itemsA || q.items || [], totals: q.totalsA },
+        { title: q.optionTitleB || 'Opción B', items: q.itemsB || [], totals: q.totalsB }
+    ] : [
+        { title: null, items: q.itemsA || q.items || [], totals: q.totalsA }
+    ];
 
-    if (serverUrl && isOnline()) {
-        showToast('Preparando PDF...', 'success');
-        pushQuotationToServer(q, serverUrl).then(function() {
-            doOpen();
-        }).catch(function() {
-            // Even if sync fails, try to open (data might already be on server)
-            doOpen();
-        });
-    } else {
-        showToast('Necesitas conexión para generar PDF', 'error');
+    var printHtml = '<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">' +
+        '<title>' + escapeHtml(q.number || 'Cotización') + ' - PDF</title>' +
+        '<style>' +
+        '*{box-sizing:border-box;margin:0;padding:0;}' +
+        'body{font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;padding:16px;color:#1a1a1a;font-size:13px;}' +
+        '.back-btn{display:inline-block;padding:10px 20px;background:#22c55e;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:16px;text-decoration:none;}' +
+        '.store-name{font-size:20px;font-weight:800;text-align:center;margin-bottom:2px;}' +
+        '.store-info{font-size:12px;color:#666;text-align:center;margin-bottom:16px;line-height:1.5;}' +
+        '.client-info{padding:10px 0;border-bottom:1px solid #ddd;margin-bottom:12px;}' +
+        '.client-name{font-size:15px;font-weight:600;}' +
+        '.client-detail{font-size:12px;color:#666;margin-top:2px;}' +
+        '.section-title{font-size:13px;font-weight:700;margin:16px 0 8px;padding:6px 10px;background:#f0fdf4;border-radius:6px;border-left:3px solid #22c55e;}' +
+        'table{width:100%;border-collapse:collapse;margin-bottom:8px;font-size:12px;}' +
+        'th{background:#f8f8f8;padding:6px 5px;font-size:10px;font-weight:700;text-transform:uppercase;text-align:left;border-bottom:2px solid #ddd;color:#888;}' +
+        'td{padding:6px 5px;border-bottom:1px solid #eee;}' +
+        '.text-right{text-align:right;}' +
+        '.total-box{text-align:right;padding:10px;background:#f0fdf4;border-radius:8px;border:1px solid #bbf7d0;margin-top:8px;}' +
+        '.total-box .label{font-size:10px;color:#888;font-weight:700;text-transform:uppercase;}' +
+        '.total-box .value{font-size:20px;font-weight:800;color:#16a34a;}' +
+        '.grand-total{text-align:center;padding:14px;background:#dcfce7;border:2px solid #22c55e;border-radius:10px;margin-top:16px;}' +
+        '.grand-total .label{font-size:11px;font-weight:700;text-transform:uppercase;color:#16a34a;}' +
+        '.grand-total .value{font-size:26px;font-weight:800;color:#16a34a;}' +
+        '.notes{margin-top:12px;padding:10px;background:#f9f9f9;border-radius:8px;font-size:12px;color:#555;}' +
+        '.valid-info{text-align:center;font-size:11px;color:#888;margin-top:8px;}' +
+        '.footer{text-align:center;font-size:11px;color:#888;margin-top:12px;}' +
+        '.actions{text-align:center;margin-top:20px;padding-top:16px;border-top:2px solid #eee;}' +
+        '@media print{.no-print{display:none!important;}body{padding:0;}}' +
+        '</style></head><body>';
+
+    // Back button (hidden on print)
+    printHtml += '<div class="no-print actions"><a class="back-btn" href="javascript:window.close();">&#8592; Regresar</a></div>';
+
+    // Store info
+    printHtml += '<div class="store-name">' + escapeHtml(cfg.storeName || 'Mi Tienda') + '</div>';
+    printHtml += '<div class="store-info">' +
+        (cfg.address ? escapeHtml(cfg.address) + '<br>' : '') +
+        (cfg.phone ? 'Tel: ' + escapeHtml(cfg.phone) : '') +
+        (cfg.email ? ' | ' + escapeHtml(cfg.email) : '') +
+        '</div>';
+
+    // Client
+    printHtml += '<div class="client-info">';
+    if (q.clientName) printHtml += '<div class="client-name">' + escapeHtml(q.clientName) + '</div>';
+    if (q.customerPhone) printHtml += '<div class="client-detail">Tel: ' + escapeHtml(q.customerPhone) + '</div>';
+    if (q.customerEmail) printHtml += '<div class="client-detail">Email: ' + escapeHtml(q.customerEmail) + '</div>';
+    printHtml += '<div class="client-detail">' + formatDate(q.createdAt) + '</div>';
+    printHtml += '</div>';
+
+    // Sections
+    for (var s = 0; s < sections.length; s++) {
+        var sec = sections[s];
+        if (sec.items.length === 0 && isDual) continue;
+
+        if (isDual) printHtml += '<div class="section-title">' + escapeHtml(sec.title) + '</div>';
+
+        printHtml += '<table><thead><tr><th>Producto</th><th>Cant.</th><th>Costo</th><th>Dto.</th><th class="text-right">Final</th></tr></thead><tbody>';
+        for (var j = 0; j < sec.items.length; j++) {
+            var it = sec.items[j];
+            var lc = (it.qty * (it.price || 0)).toFixed(2);
+            var ld = parseFloat(it.lineDiscount) || 0;
+            var lf = (it.qty * (it.price || 0) - ld).toFixed(2);
+            printHtml += '<tr><td>' + escapeHtml(it.productName || it.name || '') + '</td>' +
+                '<td style="text-align:center;">' + it.qty + '</td>' +
+                '<td class="text-right" style="color:#e17055;font-weight:600;">$' + lc + '</td>' +
+                '<td class="text-right" style="color:#d97706;">' + (ld > 0 ? '-$' + ld : '-') + '</td>' +
+                '<td class="text-right"><strong style="color:#059669;">$' + lf + '</strong></td></tr>';
+        }
+        printHtml += '</tbody></table>';
+
+        if (isDual) {
+            var secTotal = sec.totals ? sec.totals.total : 0;
+            printHtml += '<div class="total-box"><span class="label">Total ' + escapeHtml(sec.title) + ': </span><span class="value">$' + secTotal.toFixed(2) + '</span></div>';
+        }
     }
+
+    // Grand total
+    if (isDual) {
+        printHtml += '<div class="grand-total"><div class="label">Total Combinado</div><div class="value">$' + (q.total || 0).toFixed(2) + '</div></div>';
+    } else {
+        var st = sections[0].totals ? sections[0].totals.total : (q.total || 0);
+        printHtml += '<div class="total-box"><span class="label">Total: </span><span class="value">$' + st.toFixed(2) + '</span></div>';
+    }
+
+    // Notes
+    if (q.notes) printHtml += '<div class="notes"><strong style="color:#888;font-size:10px;">Notas:</strong><br>' + escapeHtml(q.notes) + '</div>';
+
+    // Valid until
+    if (q.validDays || q.createdAt) {
+        var days = q.validDays || 15;
+        var validDate = new Date(new Date(q.createdAt).getTime() + days * 86400000);
+        printHtml += '<div class="valid-info">Válida por ' + days + ' días — hasta ' + formatDate(validDate) + '</div>';
+    }
+
+    // Footer
+    if (cfg.footerText) printHtml += '<div class="footer">' + escapeHtml(cfg.footerText) + '</div>';
+
+    // Print action
+    printHtml += '<div class="no-print actions"><a class="back-btn" href="javascript:window.print();" style="background:#3b82f6;">🖨️ Imprimir / Guardar PDF</a></div>';
+
+    printHtml += '</body></html>';
+
+    // Open in new window
+    var printWin = window.open('', '_blank');
+    if (!printWin) {
+        showToast('Permite ventanas emergentes para generar PDF', 'error');
+        return;
+    }
+    printWin.document.write(printHtml);
+    printWin.document.close();
+    showToast('PDF listo para imprimir', 'success');
 }
 
 // ====================================================================
