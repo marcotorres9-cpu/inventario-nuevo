@@ -9526,33 +9526,97 @@ function generateCatalogReport() {
                     '<div style="background:var(--bg2);border-radius:8px;padding:8px;text-align:center;"><div style="font-size:20px;font-weight:800;color:#00b894;">' + grandMargin + '%</div><div style="font-size:10px;color:var(--text3);">Margen Prom.</div></div>' +
                 '</div>';
 
-    // In-app table
+    // ===== COMPLETE ONLY: Category & Brand summaries in in-app view =====
+    if (!isReduced) {
+        // Category summary table
+        viewHtml += '<div style="font-size:13px;font-weight:700;color:var(--primary);margin:14px 0 8px;padding:6px 10px;background:var(--bg2);border-radius:8px;border-left:4px solid var(--primary);">\uD83D\uDCCB Resumen por Categoria</div>';
+        viewHtml += '<div style="overflow-x:auto;margin-bottom:10px;"><table style="width:100%;border-collapse:collapse;font-size:10px;">' +
+            '<thead><tr><th style="background:var(--primary);color:#fff;padding:6px 4px;font-weight:600;">Categoria</th><th style="background:var(--primary);color:#fff;padding:6px 4px;">Prods</th><th style="background:var(--primary);color:#fff;padding:6px 4px;">Costo</th><th style="background:var(--primary);color:#fff;padding:6px 4px;">Venta</th><th style="background:var(--primary);color:#fff;padding:6px 4px;">Margen</th><th style="background:var(--primary);color:#fff;padding:6px 4px;">Stock</th></tr></thead><tbody>';
+        for (var ci2s = 0; ci2s < catKeys.length; ci2s++) {
+            var cps2 = catMap[catKeys[ci2s]];
+            var cv2s = 0, cc2s = 0, cs2s = 0;
+            for (var cj2s = 0; cj2s < cps2.length; cj2s++) {
+                cv2s += parseFloat(cps2[cj2s].salePrice || cps2[cj2s].price || 0);
+                cc2s += parseFloat(cps2[cj2s].costPrice || 0);
+                cs2s += parseInt(cps2[cj2s].stock || 0);
+            }
+            var cm2s = cv2s > 0 ? Math.round(((cv2s - cc2s) / cv2s) * 100) : 0;
+            var bgs2 = ci2s % 2 === 0 ? '' : 'background:var(--bg2);';
+            viewHtml += '<tr style="' + bgs2 + '"><td style="padding:5px 6px;text-align:left;border-bottom:1px solid var(--border);font-weight:600;color:var(--text);">' + escapeHtml(catKeys[ci2s]) + '</td><td style="padding:5px 4px;text-align:center;border-bottom:1px solid var(--border);">' + cps2.length + '</td><td style="padding:5px 4px;text-align:center;border-bottom:1px solid var(--border);color:#e17055;">$' + cc2s.toLocaleString() + '</td><td style="padding:5px 4px;text-align:center;border-bottom:1px solid var(--border);color:var(--text);">$' + cv2s.toLocaleString() + '</td><td style="padding:5px 4px;text-align:center;border-bottom:1px solid var(--border);color:#00b894;font-weight:600;">' + cm2s + '%</td><td style="padding:5px 4px;text-align:center;border-bottom:1px solid var(--border);">' + cs2s + '</td></tr>';
+        }
+        viewHtml += '<tr style="background:var(--primary);"><td style="padding:6px 6px;text-align:right;border:none;color:#fff;font-weight:700;">TOTAL</td><td style="padding:6px 4px;text-align:center;color:#fff;font-weight:700;">' + products.length + '</td><td style="padding:6px 4px;text-align:center;color:#fff;font-weight:700;">$' + grandCost.toLocaleString() + '</td><td style="padding:6px 4px;text-align:center;color:#fff;font-weight:700;">$' + grandValue.toLocaleString() + '</td><td style="padding:6px 4px;text-align:center;color:#fff;font-weight:700;">' + grandMargin + '%</td><td style="padding:6px 4px;text-align:center;color:#fff;font-weight:700;">' + grandStock + '</td></tr>';
+        viewHtml += '</tbody></table></div>';
+
+        // Brand summary table
+        var allBrandsV = {};
+        for (var bvi = 0; bvi < products.length; bvi++) {
+            var bkv = products[bvi].brand || 'Sin marca';
+            if (!allBrandsV[bkv]) allBrandsV[bkv] = { count: 0, val: 0, cost: 0 };
+            allBrandsV[bkv].count++;
+            allBrandsV[bkv].val += parseFloat(products[bvi].salePrice || products[bvi].price || 0);
+            allBrandsV[bkv].cost += parseFloat(products[bvi].costPrice || 0);
+        }
+        var brandKeysV = Object.keys(allBrandsV).sort();
+        viewHtml += '<div style="font-size:13px;font-weight:700;color:var(--primary);margin:14px 0 8px;padding:6px 10px;background:var(--bg2);border-radius:8px;border-left:4px solid var(--primary);">\uD83C\uDFFE\uFE0F Resumen por Marca</div>';
+        viewHtml += '<div style="overflow-x:auto;margin-bottom:10px;"><table style="width:100%;border-collapse:collapse;font-size:10px;">' +
+            '<thead><tr><th style="background:var(--primary);color:#fff;padding:6px 4px;font-weight:600;">Marca</th><th style="background:var(--primary);color:#fff;padding:6px 4px;">Prods</th><th style="background:var(--primary);color:#fff;padding:6px 4px;">Costo</th><th style="background:var(--primary);color:#fff;padding:6px 4px;">Venta</th><th style="background:var(--primary);color:#fff;padding:6px 4px;">Margen</th></tr></thead><tbody>';
+        for (var bvi2 = 0; bvi2 < brandKeysV.length; bvi2++) {
+            var bv = allBrandsV[brandKeysV[bvi2]];
+            var bvm = bv.val > 0 ? Math.round(((bv.val - bv.cost) / bv.val) * 100) : 0;
+            var bgv = bvi2 % 2 === 0 ? '' : 'background:var(--bg2);';
+            viewHtml += '<tr style="' + bgv + '"><td style="padding:5px 6px;text-align:left;border-bottom:1px solid var(--border);font-weight:600;color:var(--text);">' + escapeHtml(brandKeysV[bvi2]) + '</td><td style="padding:5px 4px;text-align:center;border-bottom:1px solid var(--border);">' + bv.count + '</td><td style="padding:5px 4px;text-align:center;border-bottom:1px solid var(--border);color:#e17055;">$' + bv.cost.toLocaleString() + '</td><td style="padding:5px 4px;text-align:center;border-bottom:1px solid var(--border);color:var(--text);">$' + bv.val.toLocaleString() + '</td><td style="padding:5px 4px;text-align:center;border-bottom:1px solid var(--border);color:#00b894;font-weight:600;">' + bvm + '%</td></tr>';
+        }
+        viewHtml += '</tbody></table></div>';
+    }
+
+    // In-app product detail table
+    viewHtml += '<div style="font-size:13px;font-weight:700;color:var(--primary);margin:14px 0 8px;padding:6px 10px;background:var(--bg2);border-radius:8px;border-left:4px solid var(--primary);">\uD83D\uDCE6 Detalle de Productos ' + (isReduced ? '(Reducido)' : '(Completo)') + '</div>';
     for (var ci2 = 0; ci2 < catKeys.length; ci2++) {
         var catProds2 = catMap[catKeys[ci2]];
-        var catVal2 = 0, catCost2 = 0;
+        var catVal2 = 0, catCost2 = 0, catStk2 = 0;
         for (var cp2 = 0; cp2 < catProds2.length; cp2++) {
             catVal2 += parseFloat(catProds2[cp2].salePrice || catProds2[cp2].price || 0);
             catCost2 += parseFloat(catProds2[cp2].costPrice || 0);
+            catStk2 += parseInt(catProds2[cp2].stock || 0);
         }
-        viewHtml += '<div style="font-size:13px;font-weight:700;color:var(--primary);margin:12px 0 6px;padding:6px 10px;background:var(--bg2);border-radius:8px;">\uD83D\uDCC2 ' + escapeHtml(catKeys[ci2]) + ' (' + catProds2.length + ') \u2014 Valor: $' + catVal2.toLocaleString() + ' | Costo: $' + catCost2.toLocaleString() + '</div>';
-        viewHtml += '<table style="width:100%;border-collapse:collapse;font-size:10px;">' +
-            '<thead><tr><th style="background:var(--primary);color:#fff;padding:6px 4px;font-weight:600;">Producto</th><th style="background:var(--primary);color:#fff;padding:6px 4px;">Marca</th><th style="background:var(--primary);color:#fff;padding:6px 4px;">Specs</th><th style="background:var(--primary);color:#fff;padding:6px 4px;">Costo</th><th style="background:var(--primary);color:#fff;padding:6px 4px;">Venta</th><th style="background:var(--primary);color:#fff;padding:6px 4px;">Margen</th><th style="background:var(--primary);color:#fff;padding:6px 4px;">Stock</th></tr></thead><tbody>';
-        for (var pi2 = 0; pi2 < catProds2.length; pi2++) {
-            var pr2 = catProds2[pi2];
-            var prSale2 = parseFloat(pr2.salePrice || pr2.price || 0);
-            var prCost2 = parseFloat(pr2.costPrice || 0);
-            var prMargin2 = prSale2 > 0 ? Math.round(((prSale2 - prCost2) / prSale2) * 100) : 0;
-            var specsStr2 = '';
-            var sp2 = parseSpecs(pr2);
-            var spk2 = Object.keys(sp2);
-            for (var si2 = 0; si2 < spk2.length; si2++) {
-                var svv2 = (sp2[spk2[si2]] || '').trim();
-                if (svv2) specsStr2 += (specsStr2 ? ', ' : '') + svv2;
+        var catMrg2 = catVal2 > 0 ? Math.round(((catVal2 - catCost2) / catVal2) * 100) : 0;
+        viewHtml += '<div style="font-size:12px;font-weight:700;color:var(--primary);margin:12px 0 6px;padding:6px 10px;background:var(--bg2);border-radius:8px;">\uD83D\uDCC2 ' + escapeHtml(catKeys[ci2]) + ' (' + catProds2.length + ') \u2014 Venta: $' + catVal2.toLocaleString() + ' | Costo: $' + catCost2.toLocaleString() + (isReduced ? '' : ' | Stock: ' + catStk2) + '</div>';
+        // Different columns based on mode
+        var thStyle = 'style="background:var(--primary);color:#fff;padding:6px 4px;font-weight:600;"';
+        var tdBorder = 'border-bottom:1px solid var(--border);';
+        if (isReduced) {
+            viewHtml += '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:10px;">' +
+                '<thead><tr><th ' + thStyle + '>Producto</th><th ' + thStyle + '>Marca</th><th ' + thStyle + '>Costo</th><th ' + thStyle + '>Venta</th><th ' + thStyle + '>Margen</th></tr></thead><tbody>';
+            for (var pi2 = 0; pi2 < catProds2.length; pi2++) {
+                var pr2 = catProds2[pi2];
+                var prSale2 = parseFloat(pr2.salePrice || pr2.price || 0);
+                var prCost2 = parseFloat(pr2.costPrice || 0);
+                var prMargin2 = prSale2 > 0 ? Math.round(((prSale2 - prCost2) / prSale2) * 100) : 0;
+                var bgStyle2 = pi2 % 2 === 0 ? '' : 'background:var(--bg2);';
+                viewHtml += '<tr style="' + bgStyle2 + '"><td style="padding:5px 4px;text-align:left;' + tdBorder + 'color:var(--text);max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(pr2.name) + '</td><td style="padding:5px 4px;text-align:center;' + tdBorder + 'color:var(--text2);">' + escapeHtml(pr2.brand || '') + '</td><td style="padding:5px 4px;text-align:center;' + tdBorder + 'color:var(--text2);">$' + prCost2.toLocaleString() + '</td><td style="padding:5px 4px;text-align:center;' + tdBorder + 'color:var(--text);font-weight:600;">$' + prSale2.toLocaleString() + '</td><td style="padding:5px 4px;text-align:center;' + tdBorder + 'color:#00b894;font-weight:600;">' + prMargin2 + '%</td></tr>';
             }
-            var bgStyle2 = pi2 % 2 === 0 ? '' : 'background:var(--bg2);';
-            viewHtml += '<tr style="' + bgStyle2 + '"><td style="padding:5px 4px;text-align:left;border-bottom:1px solid var(--border);color:var(--text);max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(pr2.name) + '</td><td style="padding:5px 4px;text-align:center;border-bottom:1px solid var(--border);color:var(--text2);">' + escapeHtml(pr2.brand || '') + '</td><td style="padding:5px 4px;text-align:left;border-bottom:1px solid var(--border);color:var(--text3);font-size:9px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(specsStr2) + '</td><td style="padding:5px 4px;text-align:center;border-bottom:1px solid var(--border);color:var(--text2);">$' + prCost2.toLocaleString() + '</td><td style="padding:5px 4px;text-align:center;border-bottom:1px solid var(--border);color:var(--text);font-weight:600;">$' + prSale2.toLocaleString() + '</td><td style="padding:5px 4px;text-align:center;border-bottom:1px solid var(--border);color:#00b894;font-weight:600;">' + prMargin2 + '%</td><td style="padding:5px 4px;text-align:center;border-bottom:1px solid var(--border);">' + (parseInt(pr2.stock) || 0) + '</td></tr>';
+            viewHtml += '</tbody></table></div>';
+        } else {
+            // Complete: show full columns
+            viewHtml += '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:9px;">' +
+                '<thead><tr><th ' + thStyle + '>Producto</th><th ' + thStyle + '>SKU</th><th ' + thStyle + '>Marca</th><th ' + thStyle + '>Color</th><th ' + thStyle + '>Specs</th><th ' + thStyle + '>Costo</th><th ' + thStyle + '>Venta</th><th ' + thStyle + '>Margen</th><th ' + thStyle + '>Stock</th></tr></thead><tbody>';
+            for (var pi2 = 0; pi2 < catProds2.length; pi2++) {
+                var pr2 = catProds2[pi2];
+                var prSale2 = parseFloat(pr2.salePrice || pr2.price || 0);
+                var prCost2 = parseFloat(pr2.costPrice || 0);
+                var prMargin2 = prSale2 > 0 ? Math.round(((prSale2 - prCost2) / prSale2) * 100) : 0;
+                var specsStr2 = '';
+                var sp2 = parseSpecs(pr2);
+                var spk2 = Object.keys(sp2);
+                for (var si2 = 0; si2 < spk2.length; si2++) {
+                    var svv2 = (sp2[spk2[si2]] || '').trim();
+                    if (svv2) specsStr2 += (specsStr2 ? ', ' : '') + spk2[si2] + ': ' + svv2;
+                }
+                var bgStyle2 = pi2 % 2 === 0 ? '' : 'background:var(--bg2);';
+                viewHtml += '<tr style="' + bgStyle2 + '"><td style="padding:4px 3px;text-align:left;' + tdBorder + 'color:var(--text);max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(pr2.name) + '</td><td style="padding:4px 3px;text-align:center;' + tdBorder + 'color:var(--text3);">' + escapeHtml(pr2.sku || '') + '</td><td style="padding:4px 3px;text-align:center;' + tdBorder + 'color:var(--text2);">' + escapeHtml(pr2.brand || '') + '</td><td style="padding:4px 3px;text-align:center;' + tdBorder + 'color:var(--text2);">' + escapeHtml(pr2.color || '') + '</td><td style="padding:4px 3px;text-align:left;' + tdBorder + 'color:var(--text3);font-size:8px;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(specsStr2) + '</td><td style="padding:4px 3px;text-align:center;' + tdBorder + 'color:#e17055;">$' + prCost2.toLocaleString() + '</td><td style="padding:4px 3px;text-align:center;' + tdBorder + 'color:var(--text);font-weight:600;">$' + prSale2.toLocaleString() + '</td><td style="padding:4px 3px;text-align:center;' + tdBorder + 'color:#00b894;font-weight:600;">' + prMargin2 + '%</td><td style="padding:4px 3px;text-align:center;' + tdBorder + '">' + (parseInt(pr2.stock) || 0) + '</td></tr>';
+            }
+            viewHtml += '</tbody></table></div>';
         }
-        viewHtml += '</tbody></table>';
     }
 
     viewHtml += '<div style="background:var(--bg2);border-top:2px solid var(--primary);border-radius:8px;padding:10px;margin-top:14px;text-align:center;font-weight:700;">' +
