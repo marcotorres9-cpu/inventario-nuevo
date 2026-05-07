@@ -8451,7 +8451,7 @@ function openCatalogSummary() {
     _catalogDrillFilters = { brand: null, spec: null, color: null };
     _catalogSort = '';
     _catalogSearch = '';
-    _catalogDrillProducts = [];
+    _catalogDrillProducts = getProducts().slice(); // all products available for dropdowns
     renderCatalogSummaryPage();
     summaryView.style.display = 'block';
 }
@@ -8542,6 +8542,15 @@ function clearCatFilters() {
     renderCatalogSummaryPage();
 }
 
+// Clear filters from overview (includes activeFilter)
+function clearCatOverviewFilters() {
+    _catalogDrillFilters = { brand: null, spec: null, color: null };
+    _catalogSort = '';
+    _catalogSearch = '';
+    _catalogFilter = null;
+    renderCatalogSummaryPage();
+}
+
 // ===== CATALOG DRILL DROPDOWN POPULATORS =====
 
 function populateCatSortDropdown(key, overlay) {
@@ -8581,9 +8590,10 @@ function selectCatSort(val) {
 function populateCatBrandDropdown(key, overlay) {
     if (!overlay) return;
     var current = _catalogDrillFilters.brand || '';
+    var source = _catalogDrillProducts.length > 0 ? _catalogDrillProducts : getProducts();
     var brands = {};
-    for (var i = 0; i < _catalogDrillProducts.length; i++) {
-        var b = _catalogDrillProducts[i].brand || 'Sin marca';
+    for (var i = 0; i < source.length; i++) {
+        var b = source[i].brand || 'Sin marca';
         brands[b] = (brands[b] || 0) + 1;
     }
     var keys = Object.keys(brands).sort();
@@ -8607,9 +8617,10 @@ function selectCatBrand(val) {
 function populateCatColorDropdown(key, overlay) {
     if (!overlay) return;
     var current = _catalogDrillFilters.color || '';
+    var source = _catalogDrillProducts.length > 0 ? _catalogDrillProducts : getProducts();
     var colors = {};
-    for (var i = 0; i < _catalogDrillProducts.length; i++) {
-        var c = _catalogDrillProducts[i].color || '';
+    for (var i = 0; i < source.length; i++) {
+        var c = source[i].color || '';
         if (c) colors[c] = (colors[c] || 0) + 1;
     }
     var keys = Object.keys(colors).sort();
@@ -8633,7 +8644,8 @@ function selectCatColor(val) {
 function populateCatSpecDropdown(key, overlay) {
     if (!overlay) return;
     var current = _catalogDrillFilters.spec;
-    var specKeys = getUniqueSpecKeys(_catalogDrillProducts);
+    var source = _catalogDrillProducts.length > 0 ? _catalogDrillProducts : getProducts();
+    var specKeys = getUniqueSpecKeys(source);
     var html = '';
     for (var i = 0; i < specKeys.length; i++) {
         var isActive = current && current.key === specKeys[i];
@@ -8935,10 +8947,90 @@ function renderCatalogSummaryPage() {
     var avgPrice = allProducts.length > 0 ? Math.round(totalValue / allProducts.length) : 0;
     var globalMargin = totalValue > 0 ? Math.round(((totalValue - totalCost) / totalValue) * 100) : 0;
 
-    html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">' +
+    html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">' +
         '<h2 style="font-size:20px;font-weight:800;margin:0;">\uD83D\uDCCA Resumen del Catalogo</h2>' +
         '<button onclick="exportCatalogReport()" class="btn btn-primary btn-sm" style="font-size:12px;white-space:nowrap;">\uD83D\uDCC4 Reporte PDF</button>' +
     '</div>';
+
+    // Search bar (overview)
+    html += '<div class="search-bar"><input type="text" id="catOverviewSearch" class="search-input" placeholder="\uD83D\uDD0D Buscar producto..." value="' + escapeHtml(_catalogSearch) + '" oninput="_catalogSearch=this.value;renderCatalogSummaryPage();"></div>';
+
+    // Compact filter bar (overview) — same style as "Agregar Productos"
+    var ovBrand = _catalogDrillFilters.brand;
+    var ovColor = _catalogDrillFilters.color;
+    var ovSpecKey = _catalogDrillFilters.spec;
+    var ovHasFilters = ovBrand || ovColor || (ovSpecKey && ovSpecKey.key) || _catalogSort || _catalogSearch;
+
+    html += '<div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;">';
+    var sortLabels = { '': '\u2B07\uFE0F Sin ordenar', 'price_asc': '\uD83D\uDCB0 Precio \u2191', 'price_desc': '\uD83D\uDCB0 Precio \u2193', 'name_asc': '\uD83D\uDD24 A-Z', 'name_desc': '\uD83D\uDD24 Z-A', 'brand_asc': '\uD83C\uDFFE\uFE0F Marca A-Z', 'category_asc': '\uD83D\uDCC2 Cat. A-Z', 'stock_asc': '\uD83D\uDCE6 Stock \u2191', 'stock_desc': '\uD83D\uDCE6 Stock \u2193', 'color_asc': '\uD83C\uDFA8 Color A-Z', 'cost_asc': '\uD83D\uDCB5 Costo \u2191', 'cost_desc': '\uD83D\uDCB5 Costo \u2193' };
+    html += '<div class="filter-chip-wrap"><button class="filter-chip' + (_catalogSort ? ' active' : '') + '" id="chipCatSort" onclick="toggleFilterDropdown(\'csm\')">' + (sortLabels[_catalogSort] || sortLabels['']) + '</button></div>';
+    // Category chip
+    html += '<div class="filter-chip-wrap"><button class="filter-chip' + (activeFilter === 'cat' ? ' active' : '') + '" id="chipCatFilter" onclick="toggleCatalogFilter(\'cat\')">' + (activeFilter === 'cat' ? '\uD83D\uDCC2 Cat. filtrada' : '\uD83D\uDCC2 Categoría') + '</button></div>';
+    // Brand chip
+    html += '<div class="filter-chip-wrap"><button class="filter-chip' + (ovBrand ? ' active' : '') + '" id="chipCatBrand" onclick="toggleFilterDropdown(\'csb\')">' + (ovBrand ? '\uD83C\uDFFE\uFE0F ' + ovBrand : '\uD83C\uDFFE\uFE0F Marca') + '</button></div>';
+    // Color chip
+    html += '<div class="filter-chip-wrap"><button class="filter-chip' + (ovColor ? ' active' : '') + '" id="chipCatColor" onclick="toggleFilterDropdown(\'csc\')">' + (ovColor ? '\uD83C\uDFA8 ' + ovColor : '\uD83C\uDFA8 Color') + '</button></div>';
+    // Specs chip
+    html += '<div class="filter-chip-wrap"><button class="filter-chip' + (ovSpecKey && ovSpecKey.key ? ' active' : '') + '" id="chipCatSpec" onclick="toggleFilterDropdown(\'css\')">' + (ovSpecKey && ovSpecKey.key ? '\u2699\uFE0F ' + (ovSpecKey.value || ovSpecKey.key) : '\u2699\uFE0F Specs') + '</button></div>';
+    // Clear button
+    if (ovHasFilters || activeFilter) {
+        html += '<button class="filter-chip" onclick="clearCatOverviewFilters()" style="color:var(--danger);font-weight:700;">\u2715</button>';
+    }
+    html += '</div>';
+
+    // If spec key selected but no value yet, show spec values as pills
+    if (ovSpecKey && ovSpecKey.key && !ovSpecKey.value) {
+        var ovSpecVals = getUniqueSpecValues(allProducts, ovSpecKey.key);
+        html += '<div style="display:flex;gap:4px;margin-bottom:10px;flex-wrap:wrap;">';
+        for (var osvi = 0; osvi < ovSpecVals.length; osvi++) {
+            var osvEsc = escapeHtml(ovSpecVals[osvi]).replace(/'/g, "\\'");
+            html += '<button onclick="toggleSpecValue(\'' + escapeHtml(ovSpecKey.key).replace(/'/g, "\\'") + '\',\'' + osvEsc + '\')" style="font-size:10px;padding:4px 10px;border-radius:16px;border:1px solid var(--border);background:var(--bg2);color:var(--text2);cursor:pointer;font-weight:500;white-space:nowrap;">' + escapeHtml(ovSpecVals[osvi]) + '</button>';
+        }
+        html += '</div>';
+    }
+
+    // Apply overview filters to all products for the product list
+    var ovFilteredProducts = [];
+    for (var oi = 0; oi < allProducts.length; oi++) {
+        var op = allProducts[oi];
+        if (ovBrand && (op.brand || 'Sin marca') !== ovBrand) continue;
+        if (ovColor && (op.color || '') !== ovColor) continue;
+        if (ovSpecKey && ovSpecKey.key) {
+            var osp = parseSpecs(op);
+            var ospVal = (osp[ovSpecKey.key] || '').trim();
+            if (ovSpecKey.value && ospVal !== ovSpecKey.value) continue;
+        }
+        if (_catalogSearch) {
+            var oLow = _catalogSearch.toLowerCase();
+            var oNameMatch = (op.name || '').toLowerCase().indexOf(oLow) >= 0;
+            var oBrandMatch = (op.brand || '').toLowerCase().indexOf(oLow) >= 0;
+            var oSkuMatch = (op.sku || '').toLowerCase().indexOf(oLow) >= 0;
+            var oDescMatch = (op.description || '').toLowerCase().indexOf(oLow) >= 0;
+            if (!oNameMatch && !oBrandMatch && !oSkuMatch && !oDescMatch) continue;
+        }
+        ovFilteredProducts.push(op);
+    }
+
+    // Sort overview filtered products
+    if (_catalogSort) {
+        ovFilteredProducts.sort(function(a, b) {
+            var va, vb;
+            switch(_catalogSort) {
+                case 'price_asc': va = parseFloat(a.salePrice || a.price || 0); vb = parseFloat(b.salePrice || b.price || 0); return va - vb;
+                case 'price_desc': va = parseFloat(a.salePrice || a.price || 0); vb = parseFloat(b.salePrice || b.price || 0); return vb - va;
+                case 'name_asc': return (a.name || '').toLowerCase().localeCompare((b.name || '').toLowerCase());
+                case 'name_desc': return (b.name || '').toLowerCase().localeCompare((a.name || '').toLowerCase());
+                case 'brand_asc': return (a.brand || '').toLowerCase().localeCompare((b.brand || '').toLowerCase());
+                case 'category_asc': return (a.category || '').toLowerCase().localeCompare((b.category || '').toLowerCase());
+                case 'stock_asc': return (parseInt(a.stock) || 0) - (parseInt(b.stock) || 0);
+                case 'stock_desc': return (parseInt(b.stock) || 0) - (parseInt(a.stock) || 0);
+                case 'color_asc': return (a.color || '').toLowerCase().localeCompare((b.color || '').toLowerCase());
+                case 'cost_asc': va = parseFloat(a.costPrice || 0); vb = parseFloat(b.costPrice || 0); return va - vb;
+                case 'cost_desc': va = parseFloat(a.costPrice || 0); vb = parseFloat(b.costPrice || 0); return vb - va;
+                default: return 0;
+            }
+        });
+    }
 
     // Main header
     html += '<div style="background:linear-gradient(135deg, var(--primary), #6c5ce7);border-radius:14px;padding:16px;margin-bottom:14px;color:#fff;">' +
@@ -8951,7 +9043,74 @@ function renderCatalogSummaryPage() {
             '<div><div style="font-size:12px;font-weight:600;opacity:0.8;">$' + totalValue.toLocaleString() + '</div><div style="font-size:9px;opacity:0.6;">Valor Venta</div></div>' +
             '<div><div style="font-size:14px;font-weight:800;">' + globalMargin + '%</div><div style="font-size:10px;opacity:0.8;">Margen Prom.</div></div>' +
         '</div>' +
-    '</div>';
+        '</div>';
+
+    // If there are active filters/search, show the filtered product list BEFORE the category cards
+    if (ovHasFilters) {
+        var ovValue = 0, ovCost = 0;
+        for (var ovi = 0; ovi < ovFilteredProducts.length; ovi++) {
+            ovValue += parseFloat(ovFilteredProducts[ovi].salePrice || ovFilteredProducts[ovi].price || 0);
+            ovCost += parseFloat(ovFilteredProducts[ovi].costPrice || 0);
+        }
+        var ovMargin = ovValue > 0 ? Math.round(((ovValue - ovCost) / ovValue) * 100) : 0;
+
+        html += '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:14px;text-align:center;font-size:12px;color:var(--text3);">' +
+            'Mostrando <b>' + ovFilteredProducts.length + '</b> de ' + allProducts.length + ' productos' +
+            ' | Costo: <b style="color:var(--primary);">$' + ovCost.toLocaleString() + '</b>' +
+            ' | Margen: <b style="color:#00b894;">' + ovMargin + '%</b>' +
+        '</div>';
+
+        // Render filtered product list
+        if (ovFilteredProducts.length === 0) {
+            html += '<div style="text-align:center;padding:30px 20px;color:var(--text3);font-size:13px;">No hay productos con estos filtros</div>';
+        } else {
+            for (var opi = 0; opi < ovFilteredProducts.length; opi++) {
+                var opr = ovFilteredProducts[opi];
+                var oprPrice = parseFloat(opr.salePrice || opr.price || 0);
+                var oprCost = parseFloat(opr.costPrice || 0);
+                var oprMargin = oprPrice > 0 ? Math.round(((oprPrice - oprCost) / oprPrice) * 100) : 0;
+                var oprStock = parseInt(opr.stock || 0);
+                var oprColor = (opr.color || '');
+                var oprCat = (opr.category || '');
+                var oprSpecStr = '';
+                var oprSp = parseSpecs(opr);
+                var oprSpk = Object.keys(oprSp);
+                for (var osi = 0; osi < oprSpk.length; osi++) {
+                    var osvv = (oprSp[oprSpk[osi]] || '').trim();
+                    if (osvv) oprSpecStr += (oprSpecStr ? ', ' : '') + osvv;
+                }
+
+                html += '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:6px;">' +
+                    '<div style="display:flex;align-items:flex-start;justify-content:space-between;">' +
+                        '<div style="flex:1;min-width:0;">' +
+                            '<div style="font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(opr.name) + '</div>' +
+                            '<div style="display:flex;gap:4px;margin-top:3px;flex-wrap:wrap;">' +
+                                (oprCat ? '<span style="font-size:9px;background:#6c5ce720;color:#6c5ce7;padding:1px 6px;border-radius:4px;font-weight:600;">' + escapeHtml(oprCat) + '</span>' : '') +
+                                (opr.brand ? '<span style="font-size:9px;background:#00b89420;color:#00b894;padding:1px 6px;border-radius:4px;font-weight:600;">' + escapeHtml(opr.brand) + '</span>' : '') +
+                                (opr.sku ? '<span style="font-size:9px;background:var(--bg);color:var(--text3);padding:1px 6px;border-radius:4px;">SKU: ' + escapeHtml(opr.sku) + '</span>' : '') +
+                                (oprColor ? '<span style="font-size:9px;background:#a29bfe20;color:#a29bfe;padding:1px 6px;border-radius:4px;">' + escapeHtml(oprColor) + '</span>' : '') +
+                                (oprStock > 0 ? '<span style="font-size:9px;background:#2ed57320;color:#2ed573;padding:1px 6px;border-radius:4px;font-weight:600;">Stock: ' + oprStock + '</span>' : '') +
+                            '</div>' +
+                        '</div>' +
+                        '<div style="text-align:right;flex-shrink:0;margin-left:10px;">' +
+                            '<div style="font-size:16px;font-weight:800;color:var(--primary);">$' + oprCost.toLocaleString() + '</div>' +
+                            (oprPrice > 0 ? '<div style="font-size:9px;color:var(--text3);">venta: $' + oprPrice.toLocaleString() + ' (' + oprMargin + '%)</div>' : '') +
+                        '</div>' +
+                    '</div>' +
+                    (oprSpecStr ? '<div style="font-size:9px;color:var(--text3);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">\u2699\uFE0F ' + escapeHtml(oprSpecStr) + '</div>' : '') +
+                    (opr.description ? '<div style="font-size:10px;color:var(--text3);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(opr.description) + '</div>' : '') +
+                '</div>';
+            }
+        }
+
+        // After filtered list, don't show category cards (filters are active)
+        summaryView.innerHTML = html;
+        if (_catalogSearch) {
+            var osInput = document.getElementById('catOverviewSearch');
+            if (osInput) { osInput.focus(); osInput.setSelectionRange(_catalogSearch.length, _catalogSearch.length); }
+        }
+        return;
+    }
 
     // Quick stats (filter cards)
     var fCatStyle = (activeFilter === 'cat') ? 'transform:scale(1.05);box-shadow:0 0 0 2px var(--primary);' : '';
