@@ -424,7 +424,7 @@
             padding: 14px; background: var(--bg2); border: 1px solid var(--border);
             border-radius: var(--radius); margin-bottom: 8px;
         }
-        .product-info { flex: 1; min-width: 0; }
+        .product-info { flex: 1; min-width: 0; display: flex; align-items: center; gap: 0; }
         .product-name { font-weight: 600; font-size: 14px; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .product-specs { font-size: 11px; color: var(--primary); font-weight: 500; margin-bottom: 2px; display: flex; flex-wrap: wrap; gap: 4px; }
         .product-spec-tag { background: var(--accent); color: var(--accent-text); padding: 2px 8px; border-radius: 6px; font-size: 10px; font-weight: 700; letter-spacing: 0.3px; border: 1px solid rgba(0,0,0,0.08); box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
@@ -1144,7 +1144,17 @@
             <div class="config-section">
                 <div class="config-section-title">🏪 Información de la Tienda</div>
                 <div style="text-align:center;margin-bottom:12px;">
-                    <img id="configStoreLogo" src="" style="width:64px;height:64px;border-radius:12px;display:none;object-fit:cover;margin:0 auto;border:2px solid var(--border);" onerror="this.style.display='none'">
+                    <div style="position:relative;display:inline-block;">
+                        <img id="configStoreLogo" src="" style="width:64px;height:64px;border-radius:12px;display:none;object-fit:cover;margin:0 auto;border:2px solid var(--border);" onerror="this.style.display='none'">
+                        <div id="storeLogoPlaceholder" style="width:64px;height:64px;border-radius:12px;display:flex;align-items:center;justify-content:center;background:var(--bg2);border:2px dashed var(--border);margin:0 auto;font-size:24px;cursor:pointer;" onclick="document.getElementById('storeLogoInput').click();">
+                            🏪
+                        </div>
+                    </div>
+                    <input type="file" id="storeLogoInput" accept="image/*" style="display:none;" onchange="uploadStoreLogo(this)">
+                    <div style="margin-top:4px;">
+                        <button type="button" class="btn btn-xs btn-outline" onclick="document.getElementById('storeLogoInput').click()" style="font-size:10px;">📷 Subir Logo</button>
+                        <button type="button" class="btn btn-xs btn-outline" onclick="removeStoreLogo()" style="font-size:10px;color:var(--danger);">✕ Quitar</button>
+                    </div>
                 </div>
                 <div class="input-group">
                     <label class="input-label">Nombre de la Tienda</label>
@@ -1301,6 +1311,24 @@
                 <div style="position:relative;">
                     <input type="text" id="copyFromSearch" class="input" placeholder="🔍 Buscar producto para copiar..." oninput="searchProductsToCopy(this.value)" onfocus="searchProductsToCopy(this.value)">
                     <div class="cs-dropdown" id="copyFromDropdown" style="z-index:100;max-height:200px;overflow-y:auto;display:none;"></div>
+                </div>
+            </div>
+
+            <!-- Product Image Upload -->
+            <div class="input-group">
+                <label class="input-label">📷 Foto del Producto</label>
+                <div id="productImageArea" style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
+                    <div id="productImagePreview" style="width:64px;height:64px;border-radius:10px;display:none;object-fit:cover;border:2px solid var(--border);flex-shrink:0;overflow:hidden;">
+                        <img id="productImageImg" src="" style="width:100%;height:100%;object-fit:cover;border-radius:8px;">
+                    </div>
+                    <div id="productImagePlaceholder" style="width:64px;height:64px;border-radius:10px;display:flex;align-items:center;justify-content:center;background:var(--bg2);border:2px dashed var(--border);flex-shrink:0;cursor:pointer;font-size:24px;" onclick="document.getElementById('productImageInput').click();">
+                        📷
+                    </div>
+                    <div style="display:flex;flex-direction:column;gap:4px;">
+                        <button type="button" class="btn btn-xs btn-outline" onclick="document.getElementById('productImageInput').click()" style="font-size:10px;">📷 Subir Foto</button>
+                        <button type="button" class="btn btn-xs btn-outline" onclick="removeProductImage()" style="font-size:10px;color:var(--danger);">✕ Quitar</button>
+                    </div>
+                    <input type="file" id="productImageInput" accept="image/*" style="display:none;" onchange="uploadProductImage(this)">
                 </div>
             </div>
 
@@ -3458,6 +3486,14 @@ function openAddProduct() {
     var specContainer = document.getElementById('productSpecsContainer');
     if (specContainer) specContainer.style.display = 'none';
     document.getElementById('prodMinStock').value = '5';
+    // Reset product image
+    window._pendingProductImage = undefined;
+    var prev = document.getElementById('productImagePreview');
+    var pimg = document.getElementById('productImageImg');
+    var ph = document.getElementById('productImagePlaceholder');
+    if (prev) prev.style.display = 'none';
+    if (pimg) pimg.src = '';
+    if (ph) ph.style.display = 'flex';
     resetProductFormSelects();
     // Populate space selector
     populateSpaceSelector();
@@ -3511,6 +3547,20 @@ function openEditProduct(id) {
     // Show spec fields for this category with existing values
     renderProductSpecFields(product.category || '', product.specifications);
 
+    // Load product image if exists
+    window._pendingProductImage = undefined;
+    var prev = document.getElementById('productImagePreview');
+    var pimg = document.getElementById('productImageImg');
+    var ph = document.getElementById('productImagePlaceholder');
+    if (product.image) {
+        if (prev && pimg) { pimg.src = product.image; prev.style.display = 'block'; }
+        if (ph) ph.style.display = 'none';
+    } else {
+        if (prev) prev.style.display = 'none';
+        if (pimg) pimg.src = '';
+        if (ph) ph.style.display = 'flex';
+    }
+
     openModal('productModal');
 }
 
@@ -3531,6 +3581,7 @@ function saveProduct(e) {
     var description = document.getElementById('prodDesc').value.trim();
     var space = document.getElementById('prodSpace').value.trim();
     var specifications = collectProductSpecs();
+    var productImage = window._pendingProductImage;
 
     if (!name) { showToast('El nombre del producto es obligatorio', 'error'); return; }
 
@@ -3556,6 +3607,8 @@ function saveProduct(e) {
                 products[i].specifications = specifications;
                 products[i].space = space;
                 products[i].updatedAt = now;
+                // Only update image if user changed it (undefined means no change)
+                if (productImage !== undefined) products[i].image = productImage;
                 break;
             }
         }
@@ -3579,6 +3632,7 @@ function saveProduct(e) {
             description: description,
             specifications: specifications,
             space: space,
+            image: productImage !== undefined ? productImage : '',
             createdAt: now,
             updatedAt: now
         };
@@ -3590,6 +3644,7 @@ function saveProduct(e) {
     saveProducts(products);
     syncToServer('product');
     closeModal('productModal');
+    window._pendingProductImage = undefined;
     updateDashboard();
     renderProductList();
     populateProductFilterDropdowns();
@@ -3783,12 +3838,15 @@ function renderProductList() {
 
         html += '<div class="product-item">' +
             '<div class="product-info" onclick="openEditProduct(\'' + pr.id + '\')">' +
+                (pr.image ? '<img src="' + pr.image + '" style="width:40px;height:40px;border-radius:8px;object-fit:cover;flex-shrink:0;margin-right:8px;border:1px solid var(--border);" onerror="this.style.display=\'none\'">' : '') +
+                '<div>' +
                 '<div class="product-name">' + escapeHtml(pr.name) + '</div>' +
                 (specsHtml ? '<div class="product-specs">' + specsHtml + '</div>' : '') +
                 '<div class="product-meta">' +
                     (pr.space ? '<span style="color:var(--primary);">📦 ' + escapeHtml(pr.space) + '</span>' : '') +
                     '<span>' + escapeHtml(pr.brand || '—') + '</span>' +
                     '<span>' + escapeHtml(pr.category || '—') + '</span>' +
+                '</div>' +
                 '</div>' +
             '</div>' +
             '<div class="product-right">' +
@@ -5813,6 +5871,72 @@ function saveStoreInfo() {
     showToast('Información de tienda guardada', 'success');
 }
 
+function uploadStoreLogo(input) {
+    var file = input.files && input.files[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) { showToast('La imagen no debe superar 2MB', 'error'); return; }
+    var reader = new FileReader();
+    reader.onload = function(e) {
+        var base64 = e.target.result;
+        var cfg = getStoreConfig();
+        cfg.logo = base64;
+        saveStoreConfig(cfg);
+        // Update UI
+        var logo = document.getElementById('configStoreLogo');
+        if (logo) { logo.src = base64; logo.style.display = 'block'; }
+        var placeholder = document.getElementById('storeLogoPlaceholder');
+        if (placeholder) placeholder.style.display = 'none';
+        var headerLogo = document.getElementById('storeLogo');
+        if (headerLogo) { headerLogo.src = base64; headerLogo.style.display = 'block'; }
+        showToast('Logo de tienda actualizado', 'success');
+    };
+    reader.readAsDataURL(file);
+    input.value = '';
+}
+
+function removeStoreLogo() {
+    var cfg = getStoreConfig();
+    cfg.logo = '';
+    saveStoreConfig(cfg);
+    var logo = document.getElementById('configStoreLogo');
+    if (logo) { logo.src = ''; logo.style.display = 'none'; }
+    var placeholder = document.getElementById('storeLogoPlaceholder');
+    if (placeholder) placeholder.style.display = 'flex';
+    var headerLogo = document.getElementById('storeLogo');
+    if (headerLogo) { headerLogo.src = ''; headerLogo.style.display = 'none'; }
+    showToast('Logo eliminado', 'success');
+}
+
+function uploadProductImage(input) {
+    var file = input.files && input.files[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) { showToast('La imagen no debe superar 2MB', 'error'); return; }
+    var reader = new FileReader();
+    reader.onload = function(e) {
+        var base64 = e.target.result;
+        // Store temporarily on the form
+        window._pendingProductImage = base64;
+        // Show preview
+        var preview = document.getElementById('productImagePreview');
+        var img = document.getElementById('productImageImg');
+        var placeholder = document.getElementById('productImagePlaceholder');
+        if (preview && img) { img.src = base64; preview.style.display = 'block'; }
+        if (placeholder) placeholder.style.display = 'none';
+    };
+    reader.readAsDataURL(file);
+    input.value = '';
+}
+
+function removeProductImage() {
+    window._pendingProductImage = '';
+    var preview = document.getElementById('productImagePreview');
+    var img = document.getElementById('productImageImg');
+    var placeholder = document.getElementById('productImagePlaceholder');
+    if (preview) preview.style.display = 'none';
+    if (img) img.src = '';
+    if (placeholder) placeholder.style.display = 'flex';
+}
+
 function loadStoreInfoUI() {
     var cfg = getStoreConfig();
     var el;
@@ -5823,9 +5947,14 @@ function loadStoreInfoUI() {
     el = document.getElementById('cfgStoreFooter'); if (el) el.value = cfg.footerText || '';
     // Logo
     var logo = document.getElementById('configStoreLogo');
+    var placeholder = document.getElementById('storeLogoPlaceholder');
     if (cfg.logo && logo) {
         logo.src = cfg.logo;
         logo.style.display = 'block';
+        if (placeholder) placeholder.style.display = 'none';
+    } else {
+        if (logo) logo.style.display = 'none';
+        if (placeholder) placeholder.style.display = 'flex';
     }
     var headerLogo = document.getElementById('storeLogo');
     if (cfg.logo && headerLogo) {
