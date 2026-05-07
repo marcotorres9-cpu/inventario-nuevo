@@ -1316,20 +1316,15 @@
 
             <!-- Product Image Upload -->
             <div class="input-group">
-                <label class="input-label">📷 Foto del Producto</label>
-                <div id="productImageArea" style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
-                    <div id="productImagePreview" style="width:64px;height:64px;border-radius:10px;display:none;object-fit:cover;border:2px solid var(--border);flex-shrink:0;overflow:hidden;">
-                        <img id="productImageImg" src="" style="width:100%;height:100%;object-fit:cover;border-radius:8px;">
-                    </div>
-                    <div id="productImagePlaceholder" style="width:64px;height:64px;border-radius:10px;display:flex;align-items:center;justify-content:center;background:var(--bg2);border:2px dashed var(--border);flex-shrink:0;cursor:pointer;font-size:24px;" onclick="document.getElementById('productImageInput').click();">
-                        📷
-                    </div>
-                    <div style="display:flex;flex-direction:column;gap:4px;">
-                        <button type="button" class="btn btn-xs btn-outline" onclick="document.getElementById('productImageInput').click()" style="font-size:10px;">📷 Subir Foto</button>
-                        <button type="button" class="btn btn-xs btn-outline" onclick="removeProductImage()" style="font-size:10px;color:var(--danger);">✕ Quitar</button>
-                    </div>
-                    <input type="file" id="productImageInput" accept="image/*" style="display:none;" onchange="uploadProductImage(this)">
+                <label class="input-label">📷 Fotos del Producto</label>
+                <div id="productImagesArea" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:4px;">
                 </div>
+                <div style="display:flex;gap:6px;">
+                    <button type="button" class="btn btn-xs btn-outline" onclick="document.getElementById('productImageInput').click()" style="font-size:10px;">📷 Agregar Foto</button>
+                    <button type="button" class="btn btn-xs btn-outline" onclick="removeAllProductImages()" style="font-size:10px;color:var(--danger);">✕ Quitar Todas</button>
+                </div>
+                <div style="font-size:10px;color:var(--text3);margin-top:2px;">Puedes subir varias fotos. Se comprimen automáticamente.</div>
+                <input type="file" id="productImageInput" accept="image/*" multiple style="display:none;" onchange="uploadProductImages(this)">
             </div>
 
             <div class="input-group">
@@ -3486,14 +3481,8 @@ function openAddProduct() {
     var specContainer = document.getElementById('productSpecsContainer');
     if (specContainer) specContainer.style.display = 'none';
     document.getElementById('prodMinStock').value = '5';
-    // Reset product image
-    window._pendingProductImage = undefined;
-    var prev = document.getElementById('productImagePreview');
-    var pimg = document.getElementById('productImageImg');
-    var ph = document.getElementById('productImagePlaceholder');
-    if (prev) prev.style.display = 'none';
-    if (pimg) pimg.src = '';
-    if (ph) ph.style.display = 'flex';
+    // Reset product images
+    resetProductImagesUI();
     resetProductFormSelects();
     // Populate space selector
     populateSpaceSelector();
@@ -3547,19 +3536,8 @@ function openEditProduct(id) {
     // Show spec fields for this category with existing values
     renderProductSpecFields(product.category || '', product.specifications);
 
-    // Load product image if exists
-    window._pendingProductImage = undefined;
-    var prev = document.getElementById('productImagePreview');
-    var pimg = document.getElementById('productImageImg');
-    var ph = document.getElementById('productImagePlaceholder');
-    if (product.image) {
-        if (prev && pimg) { pimg.src = product.image; prev.style.display = 'block'; }
-        if (ph) ph.style.display = 'none';
-    } else {
-        if (prev) prev.style.display = 'none';
-        if (pimg) pimg.src = '';
-        if (ph) ph.style.display = 'flex';
-    }
+    // Load product images
+    loadProductImagesUI(product.images || product.image || '');
 
     openModal('productModal');
 }
@@ -3581,7 +3559,6 @@ function saveProduct(e) {
     var description = document.getElementById('prodDesc').value.trim();
     var space = document.getElementById('prodSpace').value.trim();
     var specifications = collectProductSpecs();
-    var productImage = window._pendingProductImage;
 
     if (!name) { showToast('El nombre del producto es obligatorio', 'error'); return; }
 
@@ -3607,8 +3584,8 @@ function saveProduct(e) {
                 products[i].specifications = specifications;
                 products[i].space = space;
                 products[i].updatedAt = now;
-                // Only update image if user changed it (undefined means no change)
-                if (productImage !== undefined) products[i].image = productImage;
+                products[i].images = getProductImagesToSave(products[i].images || products[i].image);
+                products[i].image = ''; // legacy compat
                 break;
             }
         }
@@ -3632,7 +3609,8 @@ function saveProduct(e) {
             description: description,
             specifications: specifications,
             space: space,
-            image: productImage !== undefined ? productImage : '',
+            image: '',
+            images: getProductImagesToSave([]),
             createdAt: now,
             updatedAt: now
         };
@@ -3644,7 +3622,7 @@ function saveProduct(e) {
     saveProducts(products);
     syncToServer('product');
     closeModal('productModal');
-    window._pendingProductImage = undefined;
+    window._pendingProductImages = undefined;
     updateDashboard();
     renderProductList();
     populateProductFilterDropdowns();
@@ -3836,9 +3814,18 @@ function renderProductList() {
             } catch(e) {}
         }
 
+        var productThumb = '';
+        var prImages = pr.images || (pr.image ? [pr.image] : []);
+        if (prImages.length > 0 && prImages[0]) {
+            productThumb = '<img src="' + prImages[0] + '" style="width:40px;height:40px;border-radius:8px;object-fit:cover;flex-shrink:0;margin-right:8px;border:1px solid var(--border);" onerror="this.style.display=\'none\'">';
+            if (prImages.length > 1) {
+                productThumb += '<span style="position:absolute;bottom:-2px;right:-2px;background:var(--primary);color:#fff;font-size:8px;width:16px;height:16px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;box-shadow:0 1px 2px rgba(0,0,0,0.3);">' + prImages.length + '</span>';
+            }
+        }
+
         html += '<div class="product-item">' +
             '<div class="product-info" onclick="openEditProduct(\'' + pr.id + '\')">' +
-                (pr.image ? '<img src="' + pr.image + '" style="width:40px;height:40px;border-radius:8px;object-fit:cover;flex-shrink:0;margin-right:8px;border:1px solid var(--border);" onerror="this.style.display=\'none\'">' : '') +
+                (productThumb ? '<div style="position:relative;flex-shrink:0;">' + productThumb + '</div>' : '') +
                 '<div>' +
                 '<div class="product-name">' + escapeHtml(pr.name) + '</div>' +
                 (specsHtml ? '<div class="product-specs">' + specsHtml + '</div>' : '') +
@@ -5874,10 +5861,7 @@ function saveStoreInfo() {
 function uploadStoreLogo(input) {
     var file = input.files && input.files[0];
     if (!file) return;
-    if (file.size > 2 * 1024 * 1024) { showToast('La imagen no debe superar 2MB', 'error'); return; }
-    var reader = new FileReader();
-    reader.onload = function(e) {
-        var base64 = e.target.result;
+    compressImage(file, 512, 512, 0.8).then(function(base64) {
         var cfg = getStoreConfig();
         cfg.logo = base64;
         saveStoreConfig(cfg);
@@ -5889,8 +5873,7 @@ function uploadStoreLogo(input) {
         var headerLogo = document.getElementById('storeLogo');
         if (headerLogo) { headerLogo.src = base64; headerLogo.style.display = 'block'; }
         showToast('Logo de tienda actualizado', 'success');
-    };
-    reader.readAsDataURL(file);
+    });
     input.value = '';
 }
 
@@ -5907,34 +5890,105 @@ function removeStoreLogo() {
     showToast('Logo eliminado', 'success');
 }
 
-function uploadProductImage(input) {
-    var file = input.files && input.files[0];
-    if (!file) return;
-    if (file.size > 2 * 1024 * 1024) { showToast('La imagen no debe superar 2MB', 'error'); return; }
-    var reader = new FileReader();
-    reader.onload = function(e) {
-        var base64 = e.target.result;
-        // Store temporarily on the form
-        window._pendingProductImage = base64;
-        // Show preview
-        var preview = document.getElementById('productImagePreview');
-        var img = document.getElementById('productImageImg');
-        var placeholder = document.getElementById('productImagePlaceholder');
-        if (preview && img) { img.src = base64; preview.style.display = 'block'; }
-        if (placeholder) placeholder.style.display = 'none';
-    };
-    reader.readAsDataURL(file);
+// ===== IMAGE COMPRESSION =====
+function compressImage(file, maxW, maxH, quality) {
+    return new Promise(function(resolve) {
+        var reader = new FileReader();
+        reader.onload = function(e) {
+            var img = new Image();
+            img.onload = function() {
+                var w = img.width, h = img.height;
+                if (w > maxW) { h = Math.round(h * maxW / w); w = maxW; }
+                if (h > maxH) { w = Math.round(w * maxH / h); h = maxH; }
+                var canvas = document.createElement('canvas');
+                canvas.width = w; canvas.height = h;
+                var ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, w, h);
+                resolve(canvas.toDataURL('image/jpeg', quality));
+            };
+            img.onerror = function() { resolve(e.target.result); };
+            img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+    });
+}
+
+// ===== MULTI-IMAGE PRODUCT UPLOAD =====
+function uploadProductImages(input) {
+    var files = input.files;
+    if (!files || files.length === 0) return;
+    if (!window._pendingProductImages) window._pendingProductImages = [];
+
+    var processed = 0;
+    var total = files.length;
+    for (var fi = 0; fi < total; fi++) {
+        (function(file) {
+            compressImage(file, 1024, 1024, 0.75).then(function(base64) {
+                window._pendingProductImages.push(base64);
+                processed++;
+                if (processed === total) {
+                    renderProductImagePreviews();
+                    showToast(total + ' foto(s) agregada(s)', 'success');
+                }
+            });
+        })(files[fi]);
+    }
     input.value = '';
 }
 
-function removeProductImage() {
-    window._pendingProductImage = '';
-    var preview = document.getElementById('productImagePreview');
-    var img = document.getElementById('productImageImg');
-    var placeholder = document.getElementById('productImagePlaceholder');
-    if (preview) preview.style.display = 'none';
-    if (img) img.src = '';
-    if (placeholder) placeholder.style.display = 'flex';
+function renderProductImagePreviews() {
+    var area = document.getElementById('productImagesArea');
+    if (!area) return;
+    var imgs = window._pendingProductImages || [];
+    var html = '';
+    for (var i = 0; i < imgs.length; i++) {
+        html += '<div style="position:relative;width:64px;height:64px;border-radius:10px;overflow:hidden;border:2px solid var(--border);flex-shrink:0;">' +
+            '<img src="' + imgs[i] + '" style="width:100%;height:100%;object-fit:cover;" onerror="this.parentElement.style.display=\'none\'">' +
+            '<button type="button" onclick="removeProductImageAt(' + i + ')" style="position:absolute;top:-4px;right:-4px;width:20px;height:20px;border-radius:50%;background:var(--danger);color:#fff;border:none;font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;padding:0;box-shadow:0 1px 3px rgba(0,0,0,0.3);">✕</button>' +
+            '</div>';
+    }
+    if (imgs.length === 0) {
+        html = '<div style="width:64px;height:64px;border-radius:10px;display:flex;align-items:center;justify-content:center;background:var(--bg2);border:2px dashed var(--border);flex-shrink:0;cursor:pointer;font-size:24px;" onclick="document.getElementById(\'productImageInput\').click();">📷</div>';
+    }
+    area.innerHTML = html;
+}
+
+function removeProductImageAt(index) {
+    if (!window._pendingProductImages) return;
+    window._pendingProductImages.splice(index, 1);
+    renderProductImagePreviews();
+}
+
+function removeAllProductImages() {
+    window._pendingProductImages = [];
+    renderProductImagePreviews();
+}
+
+function loadProductImagesUI(images) {
+    window._pendingProductImages = undefined;
+    if (images && images.length > 0) {
+        window._pendingProductImages = images.slice();
+    } else if (typeof images === 'string' && images) {
+        // Backward compat: single image string
+        window._pendingProductImages = [images];
+    }
+    renderProductImagePreviews();
+}
+
+function resetProductImagesUI() {
+    window._pendingProductImages = undefined;
+    renderProductImagePreviews();
+}
+
+function getProductImagesToSave(existingImages) {
+    var pending = window._pendingProductImages;
+    if (pending === undefined) {
+        // No change — return existing images
+        if (Array.isArray(existingImages)) return existingImages;
+        if (typeof existingImages === 'string' && existingImages) return [existingImages];
+        return [];
+    }
+    return pending;
 }
 
 function loadStoreInfoUI() {
