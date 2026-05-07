@@ -9389,36 +9389,81 @@ function generateCatalogReport() {
     var catKeys = Object.keys(catMap).sort();
 
     // Build printable HTML
+    var grandMargin = grandValue > 0 ? Math.round(((grandValue - grandCost) / grandValue) * 100) : 0;
     var rHtml = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Resumen de Catalogo</title>' +
         '<style>' +
         '* { margin:0; padding:0; box-sizing:border-box; }' +
         'body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding:24px; color:#1d1d1b; }' +
         '.title { font-size:18px; font-weight:700; color:#1b7897; text-align:center; margin-bottom:4px; }' +
-        '.date { font-size:11px; color:#7e7b72; text-align:center; margin-bottom:18px; }' +
-        '.summary { display:flex; gap:12px; margin-bottom:18px; justify-content:center; flex-wrap:wrap; }' +
-        '.summary-box { background:#f0f0f0; border-radius:8px; padding:8px 16px; text-align:center; min-width:100px; }' +
-        '.summary-box .num { font-size:20px; font-weight:800; color:#1b7897; }' +
-        '.summary-box .lbl { font-size:10px; color:#7e7b72; }' +
-        '.cat-title { font-size:14px; font-weight:700; color:#1b7897; margin:14px 0 6px; padding:4px 10px;background:#f0f0f0;border-radius:6px; }' +
-        'table { width:100%; border-collapse:collapse; font-size:10px; margin-bottom:8px; }' +
-        'th { background:#1b7897; color:#fff; padding:6px 4px; text-align:center; font-weight:600; font-size:9px; }' +
-        'td { padding:5px 4px; text-align:center; border-bottom:1px solid #e0e0e0; font-size:10px; }' +
+        '.subtitle { font-size:11px; color:#7e7b72; text-align:center; margin-bottom:18px; }' +
+        '.summary { display:flex; gap:10px; margin-bottom:18px; justify-content:center; flex-wrap:wrap; }' +
+        '.summary-box { background:#f0f0f0; border-radius:8px; padding:8px 14px; text-align:center; min-width:90px; }' +
+        '.summary-box .num { font-size:18px; font-weight:800; color:#1b7897; }' +
+        '.summary-box .lbl { font-size:9px; color:#7e7b72; }' +
+        'table { width:100%; border-collapse:collapse; font-size:9px; margin-bottom:10px; }' +
+        'th { background:#1b7897; color:#fff; padding:5px 3px; text-align:center; font-weight:600; font-size:8px; }' +
+        'td { padding:4px 3px; text-align:center; border-bottom:1px solid #e0e0e0; font-size:9px; }' +
         'tr:nth-child(even) { background:#f7f7f7; }' +
         '.cat-row { background:#e8f4f8 !important; font-weight:700; }' +
-        '.total-row { background:#f0f0f0 !important; font-weight:700; border-top:2px solid #1b7897; }' +
-        '.name-col { text-align:left !important; max-width:120px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }' +
+        '.total-row { background:#1b7897 !important; color:#fff; font-weight:700; border-top:2px solid #1b7897; }' +
+        '.total-row td { color:#fff; border-bottom:none; }' +
+        '.name-col { text-align:left !important; max-width:110px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }' +
+        '.section-title { font-size:13px; font-weight:700; color:#1b7897; margin:18px 0 8px; padding:4px 10px;background:#e8f4f8;border-radius:6px; border-bottom:2px solid #1b7897; }' +
         '@media print { body { padding:12px; } .no-print { display:none !important; } }' +
         '@page { size: landscape; }' +
         '</style></head><body>' +
-        '<div class="title">Resumen de Catalogo</div>' +
-        '<div class="date">' + dateStr + ' \u2014 ' + timeStr + '</div>' +
+        '<div class="title">Resumen de Catalogo' + (isReduced ? ' (Reducido)' : ' (Completo)') + '</div>' +
+        '<div class="subtitle">' + dateStr + ' \u2014 ' + timeStr + (selCats.length > 0 ? ' \u2014 ' + selCats.length + ' categoria(s)' : '') + (selBrands.length > 0 ? ' \u2014 ' + selBrands.length + ' marca(s)' : '') + '</div>' +
         '<div class="summary">' +
             '<div class="summary-box"><div class="num">' + products.length + '</div><div class="lbl">Productos</div></div>' +
-            '<div class="summary-box"><div class="num">$' + grandValue.toLocaleString() + '</div><div class="lbl">Valor Venta</div></div>' +
             '<div class="summary-box"><div class="num">$' + grandCost.toLocaleString() + '</div><div class="lbl">Costo Total</div></div>' +
+            '<div class="summary-box"><div class="num">$' + grandValue.toLocaleString() + '</div><div class="lbl">Valor Venta</div></div>' +
+            '<div class="summary-box"><div class="num">' + grandMargin + '%</div><div class="lbl">Margen Prom.</div></div>' +
             '<div class="summary-box"><div class="num">' + grandStock + '</div><div class="lbl">Stock Total</div></div>' +
         '</div>';
 
+    // ===== COMPLETE ONLY: Category summary table =====
+    if (!isReduced) {
+        rHtml += '<div class="section-title">Resumen por Categoria</div>';
+        rHtml += '<table><thead><tr><th>Categoria</th><th>Productos</th><th>Costo Total</th><th>Valor Venta</th><th>Margen</th><th>Stock</th><th>Prom. Costo</th></tr></thead><tbody>';
+        for (var ci = 0; ci < catKeys.length; ci++) {
+            var cp2 = catMap[catKeys[ci]];
+            var cv2 = 0, cc2 = 0, cs2 = 0;
+            for (var cj = 0; cj < cp2.length; cj++) {
+                cv2 += parseFloat(cp2[cj].salePrice || cp2[cj].price || 0);
+                cc2 += parseFloat(cp2[cj].costPrice || 0);
+                cs2 += parseInt(cp2[cj].stock || 0);
+            }
+            var cm2 = cv2 > 0 ? Math.round(((cv2 - cc2) / cv2) * 100) : 0;
+            var avgC = cp2.length > 0 ? Math.round(cc2 / cp2.length) : 0;
+            rHtml += '<tr><td style="text-align:left;font-weight:600;padding-left:8px;">' + escapeHtml(catKeys[ci]) + '</td><td>' + cp2.length + '</td><td>$' + cc2.toLocaleString() + '</td><td>$' + cv2.toLocaleString() + '</td><td>' + cm2 + '%</td><td>' + cs2 + '</td><td>$' + avgC.toLocaleString() + '</td></tr>';
+        }
+        rHtml += '<tr class="total-row"><td style="text-align:right;padding-right:10px;">TOTAL</td><td>' + products.length + '</td><td>$' + grandCost.toLocaleString() + '</td><td>$' + grandValue.toLocaleString() + '</td><td>' + grandMargin + '%</td><td>' + grandStock + '</td><td>$' + (products.length > 0 ? Math.round(grandCost / products.length) : 0).toLocaleString() + '</td></tr>';
+        rHtml += '</tbody></table>';
+
+        // Brand summary table
+        var allBrands2 = {};
+        for (var bi3 = 0; bi3 < products.length; bi3++) {
+            var bKey = products[bi3].brand || 'Sin marca';
+            if (!allBrands2[bKey]) allBrands2[bKey] = { prods: [], val: 0, cost: 0, stock: 0 };
+            allBrands2[bKey].prods.push(products[bi3]);
+            allBrands2[bKey].val += parseFloat(products[bi3].salePrice || products[bi3].price || 0);
+            allBrands2[bKey].cost += parseFloat(products[bi3].costPrice || 0);
+            allBrands2[bKey].stock += parseInt(products[bi3].stock || 0);
+        }
+        var brandKeys2 = Object.keys(allBrands2).sort();
+        rHtml += '<div class="section-title">Resumen por Marca</div>';
+        rHtml += '<table><thead><tr><th>Marca</th><th>Productos</th><th>Costo Total</th><th>Valor Venta</th><th>Margen</th></tr></thead><tbody>';
+        for (var bi4 = 0; bi4 < brandKeys2.length; bi4++) {
+            var br2 = allBrands2[brandKeys2[bi4]];
+            var bm2 = br2.val > 0 ? Math.round(((br2.val - br2.cost) / br2.val) * 100) : 0;
+            rHtml += '<tr><td style="text-align:left;font-weight:600;padding-left:8px;">' + escapeHtml(brandKeys2[bi4]) + '</td><td>' + br2.prods.length + '</td><td>$' + br2.cost.toLocaleString() + '</td><td>$' + br2.val.toLocaleString() + '</td><td>' + bm2 + '%</td></tr>';
+        }
+        rHtml += '</tbody></table>';
+    }
+
+    // ===== PRODUCT DETAIL TABLE =====
+    rHtml += '<div class="section-title">Detalle de Productos</div>';
     var reportCols = isReduced ? '<th>Producto</th><th>Marca</th><th>Costo</th><th>Venta</th><th>Margen</th>' : '<th>Producto</th><th>SKU</th><th>Categoria</th><th>Marca</th><th>Color</th><th>Especificaciones</th><th>Costo</th><th>Venta</th><th>Margen</th><th>Stock</th>';
     rHtml += '<table><thead><tr>' + reportCols + '</tr></thead><tbody>';
 
@@ -9454,7 +9499,6 @@ function generateCatalogReport() {
         }
     }
 
-    var grandMargin = grandValue > 0 ? Math.round(((grandValue - grandCost) / grandValue) * 100) : 0;
     var totalSpan = isReduced ? 2 : 6;
     rHtml += '<tr class="total-row"><td colspan="' + totalSpan + '" style="text-align:right;padding-right:12px;">TOTAL (' + products.length + ')</td><td>$' + grandCost.toLocaleString() + '</td><td>$' + grandValue.toLocaleString() + '</td><td>' + grandMargin + '%</td>' + (isReduced ? '' : '<td>' + grandStock + '</td>') + '</tr>';
     rHtml += '</tbody></table></body></html>';
