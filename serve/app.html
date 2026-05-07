@@ -3076,7 +3076,15 @@ function forcePullAndRefresh() {
     .then(function(r) { if (r && typeof r.json === 'function') return r.json(); return []; })
     .then(function(productsData) {
         if (Array.isArray(productsData) && productsData.length > 0) {
-            // Replace ALL local products with server data
+            // Build a lookup of existing local product image IDs (IndexedDB references)
+            var localProducts = getProducts();
+            var localImageMap = {};
+            for (var lp = 0; lp < localProducts.length; lp++) {
+                if (localProducts[lp].images && localProducts[lp].images.length > 0) {
+                    localImageMap[localProducts[lp].id] = localProducts[lp].images;
+                }
+            }
+            // Merge server products with local image IDs
             var serverProducts = productsData.map(function(rp) {
                 return {
                     id: rp.id, name: rp.name || '', sku: rp.sku || '', barcode: rp.barcode || '',
@@ -3088,6 +3096,7 @@ function forcePullAndRefresh() {
                     minStock: parseInt(rp.minStock) || 5,
                     description: rp.description || '',
                     specifications: rp.specifications || null,
+                    images: localImageMap[rp.id] || [],
                     createdAt: rp.createdAt || new Date().toISOString(),
                     updatedAt: rp.updatedAt || new Date().toISOString()
                 };
@@ -3975,7 +3984,8 @@ function renderProductList() {
             if (prImages[ti] && prImages[ti].indexOf('data:') !== 0) imgIds.push(prImages[ti]);
         }
         if (imgIds.length > 0) {
-            productThumb = '<div id="thumb_' + pr.id + '" style="position:relative;flex-shrink:0;cursor:pointer;width:40px;height:40px;border-radius:8px;overflow:hidden;border:1px solid var(--border);background:var(--bg2);display:flex;align-items:center;justify-content:center;font-size:16px;" onclick="event.stopPropagation();openImageLightboxByIds([' + imgIds.map(function(id){return \"'\"+id+\"'\";}).join(',') + '],0)">' +
+            var idsJson = JSON.stringify(imgIds);
+            productThumb = '<div id="thumb_' + pr.id + '" style="position:relative;flex-shrink:0;cursor:pointer;width:40px;height:40px;border-radius:8px;overflow:hidden;border:1px solid var(--border);background:var(--bg2);display:flex;align-items:center;justify-content:center;font-size:16px;" onclick="event.stopPropagation();openImageLightboxByIds(' + idsJson + ',0)">' +
                 '<span>⏳</span>' +
                 (imgIds.length > 1 ? '<span style="position:absolute;bottom:-2px;right:-2px;background:var(--primary);color:#fff;font-size:8px;width:16px;height:16px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;box-shadow:0 1px 2px rgba(0,0,0,0.3);">' + imgIds.length + '</span>' : '') +
                 '</div>';
