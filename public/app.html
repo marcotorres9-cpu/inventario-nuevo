@@ -3831,7 +3831,8 @@ function toggleFilterDropdown(key) {
                     locbrand: 'chipLocBrand', locspec: 'chipLocSpec',
                     crucebrand: 'chipCruceBrand', crucespec: 'chipCruceSpec',
                     crucespace: 'chipCruceSpace', crucestatus: 'chipCruceStatus',
-                    gicat: 'chipGICat', gibrand: 'chipGIBrand', gicolor: 'chipGIColor', gispec: 'chipGISpec' };
+                    gicat: 'chipGICat', gibrand: 'chipGIBrand', gicolor: 'chipGIColor', gispec: 'chipGISpec',
+                    csm: 'chipCatSort', csb: 'chipCatBrand', csc: 'chipCatColor', css: 'chipCatSpec' };
     var btn = document.getElementById(chipMap[key]);
     if (!btn) return;
 
@@ -3841,6 +3842,14 @@ function toggleFilterDropdown(key) {
     var isGi = key.indexOf('gi') === 0;
     if (key === 'fsort') {
         populateSortDropdown(key, overlay);
+    } else if (key === 'csm') {
+        populateCatSortDropdown(key, overlay);
+    } else if (key === 'csb') {
+        populateCatBrandDropdown(key, overlay);
+    } else if (key === 'csc') {
+        populateCatColorDropdown(key, overlay);
+    } else if (key === 'css') {
+        populateCatSpecDropdown(key, overlay);
     } else if (key === 'crucespace') {
         populateCruceSpaceDropdown(key, overlay);
     } else if (key === 'crucestatus') {
@@ -8428,8 +8437,10 @@ function saveGlobalTargets(count) {
 // ===== CATALOG SUMMARY =====
 var _catalogFilter = null;
 var _catalogDrill = null; // { type: 'category'|'brand'|'price', value: '...' }
-var _catalogDrillFilters = { brand: null, spec: null }; // sub-filters within drill
+var _catalogDrillFilters = { brand: null, spec: null, color: null }; // sub-filters within drill
 var _catalogSort = ''; // sort field for catalog summary drill view
+var _catalogSearch = ''; // search text within drill
+var _catalogDrillProducts = []; // products in current drill (for dropdown population)
 
 function openCatalogSummary() {
     var catalogMain = document.getElementById('giCatalogMain');
@@ -8437,8 +8448,10 @@ function openCatalogSummary() {
     catalogMain.style.display = 'none';
     _catalogDrill = null;
     _catalogFilter = null;
-    _catalogDrillFilters = { brand: null, spec: null };
+    _catalogDrillFilters = { brand: null, spec: null, color: null };
     _catalogSort = '';
+    _catalogSearch = '';
+    _catalogDrillProducts = [];
     renderCatalogSummaryPage();
     summaryView.style.display = 'block';
 }
@@ -8450,15 +8463,19 @@ function closeCatalogSummary() {
     catalogMain.style.display = 'block';
     _catalogFilter = null;
     _catalogDrill = null;
-    _catalogDrillFilters = { brand: null, spec: null };
+    _catalogDrillFilters = { brand: null, spec: null, color: null };
     _catalogSort = '';
+    _catalogSearch = '';
+    _catalogDrillProducts = [];
 }
 
 function catalogGoBack() {
     if (_catalogDrill) {
         _catalogDrill = null;
-        _catalogDrillFilters = { brand: null, spec: null };
+        _catalogDrillFilters = { brand: null, spec: null, color: null };
         _catalogSort = '';
+        _catalogSearch = '';
+        _catalogDrillProducts = [];
         renderCatalogSummaryPage();
     } else {
         closeCatalogSummary();
@@ -8478,8 +8495,9 @@ function toggleCatalogFilter(filter) {
 
 function drillCatalog(type, value) {
     _catalogDrill = { type: type, value: value };
-    _catalogDrillFilters = { brand: null, spec: null };
+    _catalogDrillFilters = { brand: null, spec: null, color: null };
     _catalogSort = '';
+    _catalogSearch = '';
     renderCatalogSummaryPage();
 }
 
@@ -8513,6 +8531,129 @@ function toggleSpecValue(specKey, specValue) {
     } else {
         _catalogDrillFilters.spec = { key: specKey, value: specValue };
     }
+    renderCatalogSummaryPage();
+}
+
+// Clear all catalog drill filters
+function clearCatFilters() {
+    _catalogDrillFilters = { brand: null, spec: null, color: null };
+    _catalogSort = '';
+    _catalogSearch = '';
+    renderCatalogSummaryPage();
+}
+
+// ===== CATALOG DRILL DROPDOWN POPULATORS =====
+
+function populateCatSortDropdown(key, overlay) {
+    if (!overlay) return;
+    var current = _catalogSort || '';
+    var options = [
+        { val: '', label: 'Sin ordenar' },
+        { val: 'price_asc', label: 'Precio: menor a mayor' },
+        { val: 'price_desc', label: 'Precio: mayor a menor' },
+        { val: 'name_asc', label: 'Nombre: A-Z' },
+        { val: 'name_desc', label: 'Nombre: Z-A' },
+        { val: 'brand_asc', label: 'Marca: A-Z' },
+        { val: 'category_asc', label: 'Categor\u00EDa: A-Z' },
+        { val: 'stock_asc', label: 'Stock: menor a mayor' },
+        { val: 'stock_desc', label: 'Stock: mayor a menor' },
+        { val: 'color_asc', label: 'Color: A-Z' },
+        { val: 'cost_asc', label: 'Costo: menor a mayor' },
+        { val: 'cost_desc', label: 'Costo: mayor a menor' }
+    ];
+    var html = '';
+    for (var i = 0; i < options.length; i++) {
+        var sel = current === options[i].val ? ' selected' : '';
+        html += '<div class="filter-chip-opt' + sel + '" onclick="selectCatSort(\'' + options[i].val + '\')">' +
+            '<span>' + escapeHtml(options[i].label) + '</span><span class="chip-check">\u2713</span></div>';
+    }
+    overlay.innerHTML = html;
+}
+
+function selectCatSort(val) {
+    _catalogSort = val;
+    var overlay = document.getElementById('chipDropdownOverlay');
+    if (overlay) overlay.classList.remove('open');
+    _openChipDropdown = null;
+    renderCatalogSummaryPage();
+}
+
+function populateCatBrandDropdown(key, overlay) {
+    if (!overlay) return;
+    var current = _catalogDrillFilters.brand || '';
+    var brands = {};
+    for (var i = 0; i < _catalogDrillProducts.length; i++) {
+        var b = _catalogDrillProducts[i].brand || 'Sin marca';
+        brands[b] = (brands[b] || 0) + 1;
+    }
+    var keys = Object.keys(brands).sort();
+    var html = '';
+    for (var i = 0; i < keys.length; i++) {
+        var sel = current === keys[i] ? ' selected' : '';
+        html += '<div class="filter-chip-opt' + sel + '" onclick="selectCatBrand(\'' + escapeHtml(keys[i]).replace(/'/g, "\\'") + '\')">' +
+            '<span>' + escapeHtml(keys[i]) + ' (' + brands[keys[i]] + ')</span><span class="chip-check">\u2713</span></div>';
+    }
+    overlay.innerHTML = html;
+}
+
+function selectCatBrand(val) {
+    _catalogDrillFilters.brand = val;
+    var overlay = document.getElementById('chipDropdownOverlay');
+    if (overlay) overlay.classList.remove('open');
+    _openChipDropdown = null;
+    renderCatalogSummaryPage();
+}
+
+function populateCatColorDropdown(key, overlay) {
+    if (!overlay) return;
+    var current = _catalogDrillFilters.color || '';
+    var colors = {};
+    for (var i = 0; i < _catalogDrillProducts.length; i++) {
+        var c = _catalogDrillProducts[i].color || '';
+        if (c) colors[c] = (colors[c] || 0) + 1;
+    }
+    var keys = Object.keys(colors).sort();
+    var html = '';
+    for (var i = 0; i < keys.length; i++) {
+        var sel = current === keys[i] ? ' selected' : '';
+        html += '<div class="filter-chip-opt' + sel + '" onclick="selectCatColor(\'' + escapeHtml(keys[i]).replace(/'/g, "\\'") + '\')">' +
+            '<span>' + escapeHtml(keys[i]) + ' (' + colors[keys[i]] + ')</span><span class="chip-check">\u2713</span></div>';
+    }
+    overlay.innerHTML = html;
+}
+
+function selectCatColor(val) {
+    _catalogDrillFilters.color = val;
+    var overlay = document.getElementById('chipDropdownOverlay');
+    if (overlay) overlay.classList.remove('open');
+    _openChipDropdown = null;
+    renderCatalogSummaryPage();
+}
+
+function populateCatSpecDropdown(key, overlay) {
+    if (!overlay) return;
+    var current = _catalogDrillFilters.spec;
+    var specKeys = getUniqueSpecKeys(_catalogDrillProducts);
+    var html = '';
+    for (var i = 0; i < specKeys.length; i++) {
+        var isActive = current && current.key === specKeys[i];
+        var sel = isActive ? ' selected' : '';
+        html += '<div class="filter-chip-opt' + sel + '" onclick="selectCatSpec(\'' + escapeHtml(specKeys[i]).replace(/'/g, "\\'") + '\')">' +
+            '<span>' + escapeHtml(specKeys[i]) + '</span><span class="chip-check">\u2713</span></div>';
+    }
+    overlay.innerHTML = html;
+}
+
+function selectCatSpec(val) {
+    var current = _catalogDrillFilters.spec;
+    if (current && current.key === val) {
+        _catalogDrillFilters.spec = null;
+    } else {
+        _catalogDrillFilters.spec = { key: val, value: null };
+    }
+    var overlay = document.getElementById('chipDropdownOverlay');
+    if (overlay) overlay.classList.remove('open');
+    _openChipDropdown = null;
     renderCatalogSummaryPage();
 }
 
@@ -8629,88 +8770,39 @@ function renderCatalogSummaryPage() {
             }
         }
 
-        // Apply sub-filters
-        var filteredProducts = [];
-        var fBrand = _catalogDrillFilters.brand;
-        var fSpecKey = _catalogDrillFilters.spec;
-
-        for (var fp = 0; fp < drillProducts.length; fp++) {
-            var dp = drillProducts[fp];
-            if (fBrand && (dp.brand || 'Sin marca') !== fBrand) continue;
-            if (fSpecKey && fSpecKey.key) {
-                var sp = parseSpecs(dp);
-                var spVal = (sp[fSpecKey.key] || '').trim();
-                if (fSpecKey.value && spVal !== fSpecKey.value) continue;
-            }
-            filteredProducts.push(dp);
-        }
+        // Store globally for dropdown population
+        _catalogDrillProducts = drillProducts.slice();
 
         // Title
         var titleIcon = drill.type === 'category' ? '\uD83D\uDCC2' : (drill.type === 'brand' ? '\uD83C\uDFFE\uFE0F' : '\uD83D\uDCB0');
         html += '<h2 style="font-size:20px;font-weight:800;margin-bottom:10px;">' + titleIcon + ' ' + escapeHtml(drill.value) + '</h2>';
 
-        // Sub-filter bar: brands within this drill + spec keys
-        var drillBrands = {};
-        var drillSpecKeys = {};
-        for (var ds = 0; ds < drillProducts.length; ds++) {
-            var db = drillProducts[ds].brand || 'Sin marca';
-            drillBrands[db] = (drillBrands[db] || 0) + 1;
-            var dsp = parseSpecs(drillProducts[ds]);
-            var dsk = Object.keys(dsp);
-            for (var dsi = 0; dsi < dsk.length; dsi++) {
-                var dsv = (dsp[dsk[dsi]] || '').trim();
-                if (dsv) drillSpecKeys[dsk[dsi]] = true;
-            }
-        }
-        var drillBrandKeys = Object.keys(drillBrands).sort();
-        var drillSpecKeyList = Object.keys(drillSpecKeys).sort();
+        // Search bar (same style as product list)
+        html += '<div class="search-bar"><input type="text" id="catSearchInput" class="search-input" placeholder="\uD83D\uDD0D Buscar producto..." value="' + escapeHtml(_catalogSearch) + '" oninput="_catalogSearch=this.value;renderCatalogSummaryPage();"></div>';
 
-        // Sort bar for catalog drill (visible inline chips)
-        var sortOpts = [
-            { val: '', label: '\u2B07\uFE0F Sin ordenar' },
-            { val: 'price_asc', label: '\uD83D\uDCB0 Precio \u2191' },
-            { val: 'price_desc', label: '\uD83D\uDCB0 Precio \u2193' },
-            { val: 'name_asc', label: '\uD83D\uDD24 A-Z' },
-            { val: 'name_desc', label: '\uD83D\uDD24 Z-A' },
-            { val: 'brand_asc', label: '\uD83C\uDFFE\uFE0F Marca A-Z' },
-            { val: 'category_asc', label: '\uD83D\uDCC2 Cat. A-Z' },
-            { val: 'stock_asc', label: '\uD83D\uDCE6 Stock \u2191' },
-            { val: 'stock_desc', label: '\uD83D\uDCE6 Stock \u2193' },
-            { val: 'color_asc', label: '\uD83C\uDFA8 Color A-Z' },
-            { val: 'cost_asc', label: '\uD83D\uDCB5 Costo \u2191' },
-            { val: 'cost_desc', label: '\uD83D\uDCB5 Costo \u2193' }
-        ];
-        html += '<div style="display:flex;gap:4px;margin-bottom:10px;flex-wrap:wrap;align-items:center;">';
-        for (var soi = 0; soi < sortOpts.length; soi++) {
-            var so = sortOpts[soi];
-            var soActive = (_catalogSort === so.val);
-            html += '<button onclick="_catalogSort=\'' + so.val + '\';renderCatalogSummaryPage();" style="font-size:10px;padding:4px 10px;border-radius:16px;border:1px solid ' + (soActive ? 'var(--primary)' : 'var(--border)') + ';background:' + (soActive ? 'var(--primary)' : 'var(--bg2)') + ';color:' + (soActive ? '#fff' : 'var(--text2)') + ';cursor:pointer;font-weight:' + (soActive ? '700' : '500') + ';white-space:nowrap;">' + so.label + '</button>';
+        // Compact filter bar (same style as "Agregar Productos")
+        var fBrand = _catalogDrillFilters.brand;
+        var fColor = _catalogDrillFilters.color;
+        var fSpecKey = _catalogDrillFilters.spec;
+        var hasFilters = fBrand || fColor || (fSpecKey && fSpecKey.key) || _catalogSort;
+
+        html += '<div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;">';
+        // Sort chip
+        var sortLabels = { '': '\u2B07\uFE0F Sin ordenar', 'price_asc': '\uD83D\uDCB0 Precio \u2191', 'price_desc': '\uD83D\uDCB0 Precio \u2193', 'name_asc': '\uD83D\uDD24 A-Z', 'name_desc': '\uD83D\uDD24 Z-A', 'brand_asc': '\uD83C\uDFFE\uFE0F Marca A-Z', 'category_asc': '\uD83D\uDCC2 Cat. A-Z', 'stock_asc': '\uD83D\uDCE6 Stock \u2191', 'stock_desc': '\uD83D\uDCE6 Stock \u2193', 'color_asc': '\uD83C\uDFA8 Color A-Z', 'cost_asc': '\uD83D\uDCB5 Costo \u2191', 'cost_desc': '\uD83D\uDCB5 Costo \u2193' };
+        html += '<div class="filter-chip-wrap"><button class="filter-chip' + (_catalogSort ? ' active' : '') + '" id="chipCatSort" onclick="toggleFilterDropdown(\'csm\')">' + (sortLabels[_catalogSort] || sortLabels['']) + '</button></div>';
+        // Brand chip
+        html += '<div class="filter-chip-wrap"><button class="filter-chip' + (fBrand ? ' active' : '') + '" id="chipCatBrand" onclick="toggleFilterDropdown(\'csb\')">' + (fBrand ? '\uD83C\uDFFE\uFE0F ' + fBrand : '\uD83C\uDFFE\uFE0F Marca') + '</button></div>';
+        // Color chip
+        html += '<div class="filter-chip-wrap"><button class="filter-chip' + (fColor ? ' active' : '') + '" id="chipCatColor" onclick="toggleFilterDropdown(\'csc\')">' + (fColor ? '\uD83C\uDFA8 ' + fColor : '\uD83C\uDFA8 Color') + '</button></div>';
+        // Specs chip
+        html += '<div class="filter-chip-wrap"><button class="filter-chip' + (fSpecKey && fSpecKey.key ? ' active' : '') + '" id="chipCatSpec" onclick="toggleFilterDropdown(\'css\')">' + (fSpecKey && fSpecKey.key ? '\u2699\uFE0F ' + (fSpecKey.value || fSpecKey.key) : '\u2699\uFE0F Specs') + '</button></div>';
+        // Clear button
+        if (hasFilters) {
+            html += '<button class="filter-chip" onclick="clearCatFilters()" style="color:var(--danger);font-weight:700;">\u2715</button>';
         }
         html += '</div>';
 
-        // Render filter chips
-        if (drillBrandKeys.length > 1 || drillSpecKeyList.length > 0) {
-            html += '<div style="display:flex;gap:4px;margin-bottom:10px;flex-wrap:wrap;">';
-            // Brand chips
-            for (var dbi = 0; dbi < drillBrandKeys.length; dbi++) {
-                var dbk = drillBrandKeys[dbi];
-                var dbActive = (fBrand === dbk);
-                html += '<button onclick="toggleCatalogDrillFilter(\'brand\',\'' + escapeHtml(dbk).replace(/'/g, "\\'") + '\')" style="font-size:10px;padding:4px 10px;border-radius:16px;border:1px solid ' + (dbActive ? 'var(--primary)' : 'var(--border)') + ';background:' + (dbActive ? 'var(--primary)' : 'var(--bg2)') + ';color:' + (dbActive ? '#fff' : 'var(--text2)') + ';cursor:pointer;font-weight:' + (dbActive ? '700' : '500') + ';white-space:nowrap;">\uD83C\uDFFE\uFE0F ' + escapeHtml(dbk) + ' (' + drillBrands[dbk] + ')</button>';
-            }
-            // Spec key chips
-            for (var dki = 0; dki < drillSpecKeyList.length; dki++) {
-                var dskk = drillSpecKeyList[dki];
-                var dskActive = (fSpecKey && fSpecKey.key === dskk && !fSpecKey.value);
-                html += '<button onclick="toggleCatalogDrillFilter(\'spec\',\'' + escapeHtml(dskk).replace(/'/g, "\\'") + '\')" style="font-size:10px;padding:4px 10px;border-radius:16px;border:1px solid ' + (dskActive ? '#e17055' : 'var(--border)') + ';background:' + (dskActive ? '#e17055' : 'var(--bg2)') + ';color:' + (dskActive ? '#fff' : 'var(--text2)') + ';cursor:pointer;font-weight:' + (dskActive ? '700' : '500') + ';white-space:nowrap;">\u2699\uFE0F ' + escapeHtml(dskk) + '</button>';
-            }
-            // Clear filter button
-            if (fBrand || (fSpecKey && fSpecKey.key)) {
-                html += '<button onclick="_catalogDrillFilters={brand:null,spec:null};renderCatalogSummaryPage();" style="font-size:10px;padding:4px 10px;border-radius:16px;border:1px solid var(--danger);background:transparent;color:var(--danger);cursor:pointer;font-weight:700;white-space:nowrap;">\u2715 Limpiar</button>';
-            }
-            html += '</div>';
-        }
-
-        // If spec key selected but no value yet, show spec values
+        // If spec key selected but no value yet, show spec values as pills
         if (fSpecKey && fSpecKey.key && !fSpecKey.value) {
             var specVals = getUniqueSpecValues(drillProducts, fSpecKey.key);
             html += '<div style="display:flex;gap:4px;margin-bottom:10px;flex-wrap:wrap;">';
@@ -8719,6 +8811,28 @@ function renderCatalogSummaryPage() {
                 html += '<button onclick="toggleSpecValue(\'' + escapeHtml(fSpecKey.key).replace(/'/g, "\\'") + '\',\'' + svEsc + '\')" style="font-size:10px;padding:4px 10px;border-radius:16px;border:1px solid var(--border);background:var(--bg2);color:var(--text2);cursor:pointer;font-weight:500;white-space:nowrap;">' + escapeHtml(specVals[svi]) + '</button>';
             }
             html += '</div>';
+        }
+
+        // Apply all sub-filters (brand, color, spec, search)
+        var filteredProducts = [];
+        for (var fp = 0; fp < drillProducts.length; fp++) {
+            var dp = drillProducts[fp];
+            if (fBrand && (dp.brand || 'Sin marca') !== fBrand) continue;
+            if (fColor && (dp.color || '') !== fColor) continue;
+            if (fSpecKey && fSpecKey.key) {
+                var sp = parseSpecs(dp);
+                var spVal = (sp[fSpecKey.key] || '').trim();
+                if (fSpecKey.value && spVal !== fSpecKey.value) continue;
+            }
+            if (_catalogSearch) {
+                var sLow = _catalogSearch.toLowerCase();
+                var nameMatch = (dp.name || '').toLowerCase().indexOf(sLow) >= 0;
+                var brandMatch = (dp.brand || '').toLowerCase().indexOf(sLow) >= 0;
+                var skuMatch = (dp.sku || '').toLowerCase().indexOf(sLow) >= 0;
+                var descMatch = (dp.description || '').toLowerCase().indexOf(sLow) >= 0;
+                if (!nameMatch && !brandMatch && !skuMatch && !descMatch) continue;
+            }
+            filteredProducts.push(dp);
         }
 
         // Summary stats for this drill
@@ -8739,7 +8853,7 @@ function renderCatalogSummaryPage() {
                 '<div><div style="font-size:14px;font-weight:600;opacity:0.7;">$' + drillValue.toLocaleString() + '</div><div style="font-size:9px;opacity:0.6;">Valor Venta</div></div>' +
                 '<div><div style="font-size:20px;font-weight:900;">' + drillMargin + '%</div><div style="font-size:10px;opacity:0.8;">Margen</div></div>' +
             '</div>' +
-            (fBrand || (fSpecKey && fSpecKey.value) ? '<div style="text-align:center;margin-top:8px;font-size:10px;opacity:0.7;">Mostrando ' + filteredProducts.length + ' de ' + drillProducts.length + ' productos</div>' : '') +
+            (hasFilters || _catalogSearch ? '<div style="text-align:center;margin-top:8px;font-size:10px;opacity:0.7;">Mostrando ' + filteredProducts.length + ' de ' + drillProducts.length + ' productos</div>' : '') +
         '</div>';
 
         // Apply sorting to filtered products
@@ -8809,6 +8923,11 @@ function renderCatalogSummaryPage() {
         }
 
         summaryView.innerHTML = html;
+        // Restore search input focus and cursor
+        if (_catalogSearch) {
+            var sInput = document.getElementById('catSearchInput');
+            if (sInput) { sInput.focus(); sInput.setSelectionRange(_catalogSearch.length, _catalogSearch.length); }
+        }
         return;
     }
 
