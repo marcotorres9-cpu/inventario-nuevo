@@ -3985,7 +3985,7 @@ function renderProductList() {
         }
         if (imgIds.length > 0) {
             var idsJson = JSON.stringify(imgIds);
-            productThumb = '<div id="thumb_' + pr.id + '" style="position:relative;flex-shrink:0;cursor:pointer;width:44px;height:44px;border-radius:10px;overflow:hidden;border:1px solid var(--border);background:var(--bg2);display:flex;align-items:center;justify-content:center;font-size:18px;z-index:2;margin-right:10px;" onclick="openImageLightboxByIds(' + idsJson + ',0)">' +
+            productThumb = '<div id="thumb_' + pr.id + '" data-imgids="' + idsJson.replace(/"/g, '&quot;') + '" style="position:relative;flex-shrink:0;cursor:pointer;width:44px;height:44px;border-radius:10px;overflow:hidden;border:1px solid var(--border);background:var(--bg2);display:flex;align-items:center;justify-content:center;font-size:18px;z-index:2;margin-right:10px;">' +
                 '<span style="pointer-events:none;">⏳</span>' +
                 (imgIds.length > 1 ? '<span style="position:absolute;bottom:-2px;right:-2px;background:var(--primary);color:#fff;font-size:8px;width:16px;height:16px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;box-shadow:0 1px 2px rgba(0,0,0,0.3);pointer-events:none;">' + imgIds.length + '</span>' : '') +
                 '</div>';
@@ -4017,21 +4017,33 @@ function renderProductList() {
     }
     container.innerHTML = html;
 
-    // Load thumbnails from IndexedDB async
+    // Load thumbnails from IndexedDB async + attach click listeners
     for (var ti = 0; ti < filtered.length; ti++) {
         var p = filtered[ti];
         var pImgIds = p.images || [];
-        if (pImgIds.length > 0 && pImgIds[0].indexOf('data:') !== 0) {
-            (function(productId, firstImgId) {
+        // Filter out base64
+        var validIds = [];
+        for (var vi = 0; vi < pImgIds.length; vi++) {
+            if (pImgIds[vi] && pImgIds[vi].indexOf('data:') !== 0) validIds.push(pImgIds[vi]);
+        }
+        if (validIds.length > 0) {
+            (function(productId, firstImgId, allIds) {
+                var thumb = document.getElementById('thumb_' + productId);
+                if (!thumb) return;
+                // Attach click/touch listener
+                thumb.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    openImageLightboxByIds(allIds, 0);
+                });
+                // Load image from IndexedDB
                 idbGetImage(firstImgId).then(function(data) {
-                    var thumb = document.getElementById('thumb_' + productId);
                     if (thumb && data) {
                         thumb.innerHTML = '<img src="' + data + '" style="width:100%;height:100%;object-fit:cover;pointer-events:none;" draggable="false">';
                     } else if (thumb) {
                         thumb.style.display = 'none';
                     }
                 });
-            })(p.id, pImgIds[0]);
+            })(p.id, validIds[0], validIds);
         }
     }
 }
