@@ -1151,9 +1151,11 @@
                         </div>
                     </div>
                     <input type="file" id="storeLogoInput" accept="image/*" style="display:none;" onchange="uploadStoreLogo(this)">
-                    <div style="margin-top:4px;">
-                        <button type="button" class="btn btn-xs btn-outline" onclick="document.getElementById('storeLogoInput').click()" style="font-size:10px;">📷 Subir Logo</button>
-                        <button type="button" class="btn btn-xs btn-outline" onclick="removeStoreLogo()" style="font-size:10px;color:var(--danger);">✕ Quitar</button>
+                    <input type="file" id="storeLogoCameraInput" accept="image/*" capture="environment" style="display:none;" onchange="uploadStoreLogo(this)">
+                    <div style="margin-top:4px;display:flex;gap:6px;justify-content:center;">
+                        <button type="button" class="btn btn-xs btn-outline" onclick="document.getElementById('storeLogoInput').click()" style="font-size:10px;">🖼 Galería</button>
+                        <button type="button" class="btn btn-xs btn-primary" onclick="document.getElementById('storeLogoCameraInput').click()" style="font-size:10px;">📷 Cámara</button>
+                        <button type="button" class="btn btn-xs btn-outline" onclick="removeStoreLogo()" style="font-size:10px;color:var(--danger);">✕</button>
                     </div>
                 </div>
                 <div class="input-group">
@@ -1320,11 +1322,13 @@
                 <div id="productImagesArea" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:4px;">
                 </div>
                 <div style="display:flex;gap:6px;">
-                    <button type="button" class="btn btn-xs btn-outline" onclick="document.getElementById('productImageInput').click()" style="font-size:10px;">📷 Agregar Foto</button>
+                    <button type="button" class="btn btn-xs btn-outline" onclick="document.getElementById('productImageInput').click()" style="font-size:10px;">🖼 Galería</button>
+                    <button type="button" class="btn btn-xs btn-primary" onclick="document.getElementById('productImageCameraInput').click()" style="font-size:10px;">📷 Cámara</button>
                     <button type="button" class="btn btn-xs btn-outline" onclick="removeAllProductImages()" style="font-size:10px;color:var(--danger);">✕ Quitar Todas</button>
                 </div>
-                <div style="font-size:10px;color:var(--text3);margin-top:2px;">Puedes subir varias fotos. Se comprimen automáticamente.</div>
+                <div style="font-size:10px;color:var(--text3);margin-top:2px;">Galería o cámara. Se comprimen automáticamente.</div>
                 <input type="file" id="productImageInput" accept="image/*" multiple style="display:none;" onchange="uploadProductImages(this)">
+                <input type="file" id="productImageCameraInput" accept="image/*" capture="environment" style="display:none;" onchange="uploadProductImages(this)">
             </div>
 
             <div class="input-group">
