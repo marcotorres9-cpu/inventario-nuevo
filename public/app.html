@@ -9425,10 +9425,11 @@ function generateCatalogReport() {
     for (var ci = 0; ci < catKeys.length; ci++) {
         var catProds = catMap[catKeys[ci]];
         // Category subtotal row
-        var catVal = 0, catCost = 0;
+        var catVal = 0, catCost = 0, catStock = 0;
         for (var cp = 0; cp < catProds.length; cp++) {
             catVal += parseFloat(catProds[cp].salePrice || catProds[cp].price || 0);
             catCost += parseFloat(catProds[cp].costPrice || 0);
+            catStock += parseInt(catProds[cp].stock || 0);
         }
         var catSpan = isReduced ? 2 : 7;
         rHtml += '<tr class="cat-row"><td colspan="' + catSpan + '" style="text-align:left;padding-left:8px;">' + escapeHtml(catKeys[ci]) + ' (' + catProds.length + ')</td><td>$' + catCost.toLocaleString() + '</td><td>$' + catVal.toLocaleString() + '</td><td>' + (catVal > 0 ? Math.round(((catVal - catCost) / catVal) * 100) : 0) + '%</td>' + (isReduced ? '' : '<td>' + catStock + '</td>') + '</tr>';
