@@ -3985,15 +3985,15 @@ function renderProductList() {
         }
         if (imgIds.length > 0) {
             var idsJson = JSON.stringify(imgIds);
-            productThumb = '<div id="thumb_' + pr.id + '" style="position:relative;flex-shrink:0;cursor:pointer;width:40px;height:40px;border-radius:8px;overflow:hidden;border:1px solid var(--border);background:var(--bg2);display:flex;align-items:center;justify-content:center;font-size:16px;" onclick="event.stopPropagation();openImageLightboxByIds(' + idsJson + ',0)">' +
+            productThumb = '<div id="thumb_' + pr.id + '" style="position:relative;flex-shrink:0;cursor:pointer;width:44px;height:44px;border-radius:10px;overflow:hidden;border:1px solid var(--border);background:var(--bg2);display:flex;align-items:center;justify-content:center;font-size:18px;z-index:2;" onclick="openImageLightboxByIds(' + idsJson + ',0)">' +
                 '<span>⏳</span>' +
                 (imgIds.length > 1 ? '<span style="position:absolute;bottom:-2px;right:-2px;background:var(--primary);color:#fff;font-size:8px;width:16px;height:16px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;box-shadow:0 1px 2px rgba(0,0,0,0.3);">' + imgIds.length + '</span>' : '') +
                 '</div>';
         }
 
         html += '<div class="product-item">' +
-            '<div class="product-info" onclick="openEditProduct(\'' + pr.id + '\')">' +
                 productThumb +
+            '<div class="product-info" onclick="openEditProduct(\'' + pr.id + '\')">' +
                 '<div>' +
                 '<div class="product-name">' + escapeHtml(pr.name) + '</div>' +
                 (specsHtml ? '<div class="product-specs">' + specsHtml + '</div>' : '') +
