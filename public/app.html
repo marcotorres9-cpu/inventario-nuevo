@@ -1890,6 +1890,124 @@
 // ====================================================================
 // DATA ACCESS HELPERS
 // ====================================================================
+
+// ===== IndexedDB for Images (unlimited storage) =====
+var _idbInstance = null;
+function openImageDB() {
+    return new Promise(function(resolve, reject) {
+        if (_idbInstance) { resolve(_idbInstance); return; }
+        var req = indexedDB.open('InventarioImgDB', 1);
+        req.onupgradeneeded = function(e) {
+            var db = e.target.result;
+            if (!db.objectStoreNames.contains('images')) {
+                db.createObjectStore('images', { keyPath: 'id' });
+            }
+        };
+        req.onsuccess = function(e) {
+            _idbInstance = e.target.result;
+            resolve(_idbInstance);
+        };
+        req.onerror = function(e) {
+            console.error('[IDB] Cannot open:', e);
+            reject(e);
+        };
+    });
+}
+
+function idbSaveImage(id, base64Data) {
+    return openImageDB().then(function(db) {
+        return new Promise(function(resolve, reject) {
+            var tx = db.transaction('images', 'readwrite');
+            var store = tx.objectStore('images');
+            store.put({ id: id, data: base64Data });
+            tx.oncomplete = function() { resolve(true); };
+            tx.onerror = function(e) { console.error('[IDB] Save error:', e); reject(e); };
+        });
+    });
+}
+
+function idbGetImage(id) {
+    return openImageDB().then(function(db) {
+        return new Promise(function(resolve) {
+            var tx = db.transaction('images', 'readonly');
+            var store = tx.objectStore('images');
+            var req = store.get(id);
+            req.onsuccess = function() { resolve(req.result ? req.result.data : null); };
+            req.onerror = function() { resolve(null); };
+        });
+    });
+}
+
+function idbDeleteImage(id) {
+    return openImageDB().then(function(db) {
+        return new Promise(function(resolve) {
+            var tx = db.transaction('images', 'readwrite');
+            var store = tx.objectStore('images');
+            store.delete(id);
+            tx.oncomplete = function() { resolve(true); };
+            tx.onerror = function() { resolve(false); };
+        });
+    });
+}
+
+function idbDeleteMultiple(ids) {
+    if (!ids || ids.length === 0) return Promise.resolve();
+    return openImageDB().then(function(db) {
+        return new Promise(function(resolve) {
+            var tx = db.transaction('images', 'readwrite');
+            var store = tx.objectStore('images');
+            for (var i = 0; i < ids.length; i++) {
+                store.delete(ids[i]);
+            }
+            tx.oncomplete = function() { resolve(true); };
+            tx.onerror = function() { resolve(false); };
+        });
+    });
+}
+
+function generateImageId() {
+    return 'img_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
+}
+
+// Migrate old base64 images in products to IndexedDB (one-time)
+var _idbMigrationDone = false;
+function migrateImagesToIDB() {
+    if (_idbMigrationDone) return;
+    _idbMigrationDone = true;
+    var products = getProducts();
+    var changed = false;
+    var savePromises = [];
+    for (var i = 0; i < products.length; i++) {
+        var p = products[i];
+        // Migrate single image field
+        if (p.image && p.image.length > 50 && p.image.indexOf('data:') === 0) {
+            var id = generateImageId();
+            savePromises.push(idbSaveImage(id, p.image));
+            p.images = [id];
+            p.image = '';
+            changed = true;
+        }
+        // Migrate images array if contains base64
+        if (p.images && Array.isArray(p.images) && p.images.length > 0 && p.images[0].length > 50 && p.images[0].indexOf('data:') === 0) {
+            var newIds = [];
+            for (var j = 0; j < p.images.length; j++) {
+                var newId = generateImageId();
+                savePromises.push(idbSaveImage(newId, p.images[j]));
+                newIds.push(newId);
+            }
+            p.images = newIds;
+            changed = true;
+        }
+    }
+    if (changed && savePromises.length > 0) {
+        Promise.all(savePromises).then(function() {
+            saveProducts(products);
+            console.log('[IDB] Migrated ' + savePromises.length + ' images to IndexedDB');
+        });
+    }
+}
+
+// ===== Store Config (localStorage — text only) =====
 function getStoreConfig() {
     try { return JSON.parse(localStorage.getItem('inv_storeConfig') || '{}'); } catch(e) { return {}; }
 }
@@ -2891,6 +3009,10 @@ function enterApp(user) {
     renderColors();
     renderUsers();
     startAutoSync();
+
+    // Migrate old base64 images to IndexedDB (one-time, then render)
+    migrateImagesToIDB();
+
     renderProductList();
     populateProductFilterDropdowns();
     loadServerConfigUI();
@@ -3589,7 +3711,11 @@ function saveProduct(e) {
     var now = new Date().toISOString();
 
     if (id) {
-        // Edit existing
+        // Edit existing - first find the product to get old images
+        var oldImages = [];
+        for (var oi = 0; oi < products.length; oi++) {
+            if (products[oi].id === id) { oldImages = products[oi].images || []; break; }
+        }
         for (var i = 0; i < products.length; i++) {
             if (products[i].id === id) {
                 products[i].name = name;
@@ -3607,11 +3733,14 @@ function saveProduct(e) {
                 products[i].specifications = specifications;
                 products[i].space = space;
                 products[i].updatedAt = now;
-                products[i].images = getProductImagesToSave(products[i].images || products[i].image);
-                products[i].image = ''; // legacy compat
+                var newImages = getProductImagesToSave(products[i].images || []);
+                products[i].images = newImages;
+                products[i].image = '';
                 break;
             }
         }
+        // Clean up orphan images from IndexedDB
+        cleanupOrphanImages(oldImages, newImages);
         addActivity('Producto actualizado: ' + name);
         showToast('Producto actualizado correctamente', 'success');
     } else {
@@ -3839,16 +3968,16 @@ function renderProductList() {
         }
 
         var productThumb = '';
-        var prImages = pr.images || (pr.image ? [pr.image] : []);
-        if (prImages.length > 0 && prImages[0]) {
-            productThumb = '<div style="position:relative;flex-shrink:0;cursor:pointer;" onclick="event.stopPropagation();openImageLightbox([';
-            for (var ti = 0; ti < prImages.length; ti++) {
-                if (ti > 0) productThumb += ',';
-                productThumb += "'" + prImages[ti].replace(/'/g, "\\'") + "'";
-            }
-            productThumb += '],0)">' +
-                '<img src="' + prImages[0] + '" style="width:40px;height:40px;border-radius:8px;object-fit:cover;border:1px solid var(--border);pointer-events:none;" onerror="this.parentElement.style.display=\'none\'">' +
-                (prImages.length > 1 ? '<span style="position:absolute;bottom:-2px;right:-2px;background:var(--primary);color:#fff;font-size:8px;width:16px;height:16px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;box-shadow:0 1px 2px rgba(0,0,0,0.3);">' + prImages.length + '</span>' : '') +
+        var prImages = pr.images || [];
+        // Filter out any old base64 strings (already migrated, but safety check)
+        var imgIds = [];
+        for (var ti = 0; ti < prImages.length; ti++) {
+            if (prImages[ti] && prImages[ti].indexOf('data:') !== 0) imgIds.push(prImages[ti]);
+        }
+        if (imgIds.length > 0) {
+            productThumb = '<div id="thumb_' + pr.id + '" style="position:relative;flex-shrink:0;cursor:pointer;width:40px;height:40px;border-radius:8px;overflow:hidden;border:1px solid var(--border);background:var(--bg2);display:flex;align-items:center;justify-content:center;font-size:16px;" onclick="event.stopPropagation();openImageLightboxByIds([' + imgIds.map(function(id){return \"'\"+id+\"'\";}).join(',') + '],0)">' +
+                '<span>⏳</span>' +
+                (imgIds.length > 1 ? '<span style="position:absolute;bottom:-2px;right:-2px;background:var(--primary);color:#fff;font-size:8px;width:16px;height:16px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;box-shadow:0 1px 2px rgba(0,0,0,0.3);">' + imgIds.length + '</span>' : '') +
                 '</div>';
         }
 
@@ -3877,6 +4006,24 @@ function renderProductList() {
             '</div>';
     }
     container.innerHTML = html;
+
+    // Load thumbnails from IndexedDB async
+    for (var ti = 0; ti < filtered.length; ti++) {
+        var p = filtered[ti];
+        var pImgIds = p.images || [];
+        if (pImgIds.length > 0 && pImgIds[0].indexOf('data:') !== 0) {
+            (function(productId, firstImgId) {
+                idbGetImage(firstImgId).then(function(data) {
+                    var thumb = document.getElementById('thumb_' + productId);
+                    if (thumb && data) {
+                        thumb.innerHTML = '<img src="' + data + '" style="width:100%;height:100%;object-fit:cover;">';
+                    } else if (thumb) {
+                        thumb.style.display = 'none';
+                    }
+                });
+            })(p.id, pImgIds[0]);
+        }
+    }
 }
 
 // ====================================================================
@@ -5942,7 +6089,8 @@ function compressImage(file, maxW, maxH, quality) {
     });
 }
 
-// ===== MULTI-IMAGE PRODUCT UPLOAD =====
+// ===== MULTI-IMAGE PRODUCT UPLOAD (IndexedDB) =====
+// _pendingProductImages: array of { id: string, data: string (base64) } or just IDs already in IDB
 function uploadProductImages(input) {
     var files = input.files;
     if (!files || files.length === 0) return;
@@ -5952,13 +6100,18 @@ function uploadProductImages(input) {
     var total = files.length;
     for (var fi = 0; fi < total; fi++) {
         (function(file) {
-            compressImage(file, 800, 800, 0.6).then(function(base64) {
-                window._pendingProductImages.push(base64);
-                processed++;
-                if (processed === total) {
-                    renderProductImagePreviews();
-                    showToast(total + ' foto(s) agregada(s)', 'success');
-                }
+            compressImage(file, 1024, 1024, 0.7).then(function(base64) {
+                // Save to IndexedDB immediately
+                var imgId = generateImageId();
+                idbSaveImage(imgId, base64).then(function() {
+                    window._pendingProductImages.push(imgId);
+                    processed++;
+                    if (processed === total) {
+                        renderProductImagePreviews();
+                        showToast(total + ' foto(s) guardada(s)', 'success');
+                        updateStorageUsage();
+                    }
+                });
             });
         })(files[fi]);
     }
@@ -5968,27 +6121,50 @@ function uploadProductImages(input) {
 function renderProductImagePreviews() {
     var area = document.getElementById('productImagesArea');
     if (!area) return;
-    var imgs = window._pendingProductImages || [];
+    var imgIds = window._pendingProductImages || [];
+
+    if (imgIds.length === 0) {
+        area.innerHTML = '<div style="width:64px;height:64px;border-radius:10px;display:flex;align-items:center;justify-content:center;background:var(--bg2);border:2px dashed var(--border);flex-shrink:0;cursor:pointer;font-size:24px;" onclick="document.getElementById(\'productImageInput\').click();">📷</div>';
+        return;
+    }
+
+    // Show loading placeholders then load images async
     var html = '';
-    for (var i = 0; i < imgs.length; i++) {
-        html += '<div style="position:relative;width:64px;height:64px;border-radius:10px;overflow:hidden;border:2px solid var(--border);flex-shrink:0;cursor:pointer;" onclick="openImageLightbox(window._pendingProductImages,' + i + ')">' +
-            '<img src="' + imgs[i] + '" style="width:100%;height:100%;object-fit:cover;pointer-events:none;" onerror="this.parentElement.style.display=\'none\'">' +
+    for (var i = 0; i < imgIds.length; i++) {
+        html += '<div id="prevThumb' + i + '" style="position:relative;width:64px;height:64px;border-radius:10px;overflow:hidden;border:2px solid var(--border);flex-shrink:0;cursor:pointer;background:var(--bg2);" onclick="openImageLightboxByProduct()">' +
+            '<div style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:20px;">⏳</div>' +
             '<button type="button" onclick="event.stopPropagation();removeProductImageAt(' + i + ')" style="position:absolute;top:-4px;right:-4px;width:20px;height:20px;border-radius:50%;background:var(--danger);color:#fff;border:none;font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;padding:0;box-shadow:0 1px 3px rgba(0,0,0,0.3);">✕</button>' +
             '</div>';
     }
-    if (imgs.length === 0) {
-        html = '<div style="width:64px;height:64px;border-radius:10px;display:flex;align-items:center;justify-content:center;background:var(--bg2);border:2px dashed var(--border);flex-shrink:0;cursor:pointer;font-size:24px;" onclick="document.getElementById(\'productImageInput\').click();">📷</div>';
-    }
     area.innerHTML = html;
+
+    // Load each image from IndexedDB
+    for (var j = 0; j < imgIds.length; j++) {
+        (function(idx, imgId) {
+            idbGetImage(imgId).then(function(data) {
+                var thumb = document.getElementById('prevThumb' + idx);
+                if (thumb && data) {
+                    thumb.innerHTML = '<img src="' + data + '" style="width:100%;height:100%;object-fit:cover;pointer-events:none;">' +
+                        thumb.querySelector('button').outerHTML.replace('button', 'button type="button"');
+                }
+            });
+        })(j, imgIds[j]);
+    }
 }
 
 function removeProductImageAt(index) {
     if (!window._pendingProductImages) return;
+    var removedId = window._pendingProductImages[index];
     window._pendingProductImages.splice(index, 1);
+    // Delete from IndexedDB
+    if (removedId) idbDeleteImage(removedId);
     renderProductImagePreviews();
 }
 
 function removeAllProductImages() {
+    if (window._pendingProductImages && window._pendingProductImages.length > 0) {
+        idbDeleteMultiple(window._pendingProductImages.slice());
+    }
     window._pendingProductImages = [];
     renderProductImagePreviews();
 }
@@ -5998,40 +6174,63 @@ function loadProductImagesUI(images) {
     if (images && images.length > 0) {
         window._pendingProductImages = images.slice();
     } else if (typeof images === 'string' && images) {
-        // Backward compat: single image string
         window._pendingProductImages = [images];
+    } else {
+        window._pendingProductImages = [];
     }
     renderProductImagePreviews();
 }
 
 function resetProductImagesUI() {
-    window._pendingProductImages = undefined;
+    window._pendingProductImages = [];
     renderProductImagePreviews();
 }
 
 function getProductImagesToSave(existingImages) {
     var pending = window._pendingProductImages;
-    if (pending === undefined) {
-        // No change — return existing images
+    if (pending === undefined || pending === null) {
+        // No change — return existing
         if (Array.isArray(existingImages)) return existingImages;
-        if (typeof existingImages === 'string' && existingImages) return [existingImages];
         return [];
     }
     return pending;
 }
 
-// ===== IMAGE LIGHTBOX =====
+// Clean up orphan images when saving product (images removed during edit)
+function cleanupOrphanImages(oldIds, newIds) {
+    var orphans = [];
+    if (oldIds) {
+        for (var i = 0; i < oldIds.length; i++) {
+            if (newIds.indexOf(oldIds[i]) < 0) {
+                orphans.push(oldIds[i]);
+            }
+        }
+    }
+    if (orphans.length > 0) idbDeleteMultiple(orphans);
+}
+
+// ===== IMAGE LIGHTBOX (IndexedDB) =====
 var _lightboxImages = [];
 var _lightboxIndex = 0;
 var _lightboxTouchStartX = 0;
 var _lightboxTouchStartY = 0;
 
-function openImageLightbox(images, index) {
-    if (!images || images.length === 0) return;
-    _lightboxImages = images;
-    _lightboxIndex = index || 0;
+function openImageLightboxByProduct() {
+    var imgIds = window._pendingProductImages || [];
+    if (imgIds.length === 0) return;
+    _lightboxImages = imgIds.slice();
+    _lightboxIndex = 0;
+    renderLightboxUI();
+}
 
-    // Remove existing lightbox
+function openImageLightboxByIds(imgIds, startIndex) {
+    if (!imgIds || imgIds.length === 0) return;
+    _lightboxImages = imgIds;
+    _lightboxIndex = startIndex || 0;
+    renderLightboxUI();
+}
+
+function renderLightboxUI() {
     var existing = document.getElementById('imageLightbox');
     if (existing) existing.remove();
 
@@ -6041,11 +6240,11 @@ function openImageLightbox(images, index) {
     overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.95);display:flex;flex-direction:column;align-items:center;justify-content:center;animation:fadeIn 0.2s ease;';
     overlay.innerHTML =
         '<div style="position:absolute;top:0;left:0;right:0;display:flex;align-items:center;justify-content:space-between;padding:12px 16px;z-index:2;">' +
-            '<div style="color:#fff;font-size:14px;font-weight:600;text-shadow:0 1px 4px rgba(0,0,0,0.5);">' + (_lightboxIndex + 1) + ' / ' + total + '</div>' +
+            '<div style="color:#fff;font-size:14px;font-weight:600;text-shadow:0 1px 4px rgba(0,0,0,0.5);" id="lbCounter">' + (_lightboxIndex + 1) + ' / ' + total + '</div>' +
             '<button onclick="closeImageLightbox()" style="background:rgba(255,255,255,0.15);color:#fff;border:none;font-size:28px;width:40px;height:40px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);">✕</button>' +
         '</div>' +
         '<div style="flex:1;display:flex;align-items:center;justify-content:center;width:100%;padding:50px 8px 60px;overflow:hidden;" id="lightboxImgContainer">' +
-            '<img id="lightboxMainImg" src="' + _lightboxImages[_lightboxIndex] + '" style="max-width:100%;max-height:100%;object-fit:contain;border-radius:8px;user-select:none;-webkit-user-drag:none;transition:opacity 0.15s ease;">' +
+            '<div style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:40px;color:rgba(255,255,255,0.5);">⏳</div>' +
         '</div>' +
         (total > 1 ?
         '<div style="position:absolute;bottom:0;left:0;right:0;display:flex;align-items:center;justify-content:center;padding:16px;gap:12px;">' +
@@ -6068,6 +6267,9 @@ function openImageLightbox(images, index) {
         }
     }
 
+    // Load current image from IndexedDB
+    loadLightboxImage(_lightboxIndex);
+
     // Touch swipe
     overlay.addEventListener('touchstart', function(e) {
         _lightboxTouchStartX = e.touches[0].clientX;
@@ -6088,22 +6290,26 @@ function openImageLightbox(images, index) {
     });
 }
 
+function loadLightboxImage(idx) {
+    if (idx < 0 || idx >= _lightboxImages.length) return;
+    var imgId = _lightboxImages[idx];
+    var container = document.getElementById('lightboxImgContainer');
+    if (!container) return;
+    container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:40px;color:rgba(255,255,255,0.5);">⏳</div>';
+
+    idbGetImage(imgId).then(function(data) {
+        if (!container || !data) return;
+        container.innerHTML = '<img src="' + data + '" style="max-width:100%;max-height:100%;object-fit:contain;border-radius:8px;user-select:none;-webkit-user-drag:none;">';
+    });
+}
+
 function lightboxGoTo(idx) {
     if (idx < 0) idx = _lightboxImages.length - 1;
     if (idx >= _lightboxImages.length) idx = 0;
     _lightboxIndex = idx;
 
-    var img = document.getElementById('lightboxMainImg');
-    if (img) {
-        img.style.opacity = '0';
-        setTimeout(function() {
-            img.src = _lightboxImages[_lightboxIndex];
-            img.style.opacity = '1';
-        }, 100);
-    }
+    loadLightboxImage(idx);
 
-    // Update counter
-    var counter = document.querySelector('#imageLightbox > div > div');
     // Update dots
     for (var d = 0; d < _lightboxImages.length; d++) {
         var dot = document.getElementById('lbDot' + d);
@@ -6112,8 +6318,8 @@ function lightboxGoTo(idx) {
             dot.style.background = (d === _lightboxIndex ? '#fff' : 'rgba(255,255,255,0.4)');
         }
     }
-    // Update counter text
-    var counterEl = document.querySelector('#imageLightbox > div:first-child > div:first-child');
+    // Update counter
+    var counterEl = document.getElementById('lbCounter');
     if (counterEl) counterEl.textContent = (_lightboxIndex + 1) + ' / ' + _lightboxImages.length;
 }
 
@@ -6164,8 +6370,8 @@ function updateStorageUsage() {
         var key = localStorage.key(i);
         total += (localStorage.getItem(key) || '').length;
     }
-    var usedMB = (total / (1024 * 1024)).toFixed(1);
-    var maxMB = 5; // localStorage typical limit
+    var usedMB = (total / (1024 * 1024)).toFixed(2);
+    var maxMB = 5;
     var pct = Math.min(100, Math.round((total / (maxMB * 1024 * 1024)) * 100));
 
     var fill = document.getElementById('storageFill');
@@ -6177,11 +6383,8 @@ function updateStorageUsage() {
         else fill.style.background = '#00b894';
     }
     if (text) {
-        text.textContent = usedMB + ' MB / ' + maxMB + ' MB usados (' + pct + '%)';
-        if (pct > 85) {
-            text.style.color = '#e17055';
-            text.textContent += ' — ⚠️ ¡Casi lleno! Elimina fotos o productos.';
-        }
+        text.textContent = usedMB + ' MB de ' + maxMB + ' MB usados (' + pct + '%) — Las fotos se guardan aparte (sin limite)';
+        text.style.color = pct > 85 ? '#e17055' : 'var(--text3)';
     }
 }
 
