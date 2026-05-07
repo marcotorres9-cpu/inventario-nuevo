@@ -1180,6 +1180,15 @@
                     <label class="input-label">Texto Pie de Página (Cotizaciones)</label>
                     <input type="text" id="cfgStoreFooter" class="input" placeholder="Gracias por su compra..." onchange="saveStoreInfo()">
                 </div>
+
+                <!-- Storage Usage -->
+                <div style="margin-top:10px;padding:10px;background:var(--bg2);border-radius:10px;border:1px solid var(--border);">
+                    <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:6px;">💾 Uso de Almacenamiento</div>
+                    <div id="storageBar" style="height:8px;border-radius:4px;background:var(--border);overflow:hidden;margin-bottom:4px;">
+                        <div id="storageFill" style="height:100%;border-radius:4px;transition:width 0.3s ease;"></div>
+                    </div>
+                    <div id="storageText" style="font-size:10px;color:var(--text3);"></div>
+                </div>
             </div>
 
             <div class="divider"></div>
@@ -1918,7 +1927,17 @@ function getProducts() {
     try { return JSON.parse(localStorage.getItem('inv_products') || '[]'); } catch(e) { return []; }
 }
 function saveProducts(arr) {
-    localStorage.setItem('inv_products', JSON.stringify(arr));
+    try {
+        localStorage.setItem('inv_products', JSON.stringify(arr));
+    } catch(e) {
+        if (e.name === 'QuotaExceededError' || e.code === 22 || e.code === 1014) {
+            showToast('⚠️ Memoria llena. No se guardaron los cambios. Intenta reducir fotos o elimina productos sin usar.', 'error', 5000);
+            console.error('[STORAGE] QuotaExceeded - productos no guardados');
+            return false;
+        }
+        throw e;
+    }
+    return true;
 }
 function getQuotations() {
     try { return JSON.parse(localStorage.getItem('inv_quotations') || '[]'); } catch(e) { return []; }
@@ -3623,7 +3642,8 @@ function saveProduct(e) {
         showToast('Producto creado correctamente', 'success');
     }
 
-    saveProducts(products);
+    var saved = saveProducts(products);
+    if (!saved) return; // storage full, don't close modal
     syncToServer('product');
     closeModal('productModal');
     window._pendingProductImages = undefined;
@@ -5932,7 +5952,7 @@ function uploadProductImages(input) {
     var total = files.length;
     for (var fi = 0; fi < total; fi++) {
         (function(file) {
-            compressImage(file, 1024, 1024, 0.75).then(function(base64) {
+            compressImage(file, 800, 800, 0.6).then(function(base64) {
                 window._pendingProductImages.push(base64);
                 processed++;
                 if (processed === total) {
@@ -6133,6 +6153,36 @@ function loadStoreInfoUI() {
     }
     var headerName = document.getElementById('storeHeaderName');
     if (headerName) headerName.textContent = cfg.storeName || 'Inventario Pro';
+
+    // Storage usage
+    updateStorageUsage();
+}
+
+function updateStorageUsage() {
+    var total = 0;
+    for (var i = 0; i < localStorage.length; i++) {
+        var key = localStorage.key(i);
+        total += (localStorage.getItem(key) || '').length;
+    }
+    var usedMB = (total / (1024 * 1024)).toFixed(1);
+    var maxMB = 5; // localStorage typical limit
+    var pct = Math.min(100, Math.round((total / (maxMB * 1024 * 1024)) * 100));
+
+    var fill = document.getElementById('storageFill');
+    var text = document.getElementById('storageText');
+    if (fill) {
+        fill.style.width = pct + '%';
+        if (pct > 85) fill.style.background = '#e17055';
+        else if (pct > 60) fill.style.background = '#fdcb6e';
+        else fill.style.background = '#00b894';
+    }
+    if (text) {
+        text.textContent = usedMB + ' MB / ' + maxMB + ' MB usados (' + pct + '%)';
+        if (pct > 85) {
+            text.style.color = '#e17055';
+            text.textContent += ' — ⚠️ ¡Casi lleno! Elimina fotos o productos.';
+        }
+    }
 }
 
 function loadServerConfigUI() {
