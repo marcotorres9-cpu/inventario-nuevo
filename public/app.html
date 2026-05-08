@@ -6096,11 +6096,16 @@ function compressImage(file, maxW, maxH, quality) {
             var img = new Image();
             img.onload = function() {
                 var w = img.width, h = img.height;
-                if (w > maxW) { h = Math.round(h * maxW / w); w = maxW; }
-                if (h > maxH) { w = Math.round(w * maxH / h); h = maxH; }
+                // Only downscale if image exceeds max dimensions; keep original if smaller
+                if (w > maxW || h > maxH) {
+                    if (w > maxW) { h = Math.round(h * maxW / w); w = maxW; }
+                    if (h > maxH) { w = Math.round(w * maxH / h); h = maxH; }
+                }
                 var canvas = document.createElement('canvas');
                 canvas.width = w; canvas.height = h;
                 var ctx = canvas.getContext('2d');
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = 'high';
                 ctx.drawImage(img, 0, 0, w, h);
                 resolve(canvas.toDataURL('image/jpeg', quality));
             };
@@ -6122,7 +6127,7 @@ function uploadProductImages(input) {
     var total = files.length;
     for (var fi = 0; fi < total; fi++) {
         (function(file) {
-            compressImage(file, 1024, 1024, 0.7).then(function(base64) {
+            compressImage(file, 4096, 4096, 0.9).then(function(base64) {
                 // Save to IndexedDB immediately
                 var imgId = generateImageId();
                 idbSaveImage(imgId, base64).then(function() {
