@@ -3076,17 +3076,24 @@ function forcePullAndRefresh() {
     .then(function(r) { if (r && typeof r.json === 'function') return r.json(); return []; })
     .then(function(productsData) {
         if (Array.isArray(productsData) && productsData.length > 0) {
-            // Build a lookup of existing local product image IDs (IndexedDB references)
             var localProducts = getProducts();
             var localImageMap = {};
+            var localProductMap = {};
             for (var lp = 0; lp < localProducts.length; lp++) {
+                var lpId = localProducts[lp].id;
+                localProductMap[lpId] = localProducts[lp];
                 if (localProducts[lp].images && localProducts[lp].images.length > 0) {
-                    localImageMap[localProducts[lp].id] = localProducts[lp].images;
+                    localImageMap[lpId] = localProducts[lp].images;
                 }
             }
-            // Merge server products with local image IDs
-            var serverProducts = productsData.map(function(rp) {
-                return {
+
+            var serverProducts = [];
+            var serverIdSet = {};
+            for (var si = 0; si < productsData.length; si++) {
+                var rp = productsData[si];
+                serverIdSet[rp.id] = true;
+                var existing = localProductMap[rp.id];
+                serverProducts.push({
                     id: rp.id, name: rp.name || '', sku: rp.sku || '', barcode: rp.barcode || '',
                     category: rp.category || '', brand: rp.brand || '', color: rp.color || '',
                     costPrice: parseFloat(rp.costPrice) || 0,
@@ -3096,13 +3103,22 @@ function forcePullAndRefresh() {
                     minStock: parseInt(rp.minStock) || 5,
                     description: rp.description || '',
                     specifications: rp.specifications || null,
-                    images: localImageMap[rp.id] || [],
-                    createdAt: rp.createdAt || new Date().toISOString(),
+                    images: (localImageMap[rp.id] || (existing && existing.images) || []),
+                    createdAt: rp.createdAt || (existing && existing.createdAt) || new Date().toISOString(),
                     updatedAt: rp.updatedAt || new Date().toISOString()
-                };
-            });
+                });
+            }
+
+            // Keep local products that don't exist on server (created offline)
+            for (var li = 0; li < localProducts.length; li++) {
+                if (!serverIdSet[localProducts[li].id]) {
+                    serverProducts.push(localProducts[li]);
+                    console.log('[SYNC] Kept offline product:', localProducts[li].id, localProducts[li].name);
+                }
+            }
+
             saveProducts(serverProducts);
-            console.log('[SYNC] Products pulled:', serverProducts.length);
+            console.log('[SYNC] Products pulled:', productsData.length, 'total:', serverProducts.length);
         }
         return fetch(url + '/api/quotations', { method: 'GET', headers: { 'Content-Type': 'application/json' } });
     })
