@@ -9533,7 +9533,13 @@ function renderCatalogSummaryPage() {
 
         // Title
         var titleIcon = drill.type === 'category' ? '\uD83D\uDCC2' : (drill.type === 'brand' ? '\uD83C\uDFFE\uFE0F' : '\uD83D\uDCB0');
-        html += '<h2 style="font-size:20px;font-weight:800;margin-bottom:10px;">' + titleIcon + ' ' + escapeHtml(drill.value) + '</h2>';
+        html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">' +
+            '<h2 style="font-size:20px;font-weight:800;margin:0;">' + titleIcon + ' ' + escapeHtml(drill.value) + '</h2>' +
+            '<div style="display:flex;gap:6px;">' +
+                '<button onclick="exportCatalogReport()" class="btn btn-primary btn-sm" style="font-size:11px;white-space:nowrap;">\uD83D\uDCC4 PDF</button>' +
+                '<button onclick="exportCatalogReport(true)" class="btn btn-outline btn-sm" style="font-size:11px;white-space:nowrap;">\uD83D\uDCCB Reducido</button>' +
+            '</div>' +
+        '</div>';
 
         // Search bar (same style as product list)
         html += '<div class="search-bar"><input type="text" id="catSearchInput" class="search-input" placeholder="\uD83D\uDD0D Buscar producto..." value="' + escapeHtml(_catalogSearch) + '" oninput="_catalogSearch=this.value;renderCatalogSummaryPage();"></div>';
@@ -9657,30 +9663,72 @@ function renderCatalogSummaryPage() {
                 var prMargin = prPrice > 0 ? Math.round(((prPrice - prCost) / prPrice) * 100) : 0;
                 var prStock = parseInt(pr.stock || 0);
                 var prColor = (pr.color || '');
+                var prImgIds = pr.images || [];
 
-                html += '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:6px;">' +
-                    '<div style="display:flex;align-items:flex-start;justify-content:space-between;">' +
-                        '<div style="flex:1;min-width:0;">' +
-                            '<div style="font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(pr.name) + '</div>' +
-                            '<div style="display:flex;gap:4px;margin-top:3px;flex-wrap:wrap;">' +
-                                (pr.brand ? '<span style="font-size:9px;background:#00b89420;color:#00b894;padding:1px 6px;border-radius:4px;font-weight:600;">' + escapeHtml(pr.brand) + '</span>' : '') +
-                                (pr.sku ? '<span style="font-size:9px;background:var(--bg);color:var(--text3);padding:1px 6px;border-radius:4px;">SKU: ' + escapeHtml(pr.sku) + '</span>' : '') +
-                                (prColor ? '<span style="font-size:9px;background:#a29bfe20;color:#a29bfe;padding:1px 6px;border-radius:4px;">' + escapeHtml(prColor) + '</span>' : '') +
-                                (prStock > 0 ? '<span style="font-size:9px;background:#2ed57320;color:#2ed573;padding:1px 6px;border-radius:4px;font-weight:600;">Stock: ' + prStock + '</span>' : '') +
-                            '</div>' +
+                // Build thumbnail placeholder (loaded async from IndexedDB)
+                var prThumbHtml = '';
+                if (prImgIds.length > 0) {
+                    // Filter valid IDs only
+                    var validPrImgIds = [];
+                    for (var pti = 0; pti < prImgIds.length; pti++) {
+                        if (prImgIds[pti] && prImgIds[pti].indexOf('data:') !== 0) validPrImgIds.push(prImgIds[pti]);
+                    }
+                    if (validPrImgIds.length > 0) {
+                        prThumbHtml = '<div id="catThumb_' + pi + '" data-idx="' + pi + '" class="cat-drill-thumb" style="width:52px;height:52px;border-radius:10px;overflow:hidden;border:1px solid var(--border);background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;margin-right:10px;cursor:pointer;">' +
+                            '<span style="pointer-events:none;">⏳</span>' +
+                            (validPrImgIds.length > 1 ? '<span style="position:absolute;bottom:-2px;right:-2px;background:var(--primary);color:#fff;font-size:8px;width:16px;height:16px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;box-shadow:0 1px 2px rgba(0,0,0,0.3);pointer-events:none;">' + validPrImgIds.length + '</span>' : '') +
+                            '</div>';
+                    }
+                }
+
+                html += '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:6px;display:flex;align-items:center;">' +
+                    prThumbHtml +
+                    '<div style="flex:1;min-width:0;">' +
+                        '<div style="font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(pr.name) + '</div>' +
+                        '<div style="display:flex;gap:4px;margin-top:3px;flex-wrap:wrap;">' +
+                            (pr.brand ? '<span style="font-size:9px;background:#00b89420;color:#00b894;padding:1px 6px;border-radius:4px;font-weight:600;">' + escapeHtml(pr.brand) + '</span>' : '') +
+                            (pr.sku ? '<span style="font-size:9px;background:var(--bg);color:var(--text3);padding:1px 6px;border-radius:4px;">SKU: ' + escapeHtml(pr.sku) + '</span>' : '') +
+                            (prColor ? '<span style="font-size:9px;background:#a29bfe20;color:#a29bfe;padding:1px 6px;border-radius:4px;">' + escapeHtml(prColor) + '</span>' : '') +
+                            (prStock > 0 ? '<span style="font-size:9px;background:#2ed57320;color:#2ed573;padding:1px 6px;border-radius:4px;font-weight:600;">Stock: ' + prStock + '</span>' : '') +
                         '</div>' +
-                        '<div style="text-align:right;flex-shrink:0;margin-left:10px;">' +
-                            '<div style="font-size:16px;font-weight:800;color:var(--primary);">$' + prCost.toLocaleString() + '</div>' +
-                            (prPrice > 0 ? '<div style="font-size:9px;color:var(--text3);">venta: $' + prPrice.toLocaleString() + ' (' + prMargin + '%)</div>' : '') +
-                        '</div>' +
+                        renderSpecPills(pr, '#6c5ce7') +
+                        (pr.description ? '<div style="font-size:10px;color:var(--text3);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(pr.description) + '</div>' : '') +
                     '</div>' +
-                    renderSpecPills(pr, '#6c5ce7') +
-                    (pr.description ? '<div style="font-size:10px;color:var(--text3);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(pr.description) + '</div>' : '') +
+                    '<div style="text-align:right;flex-shrink:0;margin-left:10px;">' +
+                        '<div style="font-size:16px;font-weight:800;color:var(--primary);">$' + prCost.toLocaleString() + '</div>' +
+                        (prPrice > 0 ? '<div style="font-size:9px;color:var(--text3);">venta: $' + prPrice.toLocaleString() + ' (' + prMargin + '%)</div>' : '') +
+                    '</div>' +
                 '</div>';
             }
         }
 
         summaryView.innerHTML = html;
+        // Load drill thumbnails from IndexedDB and attach lightbox listeners
+        for (var dti = 0; dti < filteredProducts.length; dti++) {
+            var dPr = filteredProducts[dti];
+            var dImgIds = dPr.images || [];
+            var dValidIds = [];
+            for (var dvi = 0; dvi < dImgIds.length; dvi++) {
+                if (dImgIds[dvi] && dImgIds[dvi].indexOf('data:') !== 0) dValidIds.push(dImgIds[dvi]);
+            }
+            if (dValidIds.length > 0) {
+                (function(idx, firstId, allIds) {
+                    var thumb = document.getElementById('catThumb_' + idx);
+                    if (!thumb) return;
+                    thumb.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        openImageLightboxByIds(allIds, 0);
+                    });
+                    idbGetImage(firstId).then(function(data) {
+                        if (thumb && data) {
+                            thumb.innerHTML = '<img src="' + data + '" style="width:100%;height:100%;object-fit:cover;pointer-events:none;" draggable="false">';
+                        } else if (thumb) {
+                            thumb.style.display = 'none';
+                        }
+                    });
+                })(dti, dValidIds[0], dValidIds);
+            }
+        }
         // Restore search input focus and cursor
         if (_catalogSearch) {
             var sInput = document.getElementById('catSearchInput');
@@ -10037,7 +10085,41 @@ function renderCatalogSummaryPage() {
 }
 
 // ===== CATALOG REPORT (PDF/Print) — with filters =====
-function exportCatalogReport() {
+function exportCatalogReport(skipFilter) {
+    // If in drill-down view and skipFilter is true, use drill products directly
+    if (skipFilter && _catalogDrill && _catalogDrillProducts.length > 0) {
+        var drillProducts = _catalogDrillProducts;
+        // Apply same sub-filters
+        var fB = _catalogDrillFilters.brand;
+        var fC = _catalogDrillFilters.color;
+        var fS = _catalogDrillFilters.spec;
+        var fSearch = _catalogSearch;
+        var drillFiltered = [];
+        for (var di = 0; di < drillProducts.length; di++) {
+            var dp = drillProducts[di];
+            if (fB && (dp.brand || 'Sin marca') !== fB) continue;
+            if (fC && (dp.color || '') !== fC) continue;
+            if (fS && fS.key) { var sp2 = parseSpecs(dp); if ((sp2[fS.key] || '').trim() !== (fS.value || '')) continue; }
+            if (fSearch) { var sL = fSearch.toLowerCase(); if ((dp.name||'').toLowerCase().indexOf(sL)<0 && (dp.brand||'').toLowerCase().indexOf(sL)<0) continue; }
+            drillFiltered.push(dp);
+        }
+        // Sort
+        if (_catalogSort) {
+            drillFiltered.sort(function(a,b) {
+                var va,vb;
+                switch(_catalogSort) {
+                    case 'price_asc': va=parseFloat(a.salePrice||a.price||0); vb=parseFloat(b.salePrice||b.price||0); return va-vb;
+                    case 'price_desc': va=parseFloat(a.salePrice||a.price||0); vb=parseFloat(b.salePrice||b.price||0); return vb-va;
+                    case 'name_asc': return (a.name||'').localeCompare(b.name||'');
+                    case 'name_desc': return (b.name||'').localeCompare(a.name||'');
+                    default: return 0;
+                }
+            });
+        }
+        generateCatalogReport(drillFiltered, [], [], skipFilter);
+        return;
+    }
+
     var products = getProducts();
     if (!products || products.length === 0) { showToast('No hay productos', 'error'); return; }
 
@@ -10089,28 +10171,38 @@ function exportCatalogReport() {
     document.body.appendChild(overlay);
 }
 
-function generateCatalogReport() {
+function generateCatalogReport(preFiltered, preSelCats, preSelBrands, isReduced) {
     // Gather filters
-    var selCats = [];
-    document.querySelectorAll('#reportFilterCats input:checked').forEach(function(cb) { selCats.push(cb.value); });
-    var selBrands = [];
-    document.querySelectorAll('#reportFilterBrands input:checked').forEach(function(cb) { selBrands.push(cb.value); });
-    var isReduced = document.getElementById('reportTypeReduced').className.indexOf('btn-outline') === -1;
+    var selCats, selBrands;
+    if (preFiltered) {
+        selCats = preSelCats || [];
+        selBrands = preSelBrands || [];
+    } else {
+        selCats = [];
+        document.querySelectorAll('#reportFilterCats input:checked').forEach(function(cb) { selCats.push(cb.value); });
+        selBrands = [];
+        document.querySelectorAll('#reportFilterBrands input:checked').forEach(function(cb) { selBrands.push(cb.value); });
+        isReduced = document.getElementById('reportTypeReduced').className.indexOf('btn-outline') === -1;
+    }
 
     // Close filter overlay
     var filterOv = document.getElementById('catalogReportFilterOverlay');
     if (filterOv) filterOv.remove();
 
-    var allProducts = getProducts();
-    // Apply filters
-    var products = [];
-    for (var i = 0; i < allProducts.length; i++) {
-        var p = allProducts[i];
-        var cat = p.category || 'Sin categoria';
-        var brand = p.brand || 'Sin marca';
-        var catOk = selCats.length === 0 || selCats.indexOf(cat) >= 0;
-        var brandOk = selBrands.length === 0 || selBrands.indexOf(brand) >= 0;
-        if (catOk && brandOk) products.push(p);
+    var products;
+    if (preFiltered) {
+        products = preFiltered;
+    } else {
+        var allProducts = getProducts();
+        products = [];
+        for (var i = 0; i < allProducts.length; i++) {
+            var p = allProducts[i];
+            var cat = p.category || 'Sin categoria';
+            var brand = p.brand || 'Sin marca';
+            var catOk = selCats.length === 0 || selCats.indexOf(cat) >= 0;
+            var brandOk = selBrands.length === 0 || selBrands.indexOf(brand) >= 0;
+            if (catOk && brandOk) products.push(p);
+        }
     }
     if (products.length === 0) { showToast('No hay productos con esos filtros', 'error'); return; }
 
