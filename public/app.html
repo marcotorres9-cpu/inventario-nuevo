@@ -12604,8 +12604,8 @@ function pullFromServer() {
                     updatedAt: rp.updatedAt || new Date().toISOString()
                 };
                 if (existingMap[rp.id]) {
-                    // Update if server version is newer
-                    if (rp.updatedAt >= existingMap[rp.id].updatedAt) {
+                    // Update only if server is STRICTLY newer (preserve local changes)
+                    if (rp.updatedAt > existingMap[rp.id].updatedAt) {
                         for (var k = 0; k < existing.length; k++) {
                             if (existing[k].id === rp.id) { existing[k] = localProduct; updated++; break; }
                         }
@@ -13064,6 +13064,8 @@ function autoSyncFromServer() {
                     var localUpdated = new Date(localMap[sp.id].updatedAt || 0).getTime();
                     var serverUpdated = new Date(sp.updatedAt || 0).getTime();
                     if (serverUpdated > localUpdated) {
+                        // CRITICAL: Preserve local images when replacing with server data
+                        localEntry.images = localMap[sp.id].images || [];
                         localMap[sp.id] = localEntry;
                         changed = true;
                         syncChanges.productsUpdated++;
@@ -14001,12 +14003,8 @@ function downloadQuotationPDF(id) {
         });
     }
 
-    // AUTO-SYNC: Pull data from server on load
-    if (isOnline() && getServerUrl()) {
-        setTimeout(function() {
-            pullFromServer();
-        }, 2000);
-    }
+    // AUTO-SYNC: enterApp() handles forcePullAndRefresh() on login
+    // No need for redundant pullFromServer() here — it causes image loss
 })();
 </script>
 
