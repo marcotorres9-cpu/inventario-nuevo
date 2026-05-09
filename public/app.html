@@ -4016,6 +4016,7 @@ function renderProductList() {
                 '<div class="product-meta">' +
                     (pr.space ? '<span style="color:var(--primary);">📦 ' + escapeHtml(pr.space) + '</span>' : '') +
                     '<span>' + escapeHtml(pr.brand || '—') + '</span>' +
+                    (pr.color ? '<span style="display:flex;align-items:center;gap:4px;">🎨 <span style="width:10px;height:10px;border-radius:50%;background:' + escapeHtml(pr.color) + ';border:1px solid rgba(255,255,255,0.2);flex-shrink:0;"></span>' + escapeHtml(pr.color) + '</span>' : '<span>—</span>') +
                     '<span>' + escapeHtml(pr.category || '—') + '</span>' +
                 '</div>' +
                 '</div>' +
