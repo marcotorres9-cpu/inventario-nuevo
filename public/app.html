@@ -1080,7 +1080,11 @@
                     <button class="btn btn-primary btn-sm" onclick="openAddProduct()" style="flex:1;">➕ Nuevo Producto</button>
                     <button class="btn btn-outline btn-sm" onclick="exportProductsExcel()" style="white-space:nowrap;font-size:12px;">📥 Excel</button>
                 </div>
+                <div id="productListCount" style="font-size:11px;color:var(--text3);margin-bottom:8px;display:none;"></div>
                 <div id="productList"></div>
+                <div id="productListLoadMore" style="display:none;text-align:center;margin:12px 0;">
+                    <button class="btn btn-outline btn-sm" onclick="loadMoreProducts()" style="width:auto;padding:10px 28px;">⬇️ Cargar más productos</button>
+                </div>
             </div>
 
             <!-- CATALOG SUMMARY VIEW (hidden by default) -->
@@ -3914,10 +3918,33 @@ function renderProductList() {
 
     // ===== SORT LOGIC =====
     var sortField = document.getElementById('sortField') ? document.getElementById('sortField').value : '';
-    if (sortField) {
+    // Default sort: most recent first (if no explicit sort selected)
+    var isDefaultSort = !sortField;
+    if (isDefaultSort) {
+        filtered.sort(function(a, b) {
+            var da = (a.updatedAt || a.createdAt || '').toString();
+            var db = (b.updatedAt || b.createdAt || '').toString();
+            if (da > db) return -1;
+            if (da < db) return 1;
+            return 0;
+        });
+        sortField = 'recent_desc'; // mark as active for display purposes
+    } else {
         filtered.sort(function(a, b) {
             var va, vb;
             switch(sortField) {
+                case 'recent_desc':
+                    var da = (a.updatedAt || a.createdAt || '').toString();
+                    var db = (b.updatedAt || b.createdAt || '').toString();
+                    if (da > db) return -1;
+                    if (da < db) return 1;
+                    return 0;
+                case 'recent_asc':
+                    var da2 = (a.updatedAt || a.createdAt || '').toString();
+                    var db2 = (b.updatedAt || b.createdAt || '').toString();
+                    if (da2 < db2) return -1;
+                    if (da2 > db2) return 1;
+                    return 0;
                 case 'price_asc':
                     va = parseFloat(a.salePrice) || parseFloat(a.price) || 0;
                     vb = parseFloat(b.salePrice) || parseFloat(b.price) || 0;
@@ -3962,9 +3989,46 @@ function renderProductList() {
         return;
     }
 
+    // ===== PAGINATION =====
+    var PAGE_SIZE = 25;
+    if (typeof _catalogPage === 'undefined') _catalogPage = 1;
+    var totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+    // Reset page if filters changed (filtered count changed significantly)
+    if (_catalogPage > totalPages) _catalogPage = 1;
+    var pageStart = 0;
+    var pageEnd = _catalogPage * PAGE_SIZE;
+    var pageItems = filtered.slice(pageStart, pageEnd);
+    var hasMore = pageEnd < filtered.length;
+
+    // Update counter display
+    var countEl = document.getElementById('productListCount');
+    if (countEl) {
+        if (filtered.length > 0) {
+            countEl.style.display = 'block';
+            countEl.textContent = 'Mostrando ' + pageItems.length + ' de ' + filtered.length + ' productos';
+        } else {
+            countEl.style.display = 'none';
+        }
+    }
+
+    // Update "Load More" button visibility
+    var loadMoreEl = document.getElementById('productListLoadMore');
+    if (loadMoreEl) {
+        loadMoreEl.style.display = hasMore ? 'block' : 'none';
+    }
+
+    // Update sort chip to show default state
+    if (isDefaultSort) {
+        var chipEl = document.getElementById('chipFilterSort');
+        if (chipEl) {
+            chipEl.textContent = '🕐 Más recientes';
+            chipEl.classList.add('active');
+        }
+    }
+
     var html = '';
-    for (var j = 0; j < filtered.length; j++) {
-        var pr = filtered[j];
+    for (var j = 0; j < pageItems.length; j++) {
+        var pr = pageItems[j];
         var stk = parseInt(pr.stock) || 0;
         var minStk = parseInt(pr.minStock) || 5;
         var badgeClass = 'badge-stock';
@@ -4035,8 +4099,8 @@ function renderProductList() {
     container.innerHTML = html;
 
     // Load thumbnails from IndexedDB async + attach click listeners
-    for (var ti = 0; ti < filtered.length; ti++) {
-        var p = filtered[ti];
+    for (var ti = 0; ti < pageItems.length; ti++) {
+        var p = pageItems[ti];
         var pImgIds = p.images || [];
         // Filter out base64
         var validIds = [];
@@ -4064,6 +4128,32 @@ function renderProductList() {
         }
     }
 }
+
+// Pagination: load more products
+var _catalogPage = 1;
+function loadMoreProducts() {
+    _catalogPage = (_catalogPage || 1) + 1;
+    renderProductList();
+}
+
+// Reset pagination when filters/sort change
+(function() {
+    var origRenderProductList = renderProductList;
+    renderProductList = function() {
+        // Reset page to 1 on every re-render (new search, filter, sort)
+        var prevSearch = window._lastCatalogSearch || '';
+        var curSearch = (document.getElementById('searchInput') ? document.getElementById('searchInput').value : '').toLowerCase();
+        var prevSort = window._lastCatalogSort || '';
+        var curSort = document.getElementById('sortField') ? document.getElementById('sortField').value : '';
+        // Only keep page if search and sort haven't changed
+        if (prevSearch !== curSearch || prevSort !== curSort) {
+            _catalogPage = 1;
+        }
+        window._lastCatalogSearch = curSearch;
+        window._lastCatalogSort = curSort;
+        origRenderProductList();
+    };
+})();
 
 // ====================================================================
 // CASCADING PRODUCT FILTERS (main product list)
@@ -4280,6 +4370,8 @@ function populateSortDropdown(key, overlay) {
     if (!overlay) return;
     var current = document.getElementById('sortField') ? document.getElementById('sortField').value : '';
     var options = [
+        { val: 'recent_desc', label: 'Más recientes primero' },
+        { val: 'recent_asc', label: 'Más antiguos primero' },
         { val: '', label: 'Sin ordenar' },
         { val: 'price_asc', label: 'Precio: menor a mayor' },
         { val: 'price_desc', label: 'Precio: mayor a menor' },
@@ -4305,7 +4397,7 @@ function populateSortDropdown(key, overlay) {
 function selectSortValue(val) {
     document.getElementById('sortField').value = val;
     // Update chip label
-    var labels = { '': '⬇️ Sin ordenar', 'price_asc': '💰 Precio ↑', 'price_desc': '💰 Precio ↓', 'name_asc': '🔤 A-Z', 'name_desc': '🔤 Z-A', 'brand_asc': '🏷️ Marca A-Z', 'category_asc': '📂 Cat. A-Z', 'stock_asc': '📦 Stock ↑', 'stock_desc': '📦 Stock ↓', 'color_asc': '🎨 Color A-Z', 'cost_asc': '💵 Costo ↑', 'cost_desc': '💵 Costo ↓' };
+    var labels = { '': '⬇️ Sin ordenar', 'recent_desc': '🕐 Más recientes', 'recent_asc': '🕐 Más antiguos', 'price_asc': '💰 Precio ↑', 'price_desc': '💰 Precio ↓', 'name_asc': '🔤 A-Z', 'name_desc': '🔤 Z-A', 'brand_asc': '🏷️ Marca A-Z', 'category_asc': '📂 Cat. A-Z', 'stock_asc': '📦 Stock ↑', 'stock_desc': '📦 Stock ↓', 'color_asc': '🎨 Color A-Z', 'cost_asc': '💵 Costo ↑', 'cost_desc': '💵 Costo ↓' };
     var chip = document.getElementById('chipFilterSort');
     if (chip) {
         chip.textContent = labels[val] || '⬇️ Sin ordenar';
@@ -4502,6 +4594,9 @@ function clearProductFilters() {
     if (sortSel) sortSel.value = '';
     var sortChip = document.getElementById('chipFilterSort');
     if (sortChip) { sortChip.textContent = '⬇️ Sin ordenar'; sortChip.classList.remove('active'); }
+    _catalogPage = 1;
+    window._lastCatalogSearch = '';
+    window._lastCatalogSort = '';
     renderProductList();
 }
 
