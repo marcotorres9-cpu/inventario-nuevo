@@ -5192,10 +5192,10 @@ function addProductToQuotation(productId) {
         productId: product.id,
         productName: product.name,
         qty: 1,
-        price: parseFloat(product.salePrice) || parseFloat(product.price) || parseFloat(product.costPrice) || 0,
-        salePrice: parseFloat(product.salePrice) || parseFloat(product.price) || parseFloat(product.costPrice) || 0,
+        price: parseFloat(product.costPrice) || parseFloat(product.salePrice) || parseFloat(product.price) || 0,
+        salePrice: parseFloat(product.salePrice) || parseFloat(product.price) || 0,
         costPrice: parseFloat(product.costPrice) || 0,
-        originalPrice: parseFloat(product.salePrice) || parseFloat(product.price) || parseFloat(product.costPrice) || 0,
+        originalPrice: parseFloat(product.costPrice) || parseFloat(product.salePrice) || parseFloat(product.price) || 0,
         maxStock: parseInt(product.stock) || 0,
         specifications: product.specifications || null,
         lineDiscount: 0
@@ -5295,35 +5295,37 @@ function calcQuotTotals() {
 
 // ===== PRELIMINARY DETAIL: Price comparison with real discount application =====
 
-// Apply discount to a single item: switch from sale price to cost/special price
+// Apply discount to a single item: switch from cost price to sale price
 function applyIndividualDiscount(sectionIdx, itemIdx) {
     var itemsList = getPreliminaryItemsList();
     var section = itemsList[sectionIdx];
     if (!section || !section.items[itemIdx]) return;
     var it = section.items[itemIdx];
-    var sp = parseFloat(it.salePrice) || parseFloat(it.price) || 0;
+    // costPrice is the list/reference price (shown first, higher)
+    var cp = parseFloat(it.costPrice) || parseFloat(it.price) || 0;
     var qty = it.qty || 1;
 
-    // Try cost price first, then read from input field
-    var cp = parseFloat(it.costPrice) || 0;
+    // salePrice is the discount price (lower)
+    var sp = parseFloat(it.salePrice) || 0;
+    // Also check input field for manually entered sale price
     var inputEl = document.getElementById('prelCost_' + sectionIdx + '_' + itemIdx);
     if (inputEl) {
         var inputVal = parseFloat(inputEl.value) || 0;
-        if (inputVal > 0 && inputVal < sp) cp = inputVal;
+        if (inputVal > 0 && inputVal < cp) sp = inputVal;
     }
 
-    if (cp > 0 && cp < sp) {
-        it.lineDiscount = (sp - cp) * qty;
+    if (sp > 0 && sp < cp) {
+        it.lineDiscount = (cp - sp) * qty;
         savePreliminaryItemsList(itemsList);
         renderQuotItems();
         calcQuotTotals();
-        showToast('Precio especial aplicado a ' + it.productName, 'success');
+        showToast('Precio de venta aplicado a ' + it.productName, 'success');
     } else {
-        showToast('Define un precio especial menor al de venta', 'warning');
+        showToast('El precio de venta debe ser menor al de costo', 'warning');
     }
 }
 
-// Remove discount from a single item: resets lineDiscount to 0
+// Remove discount from a single item: revert to cost price
 function removeIndividualDiscount(sectionIdx, itemIdx) {
     var itemsList = getPreliminaryItemsList();
     var section = itemsList[sectionIdx];
@@ -5332,10 +5334,10 @@ function removeIndividualDiscount(sectionIdx, itemIdx) {
     savePreliminaryItemsList(itemsList);
     renderQuotItems();
     calcQuotTotals();
-    showToast('Descuento eliminado', 'info');
+    showToast('Precio restaurado a costo', 'info');
 }
 
-// Apply discount globally: switch all items from sale price to cost/special price
+// Apply discount globally: switch all items from cost price to sale price
 function applyGlobalDiscount(sectionIdx) {
     var itemsList = getPreliminaryItemsList();
     var section = itemsList[sectionIdx];
@@ -5343,17 +5345,19 @@ function applyGlobalDiscount(sectionIdx) {
     var count = 0;
     for (var i = 0; i < section.items.length; i++) {
         var it = section.items[i];
-        var sp = parseFloat(it.salePrice) || parseFloat(it.price) || 0;
-        var cp = parseFloat(it.costPrice) || 0;
+        // costPrice is the list/reference price (higher)
+        var cp = parseFloat(it.costPrice) || parseFloat(it.price) || 0;
+        // salePrice is the discount price (lower)
+        var sp = parseFloat(it.salePrice) || 0;
         var qty = it.qty || 1;
-        // Also check input field for manually entered cost
+        // Also check input field for manually entered sale price
         var inputEl = document.getElementById('prelCost_' + sectionIdx + '_' + i);
         if (inputEl) {
             var inputVal = parseFloat(inputEl.value) || 0;
-            if (inputVal > 0 && inputVal < sp) cp = inputVal;
+            if (inputVal > 0 && inputVal < cp) sp = inputVal;
         }
-        if (cp > 0 && cp < sp) {
-            it.lineDiscount = (sp - cp) * qty;
+        if (sp > 0 && sp < cp) {
+            it.lineDiscount = (cp - sp) * qty;
             count++;
         }
     }
@@ -5361,13 +5365,13 @@ function applyGlobalDiscount(sectionIdx) {
     renderQuotItems();
     calcQuotTotals();
     if (count > 0) {
-        showToast('Precio especial aplicado a ' + count + ' productos', 'success');
+        showToast('Precio de venta aplicado a ' + count + ' productos', 'success');
     } else {
-        showToast('Define un precio especial en los productos', 'warning');
+        showToast('No hay precios de venta definidos menores al costo', 'warning');
     }
 }
 
-// Remove ALL discounts (revert to list price)
+// Remove ALL discounts (revert to cost price)
 function removeAllDiscounts(sectionIdx) {
     var itemsList = getPreliminaryItemsList();
     var section = itemsList[sectionIdx];
@@ -5378,7 +5382,7 @@ function removeAllDiscounts(sectionIdx) {
     savePreliminaryItemsList(itemsList);
     renderQuotItems();
     calcQuotTotals();
-    showToast('Precios restaurados a lista', 'info');
+    showToast('Precios restaurados a costo', 'info');
 }
 
 // Helper: get items list for preliminary (supports dual mode)
@@ -5428,36 +5432,35 @@ function renderPreliminaryDetail() {
             h += '<div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:4px;margin-top:' + (s > 0 ? '10px' : '0') + ';">' + escapeHtml(section.title) + '</div>';
         }
 
-        var totalListPrice = 0;
+        // Calculate totals: costPrice is the list/reference price, salePrice is the discount
+        var totalCostPrice = 0;
         var totalCurrentDiscount = 0;
-        var itemsWithCost = 0;
 
         for (var i = 0; i < section.items.length; i++) {
             var it = section.items[i];
-            var sp = parseFloat(it.salePrice) || parseFloat(it.price) || 0;
-            var cp = parseFloat(it.costPrice) || 0;
+            // costPrice = list/reference price (shown first, higher)
+            var cp = parseFloat(it.costPrice) || parseFloat(it.price) || 0;
             var qty = it.qty || 1;
             var ld = parseFloat(it.lineDiscount) || 0;
-            totalListPrice += sp * qty;
+            totalCostPrice += cp * qty;
             totalCurrentDiscount += ld;
-            if (cp > 0 && cp < sp) itemsWithCost++;
         }
 
-        var savingsPercent = totalListPrice > 0 ? ((totalCurrentDiscount / totalListPrice) * 100) : 0;
+        var savingsPercent = totalCostPrice > 0 ? ((totalCurrentDiscount / totalCostPrice) * 100) : 0;
         var hasDiscounts = totalCurrentDiscount > 0;
-        var currentTotal = Math.max(0, totalListPrice - totalCurrentDiscount);
+        var currentTotal = Math.max(0, totalCostPrice - totalCurrentDiscount);
 
         // ===== BIG GLOBAL ACTION BUTTON =====
         h += '<div style="margin-bottom:6px;">';
 
         if (hasDiscounts) {
             h += '<button onclick="removeAllDiscounts(' + s + ')" style="width:100%;padding:14px;border-radius:10px;border:2px solid var(--primary);background:var(--primary-bg);color:var(--primary);cursor:pointer;font-weight:800;font-size:14px;display:flex;align-items:center;justify-content:center;gap:8px;">';
-            h += '<span>🎯 DESCUENTO APLICADO — AHORRA $' + totalCurrentDiscount.toFixed(2) + '</span>';
-            h += '<span style="font-size:11px;font-weight:600;opacity:0.7;">Toca para restaurar</span>';
+            h += '<span>🎯 PRECIO VENTA APLICADO — AHORRA $' + totalCurrentDiscount.toFixed(2) + '</span>';
+            h += '<span style="font-size:11px;font-weight:600;opacity:0.7;">Toca para restaurar a costo</span>';
             h += '</button>';
         } else {
             h += '<button onclick="applyGlobalDiscount(' + s + ')" style="width:100%;padding:14px;border-radius:10px;border:none;background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;cursor:pointer;font-weight:800;font-size:15px;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 4px 14px rgba(34,197,94,0.35);margin-bottom:6px;">';
-            h += '<span>🎯 APLICAR PRECIO ESPECIAL</span>';
+            h += '<span>🎯 APLICAR PRECIO DE VENTA</span>';
             h += '</button>';
         }
 
@@ -5466,10 +5469,10 @@ function renderPreliminaryDetail() {
         // ===== GLOBAL SUMMARY =====
         h += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;margin-bottom:8px;">';
         h += '<div style="text-align:center;padding:8px 4px;background:rgba(239,68,68,0.08);border-radius:8px;border:1px solid rgba(239,68,68,0.15);">';
-        h += '<div style="font-size:8px;color:var(--text3);font-weight:600;">PRECIO VENTA</div>';
-        h += '<div style="font-size:14px;font-weight:800;color:#e17055;">$' + totalListPrice.toFixed(2) + '</div></div>';
+        h += '<div style="font-size:8px;color:var(--text3);font-weight:600;">PRECIO COSTO</div>';
+        h += '<div style="font-size:14px;font-weight:800;color:#e17055;">$' + totalCostPrice.toFixed(2) + '</div></div>';
         h += '<div style="text-align:center;padding:8px 4px;background:rgba(34,197,94,0.08);border-radius:8px;border:1px solid rgba(34,197,94,0.15);">';
-        h += '<div style="font-size:8px;color:var(--text3);font-weight:600;">CON DESCUENTO</div>';
+        h += '<div style="font-size:8px;color:var(--text3);font-weight:600;">PRECIO VENTA</div>';
         h += '<div style="font-size:14px;font-weight:800;color:var(--primary);">$' + currentTotal.toFixed(2) + '</div></div>';
         h += '<div style="text-align:center;padding:8px 4px;background:rgba(245,158,11,0.08);border-radius:8px;border:1px solid rgba(245,158,11,0.15);">';
         h += '<div style="font-size:8px;color:var(--text3);font-weight:600;">AHORRO</div>';
@@ -5484,11 +5487,13 @@ function renderPreliminaryDetail() {
 
         for (var i = 0; i < section.items.length; i++) {
             var it = section.items[i];
-            var sp = parseFloat(it.salePrice) || parseFloat(it.price) || 0;
-            var cp = parseFloat(it.costPrice) || 0;
+            // costPrice = list/reference price (shown first, higher)
+            var cp = parseFloat(it.costPrice) || parseFloat(it.price) || 0;
+            // salePrice = discount price (lower)
+            var sp = parseFloat(it.salePrice) || 0;
             var qty = it.qty || 1;
             var ld = parseFloat(it.lineDiscount) || 0;
-            var listTotal = sp * qty;
+            var costTotal = cp * qty; // total at cost price
             var itemDiscounted = ld > 0;
 
             var cardBg = itemDiscounted ? 'rgba(34,197,94,0.06)' : 'var(--bg2)';
@@ -5501,34 +5506,36 @@ function renderPreliminaryDetail() {
             h += '<div style="flex:1;min-width:0;font-weight:700;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(it.productName) + '</div>';
             h += '<div style="font-size:10px;font-weight:600;color:var(--text3);flex-shrink:0;">x' + qty + '</div>';
             if (itemDiscounted) {
-                h += '<button onclick="removeIndividualDiscount(' + s + ',' + i + ')" style="padding:5px 8px;border-radius:6px;border:1px solid rgba(239,68,68,0.3);background:rgba(239,68,68,0.08);color:#e17055;cursor:pointer;font-weight:700;font-size:10px;flex-shrink:0;">✕ Quitar</button>';
+                h += '<button onclick="removeIndividualDiscount(' + s + ',' + i + ')" style="padding:5px 8px;border-radius:6px;border:1px solid rgba(239,68,68,0.3);background:rgba(239,68,68,0.08);color:#e17055;cursor:pointer;font-weight:700;font-size:10px;flex-shrink:0;">✕ Restaurar</button>';
             } else {
-                h += '<button onclick="applyIndividualDiscount(' + s + ',' + i + ')" style="padding:5px 8px;border-radius:6px;border:none;background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;cursor:pointer;font-weight:700;font-size:10px;flex-shrink:0;">🎯 Descuento</button>';
+                h += '<button onclick="applyIndividualDiscount(' + s + ',' + i + ')" style="padding:5px 8px;border-radius:6px;border:none;background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;cursor:pointer;font-weight:700;font-size:10px;flex-shrink:0;">🎯 Venta</button>';
             }
             h += '</div>';
 
-            // Row 2: Cost/Special price input + price comparison
+            // Row 2: Sale price input (editable, this is the discount price)
             h += '<div style="display:flex;align-items:center;gap:4px;margin-bottom:3px;">';
-            h += '<span style="font-size:9px;color:var(--text3);flex-shrink:0;">Costo:</span>';
-            h += '<input type="number" id="prelCost_' + s + '_' + i + '" value="' + (cp > 0 ? cp.toFixed(2) : '') + '" placeholder="0.00" min="0" step="0.01" style="flex:1;min-width:0;text-align:right;padding:2px 4px;font-size:10px;font-weight:700;border:1px solid rgba(34,197,94,0.3);border-radius:4px;background:rgba(34,197,94,0.05);color:var(--primary);">';
+            h += '<span style="font-size:9px;color:var(--text3);flex-shrink:0;">Venta:</span>';
+            h += '<input type="number" id="prelCost_' + s + '_' + i + '" value="' + (sp > 0 ? sp.toFixed(2) : '') + '" placeholder="0.00" min="0" step="0.01" style="flex:1;min-width:0;text-align:right;padding:2px 4px;font-size:10px;font-weight:700;border:1px solid rgba(34,197,94,0.3);border-radius:4px;background:rgba(34,197,94,0.05);color:var(--primary);">';
             h += '</div>';
 
             // Row 3: Price display
             if (itemDiscounted) {
+                // Discount applied: show cost (strikethrough), savings, and sale total
                 h += '<div style="display:flex;align-items:center;justify-content:space-between;">';
-                h += '<span style="font-size:10px;color:#e17055;text-decoration:line-through;opacity:0.7;">Venta: $' + listTotal.toFixed(2) + '</span>';
+                h += '<span style="font-size:10px;color:#e17055;text-decoration:line-through;opacity:0.7;">Costo: $' + costTotal.toFixed(2) + '</span>';
                 h += '<span style="font-size:9px;color:#f59e0b;font-weight:600;">Ahorro: -$' + ld.toFixed(2) + '</span>';
-                h += '<span style="font-size:13px;font-weight:800;color:var(--primary);">$' + (listTotal - ld).toFixed(2) + '</span>';
+                h += '<span style="font-size:13px;font-weight:800;color:var(--primary);">$' + (costTotal - ld).toFixed(2) + '</span>';
                 h += '</div>';
             } else {
+                // No discount: show cost price, hint about sale price
                 h += '<div style="display:flex;align-items:center;justify-content:space-between;">';
-                h += '<span style="font-size:10px;color:var(--text3);">Venta: $' + sp.toFixed(2) + '</span>';
-                if (cp > 0 && cp < sp) {
-                    h += '<span style="font-size:10px;color:var(--text3);opacity:0.6;">Especial: $' + (cp * qty).toFixed(2) + '</span>';
-                } else if (cp === 0) {
-                    h += '<span style="font-size:9px;color:#f59e0b;opacity:0.7;">Escribe el costo</span>';
+                h += '<span style="font-size:10px;color:var(--text3);">Costo: $' + cp.toFixed(2) + '</span>';
+                if (sp > 0 && sp < cp) {
+                    h += '<span style="font-size:10px;color:var(--primary);opacity:0.7;">Venta: $' + sp.toFixed(2) + '</span>';
+                } else if (sp === 0) {
+                    h += '<span style="font-size:9px;color:#f59e0b;opacity:0.7;">Sin precio venta</span>';
                 }
-                h += '<span style="font-size:13px;font-weight:800;color:var(--info);">$' + listTotal.toFixed(2) + '</span>';
+                h += '<span style="font-size:13px;font-weight:800;color:var(--info);">$' + costTotal.toFixed(2) + '</span>';
                 h += '</div>';
             }
 
