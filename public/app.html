@@ -5295,8 +5295,7 @@ function calcQuotTotals() {
 
 // ===== PRELIMINARY DETAIL: Price comparison with real discount application =====
 
-// Apply discount to a single item
-// If costPrice < salePrice: use cost price; otherwise apply 10% discount
+// Apply discount to a single item: switch from sale price to cost price
 function applyIndividualDiscount(sectionIdx, itemIdx) {
     var itemsList = getPreliminaryItemsList();
     var section = itemsList[sectionIdx];
@@ -5307,14 +5306,13 @@ function applyIndividualDiscount(sectionIdx, itemIdx) {
     var qty = it.qty || 1;
     if (cp > 0 && cp < sp) {
         it.lineDiscount = (sp - cp) * qty;
+        savePreliminaryItemsList(itemsList);
+        renderQuotItems();
+        calcQuotTotals();
+        showToast('Precio especial aplicado a ' + it.productName, 'success');
     } else {
-        // No cost price difference: apply 10% discount
-        it.lineDiscount = sp * qty * 0.10;
+        showToast('Sin precio de costo definido para ' + it.productName, 'warning');
     }
-    savePreliminaryItemsList(itemsList);
-    renderQuotItems();
-    calcQuotTotals();
-    showToast('Descuento aplicado a ' + it.productName, 'success');
 }
 
 // Remove discount from a single item: resets lineDiscount to 0
@@ -5329,7 +5327,7 @@ function removeIndividualDiscount(sectionIdx, itemIdx) {
     showToast('Descuento eliminado', 'info');
 }
 
-// Apply discount globally to ALL items in a section
+// Apply discount globally: switch all items from sale price to cost price
 function applyGlobalDiscount(sectionIdx) {
     var itemsList = getPreliminaryItemsList();
     var section = itemsList[sectionIdx];
@@ -5342,15 +5340,17 @@ function applyGlobalDiscount(sectionIdx) {
         var qty = it.qty || 1;
         if (cp > 0 && cp < sp) {
             it.lineDiscount = (sp - cp) * qty;
-        } else {
-            it.lineDiscount = sp * qty * 0.10;
+            count++;
         }
-        count++;
     }
     savePreliminaryItemsList(itemsList);
     renderQuotItems();
     calcQuotTotals();
-    showToast('Descuento aplicado a ' + count + ' productos', 'success');
+    if (count > 0) {
+        showToast('Precio especial aplicado a ' + count + ' productos', 'success');
+    } else {
+        showToast('No hay precios de costo definidos', 'warning');
+    }
 }
 
 // Remove ALL discounts (revert to list price)
@@ -5467,8 +5467,6 @@ function renderPreliminaryDetail() {
         h += '<div style="font-size:14px;font-weight:800;color:#f59e0b;">-$' + totalCurrentDiscount.toFixed(2) + '</div>';
         if (totalCurrentDiscount > 0) {
             h += '<div style="font-size:8px;color:#f59e0b;opacity:0.7;">' + savingsPercent.toFixed(1) + '%</div>';
-        } else {
-            h += '<div style="font-size:8px;color:var(--text3);opacity:0.5;">tope ' + maxGlobalSavings.toFixed(2) + '</div>';
         }
         h += '</div></div>';
 
