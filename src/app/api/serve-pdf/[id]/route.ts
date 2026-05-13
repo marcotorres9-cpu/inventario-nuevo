@@ -19,9 +19,9 @@ async function query(sql: string, params: any[] = []) {
 }
 
 // GET: serve PDF by id
-export async function GET(request: Request, { params }: { params: { id: string } }) {
+export async function GET(request: Request, context: any) {
   try {
-    const id = params.id;
+    const id = context.params.id;
 
     // Create table if not exists
     await query(`
