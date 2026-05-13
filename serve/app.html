@@ -8,7 +8,12 @@
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
     <title>Inventario Pro</title>
-    <!-- Version check moved to init() to avoid redirect loops -->
+    <!-- Force fresh load: bypass WebView cache with timestamp parameter -->
+    <script>
+    if (!window.location.search || window.location.search.indexOf('_r=') === -1) {
+        window.location.replace(window.location.pathname + '?_r=' + Date.now());
+    }
+    </script>
     <script>
     (function(){
         // Unregister any service workers that might cache old versions
@@ -13894,21 +13899,16 @@ function buildQuotationText(id) {
 
 // --- WhatsApp Sharing ---
 function shareQuotationWhatsApp(id) {
-    // Share quotation text via WhatsApp
     var quotes = getQuotations();
     var q = null;
     for (var i = 0; i < quotes.length; i++) {
         if (quotes[i].id === id) { q = quotes[i]; break; }
     }
-    // Try WhatsApp text share first
-    var text = buildQuotationText(id);
-    if (text) {
-        var waUrl = 'https://wa.me/?text=' + encodeURIComponent(text);
-        var opened = window.open(waUrl, '_blank');
-        if (opened) return;
+    if (q) {
+        shareQuotationFile(q);
+    } else {
+        showToast('Cotización no encontrada', 'error');
     }
-    // Fallback: generate PDF
-    downloadQuotationPDF(id, q);
 }
 
 
@@ -14355,38 +14355,48 @@ function showPdfOverlay(q, id) {
     }
 }
 
-// Share quotation as a FILE via system share sheet (WhatsApp, email, etc.)
+// Share quotation — works in Capacitor WebView on Android
 function shareQuotationFile(q) {
-    try {
-        var htmlContent = generateQuotationHtmlDocument(q);
-        var blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
-        var safeName = (q.number || 'COT-001').replace(/[^a-zA-Z0-9]/g, '');
-        var file = new File([blob], 'Cotizacion_' + safeName + '.html', { type: 'text/html' });
+    var text = buildQuotationText(q.id);
+    if (!text) { showToast('No hay datos para compartir', 'error'); return; }
 
-        if (navigator.canShare && navigator.canShare({ files: [file] })) {
-            // Web Share API with files — opens system share sheet with WhatsApp, email, etc.
-            navigator.share({
-                title: 'Cotización ' + (q.number || ''),
-                text: 'Cotización para ' + (q.clientName || ''),
-                files: [file]
-            }).catch(function(err) {
-                // User cancelled or error — not critical
-            });
-        } else {
-            // Fallback: WhatsApp text
-            var text = buildQuotationText(q.id);
-            if (text) {
-                window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank');
-            } else {
-                showToast('No se puede compartir en este dispositivo', 'error');
-            }
-        }
+    // Try 1: navigator.share() — opens Android system share sheet (WhatsApp, email, etc.)
+    if (navigator.share) {
+        navigator.share({
+            title: 'Cotización ' + (q.number || ''),
+            text: text
+        }).catch(function(err) {
+            // User cancelled or not supported — try WhatsApp direct
+            openWhatsAppDeepLink(text);
+        });
+    } else {
+        // Try 2: WhatsApp deep link via anchor element (works in most WebViews)
+        openWhatsAppDeepLink(text);
+    }
+}
+
+// Open WhatsApp via deep link using anchor click (reliable in WebView)
+function openWhatsAppDeepLink(text) {
+    try {
+        var a = document.createElement('a');
+        a.href = 'https://wa.me/?text=' + encodeURIComponent(text);
+        a.target = '_blank';
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(function() { document.body.removeChild(a); }, 1000);
     } catch(ex) {
-        console.error('Share error:', ex);
-        // Final fallback: WhatsApp text
-        var text2 = buildQuotationText(q.id);
-        if (text2) {
-            window.open('https://wa.me/?text=' + encodeURIComponent(text2), '_blank');
+        // Last resort: copy to clipboard
+        try {
+            var ta = document.createElement('textarea');
+            ta.value = text;
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+            showToast('Texto copiado — pégalo en WhatsApp', 'success');
+        } catch(e2) {
+            showToast('No se pudo compartir', 'error');
         }
     }
 }
