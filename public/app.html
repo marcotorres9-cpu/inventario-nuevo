@@ -5874,22 +5874,13 @@ function viewQuotation(id) {
     document.getElementById('viewQuotTitle').textContent = q.number || 'Cotización';
 
     var cfg = getStoreConfig();
-    var h = '<div class="qv-store-name">' + escapeHtml(cfg.storeName || 'Mi Tienda') + '</div>';
-    h += '<div class="qv-store-info">' +
-        (cfg.address ? escapeHtml(cfg.address) + '<br>' : '') +
-        (cfg.phone ? '📞 ' + escapeHtml(cfg.phone) : '') +
-        (cfg.email ? ' | 📧 ' + escapeHtml(cfg.email) : '') +
-        '</div>';
-
-    // Client info
-    h += '<div style="padding:10px 0;border-bottom:1px solid var(--border);margin-bottom:12px;">';
-    if (q.clientName) {
-        h += '<div style="font-size:12px;color:var(--text3);">Cliente:</div><div style="font-size:16px;font-weight:600;">' + escapeHtml(q.clientName) + '</div>';
-        if (q.customerPhone) h += '<div style="font-size:12px;color:var(--text3);margin-top:2px;">📞 ' + escapeHtml(q.customerPhone) + '</div>';
-        if (q.customerEmail) h += '<div style="font-size:12px;color:var(--text3);">📧 ' + escapeHtml(q.customerEmail) + '</div>';
-    }
-    h += '<div style="font-size:12px;color:var(--text3);margin-top:4px;">' + formatDate(q.createdAt) + '</div>';
-    h += '</div>';
+    // Compact header: store + client + date in one block
+    var h = '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">';
+    h += '<div style="flex:1;min-width:0;">';
+    h += '<div style="font-size:14px;font-weight:800;color:var(--text);">' + escapeHtml(cfg.storeName || 'Mi Tienda') + '</div>';
+    if (q.clientName) h += '<div style="font-size:12px;color:var(--text2);margin-top:1px;">' + escapeHtml(q.clientName) + (q.customerPhone ? ' · 📞' + escapeHtml(q.customerPhone) : '') + '</div>';
+    h += '<div style="font-size:10px;color:var(--text3);margin-top:1px;">' + formatDate(q.createdAt) + '</div>';
+    h += '</div></div>';
 
     var isDual = q.isDualMode && q.itemsB && q.itemsB.length > 0;
     var itemsToShow = isDual ? [
@@ -5904,17 +5895,21 @@ function viewQuotation(id) {
         if (section.items.length === 0 && isDual) continue;
 
         if (isDual) {
-            h += '<div style="font-size:14px;font-weight:700;margin-bottom:8px;margin-top:' + (s > 0 ? '16px' : '0') + ';padding:8px 10px;background:var(--bg2);border-radius:8px;">↔️ ' + escapeHtml(section.title) + '</div>';
+            h += '<div style="font-size:11px;font-weight:700;margin:6px 0 4px;padding:4px 8px;background:var(--bg2);border-radius:6px;color:var(--purple);">↔️ ' + escapeHtml(section.title) + '</div>';
         }
 
-        h += '<table class="qv-table"><thead><tr>' +
-            '<th>Producto</th><th>Cant.</th><th>P. Unit.</th><th>Costo</th><th>Dto.</th><th>Final</th>' +
+        // Compact table: font-size 11px, minimal padding
+        h += '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:6px;"><thead><tr>' +
+            '<th style="padding:4px 3px;font-size:9px;background:var(--bg2);border-bottom:2px solid var(--border);text-align:left;white-space:nowrap;">Producto</th>' +
+            '<th style="padding:4px 2px;font-size:9px;background:var(--bg2);border-bottom:2px solid var(--border);text-align:center;width:28px;">Cant</th>' +
+            '<th style="padding:4px 2px;font-size:9px;background:var(--bg2);border-bottom:2px solid var(--border);text-align:right;white-space:nowrap;">Costo</th>' +
+            '<th style="padding:4px 2px;font-size:9px;background:var(--bg2);border-bottom:2px solid var(--border);text-align:right;white-space:nowrap;">Dto.</th>' +
+            '<th style="padding:4px 2px;font-size:9px;background:var(--bg2);border-bottom:2px solid var(--border);text-align:right;white-space:nowrap;">Final</th>' +
             '</tr></thead><tbody>';
         var secSubtotal = 0, secDiscount = 0, secFinal = 0;
         for (var j = 0; j < section.items.length; j++) {
             var item = section.items[j];
             var unitCost = parseFloat(item.costPrice) || parseFloat(item.price) || 0;
-            var unitSale = parseFloat(item.salePrice) || parseFloat(item.originalPrice) || 0;
             var lineCost = (item.qty * unitCost);
             var lineDisc = parseFloat(item.lineDiscount) || 0;
             var lineFinal = Math.max(0, lineCost - lineDisc);
@@ -5922,70 +5917,43 @@ function viewQuotation(id) {
             secDiscount += lineDisc;
             secFinal += lineFinal;
             h += '<tr>' +
-                '<td style="font-weight:600;font-size:12px;">' + escapeHtml(item.productName || item.name || '') + '</td>' +
-                '<td style="text-align:center;">' + item.qty + '</td>' +
-                '<td style="text-align:right;color:var(--text3);font-size:11px;">$' + unitCost.toFixed(2) + '</td>' +
-                '<td style="text-align:right;color:#e17055;font-weight:600;">$' + lineCost.toFixed(2) + '</td>' +
-                '<td style="text-align:right;color:#f59e0b;">' + (lineDisc > 0 ? '-$' + lineDisc.toFixed(2) : '-') + '</td>' +
-                '<td style="text-align:right;"><strong style="color:#00b894;">$' + lineFinal.toFixed(2) + '</strong></td>' +
+                '<td style="padding:4px 3px;border-bottom:1px solid var(--border);font-weight:600;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(item.productName || item.name || '') + '</td>' +
+                '<td style="padding:4px 2px;border-bottom:1px solid var(--border);text-align:center;">' + item.qty + '</td>' +
+                '<td style="padding:4px 2px;border-bottom:1px solid var(--border);text-align:right;color:#e17055;">$' + lineCost.toFixed(0) + '</td>' +
+                '<td style="padding:4px 2px;border-bottom:1px solid var(--border);text-align:right;color:#f59e0b;">' + (lineDisc > 0 ? '-$' + lineDisc.toFixed(0) : '—') + '</td>' +
+                '<td style="padding:4px 2px;border-bottom:1px solid var(--border);text-align:right;font-weight:700;color:#00b894;">$' + lineFinal.toFixed(0) + '</td>' +
                 '</tr>';
         }
-        h += '</tbody></table>';
+        h += '</tbody></table></div>';
 
-        // ===== SECTION SUMMARY BOX =====
-        h += '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px;margin-top:8px;">';
-        h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">';
-        h += '<span style="font-size:12px;color:var(--text3);font-weight:600;">Subtotal Costo:</span>';
-        h += '<span style="font-size:14px;font-weight:700;color:#e17055;">$' + secSubtotal.toFixed(2) + '</span>';
+        // Inline summary: one line with totals
+        h += '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;background:var(--bg2);border-radius:8px;border:1px solid var(--border);">';
+        h += '<div style="font-size:10px;color:var(--text3);">Costo: <b style="color:#e17055;">$' + secSubtotal.toFixed(2) + '</b>';
+        if (secDiscount > 0) h += ' · Dto: <b style="color:#f59e0b;">-$' + secDiscount.toFixed(2) + '</b>';
         h += '</div>';
-        if (secDiscount > 0) {
-            h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">';
-            h += '<span style="font-size:12px;color:var(--text3);font-weight:600;">Descuento:</span>';
-            h += '<span style="font-size:14px;font-weight:700;color:#f59e0b;">-$' + secDiscount.toFixed(2) + '</span>';
-            h += '</div>';
-        }
-        h += '<div style="height:2px;background:var(--border);margin:8px 0;"></div>';
-        h += '<div style="display:flex;justify-content:space-between;align-items:center;">';
-        if (isDual) {
-            h += '<span style="font-size:13px;color:var(--text);font-weight:700;">TOTAL ' + escapeHtml(section.title).toUpperCase() + ':</span>';
-        } else {
-            h += '<span style="font-size:13px;color:var(--text);font-weight:700;">TOTAL:</span>';
-        }
-        h += '<span style="font-size:20px;font-weight:900;color:var(--primary);">$' + secFinal.toFixed(2) + '</span>';
-        h += '</div>';
+        h += '<div style="font-size:14px;font-weight:900;color:var(--primary);">' + (isDual ? escapeHtml(section.title).toUpperCase() + ': ' : '') + '$' + secFinal.toFixed(2) + '</div>';
         h += '</div>';
     }
 
-    // Notes
+    // Notes (compact)
     if (q.notes) {
-        h += '<div style="margin-top:12px;padding:10px;background:var(--bg2);border-radius:8px;font-size:13px;color:var(--text2);">' +
-            '<strong style="color:var(--text3);font-size:11px;">📝 Notas:</strong><br>' + escapeHtml(q.notes) +
-            '</div>';
+        h += '<div style="margin-top:6px;padding:6px 8px;background:var(--bg2);border-radius:6px;font-size:11px;color:var(--text2);overflow:hidden;max-height:40px;">' + escapeHtml(q.notes) + '</div>';
     }
 
-    // Valid until
+    // Valid until (inline)
     if (q.validDays || q.createdAt) {
         var days = q.validDays || 15;
         var validDate = new Date(new Date(q.createdAt).getTime() + days * 24 * 60 * 60 * 1000);
-        h += '<div style="text-align:center;font-size:11px;color:var(--text3);margin-top:8px;">📅 Válida por ' + days + ' días — hasta ' + formatDate(validDate) + '</div>';
+        h += '<div style="font-size:10px;color:var(--text3);margin-top:4px;text-align:center;">📅 Válida ' + days + ' días — hasta ' + formatDate(validDate) + '</div>';
     }
 
-    // Footer
-    if (cfg.footerText) {
-        h += '<div style="font-size:12px;color:var(--text3);text-align:center;margin-top:12px;">' + escapeHtml(cfg.footerText) + '</div>';
-    }
-
-    // Action buttons
-    h += '<div style="display:flex;flex-direction:column;gap:8px;margin-top:18px;padding-top:14px;border-top:2px solid var(--border);">' +
-        '<div style="display:flex;gap:6px;">' +
-            '<button class="btn btn-sm" style="flex:1;background:#25D366;color:#fff;border:none;" onclick="shareQuotationWhatsApp(\'' + q.id + '\')">📱 WhatsApp</button>' +
-            '<button class="btn btn-sm" style="flex:1;background:var(--bg3);border:1px solid var(--border);" onclick="shareQuotationQR(\'' + q.id + '\')">📷 QR</button>' +
-        '</div>' +
-        '<div style="display:flex;gap:6px;">' +
-            '<button class="btn btn-sm btn-outline" style="flex:1;" onclick="downloadQuotationPDF(\'' + q.id + '\')">📥 PDF</button>' +
-            '<button class="btn btn-sm btn-outline" style="flex:1;" onclick="closeModal(\'viewQuotationModal\');openEditQuotation(\'' + q.id + '\')">✏️ Modificar</button>' +
-        '</div>' +
-        '<button class="btn btn-danger btn-sm" style="width:100%;" onclick="closeModal(\'viewQuotationModal\');confirmDeleteQuotation(\'' + q.id + '\')">🗑️ Eliminar</button>' +
+    // Action buttons: single compact row
+    h += '<div style="display:flex;gap:4px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">' +
+        '<button class="btn btn-xs" style="flex:1;background:#25D366;color:#fff;border:none;padding:10px 4px;" onclick="shareQuotationWhatsApp(\'' + q.id + '\')">📱 WA</button>' +
+        '<button class="btn btn-xs" style="flex:1;background:var(--bg3);border:1px solid var(--border);padding:10px 4px;" onclick="shareQuotationQR(\'' + q.id + '\')">📷 QR</button>' +
+        '<button class="btn btn-xs" style="flex:1;background:var(--bg3);border:1px solid var(--border);padding:10px 4px;" onclick="downloadQuotationPDF(\'' + q.id + '\')">📥 PDF</button>' +
+        '<button class="btn btn-xs" style="flex:1;background:var(--bg3);border:1px solid var(--border);padding:10px 4px;" onclick="closeModal(\'viewQuotationModal\');openEditQuotation(\'' + q.id + '\')">✏️</button>' +
+        '<button class="btn btn-xs" style="flex:1;background:var(--danger-bg);color:var(--danger);border:1px solid rgba(239,68,68,0.2);padding:10px 4px;" onclick="closeModal(\'viewQuotationModal\');confirmDeleteQuotation(\'' + q.id + '\')">🗑️</button>' +
         '</div>';
 
     document.getElementById('viewQuotContent').innerHTML = h;
