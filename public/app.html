@@ -10893,7 +10893,7 @@ function printCatalogReport() {
     var html = window._catalogReportHtml;
     if (!html) { showToast('No hay reporte', 'error'); return; }
     var printFrame = document.createElement('iframe');
-    printFrame.style.cssText = 'position:fixed;left:-9999px;width:0;height:0;border:none;';
+    printFrame.style.cssText = 'position:fixed;left:-9999px;width:1px;height:1px;border:none;';
     document.body.appendChild(printFrame);
     var doc2 = printFrame.contentDocument || printFrame.contentWindow.document;
     doc2.open();
@@ -11808,7 +11808,7 @@ function printFaltantesReport() {
     if (!html) { showToast('No hay reporte para imprimir', 'error'); return; }
     // Use hidden iframe to print
     var printFrame = document.createElement('iframe');
-    printFrame.style.cssText = 'position:fixed;left:-9999px;width:0;height:0;border:none;';
+    printFrame.style.cssText = 'position:fixed;left:-9999px;width:1px;height:1px;border:none;';
     document.body.appendChild(printFrame);
     var doc2 = printFrame.contentDocument || printFrame.contentWindow.document;
     doc2.open();
@@ -14005,6 +14005,7 @@ function shareQuotationQR(id) {
     }
     if (!q) { showToast('Cotización no encontrada', 'error'); return; }
     var cfg = getStoreConfig();
+    var isDual = q.isDualMode && q.itemsB && q.itemsB.length > 0;
 
     // Build URL for QR — try server URL first, fallback to origin
     var serverBase = getServerUrl() || '';
@@ -14356,7 +14357,7 @@ function downloadQuotationPDF(id) {
     var printPdfBtn = document.createElement('button');
     printPdfBtn.style.cssText = 'flex:2;padding:10px;background:#3b82f6;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;';
     printPdfBtn.innerHTML = '&#128424;&#65039; Imprimir / Guardar PDF';
-    printPdfBtn.onclick = function() { window.print(); };
+    // onclick is set after iframe creation below (needs iframe reference)
 
     var sharePdfBtn = document.createElement('button');
     sharePdfBtn.style.cssText = 'flex:1;padding:10px;background:#25D366;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;';
@@ -14386,14 +14387,44 @@ function downloadQuotationPDF(id) {
     iframe.style.cssText = 'width:100%;height:100%;border:none;';
     pdfBody.appendChild(iframe);
 
+    // Set onload BEFORE src to avoid race condition in WebViews
     iframe.onload = function() {
-        var doc = iframe.contentDocument || iframe.contentWindow.document;
-        doc.open();
-        doc.write(printHtml);
-        doc.close();
+        try {
+            var doc = iframe.contentDocument || iframe.contentWindow.document;
+            doc.open();
+            doc.write(printHtml);
+            doc.close();
+        } catch(e) {
+            console.error('iframe write error:', e);
+            showToast('Error al cargar PDF', 'error');
+        }
     };
-    var iframeSrc = 'about:blank';
-    iframe.src = iframeSrc;
+    iframe.src = 'about:blank';
+
+    // Print button — targets the iframe, with fallback to window.print()
+    printPdfBtn.onclick = function() {
+        try {
+            var iDoc = iframe.contentDocument || iframe.contentWindow.document;
+            if (iDoc && iDoc.body && iDoc.body.innerHTML.length > 10) {
+                iframe.contentWindow.focus();
+                iframe.contentWindow.print();
+            } else {
+                // Fallback: write content and print after delay
+                var doc2 = iframe.contentDocument || iframe.contentWindow.document;
+                doc2.open();
+                doc2.write(printHtml);
+                doc2.close();
+                setTimeout(function() {
+                    try { iframe.contentWindow.print(); } catch(ex) { window.print(); }
+                }, 500);
+            }
+        } catch(e) {
+            console.error('Print error:', e);
+            try { window.print(); } catch(ex) {
+                showToast('No se puede imprimir en este dispositivo', 'error');
+            }
+        }
+    };
 
     showToast('PDF listo', 'success');
 }
