@@ -4794,7 +4794,7 @@ function renderQuotItemsColumn(tab, items, isActive) {
     var bgHighlight = isActive ? 'rgba(59,130,246,0.04)' : 'transparent';
     var subtotalVal = 0, totalLineDisc = 0;
     for (var i = 0; i < items.length; i++) {
-        subtotalVal += (items[i].qty || 0) * (items[i].price || 0);
+        subtotalVal += (items[i].qty || 0) * (parseFloat(items[i].costPrice) || items[i].price || 0);
         totalLineDisc += parseFloat(items[i].lineDiscount) || 0;
     }
     var totalVal = Math.max(0, subtotalVal - totalLineDisc);
@@ -4820,7 +4820,7 @@ function renderQuotItemsListDual(items, tab) {
     var h = '';
     for (var i = 0; i < items.length; i++) {
         var it = items[i];
-        var unitPrice = parseFloat(it.price) || 0;
+        var unitPrice = parseFloat(it.costPrice) || parseFloat(it.price) || 0;
         var lineCost = it.qty * unitPrice;
         var lineDiscount = parseFloat(it.lineDiscount) || 0;
         var lineFinal = Math.max(0, lineCost - lineDiscount);
@@ -4842,7 +4842,7 @@ function renderQuotItemsList(items, tab) {
     var h = '';
     for (var i = 0; i < items.length; i++) {
         var it = items[i];
-        var unitPrice = parseFloat(it.price) || 0;
+        var unitPrice = parseFloat(it.costPrice) || parseFloat(it.price) || 0;
         var lineCost = it.qty * unitPrice;
         var lineDiscount = parseFloat(it.lineDiscount) || 0;
         var lineFinal = Math.max(0, lineCost - lineDiscount);
@@ -4874,7 +4874,9 @@ function renderQuotItemsList(items, tab) {
 function setQuotItemPrice(index, val) {
     var items = getCurrentItems();
     if (!items[index]) return;
-    items[index].price = Math.max(0, parseFloat(val) || 0);
+    var newPrice = Math.max(0, parseFloat(val) || 0);
+    items[index].price = newPrice;
+    items[index].costPrice = newPrice;
     setCurrentItems(items);
     renderQuotItems();
     calcQuotTotals();
@@ -5281,7 +5283,7 @@ function calcQuotTotals() {
     var subtotal = 0;
     var totalDiscount = 0;
     for (var i = 0; i < items.length; i++) {
-        var lineCost = (items[i].qty || 0) * (items[i].price || 0);
+        var lineCost = (items[i].qty || 0) * (parseFloat(items[i].costPrice) || items[i].price || 0);
         var lineDisc = parseFloat(items[i].lineDiscount) || 0;
         subtotal += lineCost;
         totalDiscount += lineDisc;
@@ -5585,11 +5587,11 @@ function updateDualMiniSummary() {
     var subtotalA = 0, discA_line = 0;
     var subtotalB = 0, discB_line = 0;
     for (var i = 0; i < quotItemsA.length; i++) {
-        subtotalA += (quotItemsA[i].qty || 0) * (quotItemsA[i].price || 0);
+        subtotalA += (quotItemsA[i].qty || 0) * (parseFloat(quotItemsA[i].costPrice) || quotItemsA[i].price || 0);
         discA_line += parseFloat(quotItemsA[i].lineDiscount) || 0;
     }
     for (var i = 0; i < quotItemsB.length; i++) {
-        subtotalB += (quotItemsB[i].qty || 0) * (quotItemsB[i].price || 0);
+        subtotalB += (quotItemsB[i].qty || 0) * (parseFloat(quotItemsB[i].costPrice) || quotItemsB[i].price || 0);
         discB_line += parseFloat(quotItemsB[i].lineDiscount) || 0;
     }
 
