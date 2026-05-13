@@ -4815,7 +4815,7 @@ function renderQuotItemsColumn(tab, items, isActive) {
     return h;
 }
 
-// Ultra-compact dual mode: one thin line per item (name, qty controls, total)
+// Ultra-compact dual mode: two lines per item to fit on mobile
 function renderQuotItemsListDual(items, tab) {
     var h = '';
     for (var i = 0; i < items.length; i++) {
@@ -4825,14 +4825,22 @@ function renderQuotItemsListDual(items, tab) {
         var lineDiscount = parseFloat(it.lineDiscount) || 0;
         var lineFinal = Math.max(0, lineCost - lineDiscount);
 
-        h += '<div style="display:flex;align-items:center;gap:3px;padding:3px 4px;margin-bottom:1px;border-bottom:1px solid var(--border);">' +
+        // Line 1: product name + final price + delete
+        h += '<div style="display:flex;align-items:center;gap:3px;padding:4px 4px 2px;border-bottom:1px solid var(--border);">' +
             '<div style="flex:1;min-width:0;font-size:10px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(it.productName) + '</div>' +
-            '<button type="button" onclick="updateQuotItemQty(' + i + ',-1)" style="width:18px;height:18px;border-radius:4px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:10px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;line-height:1;flex-shrink:0;">-</button>' +
-            '<span style="font-size:10px;font-weight:700;min-width:14px;text-align:center;flex-shrink:0;">' + it.qty + '</span>' +
-            '<button type="button" onclick="updateQuotItemQty(' + i + ',1)" style="width:18px;height:18px;border-radius:4px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:10px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;line-height:1;flex-shrink:0;">+</button>' +
-            '<span style="font-size:11px;font-weight:800;color:#00b894;min-width:46px;text-align:right;flex-shrink:0;">$' + lineFinal.toFixed(2) + '</span>' +
+            '<span style="font-size:11px;font-weight:800;color:#00b894;flex-shrink:0;">$' + lineFinal.toFixed(2) + '</span>' +
             '<button type="button" onclick="removeQuotItem(' + i + ')" style="width:14px;height:14px;border-radius:50%;border:none;background:rgba(239,68,68,0.08);color:var(--danger);font-size:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0;opacity:0.5;">x</button>' +
-        '</div>';
+            '</div>';
+        // Line 2: qty controls + cost + discount
+        h += '<div style="display:flex;align-items:center;gap:2px;padding:1px 4px 4px;border-bottom:1px solid var(--border);margin-bottom:1px;">' +
+            '<button type="button" onclick="updateQuotItemQty(' + i + ',-1)" style="width:16px;height:16px;border-radius:3px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:9px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;line-height:1;flex-shrink:0;">-</button>' +
+            '<span style="font-size:9px;font-weight:700;min-width:12px;text-align:center;flex-shrink:0;">' + it.qty + '</span>' +
+            '<button type="button" onclick="updateQuotItemQty(' + i + ',1)" style="width:16px;height:16px;border-radius:3px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:9px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;line-height:1;flex-shrink:0;">+</button>' +
+            '<span style="font-size:8px;color:var(--text3);flex-shrink:0;">$' + lineCost.toFixed(0) + '</span>';
+        if (lineDiscount > 0) {
+            h += '<span style="font-size:8px;color:#f59e0b;font-weight:600;flex-shrink:0;">-$' + lineDiscount.toFixed(0) + '</span>';
+        }
+        h += '</div>';
     }
     return h;
 }
