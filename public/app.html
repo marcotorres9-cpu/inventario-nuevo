@@ -14318,24 +14318,31 @@ function showPdfOverlay(q, id) {
     overlay.id = 'pdfPreviewOverlay';
     overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;z-index:9999;background:#f3f4f6;display:flex;flex-direction:column;';
 
-    // Top bar — fixed, always visible, with prominent Regresar
+    // Top bar — 3 buttons: Regresar, PDF, Compartir
     var topBar = document.createElement('div');
-    topBar.style.cssText = 'display:flex;gap:8px;padding:10px 12px;background:#fff;border-bottom:2px solid #e5e7eb;flex-shrink:0;box-shadow:0 2px 8px rgba(0,0,0,0.08);';
+    topBar.style.cssText = 'display:flex;gap:6px;padding:10px 12px;background:#fff;border-bottom:2px solid #e5e7eb;flex-shrink:0;box-shadow:0 2px 8px rgba(0,0,0,0.08);';
 
-    // REGRESAR — big and green, always first
+    // REGRESAR
     var regresarBtn = document.createElement('button');
-    regresarBtn.style.cssText = 'padding:12px 20px;background:#22c55e;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:800;cursor:pointer;box-shadow:0 2px 8px rgba(34,197,94,0.3);';
+    regresarBtn.style.cssText = 'padding:12px 14px;background:#6b7280;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;';
     regresarBtn.innerHTML = '\u2190 Regresar';
     regresarBtn.onclick = function() { document.body.removeChild(overlay); };
 
-    // COMPARTIR — shares the file (PDF document) via system share sheet (WhatsApp, email, etc.)
-    var shareBtn = document.createElement('button');
-    shareBtn.style.cssText = 'flex:1;padding:12px 10px;background:#25D366;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(37,211,102,0.3);';
-    shareBtn.innerHTML = '&#128241; Compartir';
-    shareBtn.onclick = function() { shareQuotationFile(q); };
+    // PDF — abre en navegador del sistema donde sí funciona imprimir/guardar PDF
+    var pdfBtn = document.createElement('button');
+    pdfBtn.style.cssText = 'flex:1;padding:12px 8px;background:#22c55e;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;box-shadow:0 2px 8px rgba(34,197,94,0.3);';
+    pdfBtn.innerHTML = '&#128196; PDF';
+    pdfBtn.onclick = function() { openPdfInBrowser(q); };
+
+    // WHATSAPP
+    var waBtn = document.createElement('button');
+    waBtn.style.cssText = 'flex:1;padding:12px 8px;background:#25D366;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;box-shadow:0 2px 8px rgba(37,211,102,0.3);';
+    waBtn.innerHTML = '&#128241; WA';
+    waBtn.onclick = function() { shareQuotationFile(q); };
 
     topBar.appendChild(regresarBtn);
-    topBar.appendChild(shareBtn);
+    topBar.appendChild(pdfBtn);
+    topBar.appendChild(waBtn);
     overlay.appendChild(topBar);
 
     // Scrollable body with quotation content
@@ -14353,6 +14360,55 @@ function showPdfOverlay(q, id) {
     if (serverUrl && serverUrl !== 'null' && serverUrl !== 'file://' && isOnline()) {
         pushQuotationToServer(q, serverUrl).catch(function(e) { console.error('BG sync:', e); });
     }
+}
+
+// Open quotation in system browser (Chrome) where print/save PDF works
+function openPdfInBrowser(q) {
+    var serverUrl = getServerUrl() || 'https://inventario-nuevo.vercel.app';
+    var targetUrl = serverUrl + '/qr?id=' + encodeURIComponent(q.id);
+
+    showToast('Abriendo navegador...', 'info');
+
+    // Push to server first so the /qr page can find the quotation
+    if (isOnline()) {
+        pushQuotationToServer(q, serverUrl).then(function() {
+            launchInBrowser(targetUrl);
+        }).catch(function() {
+            launchInBrowser(targetUrl);
+        });
+    } else {
+        launchInBrowser(targetUrl);
+    }
+}
+
+// Force open URL in system browser (outside WebView) using Android intent
+function launchInBrowser(url) {
+    // Method 1: Android intent URL — forces open in real browser
+    try {
+        var a = document.createElement('a');
+        a.href = 'intent:' + url + '#Intent;scheme=https;action=android.intent.action.VIEW;end';
+        a.target = '_blank';
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(function() {
+            try { document.body.removeChild(a); } catch(ex) {}
+        }, 2000);
+        return;
+    } catch(ex) {}
+
+    // Method 2: Try window.open with _system (some Capacitor versions support this)
+    try {
+        var w = window.open(url, '_system');
+        if (w) return;
+    } catch(ex) {}
+
+    // Method 3: Regular window.open as last resort
+    try {
+        window.open(url, '_blank');
+    } catch(ex) {}
+
+    showToast('Abre tu navegador y ve a la dirección copiada', 'info');
 }
 
 // Share quotation — works in Capacitor WebView on Android
