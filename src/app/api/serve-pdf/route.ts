@@ -45,9 +45,7 @@ export async function POST(request: Request) {
       [id, data, filename || 'cotizacion.pdf']
     );
 
-    const baseUrl = process.env.VERCEL_URL
-      ? 'https://' + process.env.VERCEL_URL
-      : 'https://inventario-nuevo.vercel.app';
+    const baseUrl = 'https://inventario-nuevo.vercel.app';
 
     return NextResponse.json({
       success: true,
