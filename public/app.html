@@ -5898,14 +5898,7 @@ function viewQuotation(id) {
             h += '<div style="font-size:11px;font-weight:700;margin:6px 0 4px;padding:4px 8px;background:var(--bg2);border-radius:6px;color:var(--purple);">↔️ ' + escapeHtml(section.title) + '</div>';
         }
 
-        // Compact table: font-size 11px, minimal padding
-        h += '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:6px;"><thead><tr>' +
-            '<th style="padding:4px 3px;font-size:9px;background:var(--bg2);border-bottom:2px solid var(--border);text-align:left;white-space:nowrap;">Producto</th>' +
-            '<th style="padding:4px 2px;font-size:9px;background:var(--bg2);border-bottom:2px solid var(--border);text-align:center;width:28px;">Cant</th>' +
-            '<th style="padding:4px 2px;font-size:9px;background:var(--bg2);border-bottom:2px solid var(--border);text-align:right;white-space:nowrap;">Costo</th>' +
-            '<th style="padding:4px 2px;font-size:9px;background:var(--bg2);border-bottom:2px solid var(--border);text-align:right;white-space:nowrap;">Dto.</th>' +
-            '<th style="padding:4px 2px;font-size:9px;background:var(--bg2);border-bottom:2px solid var(--border);text-align:right;white-space:nowrap;">Final</th>' +
-            '</tr></thead><tbody>';
+        // Card-based product list (no horizontal scroll needed)
         var secSubtotal = 0, secDiscount = 0, secFinal = 0;
         for (var j = 0; j < section.items.length; j++) {
             var item = section.items[j];
@@ -5916,18 +5909,27 @@ function viewQuotation(id) {
             secSubtotal += lineCost;
             secDiscount += lineDisc;
             secFinal += lineFinal;
-            h += '<tr>' +
-                '<td style="padding:4px 3px;border-bottom:1px solid var(--border);font-weight:600;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(item.productName || item.name || '') + '</td>' +
-                '<td style="padding:4px 2px;border-bottom:1px solid var(--border);text-align:center;">' + item.qty + '</td>' +
-                '<td style="padding:4px 2px;border-bottom:1px solid var(--border);text-align:right;color:#e17055;">$' + lineCost.toFixed(0) + '</td>' +
-                '<td style="padding:4px 2px;border-bottom:1px solid var(--border);text-align:right;color:#f59e0b;">' + (lineDisc > 0 ? '-$' + lineDisc.toFixed(0) : '—') + '</td>' +
-                '<td style="padding:4px 2px;border-bottom:1px solid var(--border);text-align:right;font-weight:700;color:#00b894;">$' + lineFinal.toFixed(0) + '</td>' +
-                '</tr>';
+
+            var cardBorder = lineDisc > 0 ? 'rgba(34,197,94,0.25)' : 'var(--border)';
+            h += '<div style="padding:5px 8px;background:var(--bg2);border:1px solid ' + cardBorder + ';border-radius:6px;margin-bottom:3px;">';
+            // Line 1: product name + qty + final price
+            h += '<div style="display:flex;justify-content:space-between;align-items:center;">';
+            h += '<span style="font-size:11px;font-weight:700;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-right:6px;">' + escapeHtml(item.productName || item.name || '') + '</span>';
+            h += '<span style="font-size:10px;color:var(--text3);flex-shrink:0;">x' + item.qty + '</span>';
+            h += '<span style="font-size:12px;font-weight:800;color:#00b894;flex-shrink:0;margin-left:8px;">$' + lineFinal.toFixed(0) + '</span>';
+            h += '</div>';
+            // Line 2: cost + discount (only when there's discount)
+            if (lineDisc > 0) {
+                h += '<div style="display:flex;justify-content:flex-end;gap:10px;margin-top:1px;">';
+                h += '<span style="font-size:9px;color:#e17055;text-decoration:line-through;opacity:0.7;">$' + lineCost.toFixed(0) + '</span>';
+                h += '<span style="font-size:9px;color:#f59e0b;font-weight:600;">-$' + lineDisc.toFixed(0) + '</span>';
+                h += '</div>';
+            }
+            h += '</div>';
         }
-        h += '</tbody></table></div>';
 
         // Inline summary: one line with totals
-        h += '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;background:var(--bg2);border-radius:8px;border:1px solid var(--border);">';
+        h += '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;background:var(--bg2);border-radius:8px;border:1px solid var(--border);margin-top:4px;">';
         h += '<div style="font-size:10px;color:var(--text3);">Costo: <b style="color:#e17055;">$' + secSubtotal.toFixed(2) + '</b>';
         if (secDiscount > 0) h += ' · Dto: <b style="color:#f59e0b;">-$' + secDiscount.toFixed(2) + '</b>';
         h += '</div>';
