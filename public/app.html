@@ -8,11 +8,12 @@
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
     <title>Inventario Pro</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script>
     // FORCE fresh code: use fetch to bypass all caches, compare with current page
     (function(){
         try {
-            var _NV = 'NV10'; // increment this to force all clients to reload
+            var _NV = 'NV11'; // increment this to force all clients to reload
             var _ck = '_inv_nv';
             if (sessionStorage.getItem(_ck) !== _NV) {
                 sessionStorage.setItem(_ck, _NV);
@@ -13914,21 +13915,6 @@ function buildQuotationText(id) {
     return lines.join('\n');
 }
 
-// --- WhatsApp Sharing ---
-function shareQuotationWhatsApp(id) {
-    var quotes = getQuotations();
-    var q = null;
-    for (var i = 0; i < quotes.length; i++) {
-        if (quotes[i].id === id) { q = quotes[i]; break; }
-    }
-    if (q) {
-        shareQuotationFile(q);
-    } else {
-        showToast('Cotización no encontrada', 'error');
-    }
-}
-
-
 // --- QR Code Generator (qrcode-generator v1.4.4 by Kazuhiko Arase) ---
 /**
  * Minified by jsDelivr using Terser v5.37.0.
@@ -14335,43 +14321,42 @@ function showPdfOverlay(q, id) {
     overlay.id = 'pdfPreviewOverlay';
     overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;z-index:9999;background:#f3f4f6;display:flex;flex-direction:column;';
 
-    // Top bar — Regresar + 3 action buttons
+    // Top bar with buttons
     var topBar = document.createElement('div');
     topBar.style.cssText = 'padding:10px 12px;background:#fff;border-bottom:2px solid #e5e7eb;flex-shrink:0;box-shadow:0 2px 8px rgba(0,0,0,0.08);';
 
-    // Row 1: Regresar + PDF
+    // Row 1: Regresar + Generar PDF
     var row1 = document.createElement('div');
     row1.style.cssText = 'display:flex;gap:6px;margin-bottom:6px;';
 
     var regresarBtn = document.createElement('button');
     regresarBtn.style.cssText = 'padding:12px 14px;background:#6b7280;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;';
     regresarBtn.innerHTML = '\u2190 Regresar';
-    regresarBtn.onclick = function() { document.body.removeChild(overlay); };
+    regresarBtn.onclick = function() { try { document.body.removeChild(overlay); } catch(ex) {} };
 
-    // PDF — opens in system browser
     var pdfBtn = document.createElement('button');
     pdfBtn.style.cssText = 'flex:1;padding:12px 8px;background:#22c55e;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:800;cursor:pointer;';
-    pdfBtn.innerHTML = '&#128196; Abrir PDF';
-    pdfBtn.onclick = function() { openPdfInBrowser(q); };
+    pdfBtn.innerHTML = '&#128196; Generar PDF';
+    pdfBtn.onclick = function() { generateAndSharePdf(q); };
 
     row1.appendChild(regresarBtn);
     row1.appendChild(pdfBtn);
 
-    // Row 2: Guardar + WA
+    // Row 2: Compartir PDF + WA PDF
     var row2 = document.createElement('div');
     row2.style.cssText = 'display:flex;gap:6px;';
 
-    var saveBtn = document.createElement('button');
-    saveBtn.style.cssText = 'flex:1;padding:11px 8px;background:#3b82f6;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;';
-    saveBtn.innerHTML = '&#128190; Guardar archivo';
-    saveBtn.onclick = function() { downloadQuotationFile(q); };
+    var shareBtn = document.createElement('button');
+    shareBtn.style.cssText = 'flex:1;padding:11px 8px;background:#3b82f6;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;';
+    shareBtn.innerHTML = '&#128228; Compartir PDF';
+    shareBtn.onclick = function() { generateAndSharePdf(q, 'share'); };
 
     var waBtn = document.createElement('button');
     waBtn.style.cssText = 'flex:1;padding:11px 8px;background:#25D366;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;';
-    waBtn.innerHTML = '&#128241; WhatsApp';
-    waBtn.onclick = function() { shareQuotationFile(q); };
+    waBtn.innerHTML = '&#128241; WA con PDF';
+    waBtn.onclick = function() { generateAndSharePdf(q, 'whatsapp'); };
 
-    row2.appendChild(saveBtn);
+    row2.appendChild(shareBtn);
     row2.appendChild(waBtn);
 
     topBar.appendChild(row1);
@@ -14382,7 +14367,6 @@ function showPdfOverlay(q, id) {
     var body = document.createElement('div');
     body.id = 'pdfPreviewBody';
     body.style.cssText = 'flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:0;';
-    // White card container
     body.innerHTML = '<div style="background:#fff;min-height:100%;padding:0 10px 20px;">' + bodyHtml + '</div>';
     overlay.appendChild(body);
 
@@ -14395,79 +14379,413 @@ function showPdfOverlay(q, id) {
     }
 }
 
-// Download quotation as HTML file (user opens in Chrome, then prints to PDF)
-function downloadQuotationFile(q) {
+// ============================================
+// PDF GENERATION WITH jsPDF — works entirely client-side
+// No server dependency, no WebView traps
+// ============================================
+
+function generatePdfBlob(q) {
+    var jsPDF = (window.jspdf ? window.jspdf.jsPDF : null);
+    if (!jsPDF) {
+        showToast('Cargando librería PDF... intenta de nuevo', 'error');
+        return null;
+    }
+
+    var cfg = getStoreConfig();
+    var isDual = q.isDualMode && q.itemsB && q.itemsB.length > 0;
+    var storeName = cfg.storeName || 'Mi Tienda';
+    var storeAddr = cfg.address || '';
+    var storePhone = cfg.phone || '';
+    var storeEmail = cfg.email || '';
+    var clientName = q.clientName || '';
+    var clientPhone = q.customerPhone || '';
+    var clientEmail = q.customerEmail || '';
+    var qNumber = q.number || 'COT-001';
+    var qTotal = q.total || 0;
+    var qDate = q.createdAt ? new Date(q.createdAt).toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' }) : '';
+    var validDays = q.validDays || 15;
+    var validDate = q.createdAt ? new Date(new Date(q.createdAt).getTime() + validDays * 86400000).toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' }) : '';
+
+    var doc = new jsPDF('p', 'mm', 'a4');
+    var pageW = doc.internal.pageSize.getWidth();
+    var pageH = doc.internal.pageSize.getHeight();
+    var margin = 15;
+    var contentW = pageW - margin * 2;
+    var y = margin;
+
+    // ---- Store Header ----
+    doc.setFillColor(34, 197, 94);
+    doc.rect(margin, y, contentW, 0.5, 'F');
+    y += 6;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(18);
+    doc.setTextColor(34, 197, 94);
+    doc.text(storeName, pageW / 2, y, { align: 'center' });
+    y += 6;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(107, 114, 128);
+    var contactLine = '';
+    if (storeAddr) contactLine += storeAddr;
+    if (storePhone) contactLine += (contactLine ? '  |  ' : '') + 'Tel: ' + storePhone;
+    if (storeEmail) contactLine += '  |  ' + storeEmail;
+    doc.text(contactLine, pageW / 2, y, { align: 'center' });
+    y += 5;
+    doc.setDrawColor(229, 231, 235);
+    doc.line(margin, y, pageW - margin, y);
+    y += 5;
+
+    // ---- Meta row: number + date ----
+    doc.setFontSize(9);
+    doc.setTextColor(75, 85, 99);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Cotizacion: ' + qNumber, margin, y);
+    doc.setFont('helvetica', 'normal');
+    doc.text('Fecha: ' + qDate, pageW - margin, y, { align: 'right' });
+    y += 6;
+
+    // ---- Client info ----
+    if (clientName) {
+        doc.setFontSize(7);
+        doc.setTextColor(156, 163, 175);
+        doc.text('CLIENTE', margin, y);
+        y += 4;
+        doc.setFontSize(13);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(17, 24, 39);
+        doc.text(clientName, margin, y);
+        y += 5;
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+        doc.setTextColor(107, 114, 128);
+        var clientInfo = '';
+        if (clientPhone) clientInfo += 'Tel: ' + clientPhone;
+        if (clientEmail) clientInfo += (clientInfo ? '  |  ' : '') + clientEmail;
+        if (clientInfo) { doc.text(clientInfo, margin, y); y += 4; }
+    }
+    y += 2;
+    doc.setDrawColor(229, 231, 235);
+    doc.line(margin, y, pageW - margin, y);
+    y += 4;
+
+    // ---- Product sections ----
+    var sections = isDual ? [
+        { title: q.optionTitleA || 'Opcion A', items: q.itemsA || q.items || [], totals: q.totalsA, r: 34, g: 197, b: 94 },
+        { title: q.optionTitleB || 'Opcion B', items: q.itemsB || [], totals: q.totalsB, r: 59, g: 130, b: 246 }
+    ] : [
+        { title: null, items: q.itemsA || q.items || [], totals: q.totalsA, r: 34, g: 197, b: 94 }
+    ];
+
+    for (var s = 0; s < sections.length; s++) {
+        var sec = sections[s];
+        if (!sec.items || sec.items.length === 0) continue;
+
+        // Section title (dual mode)
+        if (isDual) {
+            doc.setFontSize(11);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(sec.r, sec.g, sec.b);
+            doc.text(sec.title, margin, y);
+            y += 5;
+        }
+
+        // Check if we need a new page (need at least 30mm for table header + 1 row)
+        if (y > pageH - 40) { doc.addPage(); y = margin; }
+
+        // Table header
+        var colX = [margin, margin + contentW * 0.50, margin + contentW * 0.62, margin + contentW * 0.75, margin + contentW * 0.87];
+        doc.setFillColor(sec.r, sec.g, sec.b);
+        doc.rect(margin, y - 3, contentW, 7, 'F');
+        doc.setFontSize(7);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(255, 255, 255);
+        doc.text('PRODUCTO', colX[0] + 1, y);
+        doc.text('CANT.', colX[1], y, { align: 'center' });
+        doc.text('COSTO', colX[2], y, { align: 'right' });
+        doc.text('DESC.', colX[3], y, { align: 'right' });
+        doc.text('FINAL', colX[4], y, { align: 'right' });
+        y += 5;
+
+        // Table rows
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+        for (var j = 0; j < sec.items.length; j++) {
+            if (y > pageH - 15) { doc.addPage(); y = margin; }
+
+            var it = sec.items[j];
+            var qty = it.qty || 1;
+            var price = parseFloat(it.price) || parseFloat(it.costPrice) || 0;
+            var lineCost = qty * price;
+            var disc = parseFloat(it.lineDiscount) || 0;
+            var lineFinal = Math.max(0, lineCost - disc);
+            var pName = (it.productName || it.name || '').substring(0, 35);
+
+            // Alternate row background
+            if (j % 2 === 1) {
+                doc.setFillColor(249, 250, 251);
+                doc.rect(margin, y - 3, contentW, 6, 'F');
+            }
+
+            doc.setTextColor(55, 65, 81);
+            doc.text(pName, colX[0] + 1, y);
+            doc.setTextColor(107, 114, 128);
+            doc.text('' + qty, colX[1], y, { align: 'center' });
+            doc.setTextColor(225, 112, 85);
+            doc.text('$' + lineCost.toFixed(2), colX[2], y, { align: 'right' });
+            doc.setTextColor(245, 158, 11);
+            doc.text(disc > 0 ? '-$' + disc.toFixed(2) : '-', colX[3], y, { align: 'right' });
+            doc.setTextColor(0, 184, 148);
+            doc.setFont('helvetica', 'bold');
+            doc.text('$' + lineFinal.toFixed(2), colX[4], y, { align: 'right' });
+            doc.setFont('helvetica', 'normal');
+
+            // Row line
+            doc.setDrawColor(243, 244, 246);
+            doc.line(margin, y + 2, pageW - margin, y + 2);
+            y += 5;
+        }
+
+        // Section total (dual mode)
+        if (isDual && sec.totals) {
+            y += 2;
+            var secTotal = sec.totals.total || 0;
+            doc.setDrawColor(sec.r, sec.g, sec.b);
+            doc.setLineWidth(0.5);
+            doc.rect(pageW - margin - 45, y - 4, 45, 10);
+            doc.setLineWidth(0.2);
+            doc.setFontSize(7);
+            doc.setTextColor(107, 114, 128);
+            doc.text('Total ' + sec.title, pageW - margin - 43, y + 1);
+            doc.setFontSize(12);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(sec.r, sec.g, sec.b);
+            doc.text('$' + secTotal.toFixed(2), pageW - margin - 2, y + 1, { align: 'right' });
+            doc.setFont('helvetica', 'normal');
+            y += 12;
+        }
+    }
+
+    // ---- Grand total ----
+    y += 2;
+    if (y > pageH - 30) { doc.addPage(); y = margin; }
+
+    if (isDual) {
+        doc.setFillColor(240, 253, 244);
+        doc.setDrawColor(34, 197, 94);
+        doc.setLineWidth(0.8);
+        doc.roundedRect(margin + 20, y - 3, contentW - 40, 16, 3, 3, 'FD');
+        doc.setLineWidth(0.2);
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(107, 114, 128);
+        doc.text('TOTAL COMBINADO', pageW / 2, y + 3, { align: 'center' });
+        doc.setFontSize(16);
+        doc.setTextColor(22, 163, 74);
+        doc.text('$' + qTotal.toFixed(2), pageW / 2, y + 9, { align: 'center' });
+        doc.setFont('helvetica', 'normal');
+        y += 20;
+    } else {
+        doc.setFillColor(240, 253, 244);
+        doc.setDrawColor(34, 197, 94);
+        doc.setLineWidth(0.5);
+        doc.roundedRect(pageW - margin - 50, y - 3, 50, 12, 2, 2, 'FD');
+        doc.setLineWidth(0.2);
+        doc.setFontSize(7);
+        doc.setTextColor(107, 114, 128);
+        doc.text('TOTAL', pageW - margin - 48, y + 2);
+        doc.setFontSize(14);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(22, 163, 74);
+        doc.text('$' + qTotal.toFixed(2), pageW - margin - 2, y + 2, { align: 'right' });
+        doc.setFont('helvetica', 'normal');
+        y += 14;
+    }
+
+    // ---- Validity ----
+    y += 3;
+    if (validDate) {
+        doc.setFontSize(8);
+        doc.setTextColor(156, 163, 175);
+        doc.text('Valida por ' + validDays + ' dias  -  hasta ' + validDate, pageW / 2, y, { align: 'center' });
+        y += 5;
+    }
+
+    // ---- Notes ----
+    if (q.notes) {
+        y += 2;
+        if (y > pageH - 25) { doc.addPage(); y = margin; }
+        doc.setFillColor(249, 250, 251);
+        doc.roundedRect(margin, y - 3, contentW, 14, 2, 2, 'F');
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(75, 85, 99);
+        doc.text('Notas:', margin + 3, y + 2);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(7);
+        doc.setTextColor(85, 85, 85);
+        var noteLines = doc.splitTextToSize(q.notes, contentW - 6);
+        for (var n = 0; n < Math.min(noteLines.length, 3); n++) {
+            doc.text(noteLines[n], margin + 3, y + 6 + n * 3);
+        }
+        y += 18;
+    }
+
+    // ---- Footer ----
+    if (cfg.footerText) {
+        y += 2;
+        if (y > pageH - 15) { doc.addPage(); y = margin; }
+        doc.setDrawColor(229, 231, 235);
+        doc.line(margin, y, pageW - margin, y);
+        y += 4;
+        doc.setFontSize(8);
+        doc.setTextColor(156, 163, 175);
+        doc.text(cfg.footerText, pageW / 2, y, { align: 'center' });
+    }
+
+    return doc.output('blob');
+}
+
+// Main function: generate PDF and handle save/share
+function generateAndSharePdf(q, mode) {
     try {
-        var html = generateQuotationHtmlDocument(q);
-        var blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-        var url = URL.createObjectURL(blob);
-        var safeName = (q.number || 'COT-001').replace(/[^a-zA-Z0-9]/g, '');
+        var pdfBlob = generatePdfBlob(q);
+        if (!pdfBlob) return;
+
+        var safeName = (q.number || 'COT-001').replace(/[^a-zA-Z0-9\-]/g, '');
+        var fileName = 'Cotizacion_' + safeName + '.pdf';
+        var pdfFile = new File([pdfBlob], fileName, { type: 'application/pdf' });
+
+        if (mode === 'whatsapp') {
+            // Try sharing file via system share sheet (user can pick WhatsApp)
+            sharePdfFile(pdfFile, q, fileName);
+        } else if (mode === 'share') {
+            // Share via system share sheet
+            sharePdfFile(pdfFile, q, fileName);
+        } else {
+            // Default: try to save/share the file
+            sharePdfFile(pdfFile, q, fileName);
+        }
+    } catch (ex) {
+        console.error('PDF generation error:', ex);
+        showToast('Error al generar PDF: ' + ex.message, 'error');
+    }
+}
+
+// Share PDF file using Web Share API (works on Android 10+ WebView)
+function sharePdfFile(pdfFile, q, fileName) {
+    // Method 1: Web Share API with files (Android 10+)
+    if (navigator.share && navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
+        navigator.share({
+            title: 'Cotizacion ' + (q.number || ''),
+            text: 'Cotizacion ' + (q.number || '') + ' - Total: $' + (q.total || 0).toFixed(2),
+            files: [pdfFile]
+        }).then(function() {
+            showToast('PDF compartido', 'success');
+        }).catch(function(err) {
+            if (err.name !== 'AbortError') {
+                console.warn('Share failed, trying fallback:', err);
+                pdfFallbackSave(pdfFile, q, fileName);
+            }
+        });
+        return;
+    }
+
+    // Method 2: Try share without canShare check (some WebViews support it but not canShare)
+    if (navigator.share && typeof navigator.share === 'function') {
+        // Try with files directly
+        try {
+            navigator.share({
+                title: 'Cotizacion ' + (q.number || ''),
+                files: [pdfFile]
+            }).then(function() {
+                showToast('PDF compartido', 'success');
+            }).catch(function(err) {
+                if (err.name !== 'AbortError') {
+                    pdfFallbackSave(pdfFile, q, fileName);
+                }
+            });
+            return;
+        } catch(e) {
+            // Share API doesn't support files, fall through
+        }
+    }
+
+    // Method 3: Fallback — save as download
+    pdfFallbackSave(pdfFile, q, fileName);
+}
+
+// Fallback: try to trigger download or open in system browser
+function pdfFallbackSave(pdfFile, q, fileName) {
+    // Try blob download
+    try {
+        var url = URL.createObjectURL(pdfFile);
         var a = document.createElement('a');
         a.href = url;
-        a.download = 'Cotizacion_' + safeName + '.html';
+        a.download = fileName;
         a.style.display = 'none';
         document.body.appendChild(a);
         a.click();
         setTimeout(function() {
             try { document.body.removeChild(a); } catch(ex) {}
             URL.revokeObjectURL(url);
-            showToast('Archivo guardado — ábrelo desde tus descargas', 'success');
+            showToast('PDF generado. Revisa tus descargas.', 'success');
         }, 1000);
     } catch(ex) {
-        console.error('Download error:', ex);
-        showToast('No se pudo guardar el archivo', 'error');
+        // Last resort: upload to server and provide link
+        uploadPdfToServer(pdfFile, q, fileName);
     }
 }
 
-// Open quotation in system browser (Chrome) where print/save PDF works
-function openPdfInBrowser(q) {
-    showToast('Preparando...', 'info');
+// Last resort: upload PDF to server so user can access it
+function uploadPdfToServer(pdfBlob, q, fileName) {
     var serverUrl = getServerUrl() || 'https://inventario-nuevo.vercel.app';
-
-    // Push to server first, then open in system browser
-    var doOpen = function() {
-        var url = serverUrl + '/qr?id=' + encodeURIComponent(q.id);
-        // Try opening via anchor click with target _blank (works better in WebView than window.open)
-        var a = document.createElement('a');
-        a.href = url;
-        a.target = '_blank';
-        a.rel = 'noopener';
-        a.style.display = 'none';
-        document.body.appendChild(a);
-        a.click();
-        setTimeout(function() {
-            try { document.body.removeChild(a); } catch(ex) {}
-            showToast('Si no abrió, copia este enlace en Chrome:\n' + url, 'info');
-        }, 1500);
-    };
-
-    if (isOnline()) {
-        pushQuotationToServer(q, serverUrl).then(doOpen).catch(doOpen);
-    } else {
-        doOpen();
+    if (!isOnline()) {
+        showToast('Sin conexion. Necesitas internet para guardar el PDF.', 'error');
+        return;
     }
+    showToast('Subiendo PDF al servidor...', 'info');
+    var formData = new FormData();
+    formData.append('file', pdfBlob, fileName);
+    formData.append('id', q.id || '');
+
+    fetch(serverUrl + '/api/upload-pdf', {
+        method: 'POST',
+        body: formData
+    }).then(function(res) { return res.json(); }).then(function(data) {
+        if (data && data.url) {
+            // Open in system browser where user can download
+            window.open(data.url, '_blank');
+            showToast('PDF subido. Abre el enlace para descargar.', 'success');
+        } else {
+            showToast('Error al subir PDF', 'error');
+        }
+    }).catch(function(err) {
+        console.error('Upload error:', err);
+        showToast('No se pudo subir el PDF. Intenta con mejor conexion.', 'error');
+    });
 }
 
-// Share quotation — works in Capacitor WebView on Android
+// Share quotation as TEXT via WhatsApp (fallback when PDF sharing is not available)
 function shareQuotationFile(q) {
     var text = buildQuotationText(q.id);
     if (!text) { showToast('No hay datos para compartir', 'error'); return; }
+    openWhatsApp(text);
+}
 
-    // navigator.share() opens Android system share sheet — user picks WhatsApp, email, etc.
-    if (typeof navigator !== 'undefined' && navigator.share) {
-        navigator.share({
-            title: 'Cotización ' + (q.number || ''),
-            text: text
-        }).catch(function() {
-            // User cancelled — fallback to WhatsApp
-            openWhatsApp(text);
-        });
+function shareQuotationWhatsApp(id) {
+    var quotes = getQuotations();
+    var q = null;
+    for (var i = 0; i < quotes.length; i++) {
+        if (quotes[i].id === id) { q = quotes[i]; break; }
+    }
+    if (q) {
+        // Try to share PDF first, fallback to text
+        generateAndSharePdf(q, 'whatsapp');
     } else {
-        openWhatsApp(text);
+        showToast('Cotizacion no encontrada', 'error');
     }
 }
 
-// Open WhatsApp via deep link
 function openWhatsApp(text) {
     var a = document.createElement('a');
     a.href = 'https://wa.me/?text=' + encodeURIComponent(text);
