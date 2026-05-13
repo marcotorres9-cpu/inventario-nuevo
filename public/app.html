@@ -5910,41 +5910,57 @@ function viewQuotation(id) {
         }
 
         h += '<table class="qv-table"><thead><tr>' +
-            '<th>Producto</th><th>Cant.</th><th>Costo</th><th>Dto.</th><th>Final</th>' +
+            '<th>Producto</th><th>Cant.</th><th>P. Unit.</th><th>Costo</th><th>Dto.</th><th>Final</th>' +
             '</tr></thead><tbody>';
+        var secSubtotal = 0, secDiscount = 0, secFinal = 0;
         for (var j = 0; j < section.items.length; j++) {
             var item = section.items[j];
-            var lineCost = (item.qty * (item.price || 0)).toFixed(2);
+            var unitCost = parseFloat(item.costPrice) || parseFloat(item.price) || 0;
+            var unitSale = parseFloat(item.salePrice) || parseFloat(item.originalPrice) || 0;
+            var lineCost = (item.qty * unitCost);
             var lineDisc = parseFloat(item.lineDiscount) || 0;
-            var lineFinal = (item.qty * (item.price || 0) - lineDisc).toFixed(2);
+            var lineFinal = Math.max(0, lineCost - lineDisc);
+            secSubtotal += lineCost;
+            secDiscount += lineDisc;
+            secFinal += lineFinal;
             h += '<tr>' +
-                '<td>' + escapeHtml(item.productName || item.name || '') + '</td>' +
+                '<td style="font-weight:600;font-size:12px;">' + escapeHtml(item.productName || item.name || '') + '</td>' +
                 '<td style="text-align:center;">' + item.qty + '</td>' +
-                '<td style="text-align:right;color:#e17055;font-weight:600;">$' + lineCost + '</td>' +
-                '<td style="text-align:right;color:#f59e0b;">' + (lineDisc > 0 ? '-$' + lineDisc : '-') + '</td>' +
-                '<td style="text-align:right;"><strong style="color:#00b894;">$' + lineFinal + '</strong></td>' +
+                '<td style="text-align:right;color:var(--text3);font-size:11px;">$' + unitCost.toFixed(2) + '</td>' +
+                '<td style="text-align:right;color:#e17055;font-weight:600;">$' + lineCost.toFixed(2) + '</td>' +
+                '<td style="text-align:right;color:#f59e0b;">' + (lineDisc > 0 ? '-$' + lineDisc.toFixed(2) : '-') + '</td>' +
+                '<td style="text-align:right;"><strong style="color:#00b894;">$' + lineFinal.toFixed(2) + '</strong></td>' +
                 '</tr>';
         }
         h += '</tbody></table>';
 
-        // Line discounts summary for this section
-        var secLineDisc = 0;
-        for (var d = 0; d < section.items.length; d++) secLineDisc += parseFloat(section.items[d].lineDiscount) || 0;
-        if (secLineDisc > 0) {
-            h += '<div style="text-align:right;font-size:12px;color:#f59e0b;margin-bottom:4px;">Descuentos: -$' + secLineDisc.toFixed(2) + '</div>';
+        // ===== SECTION SUMMARY BOX =====
+        h += '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px;margin-top:8px;">';
+        h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">';
+        h += '<span style="font-size:12px;color:var(--text3);font-weight:600;">Subtotal Costo:</span>';
+        h += '<span style="font-size:14px;font-weight:700;color:#e17055;">$' + secSubtotal.toFixed(2) + '</span>';
+        h += '</div>';
+        if (secDiscount > 0) {
+            h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">';
+            h += '<span style="font-size:12px;color:var(--text3);font-weight:600;">Descuento:</span>';
+            h += '<span style="font-size:14px;font-weight:700;color:#f59e0b;">-$' + secDiscount.toFixed(2) + '</span>';
+            h += '</div>';
         }
-
-        // Individual section totals for dual mode
-        var secTotal = section.totals ? section.totals.total : 0;
+        h += '<div style="height:2px;background:var(--border);margin:8px 0;"></div>';
+        h += '<div style="display:flex;justify-content:space-between;align-items:center;">';
         if (isDual) {
-            h += '<div style="text-align:right;padding:8px 12px;background:var(--primary-bg);border-radius:8px;border:1px solid rgba(34,197,94,0.2);margin-bottom:4px;">' +
-                '<span style="font-size:11px;color:var(--text3);font-weight:600;">TOTAL ' + escapeHtml(section.title).toUpperCase() + ': </span>' +
-                '<span style="font-size:18px;font-weight:800;color:var(--primary);">' + formatMoney(secTotal) + '</span>' +
-                '</div>';
+            h += '<span style="font-size:13px;color:var(--text);font-weight:700;">TOTAL ' + escapeHtml(section.title).toUpperCase() + ':</span>';
+        } else {
+            h += '<span style="font-size:13px;color:var(--text);font-weight:700;">TOTAL:</span>';
         }
+        h += '<span style="font-size:20px;font-weight:900;color:var(--primary);">$' + secFinal.toFixed(2) + '</span>';
+        h += '</div>';
+        if (secDiscount > 0 && secSubtotal > 0) {
+            var pct = ((secDiscount / secSubtotal) * 100).toFixed(1);
+            h += '<div style="text-align:right;font-size:10px;color:var(--primary);opacity:0.7;margin-top:2px;">Ahorro: ' + pct + '%</div>';
+        }
+        h += '</div>';
     }
-
-    // No grand/combined total in dual mode (only individual A/B totals shown)
 
     // Notes
     if (q.notes) {
@@ -5968,11 +5984,11 @@ function viewQuotation(id) {
     // Action buttons
     h += '<div style="display:flex;flex-direction:column;gap:8px;margin-top:18px;padding-top:14px;border-top:2px solid var(--border);">' +
         '<div style="display:flex;gap:6px;">' +
-            '<button class="btn btn-sm" style="flex:1;background:#25D366;color:#fff;border:none;" onclick="shareQuotationWhatsApp(\'' + q.id + '\')">📱 Compartir WhatsApp</button>' +
-            '<button class="btn btn-sm" style="flex:1;background:var(--bg3);border:1px solid var(--border);" onclick="shareQuotationQR(\'' + q.id + '\')">📷 Compartir QR</button>' +
+            '<button class="btn btn-sm" style="flex:1;background:#25D366;color:#fff;border:none;" onclick="shareQuotationWhatsApp(\'' + q.id + '\')">📱 WhatsApp</button>' +
+            '<button class="btn btn-sm" style="flex:1;background:var(--bg3);border:1px solid var(--border);" onclick="shareQuotationQR(\'' + q.id + '\')">📷 QR</button>' +
         '</div>' +
         '<div style="display:flex;gap:6px;">' +
-            '<button class="btn btn-sm btn-outline" style="flex:1;" onclick="downloadQuotationPDF(\'' + q.id + '\')">📥 Descargar PDF</button>' +
+            '<button class="btn btn-sm btn-outline" style="flex:1;" onclick="downloadQuotationPDF(\'' + q.id + '\')">📥 PDF</button>' +
             '<button class="btn btn-sm btn-outline" style="flex:1;" onclick="closeModal(\'viewQuotationModal\');openEditQuotation(\'' + q.id + '\')">✏️ Modificar</button>' +
         '</div>' +
         '<button class="btn btn-danger btn-sm" style="width:100%;" onclick="closeModal(\'viewQuotationModal\');confirmDeleteQuotation(\'' + q.id + '\')">🗑️ Eliminar</button>' +
@@ -14208,6 +14224,14 @@ function downloadQuotationPDF(id) {
         '.client-name{font-size:15px;font-weight:600;}' +
         '.client-detail{font-size:12px;color:#666;margin-top:2px;}' +
         '.section-title{font-size:13px;font-weight:700;margin:0 0 8px;padding:6px 10px;background:#f0fdf4;border-radius:6px;border-left:3px solid #22c55e;}' +
+        '.summary-box{background:#f8f8f8;border:1px solid #e5e5e5;border-radius:8px;padding:12px;margin-top:10px;}' +
+        '.summary-row{display:flex;justify-content:space-between;align-items:center;padding:3px 0;}' +
+        '.summary-label{font-size:12px;color:#666;font-weight:600;}' +
+        '.summary-value{font-size:14px;font-weight:700;}' +
+        '.summary-divider{height:2px;background:#ddd;margin:6px 0;}' +
+        '.summary-total-label{font-size:13px;color:#1a1a1a;font-weight:700;}' +
+        '.summary-total-value{font-size:20px;font-weight:900;color:#16a34a;}' +
+        '.summary-pct{font-size:10px;color:#16a34a;text-align:right;opacity:0.7;}' +
         'table{width:100%;border-collapse:collapse;margin-bottom:8px;font-size:12px;}' +
         'th{background:#f8f8f8;padding:6px 5px;font-size:10px;font-weight:700;text-transform:uppercase;text-align:left;border-bottom:2px solid #ddd;color:#888;}' +
         'td{padding:6px 5px;border-bottom:1px solid #eee;}' +
@@ -14258,44 +14282,62 @@ function downloadQuotationPDF(id) {
         for (var s = 0; s < sections.length; s++) {
             var sec = sections[s];
             if (sec.items.length === 0) continue;
+            var dSecSub = 0, dSecDisc = 0, dSecFin = 0;
             printHtml += '<div class="dual-col">';
             printHtml += '<div class="section-title">' + escapeHtml(sec.title) + '</div>';
-            printHtml += '<table><thead><tr><th>Producto</th><th>Cant.</th><th>Costo</th><th>Dto.</th><th class="text-right">Final</th></tr></thead><tbody>';
+            printHtml += '<table><thead><tr><th>Producto</th><th>Cant.</th><th>P.Unit.</th><th>Costo</th><th>Dto.</th><th class="text-right">Final</th></tr></thead><tbody>';
             for (var j = 0; j < sec.items.length; j++) {
                 var it = sec.items[j];
-                var lc = (it.qty * (it.price || 0)).toFixed(2);
+                var uc = parseFloat(it.costPrice) || parseFloat(it.price) || 0;
+                var lc = it.qty * uc;
                 var ld = parseFloat(it.lineDiscount) || 0;
-                var lf = (it.qty * (it.price || 0) - ld).toFixed(2);
+                var lf = Math.max(0, lc - ld);
+                dSecSub += lc; dSecDisc += ld; dSecFin += lf;
                 printHtml += '<tr><td>' + escapeHtml(it.productName || it.name || '') + '</td>' +
                     '<td style="text-align:center;">' + it.qty + '</td>' +
-                    '<td class="text-right" style="color:#e17055;font-weight:600;">$' + lc + '</td>' +
-                    '<td class="text-right" style="color:#d97706;">' + (ld > 0 ? '-$' + ld : '-') + '</td>' +
-                    '<td class="text-right"><strong style="color:#059669;">$' + lf + '</strong></td></tr>';
+                    '<td class="text-right" style="color:#888;">$' + uc.toFixed(2) + '</td>' +
+                    '<td class="text-right" style="color:#e17055;font-weight:600;">$' + lc.toFixed(2) + '</td>' +
+                    '<td class="text-right" style="color:#d97706;">' + (ld > 0 ? '-$' + ld.toFixed(2) : '-') + '</td>' +
+                    '<td class="text-right"><strong style="color:#059669;">$' + lf.toFixed(2) + '</strong></td></tr>';
             }
             printHtml += '</tbody></table>';
-            var secTotal = sec.totals ? sec.totals.total : 0;
-            printHtml += '<div class="total-box"><span class="label">Total ' + escapeHtml(sec.title) + ': </span><span class="value">$' + secTotal.toFixed(2) + '</span></div>';
+            printHtml += '<div class="summary-box">';
+            printHtml += '<div class="summary-row"><span class="summary-label">Subtotal Costo:</span><span class="summary-value" style="color:#e17055;">$' + dSecSub.toFixed(2) + '</span></div>';
+            if (dSecDisc > 0) printHtml += '<div class="summary-row"><span class="summary-label">Descuento:</span><span class="summary-value" style="color:#d97706;">-$' + dSecDisc.toFixed(2) + '</span></div>';
+            printHtml += '<div class="summary-divider"></div>';
+            printHtml += '<div class="summary-row"><span class="summary-total-label">TOTAL ' + escapeHtml(sec.title).toUpperCase() + ':</span><span class="summary-total-value">$' + dSecFin.toFixed(2) + '</span></div>';
+            if (dSecDisc > 0 && dSecSub > 0) printHtml += '<div class="summary-pct">Ahorro: ' + ((dSecDisc/dSecSub)*100).toFixed(1) + '%</div>';
+            printHtml += '</div>';
             printHtml += '</div>';
         }
         printHtml += '</div>';
     } else {
         // SINGLE MODE
         var sec = sections[0];
-        printHtml += '<table><thead><tr><th>Producto</th><th>Cant.</th><th>Costo</th><th>Dto.</th><th class="text-right">Final</th></tr></thead><tbody>';
+        var sSecSub = 0, sSecDisc = 0, sSecFin = 0;
+        printHtml += '<table><thead><tr><th>Producto</th><th>Cant.</th><th>P.Unit.</th><th>Costo</th><th>Dto.</th><th class="text-right">Final</th></tr></thead><tbody>';
         for (var j = 0; j < sec.items.length; j++) {
             var it = sec.items[j];
-            var lc = (it.qty * (it.price || 0)).toFixed(2);
+            var uc = parseFloat(it.costPrice) || parseFloat(it.price) || 0;
+            var lc = it.qty * uc;
             var ld = parseFloat(it.lineDiscount) || 0;
-            var lf = (it.qty * (it.price || 0) - ld).toFixed(2);
+            var lf = Math.max(0, lc - ld);
+            sSecSub += lc; sSecDisc += ld; sSecFin += lf;
             printHtml += '<tr><td>' + escapeHtml(it.productName || it.name || '') + '</td>' +
                 '<td style="text-align:center;">' + it.qty + '</td>' +
-                '<td class="text-right" style="color:#e17055;font-weight:600;">$' + lc + '</td>' +
-                '<td class="text-right" style="color:#d97706;">' + (ld > 0 ? '-$' + ld : '-') + '</td>' +
-                '<td class="text-right"><strong style="color:#059669;">$' + lf + '</strong></td></tr>';
+                '<td class="text-right" style="color:#888;">$' + uc.toFixed(2) + '</td>' +
+                '<td class="text-right" style="color:#e17055;font-weight:600;">$' + lc.toFixed(2) + '</td>' +
+                '<td class="text-right" style="color:#d97706;">' + (ld > 0 ? '-$' + ld.toFixed(2) : '-') + '</td>' +
+                '<td class="text-right"><strong style="color:#059669;">$' + lf.toFixed(2) + '</strong></td></tr>';
         }
         printHtml += '</tbody></table>';
-        var st = sec.totals ? sec.totals.total : (q.total || 0);
-        printHtml += '<div class="total-box"><span class="label">Total: </span><span class="value">$' + st.toFixed(2) + '</span></div>';
+        printHtml += '<div class="summary-box">';
+        printHtml += '<div class="summary-row"><span class="summary-label">Subtotal Costo:</span><span class="summary-value" style="color:#e17055;">$' + sSecSub.toFixed(2) + '</span></div>';
+        if (sSecDisc > 0) printHtml += '<div class="summary-row"><span class="summary-label">Descuento:</span><span class="summary-value" style="color:#d97706;">-$' + sSecDisc.toFixed(2) + '</span></div>';
+        printHtml += '<div class="summary-divider"></div>';
+        printHtml += '<div class="summary-row"><span class="summary-total-label">TOTAL:</span><span class="summary-total-value">$' + sSecFin.toFixed(2) + '</span></div>';
+        if (sSecDisc > 0 && sSecSub > 0) printHtml += '<div class="summary-pct">Ahorro: ' + ((sSecDisc/sSecSub)*100).toFixed(1) + '%</div>';
+        printHtml += '</div>';
     }
 
     // Notes
