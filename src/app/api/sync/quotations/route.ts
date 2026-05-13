@@ -29,7 +29,7 @@ export async function OPTIONS() {
 
 export async function GET() {
   try {
-    const rows = await query('SELECT id, "customerName", "customerPhone", "customerEmail", subtotal, total, notes, "createdAt", "updatedAt" FROM "Quotation" ORDER BY "updatedAt" DESC');
+    const rows = await query('SELECT id, "customerName", "customerPhone", "customerEmail", subtotal, total, notes, number, mode, "validDays", "optionATitle", "optionBTitle", "itemsAJson", "itemsBJson", "totalsAJson", "totalsBJson", "createdAt", "updatedAt" FROM "Quotation" ORDER BY "updatedAt" DESC');
     const quotes = rows.map((r: any) => ({
       id: r.id,
       clientName: r.customerName || '',
@@ -37,11 +37,17 @@ export async function GET() {
       clientEmail: r.customerEmail || '',
       items: '[]',
       subtotal: parseFloat(r.subtotal)||0,
-      tax: 0,
-      discount: 0,
       total: parseFloat(r.total)||0,
-      status: '',
       notes: r.notes || '',
+      number: r.number || '',
+      isDualMode: r.mode === 'dual',
+      validDays: parseInt(r.validDays)||15,
+      optionTitleA: r.optionATitle || 'Opcion A',
+      optionTitleB: r.optionBTitle || 'Opcion B',
+      itemsA: r.itemsAJson ? JSON.parse(r.itemsAJson) : [],
+      itemsB: r.itemsBJson ? JSON.parse(r.itemsBJson) : [],
+      totalsA: r.totalsAJson ? JSON.parse(r.totalsAJson) : null,
+      totalsB: r.totalsBJson ? JSON.parse(r.totalsBJson) : null,
       createdAt: r.createdAt,
       updatedAt: r.updatedAt
     }));
@@ -58,12 +64,56 @@ export async function POST(request: Request) {
     if (!Array.isArray(items)) items = [items];
     for (const q of items) {
       if (!q || !q.id) continue;
+
+      // Extract real user notes (not the syncData JSON that was previously stored in notes)
+      let realNotes = q.notes || '';
+      try {
+        const parsed = JSON.parse(realNotes);
+        if (parsed && typeof parsed === 'object' && (parsed.itemsA || parsed.isDualMode !== undefined)) {
+          // notes field contains syncData JSON — extract actual notes from it
+          realNotes = parsed.notes || '';
+        }
+      } catch {
+        // notes is a plain string, not JSON — use as-is
+      }
+
+      // Try to add columns if they don't exist (safe to run, ignores if already exists)
+      try {
+        await query(`ALTER TABLE "Quotation" ADD COLUMN IF NOT EXISTS number TEXT DEFAULT ''`);
+        await query(`ALTER TABLE "Quotation" ADD COLUMN IF NOT EXISTS mode TEXT DEFAULT 'simple'`);
+        await query(`ALTER TABLE "Quotation" ADD COLUMN IF NOT EXISTS "validDays" INTEGER DEFAULT 15`);
+        await query(`ALTER TABLE "Quotation" ADD COLUMN IF NOT EXISTS "optionATitle" TEXT DEFAULT 'Opcion A'`);
+        await query(`ALTER TABLE "Quotation" ADD COLUMN IF NOT EXISTS "optionBTitle" TEXT DEFAULT 'Opcion B'`);
+        await query(`ALTER TABLE "Quotation" ADD COLUMN IF NOT EXISTS "itemsAJson" TEXT DEFAULT '[]'`);
+        await query(`ALTER TABLE "Quotation" ADD COLUMN IF NOT EXISTS "itemsBJson" TEXT DEFAULT '[]'`);
+        await query(`ALTER TABLE "Quotation" ADD COLUMN IF NOT EXISTS "totalsAJson" TEXT`);
+        await query(`ALTER TABLE "Quotation" ADD COLUMN IF NOT EXISTS "totalsBJson" TEXT`);
+      } catch (alterErr) {
+        // Ignore alter errors — columns might already exist
+      }
+
       await query(
-        `INSERT INTO "Quotation" (id,"customerName","customerPhone","customerEmail",subtotal,total,notes,"createdAt","updatedAt")
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,NOW())
-         ON CONFLICT (id) DO UPDATE SET "customerName"=$2,"customerPhone"=$3,"customerEmail"=$4,subtotal=$5,total=$6,notes=$7,"updatedAt"=NOW()`,
-        [q.id, q.clientName||q.customerName||'', q.clientPhone||q.customerPhone||'', q.clientEmail||q.customerEmail||'',
-         parseFloat(q.subtotal)||0, parseFloat(q.total)||0, q.notes||'']
+        `INSERT INTO "Quotation" (id,"customerName","customerPhone","customerEmail",subtotal,total,notes,"createdAt","updatedAt",number,mode,"validDays","optionATitle","optionBTitle","itemsAJson","itemsBJson","totalsAJson","totalsBJson")
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,NOW(),$9,$10,$11,$12,$13,$14,$15,$16,$17)
+         ON CONFLICT (id) DO UPDATE SET "customerName"=$2,"customerPhone"=$3,"customerEmail"=$4,subtotal=$5,total=$6,notes=$7,"updatedAt"=NOW(),number=$9,mode=$10,"validDays"=$11,"optionATitle"=$12,"optionBTitle"=$13,"itemsAJson"=$14,"itemsBJson"=$15,"totalsAJson"=$16,"totalsBJson"=$17`,
+        [
+          q.id,
+          q.clientName||q.customerName||'',
+          q.clientPhone||q.customerPhone||'',
+          q.clientEmail||q.customerEmail||'',
+          parseFloat(q.subtotal)||0,
+          parseFloat(q.total)||0,
+          realNotes,
+          q.number||'',
+          q.mode||'simple',
+          parseInt(q.validDays)||15,
+          q.optionATitle||'Opcion A',
+          q.optionBTitle||'Opcion B',
+          q.itemsAJson||'[]',
+          q.itemsBJson||'[]',
+          q.totalsAJson||null,
+          q.totalsBJson||null
+        ]
       );
     }
     return NextResponse.json({ success: true, count: items.length }, { headers: { 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' } });
@@ -74,7 +124,6 @@ export async function POST(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
-    // Accept ID from query param (?id=xxx) OR body ({ id: xxx })
     const url = new URL(request.url);
     const id = url.searchParams.get('id') || request.headers.get('x-delete-id') || '';
     let bodyId = '';

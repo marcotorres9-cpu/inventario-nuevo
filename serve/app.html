@@ -13408,7 +13408,7 @@ function pushQuotationToServer(q, url) {
             items: [],
             subtotal: q.subtotal || 0,
             total: q.total || 0,
-            notes: JSON.stringify(syncData),
+            notes: q.notes || '',
             validDays: q.validDays || 15,
             mode: isDual ? 'dual' : 'simple',
             optionATitle: q.optionTitleA || 'Opcion A',
@@ -14184,7 +14184,7 @@ function shareQuotationQR(id) {
 }
 
 
-// --- PDF Download (client-side, no iframe for WebView compatibility) ---
+// --- PDF: Sync to server and open in system browser (works in Capacitor WebView) ---
 function downloadQuotationPDF(id) {
     var quotes = getQuotations();
     var q = null;
@@ -14192,59 +14192,82 @@ function downloadQuotationPDF(id) {
         if (quotes[i].id === id) { q = quotes[i]; break; }
     }
     if (!q) { showToast('Cotizacion no encontrada', 'error'); return; }
-    var cfg = getStoreConfig();
-    var isDual = q.isDualMode && q.itemsB && q.itemsB.length > 0;
 
-    var bodyHtml = '';
-    bodyHtml += '<div style="font-size:18px;font-weight:800;text-align:center;margin-bottom:2px;">' + escapeHtml(cfg.storeName || 'Mi Tienda') + '</div>';
-    bodyHtml += '<div style="font-size:11px;color:#666;text-align:center;margin-bottom:12px;line-height:1.4;">' +
+    var serverUrl = getServerUrl() || window.location.origin || '';
+
+    if (!serverUrl || serverUrl === 'null' || serverUrl === 'file://') {
+        // No server available — show preview locally with copy/share options
+        showPdfLocalPreview(q, id);
+        return;
+    }
+
+    showToast('Preparando PDF...', 'info');
+
+    // Push quotation to server first, then open in system browser
+    pushQuotationToServer(q, serverUrl).then(function() {
+        var pdfUrl = serverUrl + '/qr?id=' + encodeURIComponent(id);
+        // Open in system browser where print/download work
+        var opened = window.open(pdfUrl, '_blank');
+        if (!opened) {
+            // Fallback: show locally with link to copy
+            showPdfLocalPreview(q, id, pdfUrl);
+        } else {
+            showToast('Abre el navegador para imprimir/guardar PDF', 'success');
+        }
+    }).catch(function(err) {
+        console.error('Sync error:', err);
+        // Even if sync fails, try to open — the quote might already be on the server
+        var pdfUrl = serverUrl + '/qr?id=' + encodeURIComponent(id);
+        var opened = window.open(pdfUrl, '_blank');
+        if (!opened) {
+            showPdfLocalPreview(q, id, pdfUrl);
+        }
+    });
+}
+
+function showPdfLocalPreview(q, id, serverUrl) {
+    // Remove existing overlay
+    var existing = document.getElementById('pdfPreviewOverlay');
+    if (existing) { try { document.body.removeChild(existing); } catch(ex) {} }
+
+    var cfg = getStoreConfig();
+
+    // Build quotation content
+    var bodyHtml = '<div style="font-size:18px;font-weight:800;text-align:center;margin-bottom:4px;">' + escapeHtml(cfg.storeName || 'Mi Tienda') + '</div>';
+    bodyHtml += '<div style="font-size:11px;color:#666;text-align:center;margin-bottom:12px;">' +
         (cfg.address ? escapeHtml(cfg.address) + '<br>' : '') +
-        (cfg.phone ? 'Tel: ' + escapeHtml(cfg.phone) : '') +
-        (cfg.email ? ' | ' + escapeHtml(cfg.email) : '') + '</div>';
+        (cfg.phone ? 'Tel: ' + escapeHtml(cfg.phone) : '') + '</div>';
     bodyHtml += '<div style="padding:8px 0;border-bottom:1px solid #ddd;margin-bottom:10px;">';
     if (q.clientName) bodyHtml += '<div style="font-size:14px;font-weight:600;">' + escapeHtml(q.clientName) + '</div>';
-    if (q.customerPhone) bodyHtml += '<div style="font-size:11px;color:#666;margin-top:1px;">Tel: ' + escapeHtml(q.customerPhone) + '</div>';
-    if (q.customerEmail) bodyHtml += '<div style="font-size:11px;color:#666;margin-top:1px;">Email: ' + escapeHtml(q.customerEmail) + '</div>';
-    bodyHtml += '<div style="font-size:11px;color:#666;margin-top:1px;">' + formatDate(q.createdAt) + '</div></div>';
+    bodyHtml += '<div style="font-size:11px;color:#666;">' + formatDate(q.createdAt) + '</div></div>';
 
+    var isDual = q.isDualMode && q.itemsB && q.itemsB.length > 0;
     var sections = isDual ? [
-        { title: q.optionTitleA || 'Opcion A', items: q.itemsA || q.items || [], totals: q.totalsA },
-        { title: q.optionTitleB || 'Opcion B', items: q.itemsB || [], totals: q.totalsB }
-    ] : [{ title: null, items: q.itemsA || q.items || [], totals: q.totalsA }];
+        { title: q.optionTitleA || 'Opcion A', items: q.itemsA || q.items || [] },
+        { title: q.optionTitleB || 'Opcion B', items: q.itemsB || [] }
+    ] : [{ title: null, items: q.itemsA || q.items || [] }];
 
     for (var s = 0; s < sections.length; s++) {
         var sec = sections[s];
         if (sec.items.length === 0) continue;
-        if (sec.title) bodyHtml += '<div style="font-size:12px;font-weight:700;margin:10px 0 6px;padding:5px 8px;background:#f0fdf4;border-radius:5px;border-left:3px solid #22c55e;">' + escapeHtml(sec.title) + '</div>';
-        bodyHtml += '<table style="width:100%;border-collapse:collapse;margin-bottom:6px;font-size:11px;"><thead><tr><th style="background:#f8f8f8;padding:5px 4px;font-size:9px;font-weight:700;text-transform:uppercase;text-align:left;border-bottom:2px solid #ddd;color:#888;">Producto</th><th style="background:#f8f8f8;padding:5px 4px;font-size:9px;font-weight:700;text-align:center;border-bottom:2px solid #ddd;color:#888;">Cant.</th><th style="background:#f8f8f8;padding:5px 4px;font-size:9px;font-weight:700;text-align:right;border-bottom:2px solid #ddd;color:#888;">Costo</th><th style="background:#f8f8f8;padding:5px 4px;font-size:9px;font-weight:700;text-align:right;border-bottom:2px solid #ddd;color:#888;">Dto.</th><th style="background:#f8f8f8;padding:5px 4px;font-size:9px;font-weight:700;text-align:right;border-bottom:2px solid #ddd;color:#888;">Final</th></tr></thead><tbody>';
-        var secSub = 0, secDisc = 0;
+        if (sec.title) bodyHtml += '<div style="font-size:12px;font-weight:700;margin:8px 0 4px;padding:4px 8px;background:#f0fdf4;border-radius:4px;border-left:3px solid #22c55e;">' + escapeHtml(sec.title) + '</div>';
+        bodyHtml += '<table style="width:100%;border-collapse:collapse;margin-bottom:6px;font-size:11px;"><thead><tr><th style="background:#f8f8f8;padding:4px;font-size:9px;font-weight:700;text-align:left;border-bottom:2px solid #ddd;">Producto</th><th style="background:#f8f8f8;padding:4px;font-size:9px;font-weight:700;text-align:center;border-bottom:2px solid #ddd;">Cant.</th><th style="background:#f8f8f8;padding:4px;font-size:9px;font-weight:700;text-align:right;border-bottom:2px solid #ddd;">Final</th></tr></thead><tbody>';
         for (var j = 0; j < sec.items.length; j++) {
             var it = sec.items[j];
             var uc = parseFloat(it.costPrice) || parseFloat(it.price) || 0;
             var lc = it.qty * uc;
             var ld = parseFloat(it.lineDiscount) || 0;
             var lf = Math.max(0, lc - ld);
-            secSub += lc; secDisc += ld;
-            bodyHtml += '<tr><td style="padding:4px;border-bottom:1px solid #eee;">' + escapeHtml(it.productName || it.name || '') + '</td><td style="padding:4px;border-bottom:1px solid #eee;text-align:center;">' + it.qty + '</td><td style="padding:4px;border-bottom:1px solid #eee;text-align:right;color:#e17055;font-weight:600;">$' + lc.toFixed(2) + '</td><td style="padding:4px;border-bottom:1px solid #eee;text-align:right;color:#d97706;">' + (ld > 0 ? '-$' + ld.toFixed(2) : '-') + '</td><td style="padding:4px;border-bottom:1px solid #eee;text-align:right;"><strong style="color:#059669;">$' + lf.toFixed(2) + '</strong></td></tr>';
+            bodyHtml += '<tr><td style="padding:4px;border-bottom:1px solid #eee;">' + escapeHtml(it.productName || it.name || '') + '</td><td style="padding:4px;border-bottom:1px solid #eee;text-align:center;">' + it.qty + '</td><td style="padding:4px;border-bottom:1px solid #eee;text-align:right;font-weight:700;color:#059669;">$' + lf.toFixed(2) + '</td></tr>';
         }
         bodyHtml += '</tbody></table>';
-        var secFin = Math.max(0, secSub - secDisc);
-        var totalLabel = sec.title ? ('Total ' + escapeHtml(sec.title)) : 'Total';
-        bodyHtml += '<div style="text-align:right;padding:8px;background:#f0fdf4;border-radius:6px;border:1px solid #bbf7d0;margin-bottom:8px;"><span style="font-size:10px;color:#888;font-weight:700;">' + totalLabel + ': </span><span style="font-size:18px;font-weight:800;color:#16a34a;">$' + secFin.toFixed(2) + '</span></div>';
     }
-    if (q.notes) bodyHtml += '<div style="margin-top:8px;padding:8px;background:#f9f9f9;border-radius:6px;font-size:11px;color:#555;"><strong style="color:#888;font-size:9px;">Notas:</strong><br>' + escapeHtml(q.notes) + '</div>';
-    if (q.validDays || q.createdAt) {
-        var days = q.validDays || 15;
-        var validDate = new Date(new Date(q.createdAt).getTime() + days * 86400000);
-        bodyHtml += '<div style="text-align:center;font-size:10px;color:#888;margin-top:6px;">Valida por ' + days + ' dias - hasta ' + formatDate(validDate) + '</div>';
-    }
-    if (cfg.footerText) bodyHtml += '<div style="text-align:center;font-size:10px;color:#888;margin-top:8px;">' + escapeHtml(cfg.footerText) + '</div>';
+    var st = q.totalsA ? q.totalsA.total : (q.total || 0);
+    bodyHtml += '<div style="text-align:right;padding:8px;background:#f0fdf4;border-radius:6px;border:1px solid #bbf7d0;"><span style="font-size:10px;color:#888;font-weight:700;">Total: </span><span style="font-size:18px;font-weight:800;color:#16a34a;">$' + st.toFixed(2) + '</span></div>';
 
-    var fullHtml = '<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>' + escapeHtml(q.number || 'Cotizacion') + '</title><style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;padding:16px;color:#1a1a1a;font-size:13px;}@media print{body{padding:0;}}</style></head><body>' + bodyHtml + '</body></html>';
+    if (q.notes) bodyHtml += '<div style="margin-top:8px;padding:8px;background:#f9f9f9;border-radius:6px;font-size:11px;color:#555;"><strong>Notas:</strong><br>' + escapeHtml(q.notes) + '</div>';
 
-    var existing = document.getElementById('pdfPreviewOverlay');
-    if (existing) { try { document.body.removeChild(existing); } catch(ex) {} }
-
+    // Create overlay
     var pdfOverlay = document.createElement('div');
     pdfOverlay.id = 'pdfPreviewOverlay';
     pdfOverlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;z-index:9999;background:#fff;display:flex;flex-direction:column;';
@@ -14255,57 +14278,40 @@ function downloadQuotationPDF(id) {
     var closeBtn = document.createElement('button');
     closeBtn.style.cssText = 'flex:1;padding:10px;background:#22c55e;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;';
     closeBtn.innerHTML = '\u2190 Regresar';
-    closeBtn.onclick = function() { var ps = document.getElementById('pdfPrintStyle'); if (ps) ps.remove(); document.body.removeChild(pdfOverlay); };
+    closeBtn.onclick = function() { document.body.removeChild(pdfOverlay); };
 
-    var printBtn = document.createElement('button');
-    printBtn.style.cssText = 'flex:2;padding:10px;background:#3b82f6;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;';
-    printBtn.innerHTML = '\uD83D\uDDA8 Imprimir';
-    printBtn.onclick = function() {
-        try {
-            var existingStyle = document.getElementById('pdfPrintStyle');
-            if (!existingStyle) {
-                var style = document.createElement('style');
-                style.id = 'pdfPrintStyle';
-                style.textContent = '@media print{body>*{display:none!important;}#pdfPreviewOverlay{display:flex!important;position:static!important;width:100%!important;height:auto!important;z-index:auto!important;}#pdfPreviewOverlay>div:first-child{display:none!important;}#pdfPreviewBody{overflow:visible!important;flex:none!important;background:#fff!important;}}';
-                document.head.appendChild(style);
-            }
-            window.print();
-            setTimeout(function() { var ps = document.getElementById('pdfPrintStyle'); if (ps) ps.remove(); }, 2000);
-        } catch(e) { showToast('No se puede imprimir', 'error'); }
-    };
+    pdfHeader.appendChild(closeBtn);
 
-    var saveBtn = document.createElement('button');
-    saveBtn.style.cssText = 'flex:1;padding:10px;background:#f59e0b;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;';
-    saveBtn.innerHTML = '\uD83D\uDCBE Guardar';
-    saveBtn.onclick = function() {
-        try {
-            var blob = new Blob([fullHtml], { type: 'text/html;charset=utf-8' });
-            var url = URL.createObjectURL(blob);
-            var a = document.createElement('a');
-            a.href = url;
-            a.download = (q.number || 'cotizacion') + '.html';
-            document.body.appendChild(a);
-            a.click();
-            setTimeout(function() { document.body.removeChild(a); URL.revokeObjectURL(url); }, 500);
-            showToast('Archivo guardado', 'success');
-        } catch(e) { showToast('No se puede guardar', 'error'); }
-    };
+    // If we have a server URL, add a button to copy/open it
+    if (serverUrl) {
+        var copyBtn = document.createElement('button');
+        copyBtn.style.cssText = 'flex:2;padding:10px;background:#3b82f6;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;';
+        copyBtn.innerHTML = '\uD83D\uDCCB Copiar enlace PDF';
+        copyBtn.onclick = function() {
+            try {
+                var ta = document.createElement('textarea');
+                ta.value = serverUrl;
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand('copy');
+                document.body.removeChild(ta);
+                showToast('Enlace copiado - abre en navegador para imprimir', 'success');
+            } catch(ex) { showToast('No se pudo copiar', 'error'); }
+        };
+        pdfHeader.appendChild(copyBtn);
+    }
 
     var shareBtn = document.createElement('button');
     shareBtn.style.cssText = 'flex:1;padding:10px;background:#25D366;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;';
-    shareBtn.innerHTML = '\uD83D\uDCF1 WA';
+    shareBtn.innerHTML = '\uD83D\uDCF1 Compartir';
     shareBtn.onclick = function() {
         var text = buildQuotationText(id);
         if (text && navigator.share) {
             navigator.share({ title: 'Cotizacion ' + (q.number || ''), text: text }).catch(function(){});
         } else if (text) {
-            try { var ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); showToast('Texto copiado - pega en WhatsApp', 'success'); } catch(ex) {}
+            try { var ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); showToast('Texto copiado', 'success'); } catch(ex) {}
         }
     };
-
-    pdfHeader.appendChild(closeBtn);
-    pdfHeader.appendChild(printBtn);
-    pdfHeader.appendChild(saveBtn);
     pdfHeader.appendChild(shareBtn);
     pdfOverlay.appendChild(pdfHeader);
 
@@ -14316,8 +14322,9 @@ function downloadQuotationPDF(id) {
     pdfOverlay.appendChild(pdfBody);
 
     document.body.appendChild(pdfOverlay);
-    showToast('PDF listo para imprimir o guardar', 'success');
+    showToast('Vista previa - usa copiar enlace para imprimir', 'info');
 }
+
 
 
 // ====================================================================
