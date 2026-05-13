@@ -8,11 +8,28 @@
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
     <title>Inventario Pro</title>
-    <!-- Force fresh load: bypass WebView cache with timestamp parameter -->
     <script>
-    if (!window.location.search || window.location.search.indexOf('_r=') === -1) {
-        window.location.replace(window.location.pathname + '?_r=' + Date.now());
-    }
+    // FORCE fresh code: use fetch to bypass all caches, compare with current page
+    (function(){
+        try {
+            var _NV = 'NV10'; // increment this to force all clients to reload
+            var _ck = '_inv_nv';
+            if (sessionStorage.getItem(_ck) !== _NV) {
+                sessionStorage.setItem(_ck, _NV);
+                var _ts = Date.now();
+                var _self = window.location.pathname;
+                // Navigate to same page with cache-busting param — WebView treats as new page
+                window.location.replace(_self + '?_t=' + _ts + '&_v=' + _NV);
+                throw 'stop'; // halt execution of stale code
+            }
+            // We already have fresh code, but verify with fetch every 30 min
+            var _lastCheck = parseInt(sessionStorage.getItem('_inv_lchk') || '0');
+            if (Date.now() - _lastCheck > 1800000) {
+                sessionStorage.setItem('_inv_lchk', '' + Date.now());
+                fetch(window.location.pathname + '?_chk=' + Date.now(), {cache:'no-store',method:'HEAD'}).catch(function(){});
+            }
+        } catch(e) { if (e !== 'stop') console.warn('cache bust:', e); }
+    })();
     </script>
     <script>
     (function(){
@@ -14318,31 +14335,47 @@ function showPdfOverlay(q, id) {
     overlay.id = 'pdfPreviewOverlay';
     overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;z-index:9999;background:#f3f4f6;display:flex;flex-direction:column;';
 
-    // Top bar — 3 buttons: Regresar, PDF, Compartir
+    // Top bar — Regresar + 3 action buttons
     var topBar = document.createElement('div');
-    topBar.style.cssText = 'display:flex;gap:6px;padding:10px 12px;background:#fff;border-bottom:2px solid #e5e7eb;flex-shrink:0;box-shadow:0 2px 8px rgba(0,0,0,0.08);';
+    topBar.style.cssText = 'padding:10px 12px;background:#fff;border-bottom:2px solid #e5e7eb;flex-shrink:0;box-shadow:0 2px 8px rgba(0,0,0,0.08);';
 
-    // REGRESAR
+    // Row 1: Regresar + PDF
+    var row1 = document.createElement('div');
+    row1.style.cssText = 'display:flex;gap:6px;margin-bottom:6px;';
+
     var regresarBtn = document.createElement('button');
     regresarBtn.style.cssText = 'padding:12px 14px;background:#6b7280;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;';
     regresarBtn.innerHTML = '\u2190 Regresar';
     regresarBtn.onclick = function() { document.body.removeChild(overlay); };
 
-    // PDF — abre en navegador del sistema donde sí funciona imprimir/guardar PDF
+    // PDF — opens in system browser
     var pdfBtn = document.createElement('button');
-    pdfBtn.style.cssText = 'flex:1;padding:12px 8px;background:#22c55e;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;box-shadow:0 2px 8px rgba(34,197,94,0.3);';
-    pdfBtn.innerHTML = '&#128196; PDF';
+    pdfBtn.style.cssText = 'flex:1;padding:12px 8px;background:#22c55e;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:800;cursor:pointer;';
+    pdfBtn.innerHTML = '&#128196; Abrir PDF';
     pdfBtn.onclick = function() { openPdfInBrowser(q); };
 
-    // WHATSAPP
+    row1.appendChild(regresarBtn);
+    row1.appendChild(pdfBtn);
+
+    // Row 2: Guardar + WA
+    var row2 = document.createElement('div');
+    row2.style.cssText = 'display:flex;gap:6px;';
+
+    var saveBtn = document.createElement('button');
+    saveBtn.style.cssText = 'flex:1;padding:11px 8px;background:#3b82f6;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;';
+    saveBtn.innerHTML = '&#128190; Guardar archivo';
+    saveBtn.onclick = function() { downloadQuotationFile(q); };
+
     var waBtn = document.createElement('button');
-    waBtn.style.cssText = 'flex:1;padding:12px 8px;background:#25D366;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;box-shadow:0 2px 8px rgba(37,211,102,0.3);';
-    waBtn.innerHTML = '&#128241; WA';
+    waBtn.style.cssText = 'flex:1;padding:11px 8px;background:#25D366;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;';
+    waBtn.innerHTML = '&#128241; WhatsApp';
     waBtn.onclick = function() { shareQuotationFile(q); };
 
-    topBar.appendChild(regresarBtn);
-    topBar.appendChild(pdfBtn);
-    topBar.appendChild(waBtn);
+    row2.appendChild(saveBtn);
+    row2.appendChild(waBtn);
+
+    topBar.appendChild(row1);
+    topBar.appendChild(row2);
     overlay.appendChild(topBar);
 
     // Scrollable body with quotation content
@@ -14362,53 +14395,57 @@ function showPdfOverlay(q, id) {
     }
 }
 
-// Open quotation in system browser (Chrome) where print/save PDF works
-function openPdfInBrowser(q) {
-    var serverUrl = getServerUrl() || 'https://inventario-nuevo.vercel.app';
-    var targetUrl = serverUrl + '/qr?id=' + encodeURIComponent(q.id);
-
-    showToast('Abriendo navegador...', 'info');
-
-    // Push to server first so the /qr page can find the quotation
-    if (isOnline()) {
-        pushQuotationToServer(q, serverUrl).then(function() {
-            launchInBrowser(targetUrl);
-        }).catch(function() {
-            launchInBrowser(targetUrl);
-        });
-    } else {
-        launchInBrowser(targetUrl);
-    }
-}
-
-// Force open URL in system browser (outside WebView) using Android intent
-function launchInBrowser(url) {
-    // Method 1: Android intent URL — forces open in real browser
+// Download quotation as HTML file (user opens in Chrome, then prints to PDF)
+function downloadQuotationFile(q) {
     try {
+        var html = generateQuotationHtmlDocument(q);
+        var blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+        var url = URL.createObjectURL(blob);
+        var safeName = (q.number || 'COT-001').replace(/[^a-zA-Z0-9]/g, '');
         var a = document.createElement('a');
-        a.href = 'intent:' + url + '#Intent;scheme=https;action=android.intent.action.VIEW;end';
-        a.target = '_blank';
+        a.href = url;
+        a.download = 'Cotizacion_' + safeName + '.html';
         a.style.display = 'none';
         document.body.appendChild(a);
         a.click();
         setTimeout(function() {
             try { document.body.removeChild(a); } catch(ex) {}
-        }, 2000);
-        return;
-    } catch(ex) {}
+            URL.revokeObjectURL(url);
+            showToast('Archivo guardado — ábrelo desde tus descargas', 'success');
+        }, 1000);
+    } catch(ex) {
+        console.error('Download error:', ex);
+        showToast('No se pudo guardar el archivo', 'error');
+    }
+}
 
-    // Method 2: Try window.open with _system (some Capacitor versions support this)
-    try {
-        var w = window.open(url, '_system');
-        if (w) return;
-    } catch(ex) {}
+// Open quotation in system browser (Chrome) where print/save PDF works
+function openPdfInBrowser(q) {
+    showToast('Preparando...', 'info');
+    var serverUrl = getServerUrl() || 'https://inventario-nuevo.vercel.app';
 
-    // Method 3: Regular window.open as last resort
-    try {
-        window.open(url, '_blank');
-    } catch(ex) {}
+    // Push to server first, then open in system browser
+    var doOpen = function() {
+        var url = serverUrl + '/qr?id=' + encodeURIComponent(q.id);
+        // Try opening via anchor click with target _blank (works better in WebView than window.open)
+        var a = document.createElement('a');
+        a.href = url;
+        a.target = '_blank';
+        a.rel = 'noopener';
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(function() {
+            try { document.body.removeChild(a); } catch(ex) {}
+            showToast('Si no abrió, copia este enlace en Chrome:\n' + url, 'info');
+        }, 1500);
+    };
 
-    showToast('Abre tu navegador y ve a la dirección copiada', 'info');
+    if (isOnline()) {
+        pushQuotationToServer(q, serverUrl).then(doOpen).catch(doOpen);
+    } else {
+        doOpen();
+    }
 }
 
 // Share quotation — works in Capacitor WebView on Android
@@ -14416,45 +14453,29 @@ function shareQuotationFile(q) {
     var text = buildQuotationText(q.id);
     if (!text) { showToast('No hay datos para compartir', 'error'); return; }
 
-    // Try 1: navigator.share() — opens Android system share sheet (WhatsApp, email, etc.)
-    if (navigator.share) {
+    // navigator.share() opens Android system share sheet — user picks WhatsApp, email, etc.
+    if (typeof navigator !== 'undefined' && navigator.share) {
         navigator.share({
             title: 'Cotización ' + (q.number || ''),
             text: text
-        }).catch(function(err) {
-            // User cancelled or not supported — try WhatsApp direct
-            openWhatsAppDeepLink(text);
+        }).catch(function() {
+            // User cancelled — fallback to WhatsApp
+            openWhatsApp(text);
         });
     } else {
-        // Try 2: WhatsApp deep link via anchor element (works in most WebViews)
-        openWhatsAppDeepLink(text);
+        openWhatsApp(text);
     }
 }
 
-// Open WhatsApp via deep link using anchor click (reliable in WebView)
-function openWhatsAppDeepLink(text) {
-    try {
-        var a = document.createElement('a');
-        a.href = 'https://wa.me/?text=' + encodeURIComponent(text);
-        a.target = '_blank';
-        a.style.display = 'none';
-        document.body.appendChild(a);
-        a.click();
-        setTimeout(function() { document.body.removeChild(a); }, 1000);
-    } catch(ex) {
-        // Last resort: copy to clipboard
-        try {
-            var ta = document.createElement('textarea');
-            ta.value = text;
-            document.body.appendChild(ta);
-            ta.select();
-            document.execCommand('copy');
-            document.body.removeChild(ta);
-            showToast('Texto copiado — pégalo en WhatsApp', 'success');
-        } catch(e2) {
-            showToast('No se pudo compartir', 'error');
-        }
-    }
+// Open WhatsApp via deep link
+function openWhatsApp(text) {
+    var a = document.createElement('a');
+    a.href = 'https://wa.me/?text=' + encodeURIComponent(text);
+    a.target = '_blank';
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function() { try { document.body.removeChild(a); } catch(ex) {} }, 1000);
 }
 
 // Generate a complete self-contained HTML document (for file sharing)
