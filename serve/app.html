@@ -5447,7 +5447,6 @@ function renderPreliminaryDetail() {
             totalCurrentDiscount += ld;
         }
 
-        var savingsPercent = totalCostPrice > 0 ? ((totalCurrentDiscount / totalCostPrice) * 100) : 0;
         var hasDiscounts = totalCurrentDiscount > 0;
         var currentTotal = Math.max(0, totalCostPrice - totalCurrentDiscount);
 
@@ -5479,8 +5478,7 @@ function renderPreliminaryDetail() {
             h += '<div style="text-align:center;padding:8px 4px;background:rgba(245,158,11,0.08);border-radius:8px;border:1px solid rgba(245,158,11,0.15);">';
             h += '<div style="font-size:8px;color:var(--text3);font-weight:600;">AHORRO</div>';
             h += '<div style="font-size:14px;font-weight:800;color:#f59e0b;">-$' + totalCurrentDiscount.toFixed(2) + '</div>';
-            h += '<div style="font-size:8px;color:#f59e0b;opacity:0.7;">' + savingsPercent.toFixed(1) + '%</div>';
-            h += '</div></div>';
+            h += '</div></div';
         } else {
             // Only show costo total when no discount
             h += '<div style="display:flex;justify-content:center;margin-bottom:8px;">';
@@ -5955,10 +5953,6 @@ function viewQuotation(id) {
         }
         h += '<span style="font-size:20px;font-weight:900;color:var(--primary);">$' + secFinal.toFixed(2) + '</span>';
         h += '</div>';
-        if (secDiscount > 0 && secSubtotal > 0) {
-            var pct = ((secDiscount / secSubtotal) * 100).toFixed(1);
-            h += '<div style="text-align:right;font-size:10px;color:var(--primary);opacity:0.7;margin-top:2px;">Ahorro: ' + pct + '%</div>';
-        }
         h += '</div>';
     }
 
@@ -14033,23 +14027,41 @@ function shareQuotationQR(id) {
     if (!q) { showToast('Cotización no encontrada', 'error'); return; }
     var cfg = getStoreConfig();
 
-    // Build short URL using server-side storage (avoids QR data truncation)
-    var serverBase = getServerUrl() || window.location.origin;
-    var qrUrl = serverBase + '/qr?id=' + encodeURIComponent(id);
+    // Build URL for QR — try server URL first, fallback to origin
+    var serverBase = getServerUrl() || '';
+    if (!serverBase && window.location.origin && window.location.origin !== 'null' && window.location.origin !== 'file://') {
+        serverBase = window.location.origin;
+    }
+    var qrUrl = serverBase ? (serverBase + '/qr?id=' + encodeURIComponent(id)) : '';
 
-    // Generate QR from short URL — use SVG for maximum WebView compatibility
-    var qr;
+    // If no valid URL, build a compact data:text URL with quotation summary
+    if (!qrUrl || qrUrl.length < 10) {
+        var summary = (cfg.storeName || 'Cotización') + ' - ' + (q.number || '') + '\n';
+        summary += 'Cliente: ' + (q.clientName || '') + '\n';
+        summary += 'Total: $' + (q.total || 0).toFixed(2) + '\n';
+        summary += 'Fecha: ' + (q.createdAt ? new Date(q.createdAt).toLocaleDateString() : '');
+        qrUrl = summary.substring(0, 500);
+    }
+
+    // Generate QR — use SVG for maximum WebView compatibility
+    var qrSvgHtml = '';
     try {
         var maxLen = 2953;
-        if (qrUrl.length > maxLen) qrUrl = qrUrl.substring(0, maxLen);
-        qr = qrcode(0, 'L');
-        qr.addData(qrUrl);
+        var qrText = qrUrl;
+        if (qrText.length > maxLen) qrText = qrText.substring(0, maxLen);
+        var qr = qrcode(0, 'M');
+        qr.addData(qrText);
         qr.make();
+        qrSvgHtml = qr.createSvgTag({ cellSize: 6, margin: 8, scalable: true });
     } catch(e) {
         console.error('QR generation error:', e);
-        showToast('Error al generar QR', 'error');
+        showToast('Error al generar QR: ' + e.message, 'error');
         return;
     }
+
+    // Remove any existing QR modal
+    var existingQr = document.getElementById('qrModalOverlay');
+    if (existingQr) { try { document.body.removeChild(existingQr); } catch(ex) {} }
 
     // Create modal overlay
     var overlay = document.createElement('div');
@@ -14074,7 +14086,7 @@ function shareQuotationQR(id) {
 
     var qrContainer = document.createElement('div');
     qrContainer.style.cssText = 'width:220px;height:220px;max-width:70vw;max-height:70vw;margin:0 auto;display:flex;align-items:center;justify-content:center;border:4px solid #e5e7eb;border-radius:12px;overflow:hidden;padding:8px;background:#fff;';
-    qrContainer.innerHTML = qr.createSvgTag({ cellSize: 6, margin: 12, scalable: true });
+    qrContainer.innerHTML = qrSvgHtml;
     var svgEl = qrContainer.querySelector('svg');
     if (svgEl) { svgEl.setAttribute('width', '100%'); svgEl.setAttribute('height', '100%'); svgEl.style.display = 'block'; }
 
@@ -14231,7 +14243,6 @@ function downloadQuotationPDF(id) {
         '.summary-divider{height:2px;background:#ddd;margin:6px 0;}' +
         '.summary-total-label{font-size:13px;color:#1a1a1a;font-weight:700;}' +
         '.summary-total-value{font-size:20px;font-weight:900;color:#16a34a;}' +
-        '.summary-pct{font-size:10px;color:#16a34a;text-align:right;opacity:0.7;}' +
         'table{width:100%;border-collapse:collapse;margin-bottom:8px;font-size:12px;}' +
         'th{background:#f8f8f8;padding:6px 5px;font-size:10px;font-weight:700;text-transform:uppercase;text-align:left;border-bottom:2px solid #ddd;color:#888;}' +
         'td{padding:6px 5px;border-bottom:1px solid #eee;}' +
@@ -14254,11 +14265,8 @@ function downloadQuotationPDF(id) {
         '@media screen and (max-width:600px){.dual-container{flex-direction:column;}}' +
         '</style></head><body>';
 
-    // Back + Print buttons (hidden on print)
-    printHtml += '<div class="no-print actions">' +
-        '<a class="back-btn" href="' + window.location.href + '" style="background:#22c55e;">&#8592; Regresar</a>' +
-        '<a class="back-btn" href="javascript:void(0);" onclick="window.print();" style="background:#3b82f6;">&#128424;&#65039; Imprimir / Guardar PDF</a>' +
-        '</div>';
+    // No back/print buttons inside iframe — overlay header already has them
+    printHtml += '';
 
     // Store info
     printHtml += '<div class="store-name">' + escapeHtml(cfg.storeName || 'Mi Tienda') + '</div>';
@@ -14306,8 +14314,7 @@ function downloadQuotationPDF(id) {
             if (dSecDisc > 0) printHtml += '<div class="summary-row"><span class="summary-label">Descuento:</span><span class="summary-value" style="color:#d97706;">-$' + dSecDisc.toFixed(2) + '</span></div>';
             printHtml += '<div class="summary-divider"></div>';
             printHtml += '<div class="summary-row"><span class="summary-total-label">TOTAL ' + escapeHtml(sec.title).toUpperCase() + ':</span><span class="summary-total-value">$' + dSecFin.toFixed(2) + '</span></div>';
-            if (dSecDisc > 0 && dSecSub > 0) printHtml += '<div class="summary-pct">Ahorro: ' + ((dSecDisc/dSecSub)*100).toFixed(1) + '%</div>';
-            printHtml += '</div>';
+            printHtml += '</div';
             printHtml += '</div>';
         }
         printHtml += '</div>';
@@ -14336,7 +14343,6 @@ function downloadQuotationPDF(id) {
         if (sSecDisc > 0) printHtml += '<div class="summary-row"><span class="summary-label">Descuento:</span><span class="summary-value" style="color:#d97706;">-$' + sSecDisc.toFixed(2) + '</span></div>';
         printHtml += '<div class="summary-divider"></div>';
         printHtml += '<div class="summary-row"><span class="summary-total-label">TOTAL:</span><span class="summary-total-value">$' + sSecFin.toFixed(2) + '</span></div>';
-        if (sSecDisc > 0 && sSecSub > 0) printHtml += '<div class="summary-pct">Ahorro: ' + ((sSecDisc/sSecSub)*100).toFixed(1) + '%</div>';
         printHtml += '</div>';
     }
 
