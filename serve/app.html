@@ -8,12 +8,12 @@
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
     <title>Inventario Pro</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" onerror="window._jspdfErr=true"></script>
     <script>
     // FORCE fresh code: use fetch to bypass all caches, compare with current page
     (function(){
         try {
-            var _NV = 'NV11'; // increment this to force all clients to reload
+            var _NV = 'NV12'; // increment this to force all clients to reload
             var _ck = '_inv_nv';
             if (sessionStorage.getItem(_ck) !== _NV) {
                 sessionStorage.setItem(_ck, _NV);
@@ -14380,14 +14380,13 @@ function showPdfOverlay(q, id) {
 }
 
 // ============================================
-// PDF GENERATION WITH jsPDF — works entirely client-side
-// No server dependency, no WebView traps
+// PDF GENERATION WITH jsPDF — shows inline + shares link
 // ============================================
 
 function generatePdfBlob(q) {
     var jsPDF = (window.jspdf ? window.jspdf.jsPDF : null);
     if (!jsPDF) {
-        showToast('Cargando librería PDF... intenta de nuevo', 'error');
+        showToast('No se pudo cargar la libreria PDF. Revisa tu conexion.', 'error');
         return null;
     }
 
@@ -14480,7 +14479,6 @@ function generatePdfBlob(q) {
         var sec = sections[s];
         if (!sec.items || sec.items.length === 0) continue;
 
-        // Section title (dual mode)
         if (isDual) {
             doc.setFontSize(11);
             doc.setFont('helvetica', 'bold');
@@ -14489,10 +14487,8 @@ function generatePdfBlob(q) {
             y += 5;
         }
 
-        // Check if we need a new page (need at least 30mm for table header + 1 row)
         if (y > pageH - 40) { doc.addPage(); y = margin; }
 
-        // Table header
         var colX = [margin, margin + contentW * 0.50, margin + contentW * 0.62, margin + contentW * 0.75, margin + contentW * 0.87];
         doc.setFillColor(sec.r, sec.g, sec.b);
         doc.rect(margin, y - 3, contentW, 7, 'F');
@@ -14506,12 +14502,10 @@ function generatePdfBlob(q) {
         doc.text('FINAL', colX[4], y, { align: 'right' });
         y += 5;
 
-        // Table rows
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(8);
         for (var j = 0; j < sec.items.length; j++) {
             if (y > pageH - 15) { doc.addPage(); y = margin; }
-
             var it = sec.items[j];
             var qty = it.qty || 1;
             var price = parseFloat(it.price) || parseFloat(it.costPrice) || 0;
@@ -14519,13 +14513,7 @@ function generatePdfBlob(q) {
             var disc = parseFloat(it.lineDiscount) || 0;
             var lineFinal = Math.max(0, lineCost - disc);
             var pName = (it.productName || it.name || '').substring(0, 35);
-
-            // Alternate row background
-            if (j % 2 === 1) {
-                doc.setFillColor(249, 250, 251);
-                doc.rect(margin, y - 3, contentW, 6, 'F');
-            }
-
+            if (j % 2 === 1) { doc.setFillColor(249, 250, 251); doc.rect(margin, y - 3, contentW, 6, 'F'); }
             doc.setTextColor(55, 65, 81);
             doc.text(pName, colX[0] + 1, y);
             doc.setTextColor(107, 114, 128);
@@ -14538,14 +14526,10 @@ function generatePdfBlob(q) {
             doc.setFont('helvetica', 'bold');
             doc.text('$' + lineFinal.toFixed(2), colX[4], y, { align: 'right' });
             doc.setFont('helvetica', 'normal');
-
-            // Row line
             doc.setDrawColor(243, 244, 246);
             doc.line(margin, y + 2, pageW - margin, y + 2);
             y += 5;
         }
-
-        // Section total (dual mode)
         if (isDual && sec.totals) {
             y += 2;
             var secTotal = sec.totals.total || 0;
@@ -14568,7 +14552,6 @@ function generatePdfBlob(q) {
     // ---- Grand total ----
     y += 2;
     if (y > pageH - 30) { doc.addPage(); y = margin; }
-
     if (isDual) {
         doc.setFillColor(240, 253, 244);
         doc.setDrawColor(34, 197, 94);
@@ -14601,7 +14584,6 @@ function generatePdfBlob(q) {
         y += 14;
     }
 
-    // ---- Validity ----
     y += 3;
     if (validDate) {
         doc.setFontSize(8);
@@ -14610,7 +14592,6 @@ function generatePdfBlob(q) {
         y += 5;
     }
 
-    // ---- Notes ----
     if (q.notes) {
         y += 2;
         if (y > pageH - 25) { doc.addPage(); y = margin; }
@@ -14624,13 +14605,10 @@ function generatePdfBlob(q) {
         doc.setFontSize(7);
         doc.setTextColor(85, 85, 85);
         var noteLines = doc.splitTextToSize(q.notes, contentW - 6);
-        for (var n = 0; n < Math.min(noteLines.length, 3); n++) {
-            doc.text(noteLines[n], margin + 3, y + 6 + n * 3);
-        }
+        for (var n = 0; n < Math.min(noteLines.length, 3); n++) { doc.text(noteLines[n], margin + 3, y + 6 + n * 3); }
         y += 18;
     }
 
-    // ---- Footer ----
     if (cfg.footerText) {
         y += 2;
         if (y > pageH - 15) { doc.addPage(); y = margin; }
@@ -14645,131 +14623,243 @@ function generatePdfBlob(q) {
     return doc.output('blob');
 }
 
-// Main function: generate PDF and handle save/share
+// ============================================
+// SHOW PDF INLINE + SHARE VIA LINK
+// This approach works in WebView: show PDF in iframe,
+// upload to server, share the public link via WhatsApp
+// ============================================
+
+// Global cache for uploaded PDF URLs
+var _pdfUrlCache = {};
+
 function generateAndSharePdf(q, mode) {
-    try {
-        var pdfBlob = generatePdfBlob(q);
-        if (!pdfBlob) return;
+    showToast('Generando PDF...', 'info');
 
-        var safeName = (q.number || 'COT-001').replace(/[^a-zA-Z0-9\-]/g, '');
-        var fileName = 'Cotizacion_' + safeName + '.pdf';
-        var pdfFile = new File([pdfBlob], fileName, { type: 'application/pdf' });
+    // Small delay so toast appears before heavy work
+    setTimeout(function() {
+        try {
+            var pdfBlob = generatePdfBlob(q);
+            if (!pdfBlob) return;
 
-        if (mode === 'whatsapp') {
-            // Try sharing file via system share sheet (user can pick WhatsApp)
-            sharePdfFile(pdfFile, q, fileName);
-        } else if (mode === 'share') {
-            // Share via system share sheet
-            sharePdfFile(pdfFile, q, fileName);
-        } else {
-            // Default: try to save/share the file
-            sharePdfFile(pdfFile, q, fileName);
+            if (mode === 'whatsapp' || mode === 'share') {
+                // Upload PDF to server, get link, then share
+                uploadPdfAndGetLink(pdfBlob, q, function(pdfUrl) {
+                    if (mode === 'whatsapp') {
+                        sharePdfLinkWhatsApp(pdfUrl, q);
+                    } else {
+                        sharePdfLinkGeneric(pdfUrl, q);
+                    }
+                });
+            } else {
+                // Default: show PDF inline in the overlay
+                showPdfInline(pdfBlob, q);
+            }
+        } catch (ex) {
+            console.error('PDF error:', ex);
+            showToast('Error al generar PDF: ' + ex.message, 'error');
         }
-    } catch (ex) {
-        console.error('PDF generation error:', ex);
-        showToast('Error al generar PDF: ' + ex.message, 'error');
-    }
+    }, 100);
 }
 
-// Share PDF file using Web Share API (works on Android 10+ WebView)
-function sharePdfFile(pdfFile, q, fileName) {
-    // Method 1: Web Share API with files (Android 10+)
-    if (navigator.share && navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
-        navigator.share({
-            title: 'Cotizacion ' + (q.number || ''),
-            text: 'Cotizacion ' + (q.number || '') + ' - Total: $' + (q.total || 0).toFixed(2),
-            files: [pdfFile]
-        }).then(function() {
-            showToast('PDF compartido', 'success');
-        }).catch(function(err) {
-            if (err.name !== 'AbortError') {
-                console.warn('Share failed, trying fallback:', err);
-                pdfFallbackSave(pdfFile, q, fileName);
-            }
-        });
+// Show PDF inline in the overlay (replaces HTML preview)
+function showPdfInline(pdfBlob, q) {
+    var overlay = document.getElementById('pdfPreviewOverlay');
+    if (!overlay) return;
+
+    var body = document.getElementById('pdfPreviewBody');
+    if (!body) return;
+
+    // Clear existing content
+    body.innerHTML = '';
+
+    // Create iframe to show PDF
+    var blobUrl = URL.createObjectURL(pdfBlob);
+    var iframe = document.createElement('iframe');
+    iframe.src = blobUrl;
+    iframe.style.cssText = 'width:100%;height:100%;border:none;background:#fff;';
+    body.appendChild(iframe);
+
+    // Update buttons in top bar
+    var topBar = overlay.querySelector('div');
+    if (topBar) {
+        topBar.innerHTML = '';
+        // Row 1: Volver + Compartir enlace
+        var row1 = document.createElement('div');
+        row1.style.cssText = 'display:flex;gap:6px;margin-bottom:6px;';
+
+        var regresarBtn = document.createElement('button');
+        regresarBtn.style.cssText = 'padding:12px 14px;background:#6b7280;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;';
+        regresarBtn.innerHTML = '\u2190 Volver';
+        regresarBtn.onclick = function() { try { URL.revokeObjectURL(blobUrl); document.body.removeChild(overlay); } catch(ex) {} };
+
+        var shareBtn = document.createElement('button');
+        shareBtn.style.cssText = 'flex:1;padding:12px 8px;background:#22c55e;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;';
+        shareBtn.innerHTML = '&#128228; Compartir enlace del PDF';
+        shareBtn.onclick = function() {
+            uploadPdfAndGetLink(pdfBlob, q, function(pdfUrl) {
+                sharePdfLinkGeneric(pdfUrl, q);
+            });
+        };
+
+        row1.appendChild(regresarBtn);
+        row1.appendChild(shareBtn);
+        topBar.appendChild(row1);
+
+        // Row 2: WhatsApp + Copiar enlace
+        var row2 = document.createElement('div');
+        row2.style.cssText = 'display:flex;gap:6px;';
+
+        var waBtn = document.createElement('button');
+        waBtn.style.cssText = 'flex:1;padding:11px 8px;background:#25D366;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;';
+        waBtn.innerHTML = '&#128241; Enviar por WA';
+        waBtn.onclick = function() {
+            uploadPdfAndGetLink(pdfBlob, q, function(pdfUrl) {
+                sharePdfLinkWhatsApp(pdfUrl, q);
+            });
+        };
+
+        var copyBtn = document.createElement('button');
+        copyBtn.style.cssText = 'flex:1;padding:11px 8px;background:#3b82f6;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;';
+        copyBtn.innerHTML = '&#128203; Copiar enlace';
+        copyBtn.onclick = function() {
+            uploadPdfAndGetLink(pdfBlob, q, function(pdfUrl) {
+                copyToClipboard(pdfUrl);
+            });
+        };
+
+        row2.appendChild(waBtn);
+        row2.appendChild(copyBtn);
+        topBar.appendChild(row2);
+    }
+
+    showToast('PDF generado correctamente', 'success');
+}
+
+// Upload PDF to server and get public link
+function uploadPdfAndGetLink(pdfBlob, q, callback) {
+    var cacheKey = 'pdf_' + (q.id || q.number || '');
+    if (_pdfUrlCache[cacheKey]) {
+        callback(_pdfUrlCache[cacheKey]);
         return;
     }
 
-    // Method 2: Try share without canShare check (some WebViews support it but not canShare)
-    if (navigator.share && typeof navigator.share === 'function') {
-        // Try with files directly
-        try {
-            navigator.share({
-                title: 'Cotizacion ' + (q.number || ''),
-                files: [pdfFile]
-            }).then(function() {
-                showToast('PDF compartido', 'success');
-            }).catch(function(err) {
-                if (err.name !== 'AbortError') {
-                    pdfFallbackSave(pdfFile, q, fileName);
-                }
-            });
-            return;
-        } catch(e) {
-            // Share API doesn't support files, fall through
-        }
-    }
-
-    // Method 3: Fallback — save as download
-    pdfFallbackSave(pdfFile, q, fileName);
-}
-
-// Fallback: try to trigger download or open in system browser
-function pdfFallbackSave(pdfFile, q, fileName) {
-    // Try blob download
-    try {
-        var url = URL.createObjectURL(pdfFile);
-        var a = document.createElement('a');
-        a.href = url;
-        a.download = fileName;
-        a.style.display = 'none';
-        document.body.appendChild(a);
-        a.click();
-        setTimeout(function() {
-            try { document.body.removeChild(a); } catch(ex) {}
-            URL.revokeObjectURL(url);
-            showToast('PDF generado. Revisa tus descargas.', 'success');
-        }, 1000);
-    } catch(ex) {
-        // Last resort: upload to server and provide link
-        uploadPdfToServer(pdfFile, q, fileName);
-    }
-}
-
-// Last resort: upload PDF to server so user can access it
-function uploadPdfToServer(pdfBlob, q, fileName) {
     var serverUrl = getServerUrl() || 'https://inventario-nuevo.vercel.app';
     if (!isOnline()) {
-        showToast('Sin conexion. Necesitas internet para guardar el PDF.', 'error');
+        showToast('Sin conexion. Necesitas internet para compartir.', 'error');
         return;
     }
-    showToast('Subiendo PDF al servidor...', 'info');
-    var formData = new FormData();
-    formData.append('file', pdfBlob, fileName);
-    formData.append('id', q.id || '');
 
-    fetch(serverUrl + '/api/upload-pdf', {
-        method: 'POST',
-        body: formData
-    }).then(function(res) { return res.json(); }).then(function(data) {
-        if (data && data.url) {
-            // Open in system browser where user can download
-            window.open(data.url, '_blank');
-            showToast('PDF subido. Abre el enlace para descargar.', 'success');
-        } else {
-            showToast('Error al subir PDF', 'error');
-        }
-    }).catch(function(err) {
-        console.error('Upload error:', err);
-        showToast('No se pudo subir el PDF. Intenta con mejor conexion.', 'error');
-    });
+    showToast('Subiendo PDF...', 'info');
+
+    // Convert blob to base64
+    var reader = new FileReader();
+    reader.onload = function() {
+        var base64 = reader.result.split(',')[1]; // Remove data:application/pdf;base64, prefix
+        var pdfId = 'pdf_' + (q.id || q.number || Date.now());
+        var safeName = (q.number || 'COT-001').replace(/[^a-zA-Z0-9\-]/g, '') + '.pdf';
+
+        fetch(serverUrl + '/api/serve-pdf', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: pdfId, data: base64, filename: safeName })
+        }).then(function(res) { return res.json(); }).then(function(data) {
+            if (data && data.url) {
+                _pdfUrlCache[cacheKey] = data.url;
+                showToast('PDF listo para compartir', 'success');
+                callback(data.url);
+            } else {
+                showToast('Error al subir PDF', 'error');
+            }
+        }).catch(function(err) {
+            console.error('Upload error:', err);
+            showToast('Error de conexion al subir PDF', 'error');
+        });
+    };
+    reader.onerror = function() {
+        showToast('Error al leer PDF', 'error');
+    };
+    reader.readAsDataURL(pdfBlob);
 }
 
-// Share quotation as TEXT via WhatsApp (fallback when PDF sharing is not available)
+// Share PDF link via WhatsApp
+function sharePdfLinkWhatsApp(pdfUrl, q) {
+    var text = 'Cotizacion ' + (q.number || '') + '\n';
+    text += 'Total: $' + (q.total || 0).toFixed(2) + '\n';
+    if (q.clientName) text += 'Cliente: ' + q.clientName + '\n';
+    text += '\nVer PDF: ' + pdfUrl;
+
+    if (navigator.share && typeof navigator.share === 'function') {
+        navigator.share({
+            title: 'Cotizacion ' + (q.number || ''),
+            text: text
+        }).catch(function() {
+            // User cancelled or not supported, use WhatsApp directly
+            openWhatsApp(text);
+        });
+    } else {
+        openWhatsApp(text);
+    }
+}
+
+// Share PDF link via generic share
+function sharePdfLinkGeneric(pdfUrl, q) {
+    var text = 'Cotizacion ' + (q.number || '') + ' - Total: $' + (q.total || 0).toFixed(2) + '\nPDF: ' + pdfUrl;
+
+    if (navigator.share && typeof navigator.share === 'function') {
+        navigator.share({
+            title: 'Cotizacion ' + (q.number || ''),
+            text: text
+        }).catch(function(err) {
+            if (err.name !== 'AbortError') {
+                copyToClipboard(pdfUrl);
+            }
+        });
+    } else {
+        copyToClipboard(pdfUrl);
+    }
+}
+
+// Copy text to clipboard
+function copyToClipboard(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(function() {
+            showToast('Enlace copiado al portapapeles', 'success');
+        }).catch(function() {
+            fallbackCopy(text);
+        });
+    } else {
+        fallbackCopy(text);
+    }
+}
+
+function fallbackCopy(text) {
+    try {
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.cssText = 'position:fixed;left:-9999px;';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        showToast('Enlace copiado al portapapeles', 'success');
+    } catch(e) {
+        showToast('No se pudo copiar. Enlace: ' + text.substring(0, 50) + '...', 'info');
+    }
+}
+
+// Share quotation as TEXT via WhatsApp (called from view modal WA button)
 function shareQuotationFile(q) {
-    var text = buildQuotationText(q.id);
-    if (!text) { showToast('No hay datos para compartir', 'error'); return; }
-    openWhatsApp(text);
+    // Try to generate PDF and share link
+    var pdfBlob = generatePdfBlob(q);
+    if (pdfBlob) {
+        uploadPdfAndGetLink(pdfBlob, q, function(pdfUrl) {
+            sharePdfLinkWhatsApp(pdfUrl, q);
+        });
+    } else {
+        // Fallback to plain text
+        var text = buildQuotationText(q.id);
+        if (text) openWhatsApp(text);
+    }
 }
 
 function shareQuotationWhatsApp(id) {
@@ -14779,8 +14869,7 @@ function shareQuotationWhatsApp(id) {
         if (quotes[i].id === id) { q = quotes[i]; break; }
     }
     if (q) {
-        // Try to share PDF first, fallback to text
-        generateAndSharePdf(q, 'whatsapp');
+        shareQuotationFile(q);
     } else {
         showToast('Cotizacion no encontrada', 'error');
     }
