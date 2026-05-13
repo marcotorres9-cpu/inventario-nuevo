@@ -19,9 +19,12 @@ async function query(sql: string, params: any[] = []) {
 }
 
 // GET: serve PDF by id
+// Si ?download=1 → fuerza descarga. Si no → muestra inline en navegador
 export async function GET(request: Request, context: any) {
   try {
     const id = context.params.id;
+    const { searchParams } = new URL(request.url);
+    const forceDownload = searchParams.get('download');
 
     const rows = await query(
       'SELECT data, filename FROM "PdfCache" WHERE id = $1',
@@ -39,11 +42,16 @@ export async function GET(request: Request, context: any) {
     // Decode base64 to binary
     const binary = Buffer.from(base64, 'base64');
 
+    // Si se pide descarga explicita, usar attachment. Si no, inline.
+    const disposition = forceDownload
+      ? 'attachment; filename="' + filename + '"'
+      : 'inline; filename="' + filename + '"';
+
     return new Response(binary, {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': 'inline; filename="' + filename + '"',
+        'Content-Disposition': disposition,
         'Cache-Control': 'public, max-age=86400',
         'Content-Length': '' + binary.length
       }

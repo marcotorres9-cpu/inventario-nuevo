@@ -13,7 +13,7 @@
     // FORCE fresh code: use fetch to bypass all caches, compare with current page
     (function(){
         try {
-            var _NV = 'NV13'; // increment this to force all clients to reload
+            var _NV = 'NV14'; // increment this to force all clients to reload
             var _ck = '_inv_nv';
             if (sessionStorage.getItem(_ck) !== _NV) {
                 sessionStorage.setItem(_ck, _NV);
@@ -14130,11 +14130,10 @@ function shareQuotationQR(id) {
     pdfBtn.innerHTML = '&#128229; Descargar PDF';
     pdfBtn.onclick = function(e) {
         e.stopPropagation();
-        var blob = generatePdfBlob(q);
-        if (blob) {
-            var safeName = (q.number || 'COT-001').replace(/[^a-zA-Z0-9\\-]/g, '') + '.pdf';
-            downloadPdfToLocal(blob, safeName);
-        }
+        uploadAndOpenPdf(q, function(pdfUrl) {
+            showToast('Descargando PDF...', 'success');
+            openInSystemBrowser(pdfUrl + '?download=1');
+        });
     };
 
     var waBtn = document.createElement('button');
@@ -14852,121 +14851,100 @@ function fallbackCopy(text) {
 }
 
 // ============================================
-// SHARE PDF AS FILE VIA WHATSAPP (Web Share API Level 2)
-// Falls back to download if file sharing not supported
+// PDF SHARING — funciona en WebView, navegador y app Android
+// Estrategia: subir PDF al servidor, luego abrir/compartir la URL
+// La URL del PDF se abre en el navegador del sistema (Chrome)
+// donde el usuario puede descargar y compartir como documento
 // ============================================
 
-// Share quotation as PDF FILE via WhatsApp (not just a link!)
-function shareQuotationFile(q) {
+// Detectar si estamos en Capacitor WebView
+function isCapacitorApp() {
+    return !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+}
+
+// Abrir URL en el navegador del sistema (fuera del WebView)
+// En Capacitor: abre Chrome. En navegador: abre nueva pestaña.
+function openInSystemBrowser(url) {
+    try {
+        if (isCapacitorApp()) {
+            // En Capacitor, _system abre el navegador del sistema
+            window.open(url, '_system');
+        } else {
+            // En navegador normal, abrir en nueva pestaña
+            var a = document.createElement('a');
+            a.href = url;
+            a.target = '_blank';
+            a.rel = 'noopener';
+            a.style.display = 'none';
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(function() { try { document.body.removeChild(a); } catch(ex) {} }, 1000);
+        }
+    } catch(ex) {
+        // Ultimo recurso: window.open normal
+        window.open(url, '_blank');
+    }
+}
+
+// --- SUBIR PDF AL SERVIDOR Y ABRIR EN NAVEGADOR ---
+// Esto es lo que usan TODOS los botones de PDF
+function uploadAndOpenPdf(q, callback) {
+    if (!isOnline()) {
+        showToast('Sin conexion a internet. Necesitas conexion para generar el PDF.', 'error');
+        return;
+    }
+
+    showToast('Generando PDF...', 'info');
+
     var pdfBlob = generatePdfBlob(q);
     if (!pdfBlob) {
-        var text = buildQuotationText(q.id);
-        if (text) openWhatsApp(text);
+        showToast('Error al generar el PDF', 'error');
         return;
     }
-    sharePdfAsFile(pdfBlob, q);
-}
 
-function sharePdfAsFile(pdfBlob, q) {
-    var safeName = (q.number || 'COT-001').replace(/[^a-zA-Z0-9\-]/g, '') + '.pdf';
-    var pdfFile = new File([pdfBlob], safeName, { type: 'application/pdf' });
+    // Verificar cache primero
+    var cacheKey = 'pdf_' + (q.id || q.number || '');
+    if (_pdfUrlCache[cacheKey]) {
+        if (callback) callback(_pdfUrlCache[cacheKey]);
+        return;
+    }
 
-    // --- TRY 1: Web Share API with files (shares actual PDF document) ---
-    if (navigator.share && navigator.canShare) {
-        try {
-            var shareData = { files: [pdfFile], title: 'Cotizacion ' + (q.number || '') };
-            if (navigator.canShare(shareData)) {
-                navigator.share(shareData).then(function() {
-                    showToast('PDF enviado correctamente', 'success');
-                }).catch(function(err) {
-                    if (err.name === 'AbortError') return; // User cancelled
-                    // Fall through to fallback
-                    sharePdfFallback(pdfBlob, pdfFile, q);
-                });
-                return;
+    // Convertir blob a base64
+    var reader = new FileReader();
+    reader.onload = function() {
+        var base64 = reader.result.split(',')[1];
+        var pdfId = 'pdf_' + (q.id || q.number || Date.now());
+        var safeName = (q.number || 'COT-001').replace(/[^a-zA-Z0-9\-]/g, '') + '.pdf';
+
+        var serverUrl = getServerUrl() || 'https://inventario-nuevo.vercel.app';
+
+        fetch(serverUrl + '/api/serve-pdf', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: pdfId, data: base64, filename: safeName })
+        }).then(function(res) { return res.json(); }).then(function(data) {
+            if (data && data.url) {
+                _pdfUrlCache[cacheKey] = data.url;
+                if (callback) callback(data.url);
+            } else {
+                showToast('Error al subir PDF al servidor', 'error');
             }
-        } catch(ex) { /* Fall through */ }
-    }
-
-    // --- TRY 2: navigator.share without files (text only) ---
-    if (navigator.share && typeof navigator.share === 'function') {
-        // Upload PDF first, then share link
-        uploadPdfAndGetLink(pdfBlob, q, function(pdfUrl) {
-            var text = 'Cotizacion ' + (q.number || '') + '\n';
-            text += 'Total: $' + (q.total || 0).toFixed(2) + '\n';
-            if (q.clientName) text += 'Cliente: ' + q.clientName + '\n';
-            text += '\nVer PDF: ' + pdfUrl;
-            navigator.share({ title: 'Cotizacion ' + (q.number || ''), text: text }).catch(function() {
-                downloadPdfToLocal(pdfBlob, safeName);
-            });
+        }).catch(function(err) {
+            console.error('Upload error:', err);
+            showToast('Error de conexion al subir PDF', 'error');
         });
-        return;
-    }
-
-    // --- TRY 3: Fallback — download the PDF so user can attach manually ---
-    sharePdfFallback(pdfBlob, pdfFile, q);
+    };
+    reader.onerror = function() {
+        showToast('Error al procesar PDF', 'error');
+    };
+    reader.readAsDataURL(pdfBlob);
 }
 
-function sharePdfFallback(pdfBlob, pdfFile, q) {
-    // Try Capacitor Share plugin (for Android app)
-    if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Share) {
-        showToast('Preparando PDF...', 'info');
-        // Convert blob to base64 for Capacitor
-        var reader = new FileReader();
-        reader.onload = function() {
-            var base64Data = reader.result.split(',')[1];
-            window.Capacitor.Plugins.Share.share({
-                title: 'Cotizacion ' + (q.number || ''),
-                text: 'Cotizacion ' + (q.number || '') + ' - Total: $' + (q.total || 0).toFixed(2),
-                url: null,
-                files: [pdfFile]
-            }).then(function() {
-                showToast('PDF compartido', 'success');
-            }).catch(function() {
-                downloadPdfToLocal(pdfBlob, pdfFile.name);
-            });
-        };
-        reader.readAsDataURL(pdfBlob);
-        return;
-    }
-    // Final fallback: download the file
-    downloadPdfToLocal(pdfBlob, pdfFile.name);
-}
-
-// Download PDF to device so user can share it manually via WhatsApp
-function downloadPdfToLocal(pdfBlob, filename) {
-    try {
-        var url = URL.createObjectURL(pdfBlob);
-        var a = document.createElement('a');
-        a.href = url;
-        a.download = filename || 'cotizacion.pdf';
-        a.style.display = 'none';
-        document.body.appendChild(a);
-        a.click();
-        setTimeout(function() {
-            try { document.body.removeChild(a); } catch(ex) {}
-            URL.revokeObjectURL(url);
-        }, 2000);
-        showToast('PDF descargado. Abrelo y compartelo por WhatsApp.', 'success');
-    } catch(ex) {
-        showToast('Error al descargar: ' + ex.message, 'error');
-    }
-}
-
-function shareQuotationWhatsApp(id) {
-    var quotes = getQuotations();
-    var q = null;
-    for (var i = 0; i < quotes.length; i++) {
-        if (quotes[i].id === id) { q = quotes[i]; break; }
-    }
-    if (q) {
-        shareQuotationFile(q);
-    } else {
-        showToast('Cotizacion no encontrada', 'error');
-    }
-}
-
-// Direct download button handler
+// ============================================
+// BOTON: 📥 PDF (descargar/ver PDF)
+// Sube el PDF al servidor y lo abre en el navegador del sistema
+// Ahí el usuario puede descargarlo o compartirlo
+// ============================================
 function downloadQuotationDirect(id) {
     var quotes = getQuotations();
     var q = null;
@@ -14974,10 +14952,72 @@ function downloadQuotationDirect(id) {
         if (quotes[i].id === id) { q = quotes[i]; break; }
     }
     if (!q) { showToast('Cotizacion no encontrada', 'error'); return; }
-    var pdfBlob = generatePdfBlob(q);
-    if (pdfBlob) {
-        var safeName = (q.number || 'COT-001').replace(/[^a-zA-Z0-9\-]/g, '') + '.pdf';
-        downloadPdfToLocal(pdfBlob, safeName);
+
+    uploadAndOpenPdf(q, function(pdfUrl) {
+        showToast('Descargando PDF...', 'success');
+        // Agregar ?download=1 para forzar descarga en el navegador
+        openInSystemBrowser(pdfUrl + '?download=1');
+    });
+}
+
+// ============================================
+// BOTON: 📲 WA PDF (compartir por WhatsApp)
+// Sube el PDF al servidor y abre WhatsApp con el link directo
+// El link del PDF se abre directo en el navegador del cliente
+// ============================================
+function shareQuotationWhatsApp(id) {
+    var quotes = getQuotations();
+    var q = null;
+    for (var i = 0; i < quotes.length; i++) {
+        if (quotes[i].id === id) { q = quotes[i]; break; }
+    }
+    if (!q) { showToast('Cotizacion no encontrada', 'error'); return; }
+
+    uploadAndOpenPdf(q, function(pdfUrl) {
+        // Construir mensaje para WhatsApp
+        var msg = '📋 *Cotizacion ' + (q.number || '') + '*\n';
+        if (q.clientName) msg += '👤 Cliente: ' + q.clientName + '\n';
+        msg += '💰 Total: *$' + (q.total || 0).toFixed(2) + '*\n';
+        msg += '📅 Fecha: ' + formatDate(q.createdAt) + '\n';
+        if (q.validDays) {
+            var vd = new Date(new Date(q.createdAt).getTime() + (q.validDays || 15) * 86400000);
+            msg += '⏰ Valida hasta: ' + formatDate(vd) + '\n';
+        }
+        msg += '\n📄 Descargar PDF:\n' + pdfUrl;
+
+        openWhatsApp(msg);
+    });
+}
+
+// Alias para el boton WA en el modal QR
+function shareQuotationFile(q) {
+    shareQuotationWhatsApp(q.id);
+}
+
+// ============================================
+// PDF OVERVIEW: genera preview + botones reales
+// ============================================
+function downloadQuotationPDF(id, qData) {
+    var q = qData;
+    if (!q) {
+        var quotes = getQuotations();
+        for (var i = 0; i < quotes.length; i++) {
+            if (quotes[i].id === id) { q = quotes[i]; break; }
+        }
+    }
+    if (!q) { showToast('Cotizacion no encontrada', 'error'); return; }
+    showPdfOverlay(q, id);
+}
+
+// --- keep legacy function names used elsewhere ---
+function generateAndSharePdf(q, mode) {
+    if (mode === 'whatsapp') {
+        shareQuotationWhatsApp(q.id);
+    } else {
+        uploadAndOpenPdf(q, function(pdfUrl) {
+            showToast('Abriendo PDF en navegador...', 'success');
+            openInSystemBrowser(pdfUrl);
+        });
     }
 }
 
