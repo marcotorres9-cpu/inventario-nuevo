@@ -13,7 +13,7 @@
     // FORCE fresh code: use fetch to bypass all caches, compare with current page
     (function(){
         try {
-            var _NV = 'NV19'; // increment this to force all clients to reload
+            var _NV = 'NV20'; // increment this to force all clients to reload
             var _ck = '_inv_nv';
             if (sessionStorage.getItem(_ck) !== _NV) {
                 sessionStorage.setItem(_ck, _NV);
@@ -15198,8 +15198,8 @@ function uploadPdfToServer(pdfBlob, q, callback) {
 
 // ============================================
 // BOTON: 📥 PDF — DESCARGA
-// En Capacitor APK: sube al servidor y abre en Chrome (que SI descarga)
-// En navegador: usa <a download> (que SI funciona en navegador)
+// SIEMPRE sube al servidor y abre el PDF en nueva pestaña
+// Funciona igual en navegador y en APK
 // ============================================
 function downloadQuotationDirect(id) {
     var quotes = getQuotations();
@@ -15209,41 +15209,24 @@ function downloadQuotationDirect(id) {
     }
     if (!q) { showToast('Cotizacion no encontrada', 'error'); return; }
 
+    // Generar PDF
     showToast('Generando PDF...', 'info');
-
-    // En la APK: SIEMPRE subir al servidor y abrir en Chrome
-    // El WebView NO puede descargar archivos directamente
-    if (isCapacitorApp()) {
-        uploadAndOpenPdf(q, function(pdfUrl) {
-            showToast('Abriendo PDF...', 'info');
-            openInSystemBrowser(pdfUrl + '?download=1');
-        });
+    var pdfBlob = generatePdfBlob(q);
+    if (!pdfBlob) {
+        showToast('Error al generar PDF. Verifica que la libreria jspdf cargo correctamente.', 'error');
         return;
     }
 
-    // En navegador de PC/Chrome: <a download> SI funciona
-    setTimeout(function() {
-        try {
-            var pdfBlob = generatePdfBlob(q);
-            if (!pdfBlob) return;
-            var fileName = (q.number || 'COT-001').replace(/[^a-zA-Z0-9\-]/g, '') + '.pdf';
-            var url = URL.createObjectURL(pdfBlob);
-            var a = document.createElement('a');
-            a.href = url;
-            a.download = fileName;
-            a.style.cssText = 'position:fixed;left:-9999px;';
-            document.body.appendChild(a);
-            a.click();
-            setTimeout(function() {
-                try { URL.revokeObjectURL(url); } catch(e) {}
-                try { document.body.removeChild(a); } catch(e) {}
-            }, 5000);
-            showToast('PDF descargado: ' + fileName, 'success');
-        } catch (ex) {
-            console.error('PDF error:', ex);
-            showToast('Error al generar PDF: ' + ex.message, 'error');
+    // Subir al servidor y abrir en nueva pestaña/navegador
+    uploadPdfToServer(pdfBlob, q, function(pdfUrl) {
+        if (!pdfUrl) {
+            showToast('Error al subir PDF al servidor', 'error');
+            return;
         }
-    }, 100);
+        showToast('PDF listo', 'success');
+        // Abrir en nueva pestaña (navegador) o en Chrome (APK)
+        window.open(pdfUrl + '?download=1', '_blank');
+    });
 }
 
 // ============================================
