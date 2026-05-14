@@ -13,7 +13,7 @@
     // FORCE fresh code: use fetch to bypass all caches, compare with current page
     (function(){
         try {
-            var _NV = 'NV15'; // increment this to force all clients to reload
+            var _NV = 'NV16'; // increment this to force all clients to reload
             var _ck = '_inv_nv';
             if (sessionStorage.getItem(_ck) !== _NV) {
                 sessionStorage.setItem(_ck, _NV);
@@ -14791,9 +14791,8 @@ function sharePdfLinkWhatsApp(pdfUrl, q) {
     if (q.clientName) text += 'Cliente: ' + q.clientName + '\n';
     text += '\nVer PDF: ' + pdfUrl;
 
-    // En Capacitor Android, intentar compartir el archivo real como PDF
-    if (isCapacitorApp()) {
-        // Si tenemos el blob cacheado, compartir como archivo
+    // Si tenemos plugins nativos, intentar compartir el archivo PDF real
+    if (hasNativePdfPlugins()) {
         sharePdfFileBlob(q, text);
         return;
     }
@@ -14837,15 +14836,14 @@ function sharePdfFileBlob(q, waText) {
 function sharePdfLinkGeneric(pdfUrl, q) {
     var text = 'Cotizacion ' + (q.number || '') + ' - Total: $' + (q.total || 0).toFixed(2) + '\nPDF: ' + pdfUrl;
 
-    // En Capacitor Android, intentar compartir el archivo real como PDF
-    if (isCapacitorApp()) {
+    // Si tenemos plugins nativos, intentar compartir el archivo PDF real
+    if (hasNativePdfPlugins()) {
         try {
             var pdfBlob = generatePdfBlob(q);
             if (pdfBlob) {
                 var fileName = (q.number || 'COT-001').replace(/[^a-zA-Z0-9\-]/g, '') + '.pdf';
                 savePdfNative(pdfBlob, fileName).then(function(nativeOk) {
                     if (!nativeOk) {
-                        // Fallback: compartir enlace como texto
                         fallbackShareText(text, pdfUrl);
                     }
                 });
@@ -14927,6 +14925,14 @@ function fallbackCopy(text) {
 // Detectar si estamos en Capacitor WebView
 function isCapacitorApp() {
     return !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+}
+
+// Detectar si los plugins nativos de PDF estan disponibles
+function hasNativePdfPlugins() {
+    try {
+        return !!(window.Capacitor && window.Capacitor.Plugins &&
+            window.Capacitor.Plugins.Filesystem && window.Capacitor.Plugins.Share);
+    } catch(e) { return false; }
 }
 
 // Abrir URL en el navegador del sistema (fuera del WebView)
@@ -15072,8 +15078,13 @@ async function sharePdfNative(fileUri, title) {
 }
 
 // --- SUBIR PDF AL SERVIDOR Y ABRIR EN NAVEGADOR ---
-// Esto es lo que usan TODOS los botones de PDF
+// Funcion original: genera PDF, sube al servidor, obtiene URL
 function uploadAndOpenPdf(q, callback) {
+    if (!isOnline()) {
+        showToast('Sin conexion a internet. Necesitas conexion para generar el PDF.', 'error');
+        return;
+    }
+
     showToast('Generando PDF...', 'info');
 
     var pdfBlob = generatePdfBlob(q);
@@ -15086,36 +15097,6 @@ function uploadAndOpenPdf(q, callback) {
     var cacheKey = 'pdf_' + (q.id || q.number || '');
     if (_pdfUrlCache[cacheKey]) {
         if (callback) callback(_pdfUrlCache[cacheKey]);
-        return;
-    }
-
-    var fileName = (q.number || 'COT-001').replace(/[^a-zA-Z0-9\-]/g, '') + '.pdf';
-
-    // --- RUTA Nativa (Capacitor Android): guardar y compartir directamente ---
-    if (isCapacitorApp()) {
-        savePdfNative(pdfBlob, fileName).then(function(nativeOk) {
-            if (nativeOk) {
-                // PDF descargado/compartido nativamente con exito
-                // Tambien subir al servidor en background para enlace de respaldo
-                uploadPdfToServer(pdfBlob, q, function(pdfUrl) {
-                    _pdfUrlCache[cacheKey] = pdfUrl;
-                    if (callback) callback(pdfUrl);
-                });
-            } else {
-                // Fallback: subir al servidor y abrir en navegador
-                showToast('Usando descarga por navegador...', 'info');
-                uploadPdfToServer(pdfBlob, q, function(pdfUrl) {
-                    _pdfUrlCache[cacheKey] = pdfUrl;
-                    if (callback) callback(pdfUrl);
-                });
-            }
-        });
-        return;
-    }
-
-    // --- RUTA Web: subir al servidor y abrir URL ---
-    if (!isOnline()) {
-        showToast('Sin conexion a internet. Necesitas conexion para generar el PDF.', 'error');
         return;
     }
 
@@ -15175,21 +15156,18 @@ function downloadQuotationDirect(id) {
     }
     if (!q) { showToast('Cotizacion no encontrada', 'error'); return; }
 
-    var fileName = (q.number || 'COT-001').replace(/[^a-zA-Z0-9\-]/g, '') + '.pdf';
-
-    // --- Ruta Nativa Android: guardar PDF directamente en el dispositivo ---
-    if (isCapacitorApp()) {
-        showToast('Generando PDF...', 'info');
+    // --- Si tenemos plugins nativos: guardar PDF directamente en el dispositivo ---
+    if (hasNativePdfPlugins()) {
+        showToast('Descargando PDF...', 'info');
         setTimeout(function() {
             try {
                 var pdfBlob = generatePdfBlob(q);
                 if (!pdfBlob) return;
-
+                var fileName = (q.number || 'COT-001').replace(/[^a-zA-Z0-9\-]/g, '') + '.pdf';
                 savePdfNative(pdfBlob, fileName).then(function(nativeOk) {
                     if (!nativeOk) {
-                        // Fallback: subir y abrir en navegador
+                        // Fallback: subir al servidor y abrir en navegador
                         uploadAndOpenPdf(q, function(pdfUrl) {
-                            showToast('Descargando PDF...', 'success');
                             openInSystemBrowser(pdfUrl + '?download=1');
                         });
                     }
@@ -15202,7 +15180,7 @@ function downloadQuotationDirect(id) {
         return;
     }
 
-    // --- Ruta Web: subir al servidor y abrir en navegador ---
+    // --- Ruta normal: subir al servidor y abrir en navegador (como antes) ---
     uploadAndOpenPdf(q, function(pdfUrl) {
         showToast('Descargando PDF...', 'success');
         openInSystemBrowser(pdfUrl + '?download=1');
@@ -15263,8 +15241,8 @@ function generateAndSharePdf(q, mode) {
     if (mode === 'whatsapp') {
         shareQuotationWhatsApp(q.id);
     } else if (mode === 'share') {
-        // Compartir PDF como archivo real en Android
-        if (isCapacitorApp()) {
+        // Compartir PDF como archivo real si hay plugins nativos
+        if (hasNativePdfPlugins()) {
             showToast('Generando PDF...', 'info');
             setTimeout(function() {
                 try {
@@ -15273,7 +15251,6 @@ function generateAndSharePdf(q, mode) {
                     var fileName = (q.number || 'COT-001').replace(/[^a-zA-Z0-9\-]/g, '') + '.pdf';
                     savePdfNative(pdfBlob, fileName).then(function(nativeOk) {
                         if (!nativeOk) {
-                            // Fallback: subir y compartir enlace
                             uploadAndOpenPdf(q, function(pdfUrl) {
                                 sharePdfLinkGeneric(pdfUrl, q);
                             });
@@ -15290,14 +15267,14 @@ function generateAndSharePdf(q, mode) {
             });
         }
     } else {
-        // Modo default: descargar PDF nativamente en Android
-        if (isCapacitorApp()) {
-            var fileName = (q.number || 'COT-001').replace(/[^a-zA-Z0-9\-]/g, '') + '.pdf';
-            showToast('Generando PDF...', 'info');
+        // Modo default: descargar PDF
+        if (hasNativePdfPlugins()) {
+            showToast('Descargando PDF...', 'info');
             setTimeout(function() {
                 try {
                     var pdfBlob = generatePdfBlob(q);
                     if (!pdfBlob) return;
+                    var fileName = (q.number || 'COT-001').replace(/[^a-zA-Z0-9\-]/g, '') + '.pdf';
                     savePdfNative(pdfBlob, fileName).then(function(nativeOk) {
                         if (!nativeOk) {
                             uploadAndOpenPdf(q, function(pdfUrl) {
