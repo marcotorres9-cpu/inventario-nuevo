@@ -18,8 +18,7 @@ async function query(sql: string, params: any[] = []) {
   return d.rows || [];
 }
 
-// GET: serve PDF by id
-// Si ?download=1 → fuerza descarga. Si no → muestra inline en navegador
+// GET: serve any file by id (PDF, HTML, XLS, etc.)
 export async function GET(request: Request, context: any) {
   try {
     const id = context.params.id;
@@ -27,17 +26,18 @@ export async function GET(request: Request, context: any) {
     const forceDownload = searchParams.get('download');
 
     const rows = await query(
-      'SELECT data, filename FROM "PdfCache" WHERE id = $1',
+      'SELECT data, filename, content_type FROM "PdfCache" WHERE id = $1',
       [id]
     );
 
     if (!rows || rows.length === 0) {
-      return new Response('PDF no encontrado', { status: 404 });
+      return new Response('Archivo no encontrado', { status: 404 });
     }
 
     const row = rows[0];
     const base64 = row.data;
-    const filename = row.filename || 'cotizacion.pdf';
+    const filename = row.filename || 'archivo.pdf';
+    const contentType = row.content_type || 'application/pdf';
 
     // Decode base64 to binary
     const binary = Buffer.from(base64, 'base64');
@@ -50,7 +50,7 @@ export async function GET(request: Request, context: any) {
     return new Response(binary, {
       status: 200,
       headers: {
-        'Content-Type': 'application/pdf',
+        'Content-Type': contentType,
         'Content-Disposition': disposition,
         'Cache-Control': 'public, max-age=86400',
         'Content-Length': '' + binary.length

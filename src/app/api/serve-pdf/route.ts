@@ -18,31 +18,39 @@ async function query(sql: string, params: any[] = []) {
   return d.rows || [];
 }
 
-// POST: store PDF and return URL
+// POST: store any file (PDF, HTML, XLS) and return URL
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { id, data, filename } = body;
+    const { id, data, filename, contentType } = body;
 
     if (!id || !data) {
       return NextResponse.json({ error: 'id and data required' }, { status: 400 });
     }
 
-    // Create table if not exists
+    const ct = contentType || 'application/pdf';
+
+    // Create table if not exists (with content_type column)
     await query(`
       CREATE TABLE IF NOT EXISTS "PdfCache" (
         id VARCHAR(255) PRIMARY KEY,
         data TEXT NOT NULL,
         filename VARCHAR(255),
+        content_type VARCHAR(100) DEFAULT 'application/pdf',
         created_at TIMESTAMPTZ DEFAULT NOW()
       )
     `);
 
-    // Upsert PDF data
+    // Add content_type column if missing (for existing tables)
+    try {
+      await query(`ALTER TABLE "PdfCache" ADD COLUMN IF NOT EXISTS content_type VARCHAR(100) DEFAULT 'application/pdf'`);
+    } catch(e) { /* column may already exist */ }
+
+    // Upsert file data
     await query(
-      `INSERT INTO "PdfCache" (id, data, filename) VALUES ($1, $2, $3)
-       ON CONFLICT (id) DO UPDATE SET data = $2, filename = $3, created_at = NOW()`,
-      [id, data, filename || 'cotizacion.pdf']
+      `INSERT INTO "PdfCache" (id, data, filename, content_type) VALUES ($1, $2, $3, $4)
+       ON CONFLICT (id) DO UPDATE SET data = $2, filename = $3, content_type = $4, created_at = NOW()`,
+      [id, data, filename || 'archivo.pdf', ct]
     );
 
     const baseUrl = 'https://inventario-nuevo.vercel.app';
