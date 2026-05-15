@@ -13,7 +13,7 @@
     // FORCE fresh code: use fetch to bypass all caches, compare with current page
     (function(){
         try {
-            var _NV = 'NV20'; // increment this to force all clients to reload
+            var _NV = 'NV31'; // increment this to force all clients to reload
             var _ck = '_inv_nv';
             if (sessionStorage.getItem(_ck) !== _NV) {
                 sessionStorage.setItem(_ck, _NV);
@@ -15198,8 +15198,9 @@ function uploadPdfToServer(pdfBlob, q, callback) {
 
 // ============================================
 // BOTON: 📥 PDF — DESCARGA
-// SIEMPRE sube al servidor y abre el PDF en nueva pestaña
-// Funciona igual en navegador y en APK
+// NV31: Usa bridge nativo de Capacitor para guardar
+// y compartir PDF. Si no hay bridge nativo, sube
+// al servidor y muestra opciones.
 // ============================================
 function downloadQuotationDirect(id) {
     var quotes = getQuotations();
@@ -15209,24 +15210,145 @@ function downloadQuotationDirect(id) {
     }
     if (!q) { showToast('Cotizacion no encontrada', 'error'); return; }
 
-    // Generar PDF
     showToast('Generando PDF...', 'info');
-    var pdfBlob = generatePdfBlob(q);
-    if (!pdfBlob) {
-        showToast('Error al generar PDF. Verifica que la libreria jspdf cargo correctamente.', 'error');
+
+    // Usar setTimeout para que el toast se muestre antes del trabajo pesado
+    setTimeout(function() {
+        try {
+            var pdfBlob = generatePdfBlob(q);
+            if (!pdfBlob) {
+                showToast('Error al generar PDF', 'error');
+                return;
+            }
+
+            var safeName = (q.number || 'COT-001').replace(/[^a-zA-Z0-9\-]/g, '') + '.pdf';
+
+            // Convertir blob a base64
+            var reader = new FileReader();
+            reader.onload = function() {
+                var base64Data = reader.result.split(',')[1];
+
+                // INTENTAR 1: Capacitor nativo (Filesystem + Share)
+                _tryNativeSave(base64Data, safeName, function(ok) {
+                    if (ok) return;
+
+                    // INTENTAR 2: Subir al servidor y navegar
+                    _tryServerDownload(base64Data, safeName, function(ok) {
+                        if (ok) return;
+
+                        // INTENTAR 3: Mostrar dialogo con opciones
+                        _showManualOptions(safeName);
+                    });
+                });
+            };
+            reader.onerror = function() { showToast('Error al procesar PDF', 'error'); };
+            reader.readAsDataURL(pdfBlob);
+        } catch(ex) {
+            showToast('Error: ' + ex.message, 'error');
+        }
+    }, 300);
+}
+
+// Intentar guardar con Capacitor nativo
+function _tryNativeSave(base64Data, fileName, callback) {
+    // Verificar si Capacitor nativo esta disponible
+    if (!window.Capacitor || !Capacitor.isNativePlatform || !Capacitor.isNativePlatform()) {
+        callback(false);
+        return;
+    }
+    if (!Capacitor.Plugins || !Capacitor.Plugins.Filesystem) {
+        callback(false);
         return;
     }
 
-    // Subir al servidor y abrir en nueva pestaña/navegador
-    uploadPdfToServer(pdfBlob, q, function(pdfUrl) {
-        if (!pdfUrl) {
-            showToast('Error al subir PDF al servidor', 'error');
-            return;
+    showToast('Guardando PDF en tu telefono...', 'info');
+
+    var fs = Capacitor.Plugins.Filesystem;
+
+    fs.writeFile({
+        path: fileName,
+        data: base64Data,
+        directory: 'CACHE',
+        recursive: true
+    }).then(function() {
+        return fs.getUri({ path: fileName, directory: 'CACHE' });
+    }).then(function(result) {
+        var uri = result.uri;
+        // Intentar compartir con Share nativo
+        if (Capacitor.Plugins.Share) {
+            return Capacitor.Plugins.Share.share({
+                title: fileName,
+                url: uri
+            }).then(function() {
+                showToast('PDF guardado exitosamente', 'success');
+                callback(true);
+            });
+        } else {
+            // Share no disponible, pero el archivo se guardo
+            showToast('PDF guardado: ' + uri, 'success');
+            callback(true);
         }
-        showToast('PDF listo', 'success');
-        // Abrir en nueva pestaña (navegador) o en Chrome (APK)
-        window.open(pdfUrl + '?download=1', '_blank');
+    }).catch(function(err) {
+        console.error('Capacitor nativo fallo:', err);
+        callback(false);
     });
+}
+
+// Subir al servidor y navegar al PDF
+function _tryServerDownload(base64Data, fileName, callback) {
+    if (!navigator.onLine) {
+        callback(false);
+        return;
+    }
+
+    showToast('Subiendo PDF al servidor...', 'info');
+    var pdfId = 'pdf_' + Date.now();
+    var serverUrl = 'https://inventario-nuevo.vercel.app';
+
+    fetch(serverUrl + '/api/serve-pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: pdfId, data: base64Data, filename: fileName })
+    }).then(function(res) {
+        if (!res.ok) throw new Error('Server ' + res.status);
+        return res.json();
+    }).then(function(data) {
+        if (!data || !data.url) throw new Error('No URL');
+
+        var pdfUrl = data.url;
+
+        // Intentar navegar directamente
+        showToast('Abriendo PDF...', 'info');
+        setTimeout(function() {
+            document.location.href = pdfUrl + '?download=1';
+            // Si la navegacion funciono, despues de 2 segundos ya no estamos en esta pagina
+            // Si seguimos aqui, la navegacion fallo
+            setTimeout(function() {
+                // Si volvimos (usuario presiono atras), no mostramos error
+            }, 3000);
+        }, 300);
+
+        callback(true);
+    }).catch(function(err) {
+        console.error('Server upload failed:', err);
+        showToast('Error al subir: ' + err.message, 'error');
+        callback(false);
+    });
+}
+
+// Mostrar opciones manuales (ultimo recurso)
+function _showManualOptions(fileName) {
+    var serverUrl = 'https://inventario-nuevo.vercel.app';
+    var pdfUrl = serverUrl + '/api/serve-pdf/pdf_' + Math.floor(Date.now() / 1000);
+
+    var msg = 'No se pudo descargar automaticamente.\n\n' +
+        'Paso 1: Toca "Copiar enlace"\n' +
+        'Paso 2: Abre Chrome en tu telefono\n' +
+        'Paso 3: Pega el enlace en la barra de direcciones\n' +
+        'Paso 4: El PDF se abrira y podras guardarlo';
+
+    alert(msg + '\n\nEnlace:\n' + pdfUrl);
+    copyToClipboard(pdfUrl);
 }
 
 // ============================================

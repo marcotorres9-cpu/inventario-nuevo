@@ -1,1 +1,0 @@
-com.inventariopro.app.cordova
