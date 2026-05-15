@@ -5887,9 +5887,8 @@ function showSavedQuotations() {
             '<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">' +
                 '<button class="btn btn-ghost btn-xs" onclick="viewQuotation(\'' + q.id + '\')">👁️ Ver</button>' +
                 '<button class="btn btn-ghost btn-xs" onclick="openEditQuotation(\'' + q.id + '\')">✏️ Modificar</button>' +
-                '<button class="btn btn-ghost btn-xs" style="color:#25D366;font-weight:800;" onclick="shareQuotationWhatsApp(\'' + q.id + '\')">📲 WA PDF</button>' +
-                '<button class="btn btn-ghost btn-xs" style="color:#22c55e;" onclick="downloadQuotationDirect(\'' + q.id + '\')">📥 PDF</button>' +
-                '<button class="btn btn-ghost btn-xs" style="color:var(--purple);" onclick="shareQuotationQR(\'' + q.id + '\')">📷 QR</button>' +
+                '<button class="btn btn-ghost btn-xs" style="color:#3b82f6;font-weight:800;" onclick="imprimirCotizacion(\'' + q.id + '\')">🖨️ Imprimir</button>' +
+                '<button class="btn btn-ghost btn-xs" style="color:#22c55e;font-weight:800;" onclick="descargarCotizacion(\'' + q.id + '\')">📥 Descargar</button>' +
                 '<button class="btn btn-ghost btn-xs" style="color:var(--danger);" onclick="confirmDeleteQuotation(\'' + q.id + '\')">🗑️</button>' +
             '</div>' +
             '</div>';
@@ -5988,9 +5987,8 @@ function viewQuotation(id) {
 
     // Action buttons: single compact row
     h += '<div style="display:flex;gap:4px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">' +
-        '<button class="btn btn-xs" style="flex:1;background:#25D366;color:#fff;border:none;padding:10px 4px;" onclick="shareQuotationWhatsApp(\'' + q.id + '\')">📱 WA</button>' +
-        '<button class="btn btn-xs" style="flex:1;background:var(--bg3);border:1px solid var(--border);padding:10px 4px;" onclick="shareQuotationQR(\'' + q.id + '\')">📷 QR</button>' +
-        '<button class="btn btn-xs" style="flex:1;background:var(--bg3);border:1px solid var(--border);padding:10px 4px;" onclick="downloadQuotationPDF(\'' + q.id + '\', window._viewQuotData)">📥 PDF</button>' +
+        '<button class="btn btn-xs" style="flex:1;background:#3b82f6;color:#fff;border:none;padding:10px 4px;" onclick="imprimirCotizacion(\x27' + q.id + '\x27)">🖨️ Imprimir</button>' +
+        '<button class="btn btn-xs" style="flex:1;background:#22c55e;color:#fff;border:none;padding:10px 4px;" onclick="descargarCotizacion(\x27' + q.id + '\x27)">📥 Descargar</button>' +
         '<button class="btn btn-xs" style="flex:1;background:var(--bg3);border:1px solid var(--border);padding:10px 4px;" onclick="closeModal(\'viewQuotationModal\');openEditQuotation(\'' + q.id + '\')">✏️</button>' +
         '<button class="btn btn-xs" style="flex:1;background:var(--danger-bg);color:var(--danger);border:1px solid rgba(239,68,68,0.2);padding:10px 4px;" onclick="closeModal(\'viewQuotationModal\');confirmDeleteQuotation(\'' + q.id + '\')">🗑️</button>' +
         '</div>';
@@ -10181,7 +10179,7 @@ function renderCatalogSummaryPage() {
 
     html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">' +
         '<h2 style="font-size:20px;font-weight:800;margin:0;">\uD83D\uDCCA Resumen del Catalogo</h2>' +
-        '<button onclick="exportCatalogReport()" class="btn btn-primary btn-sm" style="font-size:12px;white-space:nowrap;">\uD83D\uDCC4 Reporte PDF</button>' +
+        '<button onclick="exportCatalogReport()" class="btn btn-primary btn-sm" style="font-size:12px;white-space:nowrap;">\uD83D\uDCC4 Descargar</button>' +
     '</div>';
 
     // Search bar (overview)
@@ -10787,7 +10785,8 @@ function generateCatalogReport(preFiltered, preSelCats, preSelBrands, isReduced)
             '<button onclick="closeCatalogReport()" style="font-size:20px;background:none;border:none;color:var(--danger);cursor:pointer;padding:2px 6px;line-height:1;">\u2715</button>' +
             '<span style="font-weight:700;font-size:14px;color:var(--text);">Reporte de Catalogo</span>' +
             '<div style="margin-left:auto;display:flex;gap:6px;">' +
-                '<button onclick="downloadCatalogReport()" class="btn btn-primary btn-sm" style="font-size:11px;">\uD83D\uDCE5 Descargar</button>' +
+                '<button onclick="imprimirCatalogo()" class="btn btn-sm" style="font-size:11px;background:#3b82f6;color:#fff;border:none;">\uD83D\uDDA8\uFE0F Imprimir</button>' +
+                '<button onclick="descargarCatalogo()" class="btn btn-primary btn-sm" style="font-size:11px;">\uD83D\uDCE5 Descargar</button>' +
             '</div>' +
         '</div>' +
         '<div style="flex:1;overflow-y:auto;padding:12px;" id="catalogReportBody">' +
@@ -11766,7 +11765,8 @@ function exportFaltantesReport() {
             '<button onclick="closeFaltantesView()" style="font-size:20px;background:none;border:none;color:var(--danger);cursor:pointer;padding:2px 6px;line-height:1;">✕</button>' +
             '<span style="font-weight:700;font-size:14px;color:var(--text);">Reporte de Faltantes</span>' +
             '<div style="margin-left:auto;display:flex;gap:6px;">' +
-                '<button onclick="downloadFaltantesReport()" class="btn btn-primary btn-sm" style="font-size:11px;">\uD83D\uDCE5 Descargar</button>' +
+                '<button onclick="imprimirFaltantes()" class="btn btn-sm" style="font-size:11px;background:#3b82f6;color:#fff;border:none;">\uD83D\uDDA8\uFE0F Imprimir</button>' +
+                '<button onclick="descargarFaltantes()" class="btn btn-primary btn-sm" style="font-size:11px;">\uD83D\uDCE5 Descargar</button>' +
             '</div>' +
         '</div>' +
         '<div style="flex:1;overflow-y:auto;padding:12px;" id="faltantesReportBody">' +
@@ -14813,81 +14813,92 @@ function _uploadFile(blob, fileName, contentType, callback) {
     reader.readAsDataURL(blob);
 }
 
-// Abrir URL en Chrome real (fuera del WebView) usando intent://
-function _openInChrome(url) {
-    try {
-        // Metodo 1: Intent URL para Chrome
-        var hostPath = url.replace(/^https?:\/\//, '');
-        var intentUrl = 'intent://' + hostPath + '#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url=' + encodeURIComponent(url) + ';end';
-        window.location.href = intentUrl;
-        return;
-    } catch(e) {}
-    // Fallback
-    window.open(url, '_blank');
-}
+// NV34: _openInChrome eliminado — no funciona en WebView. Usar shareFileLink en su lugar.
 
-// Mostrar hoja de acciones (bottom sheet) con opciones para el archivo
-function showFileActions(url, fileName, description) {
-    var existing = document.getElementById('_fileActionSheet');
-    if (existing) existing.remove();
-
-    var overlay = document.createElement('div');
-    overlay.id = '_fileActionSheet';
-    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:99999;display:flex;align-items:flex-end;justify-content:center;';
-
-    var sheet = document.createElement('div');
-    sheet.style.cssText = 'background:#18181b;border-radius:16px 16px 0 0;padding:16px 16px 32px;width:100%;max-width:420px;box-sizing:border-box;';
-
-    // Boton cerrar arriba
-    var closeBtn = document.createElement('button');
-    closeBtn.style.cssText = 'display:block;margin:0 auto 12px;padding:6px 18px;background:#333;color:#fff;border:none;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;';
-    closeBtn.textContent = '✕ Cerrar';
-    closeBtn.onclick = function() { try { document.body.removeChild(overlay); } catch(e) {} };
-    sheet.appendChild(closeBtn);
-
-    var header = document.createElement('div');
-    header.style.cssText = 'text-align:center;margin-bottom:16px;';
-    header.innerHTML = '<div style="font-size:15px;font-weight:800;color:#fff;margin-bottom:2px;">' + escapeHtml(fileName) + '</div>' +
-        '<div style="font-size:12px;color:#9ca3af;">' + escapeHtml(description || 'Archivo listo') + '</div>';
-    sheet.appendChild(header);
-
-    var buttons = [
-        { label: '\uD83D\uDCC4 Abrir en Chrome', color: '#22c55e', action: function() {
-            _openInChrome(url);
-        }},
-        { label: '\uD83D\uDCF2 WhatsApp', color: '#25D366', action: function() {
-            var text = (description || 'Archivo') + ': ' + url;
-            var a = document.createElement('a');
-            a.href = 'https://wa.me/?text=' + encodeURIComponent(text);
-            a.target = '_blank';
-            a.click();
-        }},
-        { label: '\uD83D\uDCCB Copiar enlace', color: '#6b7280', action: function() {
+// NV34: Funcion unificada — usa navigator.share que SÍ funciona en WebView.
+// Abre la hoja de compartir nativa de Android donde el usuario elige:
+// WhatsApp, Chrome (para imprimir/descargar), copiar, etc.
+function shareFileLink(url, fileName, description) {
+    var shareText = (description || 'Archivo') + ': ' + url;
+    if (navigator.share) {
+        navigator.share({
+            title: fileName || 'Archivo',
+            text: shareText,
+            url: url
+        }).catch(function() {
+            // Si cancela o falla, copiar enlace
             copyToClipboard(url);
-            showToast('Enlace copiado al portapapeles', 'success');
-        }}
-    ];
-
-    buttons.forEach(function(btn) {
-        var b = document.createElement('button');
-        b.style.cssText = 'display:block;width:100%;padding:14px;margin-bottom:8px;background:' + btn.color + ';color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:800;cursor:pointer;text-align:center;';
-        b.textContent = btn.label;
-        b.onclick = function() {
-            btn.action();
-        };
-        sheet.appendChild(b);
-    });
-
-    // Mostrar el enlace completo para que el usuario lo vea
-    var linkBox = document.createElement('div');
-    linkBox.style.cssText = 'margin-top:12px;padding:10px;background:#111;border-radius:8px;word-break:break-all;font-size:11px;color:#9ca3af;text-align:center;';
-    linkBox.textContent = url;
-    sheet.appendChild(linkBox);
-
-    overlay.appendChild(sheet);
-    overlay.onclick = function(e) { if (e.target === overlay) try { document.body.removeChild(overlay); } catch(ex) {} };
-    document.body.appendChild(overlay);
+            showToast('Enlace copiado: ' + (fileName || ''), 'info');
+        });
+    } else {
+        copyToClipboard(url);
+        showToast('Enlace copiado: ' + (fileName || ''), 'info');
+    }
 }
+
+// showFileActions ya no necesita bottom sheet — usa navigator.share directamente
+function showFileActions(url, fileName, description) {
+    shareFileLink(url, fileName, description);
+}
+
+// NV34: Funciones unificadas para cotizaciones — Imprimir y Descargar
+function _generarYCompartirPdf(id, tipo) {
+    var quotes = getQuotations();
+    var q = null;
+    for (var i = 0; i < quotes.length; i++) {
+        if (quotes[i].id === id) { q = quotes[i]; break; }
+    }
+    if (!q) { showToast('Cotizacion no encontrada', 'error'); return; }
+    showToast('Generando PDF...', 'info');
+    setTimeout(function() {
+        try {
+            var pdfBlob = generatePdfBlob(q);
+            if (!pdfBlob) { showToast('Error al generar PDF', 'error'); return; }
+            var safeName = (q.number || 'COT-001').replace(/[^a-zA-Z0-9\-]/g, '') + '.pdf';
+            var desc = 'Cotizacion ' + (q.number || '') + ' - Total: $' + (q.total || 0).toFixed(2);
+            _uploadFile(pdfBlob, safeName, 'application/pdf', function(fileUrl) {
+                shareFileLink(fileUrl, safeName, desc);
+            });
+        } catch(ex) {
+            showToast('Error: ' + ex.message, 'error');
+        }
+    }, 300);
+}
+
+function imprimirCotizacion(id) { _generarYCompartirPdf(id, 'imprimir'); }
+function descargarCotizacion(id) { _generarYCompartirPdf(id, 'descargar'); }
+
+// NV34: Funciones para catalogo
+function imprimirCatalogo() {
+    var html = window._catalogReportHtml;
+    if (!html) { showToast('No hay reporte', 'error'); return; }
+    showToast('Preparando archivo...', 'info');
+    var today = new Date();
+    var dateStr = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
+    var fileName = 'Catalogo_' + dateStr + '.html';
+    var blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+    _uploadFile(blob, fileName, 'text/html', function(fileUrl) {
+        shareFileLink(fileUrl, fileName, 'Reporte de Catalogo');
+    });
+}
+
+function descargarCatalogo() { imprimirCatalogo(); }
+
+// NV34: Funciones para faltantes
+function imprimirFaltantes() {
+    var html = window._faltantesReportHtml;
+    if (!html) { showToast('No hay reporte', 'error'); return; }
+    showToast('Preparando archivo...', 'info');
+    var today = new Date();
+    var dateStr = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
+    var fileName = 'Faltantes_' + dateStr + '.html';
+    var blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+    _uploadFile(blob, fileName, 'text/html', function(fileUrl) {
+        shareFileLink(fileUrl, fileName, 'Reporte de Faltantes');
+    });
+}
+
+function descargarFaltantes() { imprimirFaltantes(); }
 
 // ============================================
 // COTIZACIONES — PDF
