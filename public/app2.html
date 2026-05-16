@@ -13,7 +13,7 @@
     // FORCE fresh code: always check server version, reload if different
     (function(){
         try {
-            var _NV = 'NV37b'; // increment this to force all clients to reload
+            var _NV = 'NV38'; // increment this to force all clients to reload
             var _ck = '_inv_nv';
             var stored = sessionStorage.getItem(_ck);
             // ALWAYS reload on first visit of session, or if version changed
@@ -972,7 +972,7 @@
             <div>
                 <div class="header-name" id="storeHeaderName">Inventario Pro</div>
                 <div class="header-role" id="userRole">rol</div>
-                <div class="header-ver" id="headerVersion">v2.5.0</div>
+                <div class="header-ver" id="headerVersion">v2.5.0 NV38</div>
             </div>
         </div>
         <button class="btn-logout" onclick="toggleTheme()" style="background:none;border:none;font-size:20px;cursor:pointer;margin-right:8px;color:var(--text2);" title="Cambiar tema">🌓</button>
@@ -2087,6 +2087,58 @@ function setColors(arr) {
     var cfg = getStoreConfig();
     cfg.colors = arr;
     saveStoreConfig(cfg);
+}
+// Mapa de colores: nombres en español/inglés → hex CSS válido
+var _colorMap = {
+    'rojo':'#E53935','red':'#E53935',
+    'azul':'#1E88E5','blue':'#1E88E5',
+    'verde':'#43A047','green':'#43A047',
+    'amarillo':'#FDD835','yellow':'#FDD835',
+    'naranja':'#FB8C00','orange':'#FB8C00',
+    'morado':'#8E24AA','purple':'#8E24AA',
+    'rosa':'#EC407A','pink':'#EC407A',
+    'negro':'#212121','black':'#212121',
+    'blanco':'#F5F5F5','white':'#F5F5F5',
+    'gris':'#9E9E9E','gray':'#9E9E9E','grey':'#9E9E9E',
+    'marron':'#795548','cafe':'#795548','brown':'#795548','coffee':'#795548',
+    'beige':'#D7CCC8',
+    'crema':'#FFF8E1','cream':'#FFF8E1',
+    'dorado':'#FFB300','gold':'#FFB300',
+    'plata':'#BDBDBD','silver':'#BDBDBD',
+    'bronce':'#A1887F','bronze':'#A1887F',
+    'celeste':'#4FC3F7','sky blue':'#4FC3F7','ciel':'#4FC3F7',
+    'turquesa':'#26A69A','turquoise':'#26A69A','teal':'#26A69A',
+    'coral':'#FF7043',
+    'salmon':'#EF9A9A',
+    'lila':'#CE93D8','lavanda':'#B39DDB','lavender':'#B39DDB',
+    'violeta':'#7E57C2','violet':'#7E57C2',
+    'fucsia':'#F50057','magenta':'#F50057',
+    'magenta':'#F50057',
+    'cereza':'#C62828','cherry':'#C62828',
+    'navy':'#1A237E','azul marino':'#1A237E','azul oscuro':'#1565C0',
+    'verde oscuro':'#2E7D32','verde claro':'#66BB6A',
+    'rosado':'#F48FB1',
+    'burdeos':'#880E4F','burgundy':'#880E4F',
+    'kaki':'#8D6E63','khaki':'#8D6E63',
+    'ivory':'#FFFFF0','marfil':'#FFFFF0',
+    'indigo':'#5C6BC0',
+    'oliva':'#827717','olive':'#827717',
+    'cobre':'#D84315','copper':'#D84315',
+    'champagne':'#F7E7CE','champán':'#F7E7CE',
+    'mostaza':'#F9A825','mustard':'#F9A825'
+};
+function resolveColor(name) {
+    if (!name) return '#BDBDBD';
+    var n = name.trim().toLowerCase();
+    // Si ya es un hex, rgb, hsl, etc., devolver tal cual
+    if (/^(#[0-9a-fA-F]{3,8})$/.test(n) || /^(rgb|hsl|rgba|hsla)\(/.test(n)) return name.trim();
+    return _colorMap[n] || '#BDBDBD';
+}
+function colorDotHtml(colorVal, size) {
+    size = size || 16;
+    if (!colorVal) return '';
+    var bg = resolveColor(colorVal);
+    return '<span style="display:inline-block;width:' + size + 'px;height:' + size + 'px;border-radius:50%;background:' + escapeHtml(bg) + ';border:2px solid rgba(0,0,0,0.12);box-shadow:0 0 0 1px rgba(0,0,0,0.08),inset 0 1px 2px rgba(255,255,255,0.3);flex-shrink:0;vertical-align:middle;"></span>';
 }
 function getProducts() {
     try { return JSON.parse(localStorage.getItem('inv_products') || '[]'); } catch(e) { return []; }
@@ -3402,10 +3454,12 @@ function populateCustomSelectOptions(field, items) {
     }
 
     var html = '';
+    var isColorField = (field === 'color');
     for (var i = 0; i < items.length; i++) {
         var val = (typeof items[i] === 'object') ? (items[i].name || items[i].id || '') : items[i];
+        var dotPreview = (isColorField && val) ? colorDotHtml(val, 12) + ' ' : '';
         html += '<div class="cs-option" data-value="' + escapeHtml(val) + '" onclick="selectCustomOption(\'' + field + '\', \'' + escapeHtml(val).replace(/'/g, "\\'") + '\')">' +
-            '<span>' + escapeHtml(val) + '</span>' +
+            '<span>' + dotPreview + escapeHtml(val) + '</span>' +
             '<span class="cs-check">✓</span>' +
             '</div>';
     }
@@ -4140,7 +4194,7 @@ function renderProductList() {
                 '<div class="product-meta">' +
                     (pr.space ? '<span style="color:var(--primary);">📦 ' + escapeHtml(pr.space) + '</span>' : '') +
                     '<span>' + escapeHtml(pr.brand || '—') + '</span>' +
-                    (pr.color ? '<span style="display:flex;align-items:center;gap:4px;">🎨 <span style="width:14px;height:14px;border-radius:50%;background:' + escapeHtml(pr.color) + ';border:2px solid rgba(255,255,255,0.3);box-shadow:0 0 0 1px rgba(0,0,0,0.15),inset 0 1px 2px rgba(255,255,255,0.3);flex-shrink:0;"></span>' + escapeHtml(pr.color) + '</span>' : '<span>—</span>') +
+                    (pr.color ? '<span style="display:flex;align-items:center;gap:4px;">' + colorDotHtml(pr.color, 16) + ' ' + escapeHtml(pr.color) + '</span>' : '<span>—</span>') +
                     '<span>' + escapeHtml(pr.category || '—') + '</span>' +
                 '</div>' +
                 '</div>' +
@@ -7751,7 +7805,7 @@ function renderLocSpaceView(loc) {
                 '<span style="font-size:11px;color:' + statusColor + ';flex-shrink:0;">' + statusIcon + '</span>' +
                 '<div style="flex:1;min-width:0;">' +
                     '<div style="display:flex;align-items:center;gap:5px;">' +
-                        (pr.color ? '<span style="width:12px;height:12px;border-radius:50%;background:' + escapeHtml(pr.color) + ';border:1.5px solid rgba(0,0,0,0.15);box-shadow:inset 0 1px 2px rgba(255,255,255,0.3);flex-shrink:0;"></span>' : '') +
+                        colorDotHtml(pr.color, 14) +
                         '<span style="font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(pName) + '</span>' +
                     '</div>' +
                     (locSpecsHtml ? '<div class="product-specs" style="margin-top:2px;">' + locSpecsHtml + '</div>' : '') +
@@ -7979,7 +8033,7 @@ function renderFilteredProducts(loc, spaceIdx, filteredIdxs, allProds) {
             '<span style="font-size:11px;color:' + statusColor + ';flex-shrink:0;">' + statusIcon + '</span>' +
             '<div style="flex:1;min-width:0;">' +
                 '<div style="display:flex;align-items:center;gap:5px;">' +
-                    (pr.color ? '<span style="width:12px;height:12px;border-radius:50%;background:' + escapeHtml(pr.color) + ';border:1.5px solid rgba(0,0,0,0.15);box-shadow:inset 0 1px 2px rgba(255,255,255,0.3);flex-shrink:0;"></span>' : '') +
+                    colorDotHtml(pr.color, 14) +
                     '<span style="font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(pName) + '</span>' +
                 '</div>' +
                 (locSpecsHtml ? '<div class="product-specs" style="margin-top:2px;">' + locSpecsHtml + '</div>' : '') +
@@ -10135,7 +10189,7 @@ function renderCatalogSummaryPage() {
                         '<div style="display:flex;gap:4px;margin-top:3px;flex-wrap:wrap;">' +
                             (pr.brand ? '<span style="font-size:9px;background:#00b89420;color:#00b894;padding:1px 6px;border-radius:4px;font-weight:600;">' + escapeHtml(pr.brand) + '</span>' : '') +
                             (pr.sku ? '<span style="font-size:9px;background:var(--bg);color:var(--text3);padding:1px 6px;border-radius:4px;">SKU: ' + escapeHtml(pr.sku) + '</span>' : '') +
-                            (prColor ? '<span style="font-size:9px;background:#a29bfe20;color:#a29bfe;padding:1px 6px;border-radius:4px;display:flex;align-items:center;gap:3px;">' + '<span style="width:10px;height:10px;border-radius:50%;background:' + escapeHtml(prColor) + ';border:1px solid rgba(0,0,0,0.15);box-shadow:inset 0 1px 2px rgba(255,255,255,0.3);flex-shrink:0;"></span>' + escapeHtml(prColor) + '</span>' : '') +
+                            (prColor ? '<span style="font-size:9px;background:#a29bfe20;color:#a29bfe;padding:1px 6px;border-radius:4px;display:flex;align-items:center;gap:3px;">' + colorDotHtml(prColor, 12) + ' ' + escapeHtml(prColor) + '</span>' : '') +
                             (prStock > 0 ? '<span style="font-size:9px;background:#2ed57320;color:#2ed573;padding:1px 6px;border-radius:4px;font-weight:600;">Stock: ' + prStock + '</span>' : '') +
                         '</div>' +
                         renderSpecPills(pr, '#6c5ce7') +
@@ -10329,7 +10383,7 @@ function renderCatalogSummaryPage() {
                                 (oprCat ? '<span style="font-size:9px;background:#6c5ce720;color:#6c5ce7;padding:1px 6px;border-radius:4px;font-weight:600;">' + escapeHtml(oprCat) + '</span>' : '') +
                                 (opr.brand ? '<span style="font-size:9px;background:#00b89420;color:#00b894;padding:1px 6px;border-radius:4px;font-weight:600;">' + escapeHtml(opr.brand) + '</span>' : '') +
                                 (opr.sku ? '<span style="font-size:9px;background:var(--bg);color:var(--text3);padding:1px 6px;border-radius:4px;">SKU: ' + escapeHtml(opr.sku) + '</span>' : '') +
-                                (oprColor ? '<span style="font-size:9px;background:#a29bfe20;color:#a29bfe;padding:1px 6px;border-radius:4px;display:flex;align-items:center;gap:3px;">' + '<span style="width:10px;height:10px;border-radius:50%;background:' + escapeHtml(oprColor) + ';border:1px solid rgba(0,0,0,0.15);box-shadow:inset 0 1px 2px rgba(255,255,255,0.3);flex-shrink:0;"></span>' + escapeHtml(oprColor) + '</span>' : '') +
+                                (oprColor ? '<span style="font-size:9px;background:#a29bfe20;color:#a29bfe;padding:1px 6px;border-radius:4px;display:flex;align-items:center;gap:3px;">' + colorDotHtml(oprColor, 12) + ' ' + escapeHtml(oprColor) + '</span>' : '') +
                                 (oprStock > 0 ? '<span style="font-size:9px;background:#2ed57320;color:#2ed573;padding:1px 6px;border-radius:4px;font-weight:600;">Stock: ' + oprStock + '</span>' : '') +
                             '</div>' +
                         '</div>' +
@@ -15605,7 +15659,7 @@ function openInitialInventoryModal(locId, spaceIdx) {
             html += '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:8px;">';
             html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">';
             html += '<div style="flex:1;min-width:0;">';
-            html += '<div style="font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + (pr.color ? '<span style="display:inline-block;width:11px;height:11px;border-radius:50%;background:' + escapeHtml(pr.color) + ';border:1.5px solid rgba(0,0,0,0.15);box-shadow:inset 0 1px 2px rgba(255,255,255,0.3);vertical-align:middle;margin-right:4px;flex-shrink:0;"></span>' : '') + escapeHtml(pName) + '</div>';
+            html += '<div style="font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + colorDotHtml(pr.color, 14) + ' ' + escapeHtml(pName) + '</div>';
             if (specHtml) html += '<div class="product-specs" style="margin-top:2px;">' + specHtml + '</div>';
             html += '</div>';
             html += '<div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">';
@@ -16071,7 +16125,7 @@ function buildCruceProductCards(items) {
         var prefill = item.prefill || '';
 
         html += '<div class="cruce-product-card" id="' + cardId + '" data-brand="' + escapeHtml(pBrand) + '" data-specs="' + escapeHtml(specsLabel) + '" data-name="' + escapeHtml(pName) + '">';
-        html += '<div class="cruce-product-name">' + (item.color ? '<span style="display:inline-block;width:11px;height:11px;border-radius:50%;background:' + escapeHtml(item.color) + ';border:1.5px solid rgba(0,0,0,0.15);box-shadow:inset 0 1px 2px rgba(255,255,255,0.3);vertical-align:middle;margin-right:4px;"></span>' : '') + escapeHtml(pName) + '</div>';
+        html += '<div class="cruce-product-name">' + colorDotHtml(item.color, 14) + ' ' + escapeHtml(pName) + '</div>';
         if (pBrand) html += '<div class="cruce-product-brand">' + escapeHtml(pBrand) + '</div>';
         if (specsLabel) html += '<div style="font-size:10px;color:var(--text3);margin-bottom:6px;">' + escapeHtml(specsLabel) + '</div>';
         html += '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">';
