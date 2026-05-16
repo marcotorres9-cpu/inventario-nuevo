@@ -119,25 +119,35 @@ public class MainActivity extends BridgeActivity {
                 @Override
                 public void run() {
                     try {
+                        // Sanitize fileName - remove any path separators or special chars
+                        String safeName = fileName.replaceAll("[^a-zA-Z0-9\\.\\-_ ]", "_");
+
                         DownloadManager.Request request = new DownloadManager.Request(Uri.parse(url));
-                        request.setTitle(fileName);
-                        request.setDescription("Descargando " + fileName);
+                        request.setTitle(safeName);
+                        request.setDescription("Descargando " + safeName);
                         request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
-                        request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, fileName);
+                        request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, safeName);
                         request.setAllowedOverMetered(true);
                         request.setAllowedOverRoaming(true);
+                        // Don't use weird MIME types - let the system detect from URL
+                        request.setMimeType("*/*");
 
                         DownloadManager dm = (DownloadManager) getSystemService(Context.DOWNLOAD_SERVICE);
                         long downloadId = dm.enqueue(request);
 
-                        Toast.makeText(MainActivity.this, "Descargando: " + fileName, Toast.LENGTH_LONG).show();
+                        Toast.makeText(MainActivity.this, "Descargando: " + safeName, Toast.LENGTH_LONG).show();
 
                         // Monitor download and open when done
                         new Thread(new Runnable() {
                             @Override
                             public void run() {
                                 boolean downloading = true;
-                                while (downloading) {
+                                int attempts = 0;
+                                while (downloading && attempts < 120) {
+                                    attempts++;
+                                    try {
+                                        Thread.sleep(1000);
+                                    } catch (InterruptedException ie) { break; }
                                     DownloadManager.Query q = new DownloadManager.Query();
                                     q.setFilterById(downloadId);
                                     android.database.Cursor cursor = dm.query(q);
@@ -146,43 +156,87 @@ public class MainActivity extends BridgeActivity {
                                         int status = cursor.getInt(statusIndex);
                                         if (status == DownloadManager.STATUS_SUCCESSFUL) {
                                             downloading = false;
-                                            File file = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), fileName);
-                                            if (file.exists()) {
-                                                Uri fileUri;
-                                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                                                    fileUri = FileProvider.getUriForFile(MainActivity.this,
-                                                            getApplicationContext().getPackageName() + ".fileprovider", file);
-                                                } else {
-                                                    fileUri = Uri.fromFile(file);
-                                                }
-                                                Intent openIntent = new Intent(Intent.ACTION_VIEW);
-                                                String mimeType = getMimeType(fileName);
-                                                openIntent.setDataAndType(fileUri, mimeType);
-                                                openIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-                                                openIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                                                startActivity(openIntent);
-                                            }
-                                        } else if (status == DownloadManager.STATUS_FAILED) {
-                                            downloading = false;
+                                            final File file = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), safeName);
+                                            Log.d(TAG, "Download complete: " + file.getAbsolutePath() + " exists=" + file.exists() + " size=" + file.length());
+
                                             new Handler(Looper.getMainLooper()).post(new Runnable() {
                                                 @Override
                                                 public void run() {
-                                                    Toast.makeText(MainActivity.this, "Error al descargar", Toast.LENGTH_SHORT).show();
+                                                    try {
+                                                        if (file.exists()) {
+                                                            Uri fileUri;
+                                                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                                                                fileUri = FileProvider.getUriForFile(MainActivity.this,
+                                                                        getApplicationContext().getPackageName() + ".fileprovider", file);
+                                                            } else {
+                                                                fileUri = Uri.fromFile(file);
+                                                            }
+                                                            Intent openIntent = new Intent(Intent.ACTION_VIEW);
+                                                            String mimeType = getMimeType(safeName);
+                                                            openIntent.setDataAndType(fileUri, mimeType);
+                                                            openIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                                                            openIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                                                            startActivity(openIntent);
+                                                        } else {
+                                                            // File doesn't exist, open in browser instead
+                                                            Intent browserIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+                                                            browserIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                                                            startActivity(browserIntent);
+                                                        }
+                                                    } catch (Exception ex) {
+                                                        Log.e(TAG, "Open error: " + ex.getMessage());
+                                                        // Fallback: open URL in browser
+                                                        try {
+                                                            Intent browserIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+                                                            browserIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                                                            startActivity(browserIntent);
+                                                        } catch (Exception ex2) {
+                                                            Toast.makeText(MainActivity.this, "No se pudo abrir el archivo", Toast.LENGTH_SHORT).show();
+                                                        }
+                                                    }
+                                                }
+                                            });
+                                        } else if (status == DownloadManager.STATUS_FAILED) {
+                                            downloading = false;
+                                            int reasonIndex = cursor.getColumnIndex(DownloadManager.COLUMN_REASON);
+                                            int reason = reasonIndex >= 0 ? cursor.getInt(reasonIndex) : -1;
+                                            final String errorReason;
+                                            switch (reason) {
+                                                case DownloadManager.ERROR_CANNOT_RESUME: errorReason = "No se puede resumir"; break;
+                                                case DownloadManager.ERROR_DEVICE_NOT_FOUND: errorReason = "Dispositivo no encontrado"; break;
+                                                case DownloadManager.ERROR_FILE_ALREADY_EXISTS: errorReason = "Archivo ya existe"; break;
+                                                case DownloadManager.ERROR_FILE_ERROR: errorReason = "Error de archivo"; break;
+                                                case DownloadManager.ERROR_HTTP_DATA_ERROR: errorReason = "Error de datos HTTP"; break;
+                                                case DownloadManager.ERROR_INSUFFICIENT_SPACE: errorReason = "Espacio insuficiente"; break;
+                                                case DownloadManager.ERROR_TOO_MANY_REDIRECTS: errorReason = "Muchas redirecciones"; break;
+                                                case DownloadManager.ERROR_UNHANDLED_HTTP_CODE: errorReason = "Error HTTP"; break;
+                                                default: errorReason = "Error desconocido (" + reason + ")"; break;
+                                            }
+                                            Log.e(TAG, "Download failed: " + errorReason);
+                                            final String msg = "Error al descargar: " + errorReason;
+                                            new Handler(Looper.getMainLooper()).post(new Runnable() {
+                                                @Override
+                                                public void run() {
+                                                    Toast.makeText(MainActivity.this, msg, Toast.LENGTH_LONG).show();
                                                 }
                                             });
                                         }
                                     }
                                     cursor.close();
-                                    if (downloading) {
-                                        try { Thread.sleep(500); } catch (InterruptedException ie) {}
-                                    }
                                 }
                             }
                         }).start();
 
                     } catch (Exception e) {
                         Log.e(TAG, "downloadAndOpen error: " + e.getMessage());
-                        Toast.makeText(MainActivity.this, "Error: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                        // Fallback: open URL directly in browser
+                        try {
+                            Intent browserIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+                            browserIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                            startActivity(browserIntent);
+                        } catch (Exception e2) {
+                            Toast.makeText(MainActivity.this, "Error: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                        }
                     }
                 }
             });

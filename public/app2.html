@@ -5889,6 +5889,7 @@ function showSavedQuotations() {
                 '<button class="btn btn-ghost btn-xs" onclick="openEditQuotation(\'' + q.id + '\')">✏️ Modificar</button>' +
                 '<button class="btn btn-ghost btn-xs" style="color:#3b82f6;font-weight:800;" onclick="imprimirCotizacion(\'' + q.id + '\')">🖨️ Imprimir</button>' +
                 '<button class="btn btn-ghost btn-xs" style="color:#22c55e;font-weight:800;" onclick="descargarCotizacion(\'' + q.id + '\')">📥 Descargar</button>' +
+                '<button class="btn btn-ghost btn-xs" style="color:var(--purple);font-weight:800;" onclick="shareQuotationQR(\'' + q.id + '\')">📷 QR</button>' +
                 '<button class="btn btn-ghost btn-xs" style="color:var(--danger);" onclick="confirmDeleteQuotation(\'' + q.id + '\')">🗑️</button>' +
             '</div>' +
             '</div>';
@@ -14110,9 +14111,7 @@ function shareQuotationQR(id) {
     pdfBtn.innerHTML = '&#128229; Descargar PDF';
     pdfBtn.onclick = function(e) {
         e.stopPropagation();
-        uploadPdfAndGetLink(null, q, function(pdfUrl) {
-            showFileActions(pdfUrl, (q.number || 'COT-001') + '.pdf', 'Cotizacion ' + (q.number || ''));
-        });
+        descargarCotizacion(q.id);
     };
 
     var waBtn = document.createElement('button');
@@ -14121,8 +14120,7 @@ function shareQuotationQR(id) {
     waBtn.innerHTML = '&#128241; WA';
     waBtn.onclick = function(e) {
         e.stopPropagation();
-        // Share quotation FILE via system share sheet (WhatsApp receives it as document)
-        shareQuotationFile(q);
+        compartirArchivo('', (q.number || 'COT-001') + '.pdf', 'Cotizacion ' + (q.number || '') + ' - Total: $' + (q.total || 0).toFixed(2));
     };
 
     var closeBtn = document.createElement('button');
