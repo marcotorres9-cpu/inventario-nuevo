@@ -14815,34 +14815,112 @@ function _uploadFile(blob, fileName, contentType, callback) {
 
 // NV34: _openInChrome eliminado — no funciona en WebView. Usar shareFileLink en su lugar.
 
-// NV34: Funcion unificada — usa navigator.share que SÍ funciona en WebView.
-// Abre la hoja de compartir nativa de Android donde el usuario elige:
-// WhatsApp, Chrome (para imprimir/descargar), copiar, etc.
-function shareFileLink(url, fileName, description) {
-    var shareText = (description || 'Archivo') + ': ' + url;
-    if (navigator.share) {
-        navigator.share({
-            title: fileName || 'Archivo',
-            text: shareText,
-            url: url
-        }).catch(function() {
-            // Si cancela o falla, copiar enlace
-            copyToClipboard(url);
-            showToast('Enlace copiado: ' + (fileName || ''), 'info');
-        });
+// NV35: Funciones nativas — usan NativeBridge (JavascriptInterface en Android)
+// Esto abre Chrome, descarga archivos, y comparte DIRECTAMENTE desde Android nativo.
+// Funciona porque el código corre en Java/Kotlin, no en el WebView.
+
+function _esAppNativa() {
+    return !!(window.NativeBridge && window.NativeBridge.openInBrowser);
+}
+
+// Imprimir: abre el archivo en Chrome para que el usuario pueda imprimir
+function imprimirArchivo(url, fileName, description) {
+    if (_esAppNativa()) {
+        // Metodo nativo: abre Chrome directamente
+        window.NativeBridge.openInBrowser(url);
+    } else {
+        // Fallback para navegador normal
+        window.open(url, '_blank');
+    }
+}
+
+// Descargar: usa Android DownloadManager para guardar en carpeta Descargas
+function descargarArchivo(url, fileName, description) {
+    if (_esAppNativa()) {
+        window.NativeBridge.downloadAndOpen(url, fileName);
+    } else {
+        // Fallback para navegador
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = fileName;
+        a.click();
+    }
+}
+
+// Compartir: usa la hoja de compartir nativa de Android
+function compartirArchivo(url, fileName, description) {
+    var shareText = (description || fileName || 'Archivo');
+    if (_esAppNativa()) {
+        window.NativeBridge.shareUrl(url, fileName || 'Archivo', shareText);
+    } else if (navigator.share) {
+        navigator.share({ title: fileName || 'Archivo', text: shareText, url: url }).catch(function() {});
     } else {
         copyToClipboard(url);
         showToast('Enlace copiado: ' + (fileName || ''), 'info');
     }
 }
 
-// showFileActions ya no necesita bottom sheet — usa navigator.share directamente
+// NV35: showFileActions muestra bottom sheet con 3 opciones que USAN codigo nativo
 function showFileActions(url, fileName, description) {
-    shareFileLink(url, fileName, description);
+    if (_esAppNativa()) {
+        // En app nativa: mostrar opciones con funciones nativas
+        var existing = document.getElementById('_fileActionSheet');
+        if (existing) existing.remove();
+
+        var overlay = document.createElement('div');
+        overlay.id = '_fileActionSheet';
+        overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:99999;display:flex;align-items:flex-end;justify-content:center;';
+
+        var sheet = document.createElement('div');
+        sheet.style.cssText = 'background:#18181b;border-radius:16px 16px 0 0;padding:20px 20px 36px;width:100%;max-width:420px;box-sizing:border-box;';
+
+        // Header
+        var header = document.createElement('div');
+        header.style.cssText = 'text-align:center;margin-bottom:16px;';
+        header.innerHTML = '<div style="font-size:16px;font-weight:800;color:#fff;margin-bottom:4px;">' + escapeHtml(fileName) + '</div>' +
+            '<div style="font-size:12px;color:#9ca3af;">' + escapeHtml(description || 'Archivo listo') + '</div>';
+        sheet.appendChild(header);
+
+        // Boton: Abrir en Chrome (para imprimir)
+        var btnPrint = document.createElement('button');
+        btnPrint.style.cssText = 'display:block;width:100%;padding:16px;margin-bottom:10px;background:#3b82f6;color:#fff;border:none;border-radius:14px;font-size:16px;font-weight:800;cursor:pointer;text-align:center;';
+        btnPrint.textContent = '\uD83D\uDDA8\uFE0F  Abrir en Chrome';
+        btnPrint.onclick = function() { try { document.body.removeChild(overlay); } catch(e) {} imprimirArchivo(url, fileName, description); };
+        sheet.appendChild(btnPrint);
+
+        // Boton: Descargar
+        var btnDownload = document.createElement('button');
+        btnDownload.style.cssText = 'display:block;width:100%;padding:16px;margin-bottom:10px;background:#22c55e;color:#fff;border:none;border-radius:14px;font-size:16px;font-weight:800;cursor:pointer;text-align:center;';
+        btnDownload.textContent = '\uD83D\uDCE5  Descargar';
+        btnDownload.onclick = function() { try { document.body.removeChild(overlay); } catch(e) {} descargarArchivo(url, fileName, description); };
+        sheet.appendChild(btnDownload);
+
+        // Boton: Compartir (WhatsApp, etc)
+        var btnShare = document.createElement('button');
+        btnShare.style.cssText = 'display:block;width:100%;padding:16px;margin-bottom:10px;background:#25D366;color:#fff;border:none;border-radius:14px;font-size:16px;font-weight:800;cursor:pointer;text-align:center;';
+        btnShare.textContent = '\uD83D\uDCE1  Compartir (WhatsApp, etc)';
+        btnShare.onclick = function() { try { document.body.removeChild(overlay); } catch(e) {} compartirArchivo(url, fileName, description); };
+        sheet.appendChild(btnShare);
+
+        // Boton: Cerrar
+        var btnClose = document.createElement('button');
+        btnClose.style.cssText = 'display:block;width:100%;padding:12px;margin-bottom:0;background:#333;color:#aaa;border:none;border-radius:14px;font-size:14px;font-weight:600;cursor:pointer;text-align:center;';
+        btnClose.textContent = 'Cerrar';
+        btnClose.onclick = function() { try { document.body.removeChild(overlay); } catch(e) {} };
+        sheet.appendChild(btnClose);
+
+        overlay.appendChild(sheet);
+        overlay.onclick = function(e) { if (e.target === overlay) try { document.body.removeChild(overlay); } catch(ex) {} };
+        document.body.appendChild(overlay);
+    } else {
+        // En navegador normal: usar navigator.share o copiar enlace
+        compartirArchivo(url, fileName, description);
+    }
 }
 
-// NV34: Funciones unificadas para cotizaciones — Imprimir y Descargar
-function _generarYCompartirPdf(id, tipo) {
+// NV35: Funciones unificadas para cotizaciones — Imprimir y Descargar
+// Ambas generan PDF, suben al servidor, y ejecutan la accion nativa
+function _generarPdfYAcceder(id, accion) {
     var quotes = getQuotations();
     var q = null;
     for (var i = 0; i < quotes.length; i++) {
@@ -14857,7 +14935,11 @@ function _generarYCompartirPdf(id, tipo) {
             var safeName = (q.number || 'COT-001').replace(/[^a-zA-Z0-9\-]/g, '') + '.pdf';
             var desc = 'Cotizacion ' + (q.number || '') + ' - Total: $' + (q.total || 0).toFixed(2);
             _uploadFile(pdfBlob, safeName, 'application/pdf', function(fileUrl) {
-                shareFileLink(fileUrl, safeName, desc);
+                if (accion === 'imprimir') {
+                    imprimirArchivo(fileUrl, safeName, desc);
+                } else {
+                    descargarArchivo(fileUrl, safeName, desc);
+                }
             });
         } catch(ex) {
             showToast('Error: ' + ex.message, 'error');
@@ -14865,10 +14947,10 @@ function _generarYCompartirPdf(id, tipo) {
     }, 300);
 }
 
-function imprimirCotizacion(id) { _generarYCompartirPdf(id, 'imprimir'); }
-function descargarCotizacion(id) { _generarYCompartirPdf(id, 'descargar'); }
+function imprimirCotizacion(id) { _generarPdfYAcceder(id, 'imprimir'); }
+function descargarCotizacion(id) { _generarPdfYAcceder(id, 'descargar'); }
 
-// NV34: Funciones para catalogo
+// NV35: Funciones para catalogo — usan codigo nativo
 function imprimirCatalogo() {
     var html = window._catalogReportHtml;
     if (!html) { showToast('No hay reporte', 'error'); return; }
@@ -14878,13 +14960,24 @@ function imprimirCatalogo() {
     var fileName = 'Catalogo_' + dateStr + '.html';
     var blob = new Blob([html], { type: 'text/html;charset=utf-8' });
     _uploadFile(blob, fileName, 'text/html', function(fileUrl) {
-        shareFileLink(fileUrl, fileName, 'Reporte de Catalogo');
+        imprimirArchivo(fileUrl, fileName, 'Reporte de Catalogo');
     });
 }
 
-function descargarCatalogo() { imprimirCatalogo(); }
+function descargarCatalogo() {
+    var html = window._catalogReportHtml;
+    if (!html) { showToast('No hay reporte', 'error'); return; }
+    showToast('Preparando archivo...', 'info');
+    var today = new Date();
+    var dateStr = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
+    var fileName = 'Catalogo_' + dateStr + '.html';
+    var blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+    _uploadFile(blob, fileName, 'text/html', function(fileUrl) {
+        descargarArchivo(fileUrl, fileName, 'Reporte de Catalogo');
+    });
+}
 
-// NV34: Funciones para faltantes
+// NV35: Funciones para faltantes — usan codigo nativo
 function imprimirFaltantes() {
     var html = window._faltantesReportHtml;
     if (!html) { showToast('No hay reporte', 'error'); return; }
@@ -14894,11 +14987,22 @@ function imprimirFaltantes() {
     var fileName = 'Faltantes_' + dateStr + '.html';
     var blob = new Blob([html], { type: 'text/html;charset=utf-8' });
     _uploadFile(blob, fileName, 'text/html', function(fileUrl) {
-        shareFileLink(fileUrl, fileName, 'Reporte de Faltantes');
+        imprimirArchivo(fileUrl, fileName, 'Reporte de Faltantes');
     });
 }
 
-function descargarFaltantes() { imprimirFaltantes(); }
+function descargarFaltantes() {
+    var html = window._faltantesReportHtml;
+    if (!html) { showToast('No hay reporte', 'error'); return; }
+    showToast('Preparando archivo...', 'info');
+    var today = new Date();
+    var dateStr = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
+    var fileName = 'Faltantes_' + dateStr + '.html';
+    var blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+    _uploadFile(blob, fileName, 'text/html', function(fileUrl) {
+        descargarArchivo(fileUrl, fileName, 'Reporte de Faltantes');
+    });
+}
 
 // ============================================
 // COTIZACIONES — PDF
