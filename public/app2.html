@@ -2435,7 +2435,20 @@ function generateId() {
 }
 function formatMoney(n) {
     var num = parseFloat(n) || 0;
-    return '$' + num.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    // Si no tiene decimales reales, mostrar sin .00
+    if (num === Math.floor(num)) {
+        return '$' + Math.floor(num).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    }
+    // Formato latinoamericano: punto miles, coma decimales
+    var fixed = num.toFixed(2);
+    var parts = fixed.split('.');
+    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    return '$' + parts[0] + ',' + parts[1];
+}
+// Formato numérico latinoamericano: punto miles, sin decimales si es entero
+function fmtNum(n) {
+    var num = Math.round(parseFloat(n) || 0);
+    return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 }
 function formatDate(iso) {
     try {
@@ -10114,8 +10127,8 @@ function renderCatalogSummaryPage() {
         html += '<div style="background:linear-gradient(135deg, var(--primary), #6c5ce7);border-radius:14px;padding:14px;margin-bottom:14px;color:#fff;">' +
             '<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px;text-align:center;">' +
                 '<div><div style="font-size:20px;font-weight:900;">' + filteredProducts.length + '</div><div style="font-size:10px;opacity:0.8;">Productos</div></div>' +
-                '<div><div style="font-size:22px;font-weight:900;">$' + drillCost.toLocaleString() + '</div><div style="font-size:10px;opacity:0.9;">Costo Total</div></div>' +
-                '<div><div style="font-size:14px;font-weight:600;opacity:0.7;">$' + drillValue.toLocaleString() + '</div><div style="font-size:9px;opacity:0.6;">Valor Venta</div></div>' +
+                '<div><div style="font-size:22px;font-weight:900;">$' + fmtNum(drillCost) + '</div><div style="font-size:10px;opacity:0.9;">Costo Total</div></div>' +
+                '<div><div style="font-size:14px;font-weight:600;opacity:0.7;">$' + fmtNum(drillValue) + '</div><div style="font-size:9px;opacity:0.6;">Valor Venta</div></div>' +
                 '<div><div style="font-size:20px;font-weight:900;">' + drillMargin + '%</div><div style="font-size:10px;opacity:0.8;">Margen</div></div>' +
             '</div>' +
             (hasFilters || _catalogSearch ? '<div style="text-align:center;margin-top:8px;font-size:10px;opacity:0.7;">Mostrando ' + filteredProducts.length + ' de ' + drillProducts.length + ' productos</div>' : '') +
@@ -10196,8 +10209,8 @@ function renderCatalogSummaryPage() {
                         (pr.description ? '<div style="font-size:10px;color:var(--text3);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(pr.description) + '</div>' : '') +
                     '</div>' +
                     '<div style="text-align:right;flex-shrink:0;margin-left:10px;">' +
-                        '<div style="font-size:16px;font-weight:800;color:var(--primary);">$' + prCost.toLocaleString() + '</div>' +
-                        (prPrice > 0 ? '<div style="font-size:9px;color:var(--text3);">venta: $' + prPrice.toLocaleString() + ' (' + prMargin + '%)</div>' : '') +
+                        '<div style="font-size:16px;font-weight:800;color:var(--primary);">$' + fmtNum(prCost) + '</div>' +
+                        (prPrice > 0 ? '<div style="font-size:9px;color:var(--text3);">venta: $' + fmtNum(prPrice) + ' (' + prMargin + '%)</div>' : '') +
                     '</div>' +
                 '</div>';
             }
@@ -10334,8 +10347,8 @@ function renderCatalogSummaryPage() {
             '<div style="font-size:36px;font-weight:900;line-height:1.1;margin:4px 0;">' + allProducts.length + '</div>' +
         '</div>' +
         '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;text-align:center;margin-top:8px;">' +
-            '<div><div style="font-size:16px;font-weight:900;">$' + totalCost.toLocaleString() + '</div><div style="font-size:10px;opacity:0.8;">Costo Total</div></div>' +
-            '<div><div style="font-size:12px;font-weight:600;opacity:0.8;">$' + totalValue.toLocaleString() + '</div><div style="font-size:9px;opacity:0.6;">Valor Venta</div></div>' +
+            '<div><div style="font-size:16px;font-weight:900;">$' + fmtNum(totalCost) + '</div><div style="font-size:10px;opacity:0.8;">Costo Total</div></div>' +
+            '<div><div style="font-size:12px;font-weight:600;opacity:0.8;">$' + fmtNum(totalValue) + '</div><div style="font-size:9px;opacity:0.6;">Valor Venta</div></div>' +
             '<div><div style="font-size:14px;font-weight:800;">' + globalMargin + '%</div><div style="font-size:10px;opacity:0.8;">Margen Prom.</div></div>' +
         '</div>' +
         '</div>';
@@ -10351,7 +10364,7 @@ function renderCatalogSummaryPage() {
 
         html += '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:14px;text-align:center;font-size:12px;color:var(--text3);">' +
             'Mostrando <b>' + ovFilteredProducts.length + '</b> de ' + allProducts.length + ' productos' +
-            ' | Costo: <b style="color:var(--primary);">$' + ovCost.toLocaleString() + '</b>' +
+            ' | Costo: <b style="color:var(--primary);">$' + fmtNum(ovCost) + '</b>' +
             ' | Margen: <b style="color:#00b894;">' + ovMargin + '%</b>' +
         '</div>';
 
@@ -10388,8 +10401,8 @@ function renderCatalogSummaryPage() {
                             '</div>' +
                         '</div>' +
                         '<div style="text-align:right;flex-shrink:0;margin-left:10px;">' +
-                            '<div style="font-size:16px;font-weight:800;color:var(--primary);">$' + oprCost.toLocaleString() + '</div>' +
-                            (oprPrice > 0 ? '<div style="font-size:9px;color:var(--text3);">venta: $' + oprPrice.toLocaleString() + ' (' + oprMargin + '%)</div>' : '') +
+                            '<div style="font-size:16px;font-weight:800;color:var(--primary);">$' + fmtNum(oprCost) + '</div>' +
+                            (oprPrice > 0 ? '<div style="font-size:9px;color:var(--text3);">venta: $' + fmtNum(oprPrice) + ' (' + oprMargin + '%)</div>' : '') +
                         '</div>' +
                     '</div>' +
                     (oprSpecStr ? '<div style="font-size:9px;color:var(--text3);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">\u2699\uFE0F ' + escapeHtml(oprSpecStr) + '</div>' : '') +
@@ -10424,7 +10437,7 @@ function renderCatalogSummaryPage() {
             '<div style="font-size:9px;font-weight:700;color:#00b894;margin-top:4px;">\uD83D\uDC47 Ver</div>' +
         '</div>' +
         '<div onclick="toggleCatalogFilter(\'price\')" style="background:#e1705518;border:1px solid #e1705530;border-radius:10px;padding:10px;text-align:center;cursor:pointer;transition:all 0.15s;' + fPriceStyle + '">' +
-            '<div style="font-size:22px;font-weight:800;color:#e17055;">$' + avgPrice.toLocaleString() + '</div>' +
+            '<div style="font-size:22px;font-weight:800;color:#e17055;">$' + fmtNum(avgPrice) + '</div>' +
             '<div style="font-size:10px;color:var(--text3);">Precio Prom.</div>' +
             '<div style="font-size:9px;font-weight:700;color:#e17055;margin-top:4px;">\uD83D\uDC47 Ver</div>' +
         '</div>' +
@@ -10475,13 +10488,13 @@ function renderCatalogSummaryPage() {
                         catBrands.map(function(b) { return '<span style="display:inline-block;background:var(--bg);font-size:9px;padding:2px 6px;border-radius:5px;color:var(--text2);">' + escapeHtml(b) + '</span>'; }).join('') +
                     '</div>' +
                     '<div style="display:flex;gap:10px;flex-shrink:0;">' +
-                        '<span style="font-size:11px;color:var(--text3);">Prom $' + catAvg.toLocaleString() + '</span>' +
+                        '<span style="font-size:11px;color:var(--text3);">Prom $' + fmtNum(catAvg) + '</span>' +
                         '<span style="font-size:11px;font-weight:700;color:#00b894;">' + catMargin + '%</span>' +
                     '</div>' +
                 '</div>' +
                 '<div style="display:flex;justify-content:space-between;margin-top:6px;font-size:10px;color:var(--text3);">' +
-                    '<span>Costo: $' + catCost.toLocaleString() + '</span><span style="font-size:10px;opacity:0.7;"> | Venta: $' + catValue.toLocaleString() + '</span>' +
-                    '<span>Costo: $' + catCost.toLocaleString() + '</span>' +
+                    '<span>Costo: $' + fmtNum(catCost) + '</span><span style="font-size:10px;opacity:0.7;"> | Venta: $' + fmtNum(catValue) + '</span>' +
+                    '<span>Costo: $' + fmtNum(catCost) + '</span>' +
                 '</div>' +
             '</div>';
         }
@@ -10510,7 +10523,7 @@ function renderCatalogSummaryPage() {
                         '<span style="background:#00b89420;color:#00b894;font-size:9px;padding:1px 6px;border-radius:6px;font-weight:700;">' + br.products.length + '</span>' +
                     '</div>' +
                     '<div style="display:flex;align-items:center;gap:10px;">' +
-                        '<span style="font-size:18px;font-weight:800;color:var(--primary);">$' + brCost.toLocaleString() + '</span>' +
+                        '<span style="font-size:18px;font-weight:800;color:var(--primary);">$' + fmtNum(brCost) + '</span>' +
                         '<span style="font-size:14px;color:var(--text3);">\u2192</span>' +
                     '</div>' +
                 '</div>' +
@@ -10519,7 +10532,7 @@ function renderCatalogSummaryPage() {
                         brCats.map(function(c) { return '<span style="display:inline-block;background:var(--bg);font-size:9px;padding:2px 6px;border-radius:5px;color:var(--text2);">' + escapeHtml(c) + '</span>'; }).join('') +
                     '</div>' +
                     '<div style="display:flex;gap:10px;flex-shrink:0;">' +
-                        '<span style="font-size:11px;color:var(--text3);">Costo: $' + brCost.toLocaleString() + '</span>' +
+                        '<span style="font-size:11px;color:var(--text3);">Costo: $' + fmtNum(brCost) + '</span>' +
                         '<span style="font-size:11px;font-weight:700;color:#00b894;">' + brMargin + '%</span>' +
                     '</div>' +
                 '</div>' +
@@ -10565,8 +10578,8 @@ function renderCatalogSummaryPage() {
                     '</div>' +
                 '</div>' +
                 '<div style="display:flex;justify-content:space-between;margin-top:6px;font-size:10px;color:var(--text3);">' +
-                    '<span>Total: $' + rangeTotal.toLocaleString() + '</span>' +
-                    '<span>Costo: $' + rangeCost.toLocaleString() + '</span>' +
+                    '<span>Total: $' + fmtNum(rangeTotal) + '</span>' +
+                    '<span>Costo: $' + fmtNum(rangeCost) + '</span>' +
                     '<span style="font-weight:700;color:' + range.color + ';">' + rangeMargin + '% margen</span>' +
                 '</div>' +
             '</div>';
@@ -10755,8 +10768,8 @@ function generateCatalogReport(preFiltered, preSelCats, preSelBrands, isReduced)
         '<div class="subtitle">' + dateStr + ' \u2014 ' + timeStr + (selCats.length > 0 ? ' \u2014 ' + selCats.length + ' categoria(s)' : '') + (selBrands.length > 0 ? ' \u2014 ' + selBrands.length + ' marca(s)' : '') + '</div>' +
         '<div class="summary">' +
             '<div class="summary-box"><div class="num">' + products.length + '</div><div class="lbl">Productos</div></div>' +
-            '<div class="summary-box"><div class="num">$' + grandCost.toLocaleString() + '</div><div class="lbl">Costo Total</div></div>' +
-            '<div class="summary-box"><div class="num">$' + grandValue.toLocaleString() + '</div><div class="lbl">Valor Venta</div></div>' +
+            '<div class="summary-box"><div class="num">$' + fmtNum(grandCost) + '</div><div class="lbl">Costo Total</div></div>' +
+            '<div class="summary-box"><div class="num">$' + fmtNum(grandValue) + '</div><div class="lbl">Valor Venta</div></div>' +
             '<div class="summary-box"><div class="num">' + grandMargin + '%</div><div class="lbl">Margen Prom.</div></div>' +
             '<div class="summary-box"><div class="num">' + grandStock + '</div><div class="lbl">Stock Total</div></div>' +
         '</div>';
@@ -10775,9 +10788,9 @@ function generateCatalogReport(preFiltered, preSelCats, preSelBrands, isReduced)
             }
             var cm2 = cv2 > 0 ? Math.round(((cv2 - cc2) / cv2) * 100) : 0;
             var avgC = cp2.length > 0 ? Math.round(cc2 / cp2.length) : 0;
-            rHtml += '<tr><td style="text-align:left;font-weight:600;padding-left:8px;">' + escapeHtml(catKeys[ci]) + '</td><td>' + cp2.length + '</td><td>$' + cc2.toLocaleString() + '</td><td>$' + cv2.toLocaleString() + '</td><td>' + cm2 + '%</td><td>' + cs2 + '</td><td>$' + avgC.toLocaleString() + '</td></tr>';
+            rHtml += '<tr><td style="text-align:left;font-weight:600;padding-left:8px;">' + escapeHtml(catKeys[ci]) + '</td><td>' + cp2.length + '</td><td>$' + fmtNum(cc2) + '</td><td>$' + fmtNum(cv2) + '</td><td>' + cm2 + '%</td><td>' + cs2 + '</td><td>$' + fmtNum(avgC) + '</td></tr>';
         }
-        rHtml += '<tr class="total-row"><td style="text-align:right;padding-right:10px;">TOTAL</td><td>' + products.length + '</td><td>$' + grandCost.toLocaleString() + '</td><td>$' + grandValue.toLocaleString() + '</td><td>' + grandMargin + '%</td><td>' + grandStock + '</td><td>$' + (products.length > 0 ? Math.round(grandCost / products.length) : 0).toLocaleString() + '</td></tr>';
+        rHtml += '<tr class="total-row"><td style="text-align:right;padding-right:10px;">TOTAL</td><td>' + products.length + '</td><td>$' + fmtNum(grandCost) + '</td><td>$' + fmtNum(grandValue) + '</td><td>' + grandMargin + '%</td><td>' + grandStock + '</td><td>$' + fmtNum(products.length > 0 ? Math.round(grandCost / products.length) : 0) + '</td></tr>';
         rHtml += '</tbody></table>';
 
         // Brand summary table
@@ -10796,7 +10809,7 @@ function generateCatalogReport(preFiltered, preSelCats, preSelBrands, isReduced)
         for (var bi4 = 0; bi4 < brandKeys2.length; bi4++) {
             var br2 = allBrands2[brandKeys2[bi4]];
             var bm2 = br2.val > 0 ? Math.round(((br2.val - br2.cost) / br2.val) * 100) : 0;
-            rHtml += '<tr><td style="text-align:left;font-weight:600;padding-left:8px;">' + escapeHtml(brandKeys2[bi4]) + '</td><td>' + br2.prods.length + '</td><td>$' + br2.cost.toLocaleString() + '</td><td>$' + br2.val.toLocaleString() + '</td><td>' + bm2 + '%</td></tr>';
+            rHtml += '<tr><td style="text-align:left;font-weight:600;padding-left:8px;">' + escapeHtml(brandKeys2[bi4]) + '</td><td>' + br2.prods.length + '</td><td>$' + fmtNum(br2.cost) + '</td><td>$' + fmtNum(br2.val) + '</td><td>' + bm2 + '%</td></tr>';
         }
         rHtml += '</tbody></table>';
     }
@@ -10816,7 +10829,7 @@ function generateCatalogReport(preFiltered, preSelCats, preSelBrands, isReduced)
             catStock += parseInt(catProds[cp].stock || 0);
         }
         var catSpan = isReduced ? 2 : 7;
-        rHtml += '<tr class="cat-row"><td colspan="' + catSpan + '" style="text-align:left;padding-left:8px;">' + escapeHtml(catKeys[ci]) + ' (' + catProds.length + ')</td><td>$' + catCost.toLocaleString() + '</td><td>$' + catVal.toLocaleString() + '</td><td>' + (catVal > 0 ? Math.round(((catVal - catCost) / catVal) * 100) : 0) + '%</td>' + (isReduced ? '' : '<td>' + catStock + '</td>') + '</tr>';
+        rHtml += '<tr class="cat-row"><td colspan="' + catSpan + '" style="text-align:left;padding-left:8px;">' + escapeHtml(catKeys[ci]) + ' (' + catProds.length + ')</td><td>$' + fmtNum(catCost) + '</td><td>$' + fmtNum(catVal) + '</td><td>' + (catVal > 0 ? Math.round(((catVal - catCost) / catVal) * 100) : 0) + '%</td>' + (isReduced ? '' : '<td>' + catStock + '</td>') + '</tr>';
 
         for (var pi = 0; pi < catProds.length; pi++) {
             var pr = catProds[pi];
@@ -10831,15 +10844,15 @@ function generateCatalogReport(preFiltered, preSelCats, preSelBrands, isReduced)
                 if (svv) specsStr += (specsStr ? ', ' : '') + spk[si] + ': ' + svv;
             }
             if (isReduced) {
-                rHtml += '<tr><td class="name-col">' + escapeHtml(pr.name) + '</td><td>' + escapeHtml(pr.brand || '') + '</td><td>$' + prCost.toLocaleString() + '</td><td>$' + prSale.toLocaleString() + '</td><td>' + prMargin + '%</td></tr>';
+                rHtml += '<tr><td class="name-col">' + escapeHtml(pr.name) + '</td><td>' + escapeHtml(pr.brand || '') + '</td><td>$' + fmtNum(prCost) + '</td><td>$' + fmtNum(prSale) + '</td><td>' + prMargin + '%</td></tr>';
             } else {
-                rHtml += '<tr><td class="name-col">' + escapeHtml(pr.name) + '</td><td>' + escapeHtml(pr.sku || '') + '</td><td>' + escapeHtml(pr.category || '') + '</td><td>' + escapeHtml(pr.brand || '') + '</td><td>' + escapeHtml(pr.color || '') + '</td><td style="font-size:9px;text-align:left;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(specsStr) + '</td><td>$' + prCost.toLocaleString() + '</td><td>$' + prSale.toLocaleString() + '</td><td>' + prMargin + '%</td><td>' + (parseInt(pr.stock) || 0) + '</td></tr>';
+                rHtml += '<tr><td class="name-col">' + escapeHtml(pr.name) + '</td><td>' + escapeHtml(pr.sku || '') + '</td><td>' + escapeHtml(pr.category || '') + '</td><td>' + escapeHtml(pr.brand || '') + '</td><td>' + escapeHtml(pr.color || '') + '</td><td style="font-size:9px;text-align:left;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(specsStr) + '</td><td>$' + fmtNum(prCost) + '</td><td>$' + fmtNum(prSale) + '</td><td>' + prMargin + '%</td><td>' + (parseInt(pr.stock) || 0) + '</td></tr>';
             }
         }
     }
 
     var totalSpan = isReduced ? 2 : 6;
-    rHtml += '<tr class="total-row"><td colspan="' + totalSpan + '" style="text-align:right;padding-right:12px;">TOTAL (' + products.length + ')</td><td>$' + grandCost.toLocaleString() + '</td><td>$' + grandValue.toLocaleString() + '</td><td>' + grandMargin + '%</td>' + (isReduced ? '' : '<td>' + grandStock + '</td>') + '</tr>';
+    rHtml += '<tr class="total-row"><td colspan="' + totalSpan + '" style="text-align:right;padding-right:12px;">TOTAL (' + products.length + ')</td><td>$' + fmtNum(grandCost) + '</td><td>$' + fmtNum(grandValue) + '</td><td>' + grandMargin + '%</td>' + (isReduced ? '' : '<td>' + grandStock + '</td>') + '</tr>';
     rHtml += '</tbody></table></body></html>';
 
     window._catalogReportHtml = rHtml;
@@ -10860,8 +10873,8 @@ function generateCatalogReport(preFiltered, preSelCats, preSelBrands, isReduced)
                 '<div style="font-size:11px;color:var(--text3);text-align:center;margin-bottom:14px;">' + dateStr + ' \u2014 ' + timeStr + '</div>' +
                 '<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:14px;">' +
                     '<div style="background:var(--bg2);border-radius:8px;padding:8px;text-align:center;"><div style="font-size:20px;font-weight:800;color:var(--primary);">' + products.length + '</div><div style="font-size:10px;color:var(--text3);">Productos</div></div>' +
-                    '<div style="background:var(--bg2);border-radius:8px;padding:8px;text-align:center;"><div style="font-size:22px;font-weight:900;color:var(--primary);">$' + grandCost.toLocaleString() + '</div><div style="font-size:10px;color:var(--text3);">Costo Total</div></div>' +
-                    '<div style="background:var(--bg2);border-radius:8px;padding:8px;text-align:center;"><div style="font-size:16px;font-weight:600;color:var(--text3);">$' + grandValue.toLocaleString() + '</div><div style="font-size:9px;color:var(--text3);">Valor Venta</div></div>' +
+                    '<div style="background:var(--bg2);border-radius:8px;padding:8px;text-align:center;"><div style="font-size:22px;font-weight:900;color:var(--primary);">$' + fmtNum(grandCost) + '</div><div style="font-size:10px;color:var(--text3);">Costo Total</div></div>' +
+                    '<div style="background:var(--bg2);border-radius:8px;padding:8px;text-align:center;"><div style="font-size:16px;font-weight:600;color:var(--text3);">$' + fmtNum(grandValue) + '</div><div style="font-size:9px;color:var(--text3);">Valor Venta</div></div>' +
                     '<div style="background:var(--bg2);border-radius:8px;padding:8px;text-align:center;"><div style="font-size:20px;font-weight:800;color:#00b894;">' + grandMargin + '%</div><div style="font-size:10px;color:var(--text3);">Margen Prom.</div></div>' +
                 '</div>';
 
@@ -10881,9 +10894,9 @@ function generateCatalogReport(preFiltered, preSelCats, preSelBrands, isReduced)
             }
             var cm2s = cv2s > 0 ? Math.round(((cv2s - cc2s) / cv2s) * 100) : 0;
             var bgs2 = ci2s % 2 === 0 ? '' : 'background:var(--bg2);';
-            viewHtml += '<tr style="' + bgs2 + '"><td style="padding:5px 6px;text-align:left;border-bottom:1px solid var(--border);font-weight:600;color:var(--text);">' + escapeHtml(catKeys[ci2s]) + '</td><td style="padding:5px 4px;text-align:center;border-bottom:1px solid var(--border);">' + cps2.length + '</td><td style="padding:5px 4px;text-align:center;border-bottom:1px solid var(--border);color:#e17055;">$' + cc2s.toLocaleString() + '</td><td style="padding:5px 4px;text-align:center;border-bottom:1px solid var(--border);color:var(--text);">$' + cv2s.toLocaleString() + '</td><td style="padding:5px 4px;text-align:center;border-bottom:1px solid var(--border);color:#00b894;font-weight:600;">' + cm2s + '%</td><td style="padding:5px 4px;text-align:center;border-bottom:1px solid var(--border);">' + cs2s + '</td></tr>';
+            viewHtml += '<tr style="' + bgs2 + '"><td style="padding:5px 6px;text-align:left;border-bottom:1px solid var(--border);font-weight:600;color:var(--text);">' + escapeHtml(catKeys[ci2s]) + '</td><td style="padding:5px 4px;text-align:center;border-bottom:1px solid var(--border);">' + cps2.length + '</td><td style="padding:5px 4px;text-align:center;border-bottom:1px solid var(--border);color:#e17055;">$' + fmtNum(cc2s) + '</td><td style="padding:5px 4px;text-align:center;border-bottom:1px solid var(--border);color:var(--text);">$' + fmtNum(cv2s) + '</td><td style="padding:5px 4px;text-align:center;border-bottom:1px solid var(--border);color:#00b894;font-weight:600;">' + cm2s + '%</td><td style="padding:5px 4px;text-align:center;border-bottom:1px solid var(--border);">' + cs2s + '</td></tr>';
         }
-        viewHtml += '<tr style="background:var(--primary);"><td style="padding:6px 6px;text-align:right;border:none;color:#fff;font-weight:700;">TOTAL</td><td style="padding:6px 4px;text-align:center;color:#fff;font-weight:700;">' + products.length + '</td><td style="padding:6px 4px;text-align:center;color:#fff;font-weight:700;">$' + grandCost.toLocaleString() + '</td><td style="padding:6px 4px;text-align:center;color:#fff;font-weight:700;">$' + grandValue.toLocaleString() + '</td><td style="padding:6px 4px;text-align:center;color:#fff;font-weight:700;">' + grandMargin + '%</td><td style="padding:6px 4px;text-align:center;color:#fff;font-weight:700;">' + grandStock + '</td></tr>';
+        viewHtml += '<tr style="background:var(--primary);"><td style="padding:6px 6px;text-align:right;border:none;color:#fff;font-weight:700;">TOTAL</td><td style="padding:6px 4px;text-align:center;color:#fff;font-weight:700;">' + products.length + '</td><td style="padding:6px 4px;text-align:center;color:#fff;font-weight:700;">$' + fmtNum(grandCost) + '</td><td style="padding:6px 4px;text-align:center;color:#fff;font-weight:700;">$' + fmtNum(grandValue) + '</td><td style="padding:6px 4px;text-align:center;color:#fff;font-weight:700;">' + grandMargin + '%</td><td style="padding:6px 4px;text-align:center;color:#fff;font-weight:700;">' + grandStock + '</td></tr>';
         viewHtml += '</tbody></table></div>';
 
         // Brand summary table
@@ -10903,7 +10916,7 @@ function generateCatalogReport(preFiltered, preSelCats, preSelBrands, isReduced)
             var bv = allBrandsV[brandKeysV[bvi2]];
             var bvm = bv.val > 0 ? Math.round(((bv.val - bv.cost) / bv.val) * 100) : 0;
             var bgv = bvi2 % 2 === 0 ? '' : 'background:var(--bg2);';
-            viewHtml += '<tr style="' + bgv + '"><td style="padding:5px 6px;text-align:left;border-bottom:1px solid var(--border);font-weight:600;color:var(--text);">' + escapeHtml(brandKeysV[bvi2]) + '</td><td style="padding:5px 4px;text-align:center;border-bottom:1px solid var(--border);">' + bv.count + '</td><td style="padding:5px 4px;text-align:center;border-bottom:1px solid var(--border);color:#e17055;">$' + bv.cost.toLocaleString() + '</td><td style="padding:5px 4px;text-align:center;border-bottom:1px solid var(--border);color:var(--text);">$' + bv.val.toLocaleString() + '</td><td style="padding:5px 4px;text-align:center;border-bottom:1px solid var(--border);color:#00b894;font-weight:600;">' + bvm + '%</td></tr>';
+            viewHtml += '<tr style="' + bgv + '"><td style="padding:5px 6px;text-align:left;border-bottom:1px solid var(--border);font-weight:600;color:var(--text);">' + escapeHtml(brandKeysV[bvi2]) + '</td><td style="padding:5px 4px;text-align:center;border-bottom:1px solid var(--border);">' + bv.count + '</td><td style="padding:5px 4px;text-align:center;border-bottom:1px solid var(--border);color:#e17055;">$' + fmtNum(bv.cost) + '</td><td style="padding:5px 4px;text-align:center;border-bottom:1px solid var(--border);color:var(--text);">$' + fmtNum(bv.val) + '</td><td style="padding:5px 4px;text-align:center;border-bottom:1px solid var(--border);color:#00b894;font-weight:600;">' + bvm + '%</td></tr>';
         }
         viewHtml += '</tbody></table></div>';
     }
@@ -10919,7 +10932,7 @@ function generateCatalogReport(preFiltered, preSelCats, preSelBrands, isReduced)
             catStk2 += parseInt(catProds2[cp2].stock || 0);
         }
         var catMrg2 = catVal2 > 0 ? Math.round(((catVal2 - catCost2) / catVal2) * 100) : 0;
-        viewHtml += '<div style="font-size:12px;font-weight:700;color:var(--primary);margin:12px 0 6px;padding:6px 10px;background:var(--bg2);border-radius:8px;">\uD83D\uDCC2 ' + escapeHtml(catKeys[ci2]) + ' (' + catProds2.length + ') \u2014 Venta: $' + catVal2.toLocaleString() + ' | Costo: $' + catCost2.toLocaleString() + (isReduced ? '' : ' | Stock: ' + catStk2) + '</div>';
+        viewHtml += '<div style="font-size:12px;font-weight:700;color:var(--primary);margin:12px 0 6px;padding:6px 10px;background:var(--bg2);border-radius:8px;">\uD83D\uDCC2 ' + escapeHtml(catKeys[ci2]) + ' (' + catProds2.length + ') \u2014 Venta: $' + fmtNum(catVal2) + ' | Costo: $' + fmtNum(catCost2) + (isReduced ? '' : ' | Stock: ' + catStk2) + '</div>';
         // Different columns based on mode
         var thStyle = 'style="background:var(--primary);color:#fff;padding:6px 4px;font-weight:600;"';
         var tdBorder = 'border-bottom:1px solid var(--border);';
@@ -10932,7 +10945,7 @@ function generateCatalogReport(preFiltered, preSelCats, preSelBrands, isReduced)
                 var prCost2 = parseFloat(pr2.costPrice || 0);
                 var prMargin2 = prSale2 > 0 ? Math.round(((prSale2 - prCost2) / prSale2) * 100) : 0;
                 var bgStyle2 = pi2 % 2 === 0 ? '' : 'background:var(--bg2);';
-                viewHtml += '<tr style="' + bgStyle2 + '"><td style="padding:5px 4px;text-align:left;' + tdBorder + 'color:var(--text);max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(pr2.name) + '</td><td style="padding:5px 4px;text-align:center;' + tdBorder + 'color:var(--text2);">' + escapeHtml(pr2.brand || '') + '</td><td style="padding:5px 4px;text-align:center;' + tdBorder + 'color:var(--text2);">$' + prCost2.toLocaleString() + '</td><td style="padding:5px 4px;text-align:center;' + tdBorder + 'color:var(--text);font-weight:600;">$' + prSale2.toLocaleString() + '</td><td style="padding:5px 4px;text-align:center;' + tdBorder + 'color:#00b894;font-weight:600;">' + prMargin2 + '%</td></tr>';
+                viewHtml += '<tr style="' + bgStyle2 + '"><td style="padding:5px 4px;text-align:left;' + tdBorder + 'color:var(--text);max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(pr2.name) + '</td><td style="padding:5px 4px;text-align:center;' + tdBorder + 'color:var(--text2);">' + escapeHtml(pr2.brand || '') + '</td><td style="padding:5px 4px;text-align:center;' + tdBorder + 'color:var(--text2);">$' + fmtNum(prCost2) + '</td><td style="padding:5px 4px;text-align:center;' + tdBorder + 'color:var(--text);font-weight:600;">$' + fmtNum(prSale2) + '</td><td style="padding:5px 4px;text-align:center;' + tdBorder + 'color:#00b894;font-weight:600;">' + prMargin2 + '%</td></tr>';
             }
             viewHtml += '</tbody></table></div>';
         } else {
@@ -10952,7 +10965,7 @@ function generateCatalogReport(preFiltered, preSelCats, preSelBrands, isReduced)
                     if (svv2) specsStr2 += (specsStr2 ? ', ' : '') + spk2[si2] + ': ' + svv2;
                 }
                 var bgStyle2 = pi2 % 2 === 0 ? '' : 'background:var(--bg2);';
-                viewHtml += '<tr style="' + bgStyle2 + '"><td style="padding:4px 3px;text-align:left;' + tdBorder + 'color:var(--text);max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(pr2.name) + '</td><td style="padding:4px 3px;text-align:center;' + tdBorder + 'color:var(--text3);">' + escapeHtml(pr2.sku || '') + '</td><td style="padding:4px 3px;text-align:center;' + tdBorder + 'color:var(--text2);">' + escapeHtml(pr2.brand || '') + '</td><td style="padding:4px 3px;text-align:center;' + tdBorder + 'color:var(--text2);">' + escapeHtml(pr2.color || '') + '</td><td style="padding:4px 3px;text-align:left;' + tdBorder + 'color:var(--text3);font-size:8px;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(specsStr2) + '</td><td style="padding:4px 3px;text-align:center;' + tdBorder + 'color:#e17055;">$' + prCost2.toLocaleString() + '</td><td style="padding:4px 3px;text-align:center;' + tdBorder + 'color:var(--text);font-weight:600;">$' + prSale2.toLocaleString() + '</td><td style="padding:4px 3px;text-align:center;' + tdBorder + 'color:#00b894;font-weight:600;">' + prMargin2 + '%</td><td style="padding:4px 3px;text-align:center;' + tdBorder + '">' + (parseInt(pr2.stock) || 0) + '</td></tr>';
+                viewHtml += '<tr style="' + bgStyle2 + '"><td style="padding:4px 3px;text-align:left;' + tdBorder + 'color:var(--text);max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(pr2.name) + '</td><td style="padding:4px 3px;text-align:center;' + tdBorder + 'color:var(--text3);">' + escapeHtml(pr2.sku || '') + '</td><td style="padding:4px 3px;text-align:center;' + tdBorder + 'color:var(--text2);">' + escapeHtml(pr2.brand || '') + '</td><td style="padding:4px 3px;text-align:center;' + tdBorder + 'color:var(--text2);">' + escapeHtml(pr2.color || '') + '</td><td style="padding:4px 3px;text-align:left;' + tdBorder + 'color:var(--text3);font-size:8px;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(specsStr2) + '</td><td style="padding:4px 3px;text-align:center;' + tdBorder + 'color:#e17055;">$' + fmtNum(prCost2) + '</td><td style="padding:4px 3px;text-align:center;' + tdBorder + 'color:var(--text);font-weight:600;">$' + fmtNum(prSale2) + '</td><td style="padding:4px 3px;text-align:center;' + tdBorder + 'color:#00b894;font-weight:600;">' + prMargin2 + '%</td><td style="padding:4px 3px;text-align:center;' + tdBorder + '">' + (parseInt(pr2.stock) || 0) + '</td></tr>';
             }
             viewHtml += '</tbody></table></div>';
         }
@@ -10960,8 +10973,8 @@ function generateCatalogReport(preFiltered, preSelCats, preSelBrands, isReduced)
 
     viewHtml += '<div style="background:var(--bg2);border-top:2px solid var(--primary);border-radius:8px;padding:10px;margin-top:14px;text-align:center;font-weight:700;">' +
         '<span style="color:var(--text);">' + products.length + ' productos</span>' +
-        ' | <span style="color:var(--primary);">Venta: $' + grandValue.toLocaleString() + '</span>' +
-        ' | <span style="color:#e17055;">Costo: $' + grandCost.toLocaleString() + '</span>' +
+        ' | <span style="color:var(--primary);">Venta: $' + fmtNum(grandValue) + '</span>' +
+        ' | <span style="color:#e17055;">Costo: $' + fmtNum(grandCost) + '</span>' +
         ' | <span style="color:#00b894;">Margen: ' + grandMargin + '%</span>' +
         '</div></div></div></div>';
 
