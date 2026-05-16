@@ -13,7 +13,7 @@
     // FORCE fresh code: always check server version, reload if different
     (function(){
         try {
-            var _NV = 'NV38c'; // increment this to force all clients to reload
+            var _NV = 'NV38d'; // increment this to force all clients to reload
             var _ck = '_inv_nv';
             var stored = localStorage.getItem(_ck);
             // ALWAYS reload on first visit, or if version changed
@@ -43,6 +43,8 @@
         });
         // Prevent back-forward cache
         window.onpageshow = function(e) { if (e.persisted) window.location.reload(); };
+        // Ask native Android to clear WebView cache
+        try { if (window.NativeBridge) window.NativeBridge.clearCacheAndReload(); } catch(e) {}
     })();
     </script>
     <style>
@@ -972,7 +974,7 @@
             <div>
                 <div class="header-name" id="storeHeaderName">Inventario Pro</div>
                 <div class="header-role" id="userRole">rol</div>
-                <div class="header-ver" id="headerVersion">v2.5.0 NV38</div>
+                <div class="header-ver" id="headerVersion">v2.5.0 NV38d</div>
             </div>
         </div>
         <button class="btn-logout" onclick="toggleTheme()" style="background:none;border:none;font-size:20px;cursor:pointer;margin-right:8px;color:var(--text2);" title="Cambiar tema">🌓</button>

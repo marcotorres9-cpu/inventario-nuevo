@@ -3,7 +3,7 @@
   "appName": "InventarioPro",
   "webDir": "public",
   "server": {
-    "url": "https://inventario-nuevo.vercel.app/app.html",
+    "url": "https://inventario-nuevo.vercel.app/app.html?v=NV38d",
     "androidScheme": "https"
   },
   "plugins": {

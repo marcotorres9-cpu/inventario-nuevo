@@ -10,8 +10,11 @@ import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
+import android.webkit.CookieManager;
 import android.webkit.JavascriptInterface;
 import android.webkit.ValueCallback;
+import android.webkit.WebSettings;
+import android.webkit.WebView;
 import android.widget.Toast;
 
 import androidx.core.content.FileProvider;
@@ -31,6 +34,26 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(android.os.Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        // CRITICAL: Clear WebView cache so it always loads fresh code from server
+        try {
+            WebView webView = getBridge().getWebView();
+            if (webView != null) {
+                webView.clearCache(true);
+                webView.clearHistory();
+                // Clear cookies too
+                CookieManager.getInstance().removeAllCookies(null);
+                CookieManager.getInstance().flush();
+                // Disable caching at the WebView settings level
+                WebSettings settings = webView.getSettings();
+                settings.setCacheMode(WebSettings.LOAD_NO_CACHE);
+                settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
+                Log.d(TAG, "WebView cache cleared, LOAD_NO_CACHE set");
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to clear WebView cache: " + e.getMessage());
+        }
+
         // Register native bridge for WebView JS calls
         try {
             getBridge().getWebView().addJavascriptInterface(new NativeBridge(), "NativeBridge");
@@ -294,6 +317,34 @@ public class MainActivity extends BridgeActivity {
                     } catch (Exception e) {
                         Log.e(TAG, "downloadFile error: " + e.getMessage());
                         Toast.makeText(MainActivity.this, "Error al descargar", Toast.LENGTH_SHORT).show();
+                    }
+                }
+            });
+        }
+
+        /**
+         * Clear all WebView cache and reload.
+         * From JS: window.NativeBridge.clearCacheAndReload()
+         */
+        @JavascriptInterface
+        public void clearCacheAndReload() {
+            Log.d(TAG, "clearCacheAndReload called");
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        WebView webView = getBridge().getWebView();
+                        if (webView != null) {
+                            webView.clearCache(true);
+                            webView.clearHistory();
+                            CookieManager.getInstance().removeAllCookies(null);
+                            CookieManager.getInstance().flush();
+                            WebSettings settings = webView.getSettings();
+                            settings.setCacheMode(WebSettings.LOAD_NO_CACHE);
+                            Log.d(TAG, "Cache cleared from JS bridge");
+                        }
+                    } catch (Exception e) {
+                        Log.e(TAG, "clearCacheAndReload error: " + e.getMessage());
                     }
                 }
             });
