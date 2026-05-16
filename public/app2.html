@@ -13,7 +13,7 @@
     // FORCE fresh code: always check server version, reload if different
     (function(){
         try {
-            var _NV = 'NV33'; // increment this to force all clients to reload
+            var _NV = 'NV37'; // increment this to force all clients to reload
             var _ck = '_inv_nv';
             var stored = sessionStorage.getItem(_ck);
             // ALWAYS reload on first visit of session, or if version changed
@@ -287,10 +287,12 @@
            ================================================================ */
         .header {
             position: sticky; top: 0; z-index: 100;
-            background: rgba(9,9,11,0.92); backdrop-filter: blur(12px);
+            background: var(--bg2);
+            backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
             border-bottom: 1px solid var(--border);
             padding: 12px 16px; display: flex;
             justify-content: space-between; align-items: center;
+            padding-top: calc(env(safe-area-inset-top, 0px) + 12px);
         }
         .header-user { display: flex; align-items: center; gap: 10px; }
         .avatar {
@@ -299,8 +301,9 @@
             color: #fff; display: flex; align-items: center; justify-content: center;
             font-weight: 700; font-size: 16px;
         }
-        .header-name { font-weight: 600; font-size: 14px; }
-        .header-role { font-size: 11px; color: var(--text3); }
+        .header-name { font-weight: 600; font-size: 14px; color: var(--text); }
+        .header-role { font-size: 11px; color: var(--text2); }
+        .header-ver { font-size: 9px; color: var(--text3); font-weight: 500; margin-top: 1px; }
         .btn-logout {
             padding: 7px 14px; font-size: 12px; color: var(--danger);
             background: var(--danger-bg); border: none; cursor: pointer;
@@ -969,9 +972,10 @@
             <div>
                 <div class="header-name" id="storeHeaderName">Inventario Pro</div>
                 <div class="header-role" id="userRole">rol</div>
+                <div class="header-ver" id="headerVersion">v2.5.0</div>
             </div>
         </div>
-        <button class="btn-logout" onclick="toggleTheme()" style="background:none;border:none;font-size:20px;cursor:pointer;margin-right:8px;" title="Cambiar tema">🌓</button>
+        <button class="btn-logout" onclick="toggleTheme()" style="background:none;border:none;font-size:20px;cursor:pointer;margin-right:8px;color:var(--text2);" title="Cambiar tema">🌓</button>
         <button class="btn-logout" onclick="logout()">🚪 Salir</button>
     </div>
 
@@ -3202,7 +3206,7 @@ function logout() {
 // ====================================================================
 // CHANGELOG — Show latest updates to the user
 // ====================================================================
-var APP_VERSION = '2.4.0';
+var APP_VERSION = '2.5.0';
 var CHANGELOG_ENTRIES = [
     { ver: '2.4.0', date: '24 Abr 2026', items: [
         { icon: '📊', text: '<b>Capacidad por espacio:</b> Controla unidades mínimas y máximas para Exhibición, Local Pequeño, Local Grande desde el panel de Control del Local.' },
@@ -13430,7 +13434,8 @@ function pushQuotationToServer(q, url) {
             discountAJson: JSON.stringify(discA),
             discountBJson: JSON.stringify(discB),
             totalsAJson: JSON.stringify(q.totalsA || null),
-            totalsBJson: JSON.stringify(q.totalsB || null)
+            totalsBJson: JSON.stringify(q.totalsB || null),
+            createdAt: q.createdAt || ''
         })
     }).then(function(r) {
         if (!r.ok) console.error('[SYNC] Quotation push failed:', r.status);

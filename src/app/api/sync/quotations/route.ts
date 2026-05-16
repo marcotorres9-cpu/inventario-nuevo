@@ -104,6 +104,7 @@ export async function POST(request: Request) {
           parseFloat(q.subtotal)||0,
           parseFloat(q.total)||0,
           realNotes,
+          q.createdAt ? new Date(q.createdAt).toISOString() : new Date().toISOString(),
           q.number||'',
           q.mode||'simple',
           parseInt(q.validDays)||15,
