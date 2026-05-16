@@ -54,7 +54,6 @@ public class MainActivity extends BridgeActivity {
 
     /**
      * Native bridge accessible from JavaScript via window.NativeBridge.method()
-     * This bypasses ALL WebView limitations for file operations.
      */
     public class NativeBridge {
 
@@ -69,30 +68,53 @@ public class MainActivity extends BridgeActivity {
                 @Override
                 public void run() {
                     try {
-                        Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+                        Uri uri = Uri.parse(url);
+                        // Always use chooser to guarantee a picker appears
+                        Intent intent = new Intent(Intent.ACTION_VIEW, uri);
                         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                        // Ensure it opens in a real browser, not in-app
-                        if (intent.resolveActivity(getPackageManager()) != null) {
-                            startActivity(intent);
-                        } else {
-                            Toast.makeText(MainActivity.this, "No hay navegador disponible", Toast.LENGTH_SHORT).show();
-                        }
+                        intent.addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
+                        // Force the chooser even if there's a default browser
+                        Intent chooser = Intent.createChooser(intent, "Abrir con...");
+                        chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                        startActivity(chooser);
                     } catch (Exception e) {
                         Log.e(TAG, "openInBrowser error: " + e.getMessage());
-                        Toast.makeText(MainActivity.this, "Error al abrir navegador", Toast.LENGTH_SHORT).show();
+                        // Fallback: try Chrome directly
+                        try {
+                            Intent chromeIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+                            chromeIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                            chromeIntent.setPackage("com.android.chrome");
+                            startActivity(chromeIntent);
+                        } catch (Exception e2) {
+                            // Fallback 2: try any browser
+                            try {
+                                Intent browserIntent = new Intent(Intent.ACTION_VIEW, Uri.parse("https://www.google.com"));
+                                browserIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                                if (browserIntent.resolveActivity(getPackageManager()) != null) {
+                                    // A browser exists, re-try with the original URL
+                                    Intent retryIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+                                    retryIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                                    startActivity(retryIntent);
+                                } else {
+                                    Toast.makeText(MainActivity.this, "No hay navegador instalado", Toast.LENGTH_LONG).show();
+                                }
+                            } catch (Exception e3) {
+                                Toast.makeText(MainActivity.this, "No se puede abrir navegador", Toast.LENGTH_LONG).show();
+                            }
+                        }
                     }
                 }
             });
         }
 
         /**
-         * Download a file using Android DownloadManager.
-         * Shows progress in notification bar. File is saved to Downloads folder.
-         * From JS: window.NativeBridge.downloadFile("https://...", "filename.pdf")
+         * Download a file using Android DownloadManager and then open it.
+         * First downloads to Downloads folder, then opens with appropriate app.
+         * From JS: window.NativeBridge.downloadAndOpen("https://...", "filename.pdf")
          */
         @JavascriptInterface
-        public void downloadFile(final String url, final String fileName) {
-            Log.d(TAG, "downloadFile: " + url + " -> " + fileName);
+        public void downloadAndOpen(final String url, final String fileName) {
+            Log.d(TAG, "downloadAndOpen: " + url + " -> " + fileName);
             runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
@@ -102,18 +124,65 @@ public class MainActivity extends BridgeActivity {
                         request.setDescription("Descargando " + fileName);
                         request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
                         request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, fileName);
-
-                        // Allow download over both metered and unmetered connections
                         request.setAllowedOverMetered(true);
                         request.setAllowedOverRoaming(true);
 
                         DownloadManager dm = (DownloadManager) getSystemService(Context.DOWNLOAD_SERVICE);
-                        dm.enqueue(request);
+                        long downloadId = dm.enqueue(request);
 
                         Toast.makeText(MainActivity.this, "Descargando: " + fileName, Toast.LENGTH_LONG).show();
+
+                        // Monitor download and open when done
+                        new Thread(new Runnable() {
+                            @Override
+                            public void run() {
+                                boolean downloading = true;
+                                while (downloading) {
+                                    DownloadManager.Query q = new DownloadManager.Query();
+                                    q.setFilterById(downloadId);
+                                    android.database.Cursor cursor = dm.query(q);
+                                    if (cursor.moveToFirst()) {
+                                        int statusIndex = cursor.getColumnIndex(DownloadManager.COLUMN_STATUS);
+                                        int status = cursor.getInt(statusIndex);
+                                        if (status == DownloadManager.STATUS_SUCCESSFUL) {
+                                            downloading = false;
+                                            File file = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), fileName);
+                                            if (file.exists()) {
+                                                Uri fileUri;
+                                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                                                    fileUri = FileProvider.getUriForFile(MainActivity.this,
+                                                            getApplicationContext().getPackageName() + ".fileprovider", file);
+                                                } else {
+                                                    fileUri = Uri.fromFile(file);
+                                                }
+                                                Intent openIntent = new Intent(Intent.ACTION_VIEW);
+                                                String mimeType = getMimeType(fileName);
+                                                openIntent.setDataAndType(fileUri, mimeType);
+                                                openIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                                                openIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                                                startActivity(openIntent);
+                                            }
+                                        } else if (status == DownloadManager.STATUS_FAILED) {
+                                            downloading = false;
+                                            new Handler(Looper.getMainLooper()).post(new Runnable() {
+                                                @Override
+                                                public void run() {
+                                                    Toast.makeText(MainActivity.this, "Error al descargar", Toast.LENGTH_SHORT).show();
+                                                }
+                                            });
+                                        }
+                                    }
+                                    cursor.close();
+                                    if (downloading) {
+                                        try { Thread.sleep(500); } catch (InterruptedException ie) {}
+                                    }
+                                }
+                            }
+                        }).start();
+
                     } catch (Exception e) {
-                        Log.e(TAG, "downloadFile error: " + e.getMessage());
-                        Toast.makeText(MainActivity.this, "Error al descargar: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                        Log.e(TAG, "downloadAndOpen error: " + e.getMessage());
+                        Toast.makeText(MainActivity.this, "Error: " + e.getMessage(), Toast.LENGTH_SHORT).show();
                     }
                 }
             });
@@ -146,18 +215,16 @@ public class MainActivity extends BridgeActivity {
         }
 
         /**
-         * Download a file using Android DownloadManager and then open it.
-         * First downloads to Downloads folder, then opens with appropriate app.
-         * From JS: window.NativeBridge.downloadAndOpen("https://...", "filename.pdf")
+         * Download file only (don't open).
+         * From JS: window.NativeBridge.downloadFile("https://...", "filename.pdf")
          */
         @JavascriptInterface
-        public void downloadAndOpen(final String url, final String fileName) {
-            Log.d(TAG, "downloadAndOpen: " + url + " -> " + fileName);
+        public void downloadFile(final String url, final String fileName) {
+            Log.d(TAG, "downloadFile: " + url + " -> " + fileName);
             runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
                     try {
-                        // First download the file
                         DownloadManager.Request request = new DownloadManager.Request(Uri.parse(url));
                         request.setTitle(fileName);
                         request.setDescription("Descargando " + fileName);
@@ -167,56 +234,12 @@ public class MainActivity extends BridgeActivity {
                         request.setAllowedOverRoaming(true);
 
                         DownloadManager dm = (DownloadManager) getSystemService(Context.DOWNLOAD_SERVICE);
-                        long downloadId = dm.enqueue(request);
+                        dm.enqueue(request);
 
                         Toast.makeText(MainActivity.this, "Descargando: " + fileName, Toast.LENGTH_LONG).show();
-
-                        // Monitor download completion and open the file
-                        new Thread(new Runnable() {
-                            @Override
-                            public void run() {
-                                boolean downloading = true;
-                                while (downloading) {
-                                    DownloadManager.Query q = new DownloadManager.Query();
-                                    q.setFilterById(downloadId);
-                                    android.database.Cursor cursor = dm.query(q);
-                                    if (cursor.moveToFirst()) {
-                                        int statusIndex = cursor.getColumnIndex(DownloadManager.COLUMN_STATUS);
-                                        int status = cursor.getInt(statusIndex);
-                                        if (status == DownloadManager.STATUS_SUCCESSFUL) {
-                                            downloading = false;
-                                            // File downloaded, open it
-                                            File file = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), fileName);
-                                            if (file.exists()) {
-                                                Uri fileUri;
-                                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                                                    fileUri = FileProvider.getUriForFile(MainActivity.this,
-                                                            getApplicationContext().getPackageName() + ".fileprovider", file);
-                                                } else {
-                                                    fileUri = Uri.fromFile(file);
-                                                }
-                                                Intent openIntent = new Intent(Intent.ACTION_VIEW);
-                                                String mimeType = getMimeType(fileName);
-                                                openIntent.setDataAndType(fileUri, mimeType);
-                                                openIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-                                                openIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                                                startActivity(openIntent);
-                                            }
-                                        } else if (status == DownloadManager.STATUS_FAILED) {
-                                            downloading = false;
-                                        }
-                                    }
-                                    cursor.close();
-                                    if (downloading) {
-                                        try { Thread.sleep(500); } catch (InterruptedException ie) {}
-                                    }
-                                }
-                            }
-                        }).start();
-
                     } catch (Exception e) {
-                        Log.e(TAG, "downloadAndOpen error: " + e.getMessage());
-                        Toast.makeText(MainActivity.this, "Error: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                        Log.e(TAG, "downloadFile error: " + e.getMessage());
+                        Toast.makeText(MainActivity.this, "Error al descargar", Toast.LENGTH_SHORT).show();
                     }
                 }
             });
