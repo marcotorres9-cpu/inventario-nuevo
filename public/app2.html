@@ -13,12 +13,12 @@
     // FORCE fresh code: always check server version, reload if different
     (function(){
         try {
-            var _NV = 'NV38'; // increment this to force all clients to reload
+            var _NV = 'NV38c'; // increment this to force all clients to reload
             var _ck = '_inv_nv';
-            var stored = sessionStorage.getItem(_ck);
-            // ALWAYS reload on first visit of session, or if version changed
+            var stored = localStorage.getItem(_ck);
+            // ALWAYS reload on first visit, or if version changed
             if (stored !== _NV) {
-                sessionStorage.setItem(_ck, _NV);
+                localStorage.setItem(_ck, _NV);
                 var _ts = Date.now();
                 var _self = window.location.pathname;
                 window.location.replace(_self + '?_t=' + _ts + '&_v=' + _NV);
