@@ -13,7 +13,7 @@
     // FORCE fresh code: always check server version, reload if different
     (function(){
         try {
-            var _NV = 'NV38e'; // increment this to force all clients to reload
+            var _NV = 'NV38f'; // increment this to force all clients to reload
             var _ck = '_inv_nv';
             var stored = localStorage.getItem(_ck);
             // ALWAYS reload on first visit, or if version changed
@@ -974,7 +974,7 @@
             <div>
                 <div class="header-name" id="storeHeaderName">Inventario Pro</div>
                 <div class="header-role" id="userRole">rol</div>
-                <div class="header-ver" id="headerVersion">v2.5.0 NV38e</div>
+                <div class="header-ver" id="headerVersion">v2.5.0 NV38f</div>
             </div>
         </div>
         <button class="btn-logout" onclick="toggleTheme()" style="background:none;border:none;font-size:20px;cursor:pointer;margin-right:8px;color:var(--text2);" title="Cambiar tema">🌓</button>
@@ -10001,8 +10001,9 @@ function renderCatalogSummaryPage() {
         brandMap[brand].products.push(p);
         if (usedCategories.indexOf(cat) === -1) usedCategories.push(cat);
         if (usedBrands.indexOf(brand) === -1) usedBrands.push(brand);
-        totalValue += parseFloat(p.salePrice || p.price || 0);
-        totalCost += parseFloat(p.costPrice || 0);
+        var pStk = parseInt(p.stock || 0);
+        totalValue += pStk * parseFloat(p.salePrice || p.price || 0);
+        totalCost += pStk * parseFloat(p.costPrice || 0);
     }
 
     var catKeys = Object.keys(catMap).sort();
@@ -10120,9 +10121,10 @@ function renderCatalogSummaryPage() {
         var drillCost = 0;
         var drillStock = 0;
         for (var ds2 = 0; ds2 < filteredProducts.length; ds2++) {
-            drillValue += parseFloat(filteredProducts[ds2].salePrice || filteredProducts[ds2].price || 0);
-            drillCost += parseFloat(filteredProducts[ds2].costPrice || 0);
-            drillStock += parseInt(filteredProducts[ds2].stock || 0);
+            var dStk = parseInt(filteredProducts[ds2].stock || 0);
+            drillValue += dStk * parseFloat(filteredProducts[ds2].salePrice || filteredProducts[ds2].price || 0);
+            drillCost += dStk * parseFloat(filteredProducts[ds2].costPrice || 0);
+            drillStock += dStk;
         }
         var drillMargin = drillValue > 0 ? Math.round(((drillValue - drillCost) / drillValue) * 100) : 0;
 
@@ -10359,8 +10361,9 @@ function renderCatalogSummaryPage() {
     if (ovHasFilters) {
         var ovValue = 0, ovCost = 0;
         for (var ovi = 0; ovi < ovFilteredProducts.length; ovi++) {
-            ovValue += parseFloat(ovFilteredProducts[ovi].salePrice || ovFilteredProducts[ovi].price || 0);
-            ovCost += parseFloat(ovFilteredProducts[ovi].costPrice || 0);
+            var ovStk = parseInt(ovFilteredProducts[ovi].stock || 0);
+            ovValue += ovStk * parseFloat(ovFilteredProducts[ovi].salePrice || ovFilteredProducts[ovi].price || 0);
+            ovCost += ovStk * parseFloat(ovFilteredProducts[ovi].costPrice || 0);
         }
         var ovMargin = ovValue > 0 ? Math.round(((ovValue - ovCost) / ovValue) * 100) : 0;
 
@@ -10465,9 +10468,10 @@ function renderCatalogSummaryPage() {
             var catBrands = [];
             var catStock = 0;
             for (var cp = 0; cp < cat.products.length; cp++) {
-                catValue += parseFloat(cat.products[cp].salePrice || cat.products[cp].price || 0);
-                catCost += parseFloat(cat.products[cp].costPrice || 0);
-                catStock += parseInt(cat.products[cp].stock || 0);
+                var cpStk = parseInt(cat.products[cp].stock || 0);
+                catValue += cpStk * parseFloat(cat.products[cp].salePrice || cat.products[cp].price || 0);
+                catCost += cpStk * parseFloat(cat.products[cp].costPrice || 0);
+                catStock += cpStk;
                 var cb = cat.products[cp].brand || 'Sin marca';
                 if (catBrands.indexOf(cb) === -1) catBrands.push(cb);
             }
@@ -10511,8 +10515,9 @@ function renderCatalogSummaryPage() {
             var brCost = 0;
             var brCats = [];
             for (var bp2 = 0; bp2 < br.products.length; bp2++) {
-                brValue += parseFloat(br.products[bp2].salePrice || br.products[bp2].price || 0);
-                brCost += parseFloat(br.products[bp2].costPrice || 0);
+                var bpStk = parseInt(br.products[bp2].stock || 0);
+                brValue += bpStk * parseFloat(br.products[bp2].salePrice || br.products[bp2].price || 0);
+                brCost += bpStk * parseFloat(br.products[bp2].costPrice || 0);
                 var bc = br.products[bp2].category || 'Sin categoria';
                 if (brCats.indexOf(bc) === -1) brCats.push(bc);
             }
@@ -10736,9 +10741,10 @@ function generateCatalogReport(preFiltered, preSelCats, preSelBrands, isReduced)
         var cat = p.category || 'Sin categoria';
         if (!catMap[cat]) catMap[cat] = [];
         catMap[cat].push(p);
-        grandValue += parseFloat(p.salePrice || p.price || 0);
-        grandCost += parseFloat(p.costPrice || 0);
-        grandStock += parseInt(p.stock || 0);
+        var pStock = parseInt(p.stock || 0);
+        grandValue += pStock * parseFloat(p.salePrice || p.price || 0);
+        grandCost += pStock * parseFloat(p.costPrice || 0);
+        grandStock += pStock;
     }
     var catKeys = Object.keys(catMap).sort();
 
@@ -10784,9 +10790,10 @@ function generateCatalogReport(preFiltered, preSelCats, preSelBrands, isReduced)
             var cp2 = catMap[catKeys[ci]];
             var cv2 = 0, cc2 = 0, cs2 = 0;
             for (var cj = 0; cj < cp2.length; cj++) {
-                cv2 += parseFloat(cp2[cj].salePrice || cp2[cj].price || 0);
-                cc2 += parseFloat(cp2[cj].costPrice || 0);
-                cs2 += parseInt(cp2[cj].stock || 0);
+                var cStk = parseInt(cp2[cj].stock || 0);
+                cv2 += cStk * parseFloat(cp2[cj].salePrice || cp2[cj].price || 0);
+                cc2 += cStk * parseFloat(cp2[cj].costPrice || 0);
+                cs2 += cStk;
             }
             var cm2 = cv2 > 0 ? Math.round(((cv2 - cc2) / cv2) * 100) : 0;
             var avgC = cp2.length > 0 ? Math.round(cc2 / cp2.length) : 0;
@@ -10801,9 +10808,10 @@ function generateCatalogReport(preFiltered, preSelCats, preSelBrands, isReduced)
             var bKey = products[bi3].brand || 'Sin marca';
             if (!allBrands2[bKey]) allBrands2[bKey] = { prods: [], val: 0, cost: 0, stock: 0 };
             allBrands2[bKey].prods.push(products[bi3]);
-            allBrands2[bKey].val += parseFloat(products[bi3].salePrice || products[bi3].price || 0);
-            allBrands2[bKey].cost += parseFloat(products[bi3].costPrice || 0);
-            allBrands2[bKey].stock += parseInt(products[bi3].stock || 0);
+            var bStk = parseInt(products[bi3].stock || 0);
+            allBrands2[bKey].val += bStk * parseFloat(products[bi3].salePrice || products[bi3].price || 0);
+            allBrands2[bKey].cost += bStk * parseFloat(products[bi3].costPrice || 0);
+            allBrands2[bKey].stock += bStk;
         }
         var brandKeys2 = Object.keys(allBrands2).sort();
         rHtml += '<div class="section-title">Resumen por Marca</div>';
@@ -10826,9 +10834,10 @@ function generateCatalogReport(preFiltered, preSelCats, preSelBrands, isReduced)
         // Category subtotal row
         var catVal = 0, catCost = 0, catStock = 0;
         for (var cp = 0; cp < catProds.length; cp++) {
-            catVal += parseFloat(catProds[cp].salePrice || catProds[cp].price || 0);
-            catCost += parseFloat(catProds[cp].costPrice || 0);
-            catStock += parseInt(catProds[cp].stock || 0);
+            var cpStk2 = parseInt(catProds[cp].stock || 0);
+            catVal += cpStk2 * parseFloat(catProds[cp].salePrice || catProds[cp].price || 0);
+            catCost += cpStk2 * parseFloat(catProds[cp].costPrice || 0);
+            catStock += cpStk2;
         }
         var catSpan = isReduced ? 2 : 7;
         rHtml += '<tr class="cat-row"><td colspan="' + catSpan + '" style="text-align:left;padding-left:8px;">' + escapeHtml(catKeys[ci]) + ' (' + catProds.length + ')</td><td>$' + fmtNum(catCost) + '</td><td>$' + fmtNum(catVal) + '</td><td>' + (catVal > 0 ? Math.round(((catVal - catCost) / catVal) * 100) : 0) + '%</td>' + (isReduced ? '' : '<td>' + catStock + '</td>') + '</tr>';
@@ -10890,9 +10899,10 @@ function generateCatalogReport(preFiltered, preSelCats, preSelBrands, isReduced)
             var cps2 = catMap[catKeys[ci2s]];
             var cv2s = 0, cc2s = 0, cs2s = 0;
             for (var cj2s = 0; cj2s < cps2.length; cj2s++) {
-                cv2s += parseFloat(cps2[cj2s].salePrice || cps2[cj2s].price || 0);
-                cc2s += parseFloat(cps2[cj2s].costPrice || 0);
-                cs2s += parseInt(cps2[cj2s].stock || 0);
+                var cj2Stk = parseInt(cps2[cj2s].stock || 0);
+                cv2s += cj2Stk * parseFloat(cps2[cj2s].salePrice || cps2[cj2s].price || 0);
+                cc2s += cj2Stk * parseFloat(cps2[cj2s].costPrice || 0);
+                cs2s += cj2Stk;
             }
             var cm2s = cv2s > 0 ? Math.round(((cv2s - cc2s) / cv2s) * 100) : 0;
             var bgs2 = ci2s % 2 === 0 ? '' : 'background:var(--bg2);';
@@ -10907,8 +10917,9 @@ function generateCatalogReport(preFiltered, preSelCats, preSelBrands, isReduced)
             var bkv = products[bvi].brand || 'Sin marca';
             if (!allBrandsV[bkv]) allBrandsV[bkv] = { count: 0, val: 0, cost: 0 };
             allBrandsV[bkv].count++;
-            allBrandsV[bkv].val += parseFloat(products[bvi].salePrice || products[bvi].price || 0);
-            allBrandsV[bkv].cost += parseFloat(products[bvi].costPrice || 0);
+            var bvStk = parseInt(products[bvi].stock || 0);
+            allBrandsV[bkv].val += bvStk * parseFloat(products[bvi].salePrice || products[bvi].price || 0);
+            allBrandsV[bkv].cost += bvStk * parseFloat(products[bvi].costPrice || 0);
         }
         var brandKeysV = Object.keys(allBrandsV).sort();
         viewHtml += '<div style="font-size:13px;font-weight:700;color:var(--primary);margin:14px 0 8px;padding:6px 10px;background:var(--bg2);border-radius:8px;border-left:4px solid var(--primary);">\uD83C\uDFFE\uFE0F Resumen por Marca</div>';
@@ -10929,9 +10940,10 @@ function generateCatalogReport(preFiltered, preSelCats, preSelBrands, isReduced)
         var catProds2 = catMap[catKeys[ci2]];
         var catVal2 = 0, catCost2 = 0, catStk2 = 0;
         for (var cp2 = 0; cp2 < catProds2.length; cp2++) {
-            catVal2 += parseFloat(catProds2[cp2].salePrice || catProds2[cp2].price || 0);
-            catCost2 += parseFloat(catProds2[cp2].costPrice || 0);
-            catStk2 += parseInt(catProds2[cp2].stock || 0);
+            var cp2Stk = parseInt(catProds2[cp2].stock || 0);
+            catVal2 += cp2Stk * parseFloat(catProds2[cp2].salePrice || catProds2[cp2].price || 0);
+            catCost2 += cp2Stk * parseFloat(catProds2[cp2].costPrice || 0);
+            catStk2 += cp2Stk;
         }
         var catMrg2 = catVal2 > 0 ? Math.round(((catVal2 - catCost2) / catVal2) * 100) : 0;
         viewHtml += '<div style="font-size:12px;font-weight:700;color:var(--primary);margin:12px 0 6px;padding:6px 10px;background:var(--bg2);border-radius:8px;">\uD83D\uDCC2 ' + escapeHtml(catKeys[ci2]) + ' (' + catProds2.length + ') \u2014 Venta: $' + fmtNum(catVal2) + ' | Costo: $' + fmtNum(catCost2) + (isReduced ? '' : ' | Stock: ' + catStk2) + '</div>';
