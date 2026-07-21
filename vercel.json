@@ -1,5 +1,5 @@
 {
-  "outputDirectory": "public",
+  "framework": "nextjs",
   "headers": [
     {
       "source": "/(.*)",

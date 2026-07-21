@@ -1,0 +1,67 @@
+import {NextResponse} from 'next/server';
+import {query} from '@/lib/db';
+export const dynamic='force-dynamic';
+
+const H = {'Cache-Control':'no-store','Access-Control-Allow-Origin':'*'};
+
+export async function OPTIONS(){
+  return new NextResponse(null,{status:204,headers:{...H,'Access-Control-Allow-Methods':'GET,POST,DELETE,OPTIONS','Access-Control-Allow-Headers':'Content-Type,Authorization'}});
+}
+
+export async function GET(){
+  try{
+    const rows=await query('SELECT id,name,sku,barcode,category,brand,color,"costPrice","salePrice",stock,"minStock",description,specifications,"createdAt","updatedAt" FROM "Product" ORDER BY "updatedAt" DESC');
+    const prods=rows.map((r:any)=>({
+      id:r.id,name:r.name||'',sku:r.sku||'',barcode:r.barcode||'',
+      category:r.category||'',brand:r.brand||'',color:r.color||'',
+      costPrice:parseFloat(r.costPrice)||0,salePrice:parseFloat(r.salePrice)||0,
+      stock:parseInt(r.stock)||0,minStock:parseInt(r.minStock)||5,description:r.description||'',
+      specifications:r.specifications||null,
+      createdAt:r.createdAt,updatedAt:r.updatedAt
+    }));
+    return NextResponse.json(prods,{headers:H});
+  }catch(e:any){
+    console.error('[DB] GET /products:',e.message);
+    return NextResponse.json([],{headers:H});
+  }
+}
+
+export async function POST(request:Request){
+  try{
+    let items:any[]=[];
+    try{items=await request.json();}catch{items=[];}
+    if(!Array.isArray(items))items=[items];
+    for(const p of items){
+      if(!p||!p.id)continue;
+      const specs=p.specifications?(typeof p.specifications==='string'?p.specifications:JSON.stringify(p.specifications)):null;
+      await query(
+        `INSERT INTO "Product" (id,name,sku,barcode,category,brand,color,"costPrice","salePrice",stock,"minStock",description,specifications,"createdAt","updatedAt")
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,NOW())
+         ON CONFLICT (id) DO UPDATE SET name=$2,sku=$3,barcode=$4,category=$5,brand=$6,color=$7,"costPrice"=$8,"salePrice"=$9,stock=$10,"minStock"=$11,description=$12,specifications=$13,"updatedAt"=NOW()`,
+        [p.id,p.name||'',p.sku||'',p.barcode||'',p.category||'',p.brand||'',p.color||'',
+         parseFloat(p.costPrice)||0,parseFloat(p.salePrice)||0,parseInt(p.stock)||0,parseInt(p.minStock)||5,
+         p.description||'',specs,p.createdAt||new Date().toISOString()]
+      );
+    }
+    return NextResponse.json({success:true,count:items.length},{headers:H});
+  }catch(e:any){
+    console.error('[DB] POST /products:',e.message);
+    return NextResponse.json({error:e.message},{status:500,headers:H});
+  }
+}
+
+export async function DELETE(request:Request){
+  try{
+    const url=new URL(request.url);
+    const id=url.searchParams.get('id')||'';
+    let bodyId='';
+    try{const b=await request.json();bodyId=b?.id||'';}catch{}
+    const finalId=id||bodyId;
+    if(!finalId)return NextResponse.json({error:'Missing id'},{status:400});
+    await query('DELETE FROM "Product" WHERE id=$1',[finalId]);
+    return NextResponse.json({success:true},{headers:H});
+  }catch(e:any){
+    console.error('[DB] DELETE /products:',e.message);
+    return NextResponse.json({error:e.message},{status:500,headers:H});
+  }
+}
