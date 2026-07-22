@@ -3,10 +3,10 @@
   "appName": "Mi Tienda",
   "webDir": "public",
   "server": {
-    "url": "https://repo-virid-two.vercel.app/app.html",
+    "url": "https://inventario-nuevo-v2.vercel.app/app.html",
     "androidScheme": "https",
     "allowNavigation": [
-      "repo-virid-two.vercel.app"
+      "inventario-nuevo-v2.vercel.app"
     ]
   },
   "plugins": {
