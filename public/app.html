@@ -13,7 +13,7 @@ if (window.caches) {
 }
 // Clear any old versioned files from sessionStorage/localStorage
 try { sessionStorage.clear(); } catch(e) {}
-// VERSIONED FILENAME with cache-bust timestamp - forces WebView and CDN to fetch fresh
-window.location.replace('main-NV60.html?v=' + Date.now());
+// ALWAYS redirect to latest version with cache-bust
+window.location.replace('main-NV62.html?v=' + Date.now());
 </script>
 </head><body><p style="text-align:center;margin-top:40vh;font-family:sans-serif;color:#666;">Actualizando app...</p></body></html>
