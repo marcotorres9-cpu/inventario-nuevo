@@ -5,14 +5,13 @@
 <meta http-equiv="Expires" content="0">
 <title>Cargando...</title>
 <script>
-// Clear browser caches only (NOT localStorage - that has auth token)
+// Clear ALL browser caches
 if (window.caches) {
     caches.keys().then(function(names) {
         for (var i = 0; i < names.length; i++) caches.delete(names[i]);
     });
 }
-// VERSIONED FILENAME - forces Vercel CDN cache miss
-// v=NV59
-window.location.replace('main-NV59.html');
+// VERSIONED FILENAME with cache-bust timestamp - forces WebView and CDN to fetch fresh
+window.location.replace('main-NV60.html?v=' + Date.now());
 </script>
 </head><body><p style="text-align:center;margin-top:40vh;font-family:sans-serif;color:#666;">Actualizando app...</p></body></html>
