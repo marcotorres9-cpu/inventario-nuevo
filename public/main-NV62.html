@@ -2538,17 +2538,22 @@ function setCurrentUser(u) {
     localStorage.setItem('inv_currentUser', JSON.stringify(u));
 }
 function getServerUrl() {
-    // ALWAYS prefer current origin (where the app is actually running)
-    // This prevents stale URLs from old deployments
-    if (typeof window !== 'undefined' && window.location && window.location.origin && window.location.origin !== 'null' && window.location.origin !== 'file://') {
-        // Validate it looks like a real URL
-        if (window.location.origin.indexOf('http') === 0) {
-            // Update stored value so other code can reference it
-            localStorage.setItem('inv_serverUrl', window.location.origin);
-            return window.location.origin;
+    // When running in Capacitor WebView (localhost), always use the Vercel server for API
+    if (typeof window !== 'undefined' && window.location && window.location.origin) {
+        var origin = window.location.origin;
+        // If running from local Capacitor assets (localhost), use Vercel server
+        if (origin.indexOf('localhost') >= 0 || origin === 'null' || origin === 'file://' || origin.indexOf('192.168') >= 0) {
+            localStorage.setItem('inv_serverUrl', 'https://inventario-nuevo-v2.vercel.app');
+            return 'https://inventario-nuevo-v2.vercel.app';
+        }
+        // If running on Vercel, use the current origin
+        if (origin.indexOf('http') === 0) {
+            localStorage.setItem('inv_serverUrl', origin);
+            return origin;
         }
     }
-    // Hardcoded fallback for Capacitor WebView
+    // Hardcoded fallback
+    localStorage.setItem('inv_serverUrl', 'https://inventario-nuevo-v2.vercel.app');
     return 'https://inventario-nuevo-v2.vercel.app';
 }
 // Auth uses the SAME server as data — all routes in one deployment
