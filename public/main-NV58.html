@@ -2519,7 +2519,7 @@ function getServerUrl() {
         return window.location.origin;
     }
     // Hardcoded fallback for Capacitor WebView
-    return 'https://inventario-nuevo.vercel.app';
+    return 'https://inventario-deploy.vercel.app';
 }
 // Auth uses the SAME server as data — all routes in one deployment
 function getAuthUrl() {
@@ -17248,7 +17248,7 @@ function _uploadFile(blob, fileName, contentType, callback) {
     reader.onload = function() {
         var base64 = reader.result.split(',')[1];
         var fileId = 'f_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
-        fetch('https://inventario-nuevo.vercel.app/api/serve-pdf', {
+        fetch('https://inventario-deploy.vercel.app/api/serve-pdf', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ id: fileId, data: base64, filename: fileName, contentType: contentType })
@@ -17647,7 +17647,7 @@ function generateQuotationHtmlDocument(q) {
     // ALWAYS force the correct server URL — clear any old/wrong URL
     // This fixes APK where inv_serverUrl may be set to a wrong vercel project
     var _badUrl = localStorage.getItem('inv_serverUrl') || '';
-    var _correctUrl = 'https://inventario-nuevo.vercel.app';
+    var _correctUrl = 'https://inventario-deploy.vercel.app';
     if (_badUrl !== _correctUrl) {
         console.log('[INIT] Correcting server URL from', _badUrl, 'to', _correctUrl);
         localStorage.removeItem('inv_serverUrl');

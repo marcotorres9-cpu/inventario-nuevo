@@ -3,8 +3,11 @@
   "appName": "Mi Tienda",
   "webDir": "public",
   "server": {
-    "url": "https://inventario-nuevo.vercel.app/app.html",
-    "androidScheme": "https"
+    "url": "https://inventario-deploy.vercel.app/app.html",
+    "androidScheme": "https",
+    "allowNavigation": [
+      "inventario-deploy.vercel.app"
+    ]
   },
   "plugins": {
     "SplashScreen": {
