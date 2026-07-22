@@ -10,6 +10,32 @@
     <title>Inventario Pro</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" onerror="window._jspdfErr=true"></script>
     <script>
+    // CAPACITOR: Hide splash screen once page loads
+    (function(){
+        function tryHideSplash(){
+            try {
+                if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.SplashScreen) {
+                    window.Capacitor.Plugins.SplashScreen.hide();
+                    console.log('[SPLASH] Hidden via Capacitor');
+                    return true;
+                }
+            } catch(e) {}
+            return false;
+        }
+        if (!tryHideSplash()) {
+            document.addEventListener('deviceready', function(){ tryHideSplash(); }, false);
+        }
+        // Failsafe: hide after 3 seconds regardless
+        setTimeout(function(){
+            try {
+                if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.SplashScreen) {
+                    window.Capacitor.Plugins.SplashScreen.hide();
+                }
+            } catch(e) {}
+        }, 3000);
+    })();
+    </script>
+    <script>
     // FORCE fresh code: always check server version, reload if different
     (function(){
         try {
