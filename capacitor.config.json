@@ -1,0 +1,18 @@
+{
+  "appId": "com.inventariopro.app",
+  "appName": "Mi Tienda",
+  "webDir": "public",
+  "server": {
+    "url": "https://inventario-nuevo.vercel.app/app.html",
+    "androidScheme": "https"
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchAutoHide": false,
+      "androidScaleType": "CENTER_CROP",
+      "splashFullScreen": true,
+      "splashImmersive": true,
+      "backgroundColor": "#09090b"
+    }
+  }
+}
