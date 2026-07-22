@@ -19800,70 +19800,219 @@ function _getGridPos(idx, total, area, pad) {
 
 function _finishShareCard(ctx, W, H, product, link, storeInfo, canvas) {
     var price = parseFloat(product.salePrice) || 0;
-    var textY = 580;
+    var costPrice = parseFloat(product.costPrice) || 0;
+    var specs = product.specifications || null;
+    var color = product.color || '';
+    var stock = parseInt(product.stock) || 0;
 
-    // Product name
+    // === KISSU-STYLE PROFESSIONAL CARD ===
+    var H2 = 1050;
+    // Resize canvas if needed
+    if (canvas.height < H2) {
+        var imgData = ctx.getImageData(0, 0, W, canvas.height);
+        canvas.height = H2;
+        ctx.putImageData(imgData, 0, 0);
+    }
+    // Clear full canvas
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, W, H2);
+
+    // Re-fill image area background
+    var imgArea = { x: 30, y: 30, w: W - 60, h: 520 };
+    _drawRoundedRect(ctx, imgArea.x, imgArea.y, imgArea.w, imgArea.h, 16, '#f8f8f8');
+
+    var textY = 570;
+
+    // --- Status Badges Row ---
+    var badges = [];
+    if (product.sku && product.sku.length > 0) badges.push({ text: product.sku.toUpperCase(), bg: '#f0f0f0', fg: '#666' });
+    if (stock > 5) badges.push({ text: 'DISPONIBLE', bg: '#e8f5e9', fg: '#2e7d32' });
+    else if (stock > 0) badges.push({ text: '\u00d9LTIMAS UNIDADES', bg: '#fff3e0', fg: '#e65100' });
+    else badges.push({ text: 'AGOTADO', bg: '#ffebee', fg: '#c62828' });
+
+    var badgeX = 30;
+    var badgeH = 24;
+    for (var bi = 0; bi < badges.length; bi++) {
+        var b = badges[bi];
+        ctx.font = 'bold 11px -apple-system, sans-serif';
+        var tw = ctx.measureText(b.text).width + 16;
+        _drawRoundedRect(ctx, badgeX, textY, tw, badgeH, 4, b.bg);
+        ctx.fillStyle = b.fg;
+        ctx.textAlign = 'left';
+        ctx.fillText(b.text, badgeX + 8, textY + 16);
+        badgeX += tw + 8;
+    }
+    textY += badgeH + 16;
+
+    // --- Product Name ---
     ctx.fillStyle = '#111111';
-    ctx.font = 'bold 28px -apple-system, BlinkMacSystemFont, sans-serif';
+    ctx.font = 'bold 26px -apple-system, BlinkMacSystemFont, sans-serif';
     ctx.textAlign = 'left';
     var nameLines = _wrapText(ctx, product.name || '', W - 60);
     for (var ni = 0; ni < nameLines.length && ni < 2; ni++) {
         ctx.fillText(nameLines[ni], 30, textY);
-        textY += 36;
+        textY += 34;
     }
 
-    // Brand + category
+    // --- Brand + Category ---
     if (product.brand || product.category) {
         ctx.fillStyle = '#888888';
-        ctx.font = '18px -apple-system, sans-serif';
-        var sub = (product.brand || '') + (product.category ? ' · ' + product.category : '');
+        ctx.font = '16px -apple-system, sans-serif';
+        var sub = (product.brand || '').toUpperCase() + (product.category ? ' \u00b7 ' + product.category : '');
         ctx.fillText(sub, 30, textY);
-        textY += 30;
+        textY += 26;
     }
 
-    // Price
+    // --- Separator ---
+    ctx.strokeStyle = '#eeeeee';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(30, textY + 4); ctx.lineTo(W - 30, textY + 4); ctx.stroke();
+    textY += 16;
+
+    // --- Price Section ---
     if (price > 0) {
-        ctx.fillStyle = '#1a73e8';
-        ctx.font = 'bold 32px -apple-system, sans-serif';
+        if (costPrice > 0 && costPrice > price) {
+            ctx.fillStyle = '#999999';
+            ctx.font = '16px -apple-system, sans-serif';
+            ctx.fillText('PRECIO TARJETA  $' + costPrice.toLocaleString('es-MX'), 30, textY);
+            textY += 24;
+        }
+        ctx.fillStyle = '#1565c0';
+        ctx.font = 'bold 34px -apple-system, sans-serif';
         ctx.fillText('$' + price.toLocaleString('es-MX'), 30, textY);
         textY += 40;
-    } else {
-        textY += 10;
     }
 
-    // QR Code section - bottom area
-    var qrSize = 120;
-    var qrX = W - 30 - qrSize;
-    var qrY = H - 30 - qrSize;
+    // --- Specifications ---
+    if (specs && typeof specs === 'object') {
+        var specKeys = Object.keys(specs);
+        if (specKeys.length > 0) {
+            ctx.fillStyle = '#444444';
+            ctx.font = 'bold 13px -apple-system, sans-serif';
+            ctx.fillText('ESPECIFICACIONES', 30, textY);
+            textY += 20;
+            var chipX = 30;
+            var chipY = textY;
+            for (var si = 0; si < specKeys.length; si++) {
+                var key = specKeys[si];
+                var val = String(specs[key]);
+                if (!val) continue;
+                var chipText = key + ': ' + val;
+                ctx.font = '12px -apple-system, sans-serif';
+                var ctw = ctx.measureText(chipText).width + 16;
+                if (chipX + ctw > W - 30) { chipX = 30; chipY += 28; }
+                _drawRoundedRect(ctx, chipX, chipY, ctw, 24, 12, '#f0f4ff');
+                ctx.fillStyle = '#1565c0';
+                ctx.textAlign = 'left';
+                ctx.fillText(chipText, chipX + 8, chipY + 16);
+                chipX += ctw + 8;
+            }
+            textY = chipY + 36;
+        }
+    }
 
-    // Draw QR
+    // --- Color Swatch ---
+    if (color) {
+        ctx.fillStyle = '#444444';
+        ctx.font = 'bold 13px -apple-system, sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText('COLOR', 30, textY);
+        textY += 20;
+        var colorMap = {
+            'Negro': '#222222', 'Blanco': '#f5f5f5', 'Gris': '#9e9e9e',
+            'Rojo': '#d32f2f', 'Azul': '#1976d2', 'Verde': '#388e3c',
+            'Dorado': '#c5a028', 'Rosa': '#e91e63', 'Plateado': '#bdbdbd',
+            'Naranja': '#f57c00', 'Marron': '#795548'
+        };
+        var hexColor = colorMap[color] || '#888888';
+        ctx.beginPath();
+        ctx.arc(46, textY + 12, 12, 0, Math.PI * 2);
+        ctx.fillStyle = hexColor;
+        ctx.fill();
+        ctx.strokeStyle = '#dddddd';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        if (hexColor === '#f5f5f5') {
+            ctx.strokeStyle = '#cccccc';
+            ctx.stroke();
+        }
+        ctx.fillStyle = '#555555';
+        ctx.font = '14px -apple-system, sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText(color, 66, textY + 17);
+        textY += 38;
+    }
+
+    // --- Stock info ---
+    if (stock > 0) {
+        ctx.font = '13px -apple-system, sans-serif';
+        var stockText = 'Stock: ' + stock + ' unidades';
+        var stw = ctx.measureText(stockText).width + 12;
+        _drawRoundedRect(ctx, 30, textY, stw, 22, 4, '#e8f5e9');
+        ctx.fillStyle = '#2e7d32';
+        ctx.textAlign = 'left';
+        ctx.fillText(stockText, 36, textY + 15);
+        textY += 32;
+    }
+
+    // --- Separator ---
+    textY += 4;
+    ctx.strokeStyle = '#eeeeee';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(30, textY); ctx.lineTo(W - 30, textY); ctx.stroke();
+    textY += 16;
+
+    // --- QR + Store info ---
+    var qrSize = 100;
+    var qrX = W - 30 - qrSize;
+    var qrY = H2 - 30 - qrSize;
+
+    ctx.fillStyle = '#888888';
+    ctx.font = '12px -apple-system, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText('Escanear para ver el cat\u00e1logo', qrX - 10, qrY + 20);
+    ctx.fillText('en el navegador', qrX - 10, qrY + 36);
+
     try {
         _drawQR(ctx, link, qrX, qrY, qrSize);
     } catch (e) {
-        // Fallback: draw a colored box
-        ctx.fillStyle = '#1a73e8';
-        _drawRoundedRect(ctx, qrX, qrY, qrSize, qrSize, 12, '#1a73e8');
+        ctx.fillStyle = '#1565c0';
+        _drawRoundedRect(ctx, qrX, qrY, qrSize, qrSize, 12, '#1565c0');
         ctx.fillStyle = '#fff';
-        ctx.font = 'bold 11px sans-serif';
+        ctx.font = 'bold 14px sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText('QR', qrX + qrSize / 2, qrY + qrSize / 2 + 4);
+        ctx.fillText('QR', qrX + qrSize / 2, qrY + qrSize / 2 + 5);
     }
 
-    // "Escanea para ver" text
-    ctx.fillStyle = '#999999';
-    ctx.font = '13px -apple-system, sans-serif';
-    ctx.textAlign = 'right';
-    ctx.fillText('Escanea para ver el catálogo', qrX - 10, qrY + qrSize / 2 + 5);
+    // Store info bottom left
+    if (storeInfo) {
+        var storeY = H2 - 50;
+        if (storeInfo.name) {
+            ctx.fillStyle = '#1565c0';
+            ctx.font = 'bold 18px -apple-system, sans-serif';
+            ctx.textAlign = 'left';
+            ctx.fillText(storeInfo.name || '', 30, storeY);
+            storeY += 22;
+        }
+        if (storeInfo.phone) {
+            ctx.fillStyle = '#888888';
+            ctx.font = '13px -apple-system, sans-serif';
+            ctx.fillText('Tel: ' + storeInfo.phone, 30, storeY);
+            storeY += 18;
+        }
+        if (storeInfo.address) {
+            ctx.fillText(storeInfo.address, 30, storeY);
+        }
+    }
 
-    // Store name at bottom
     if (storeInfo && storeInfo.name) {
-        ctx.fillStyle = '#cccccc';
-        ctx.font = '14px -apple-system, sans-serif';
+        ctx.fillStyle = '#dddddd';
+        ctx.font = '12px -apple-system, sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText(storeInfo.name, W / 2, H - 12);
+        ctx.fillText(storeInfo.name + ' \u00b7 Cat\u00e1logo', W / 2, H2 - 6);
     }
 
-    // Convert to blob and show preview modal
+    // Convert to blob
     canvas.toBlob(function (blob) {
         if (!blob) { showToast('Error al generar imagen', 'error'); return; }
         var file = new File([blob], 'catalogo-' + (product.name || 'producto').substring(0, 20) + '.png', { type: 'image/png' });
