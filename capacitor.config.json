@@ -3,7 +3,7 @@
   "appName": "Inventario",
   "webDir": "public",
   "server": {
-    "url": "https://inventario-nuevo-v2.vercel.app/main-NV60.html",
+    "url": "https://inventario-nuevo-v2.vercel.app/app.html",
     "androidScheme": "https",
     "allowNavigation": [
       "inventario-nuevo-v2.vercel.app"

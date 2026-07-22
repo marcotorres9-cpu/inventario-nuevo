@@ -3437,7 +3437,7 @@ function enterApp(user) {
     var cfg = getStoreConfig();
     var headerName = document.getElementById('storeHeaderName');
     var storeLogo = document.getElementById('storeLogo');
-    if (headerName) headerName.textContent = cfg.storeName || 'Inventario Pro';
+    if (headerName) headerName.textContent = 'Inventario Pro';
     if (cfg.logo && storeLogo) {
         storeLogo.src = cfg.logo;
         storeLogo.style.display = 'block';
@@ -3529,9 +3529,9 @@ function forcePullAndRefresh() {
                 if (Array.isArray(colors)) setColors(colors);
             } catch(e) {}
 
-            // Update header immediately
+            // Update header immediately — always show 'Inventario Pro'
             var headerName = document.getElementById('storeHeaderName');
-            if (headerName) headerName.textContent = storeData.name || 'Inventario Pro';
+            if (headerName) headerName.textContent = 'Inventario Pro';
             var storeLogo = document.getElementById('storeLogo');
             if (storeLogo && storeData.logo) { storeLogo.src = storeData.logo; storeLogo.style.display = 'block'; }
             console.log('[SYNC] Store pulled:', storeData.name);
@@ -3624,7 +3624,7 @@ function logout() {
 // ====================================================================
 // CHANGELOG — Show latest updates to the user
 // ====================================================================
-var APP_VERSION = '2.6.5 NV60';
+var APP_VERSION = '2.6.10 NV62';
 var CHANGELOG_ENTRIES = [
     { ver: '2.4.0', date: '24 Abr 2026', items: [
         { icon: '📊', text: '<b>Capacidad por espacio:</b> Controla unidades mínimas y máximas para Exhibición, Local Pequeño, Local Grande desde el panel de Control del Local.' },
@@ -7236,7 +7236,7 @@ function saveStoreInfo() {
     saveStoreConfig(cfg);
     // Update header
     var headerName = document.getElementById('storeHeaderName');
-    if (headerName) headerName.textContent = cfg.storeName || 'Inventario Pro';
+    if (headerName) headerName.textContent = 'Inventario Pro';
     showToast('Información de tienda guardada', 'success');
 }
 
@@ -7730,7 +7730,7 @@ function loadStoreInfoUI() {
         headerLogo.style.display = 'block';
     }
     var headerName = document.getElementById('storeHeaderName');
-    if (headerName) headerName.textContent = cfg.storeName || 'Inventario Pro';
+    if (headerName) headerName.textContent = 'Inventario Pro';
 
     // Storage usage
     updateStorageUsage();

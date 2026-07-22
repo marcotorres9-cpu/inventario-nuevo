@@ -11,6 +11,8 @@ if (window.caches) {
         for (var i = 0; i < names.length; i++) caches.delete(names[i]);
     });
 }
+// Clear any old versioned files from sessionStorage/localStorage
+try { sessionStorage.clear(); } catch(e) {}
 // VERSIONED FILENAME with cache-bust timestamp - forces WebView and CDN to fetch fresh
 window.location.replace('main-NV60.html?v=' + Date.now());
 </script>
