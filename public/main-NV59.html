@@ -17327,6 +17327,17 @@ function descargarArchivo(url, fileName, description) {
     }
 }
 
+// Compartir URL usando bridge nativo o fallback
+function compartirUrl(url, fileName, description) {
+    if (_esAppNativa()) {
+        window.NativeBridge.shareUrl(url, fileName || '', description || '');
+    } else if (navigator.share) {
+        navigator.share({ url: url, title: fileName || '', text: description || '' }).catch(function() {});
+    } else {
+        window.open(url, '_blank');
+    }
+}
+
 // Compartir: usa la hoja de compartir nativa de Android
 function compartirArchivo(url, fileName, description) {
     var shareText = (description || fileName || 'Archivo');
@@ -19898,10 +19909,10 @@ function _sharePreviewDoShare() {
             text: 'Mira este producto en nuestro catálogo:\n' + _sharePreviewLink,
             url: _sharePreviewLink
         }).catch(function(){
-            window.open(waUrl, '_blank');
+            if (_esAppNativa()) { window.NativeBridge.openInBrowser(waUrl); } else { window.open(waUrl, '_blank'); }
         });
     } else {
-        window.open(waUrl, '_blank');
+        if (_esAppNativa()) { window.NativeBridge.openInBrowser(waUrl); } else { window.open(waUrl, '_blank'); }
     }
 }
 
@@ -20007,7 +20018,7 @@ function _buildDownloadOverlay(imgSrc, link, fileName) {
             if (_esAppNativa()) {
                 window.NativeBridge.openInBrowser(waUrl2);
             } else {
-                window.open(waUrl2, '_blank');
+                if (_esAppNativa()) { window.NativeBridge.openInBrowser(waUrl2); } else { window.open(waUrl2, '_blank'); }
             }
         };
         btnRow.appendChild(waBtn);
@@ -20019,7 +20030,11 @@ function _buildDownloadOverlay(imgSrc, link, fileName) {
     openBtn.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg> Abrir imagen en navegador';
     openBtn.onclick = function() {
         // Open image directly in browser — most browsers allow long-press save
-        window.open(imgSrc, '_blank');
+        if (_esAppNativa()) {
+            window.NativeBridge.openInBrowser(imgSrc);
+        } else {
+            window.open(imgSrc, '_blank');
+        }
     };
     btnRow.appendChild(openBtn);
 

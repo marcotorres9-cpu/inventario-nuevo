@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">Mi Tienda</string>
-    <string name="title_activity_main">Mi Tienda</string>
+    <string name="app_name">Inventario</string>
+    <string name="title_activity_main">Inventario</string>
     <string name="package_name">com.inventariopro.app</string>
     <string name="custom_url_scheme">com.inventariopro.app</string>
 </resources>
