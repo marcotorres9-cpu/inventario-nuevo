@@ -2541,9 +2541,25 @@ function setCurrentUser(u) {
 // CORS-SAFE FETCH: When running locally (Capacitor), route through NativeBridge
 (function() {
     var _origFetch = window.fetch;
-    window._nativeFetchCallback = null;
-    var _nativeFetchId = 0;
-    var _nativeFetchPending = {};
+    var _fetchId = 0;
+    var _fetchResolvers = {};
+
+    // Native callback from Java: window._nfc(id, status, responseText)
+    window._nfc = function(id, status, text) {
+        var r = _fetchResolvers[id];
+        if (r) {
+            delete _fetchResolvers[id];
+            if (status === 0) {
+                r.reject(new TypeError('Network error'));
+            } else {
+                r.resolve(new Response(text, {
+                    status: status,
+                    statusText: status >= 200 && status < 300 ? 'OK' : 'Error',
+                    headers: { 'Content-Type': 'application/json' }
+                }));
+            }
+        }
+    };
 
     window.fetch = function(url, options) {
         if (!_isLocalApp()) return _origFetch.apply(this, arguments);
@@ -2552,35 +2568,20 @@ function setCurrentUser(u) {
         var body = (options && options.body) || '';
 
         return new Promise(function(resolve, reject) {
-            var id = ++_nativeFetchId;
-
-            window._nativeFetchCallback = function(status, responseText) {
-                if (_nativeFetchPending[id]) {
-                    delete _nativeFetchPending[id];
-                    if (status === 0) {
-                        reject(new TypeError('Native fetch failed: ' + responseText));
-                    } else {
-                        resolve(new Response(responseText, {
-                            status: status,
-                            statusText: status >= 200 && status < 300 ? 'OK' : 'Error',
-                            headers: { 'Content-Type': 'application/json' }
-                        }));
-                    }
-                }
-            };
-            _nativeFetchPending[id] = true;
+            var id = ++_fetchId;
+            _fetchResolvers[id] = { resolve: resolve, reject: reject };
 
             try {
-                window.NativeBridge.nativeFetch(String(url), method, body);
+                window.NativeBridge.nativeFetch(id, String(url), method, body);
             } catch(e) {
-                delete _nativeFetchPending[id];
+                delete _fetchResolvers[id];
                 _origFetch.apply(window, [url, options]).then(resolve).catch(reject);
             }
 
             setTimeout(function() {
-                if (_nativeFetchPending[id]) {
-                    delete _nativeFetchPending[id];
-                    reject(new TypeError('Native fetch timeout'));
+                if (_fetchResolvers[id]) {
+                    delete _fetchResolvers[id];
+                    reject(new TypeError('Fetch timeout'));
                 }
             }, 20000);
         });
@@ -2969,20 +2970,16 @@ function checkRealConnection() {
         return;
     }
 
-    // METHOD 2: Try to ping auth server (reliable external endpoint)
-    var authUrl = getAuthUrl();
-    var pingUrl = authUrl + '/api/auth/login';
-    var timedOut = false;
-    var controller;
-    try { controller = new AbortController(); } catch(e) { controller = null; }
-    var timeoutId = setTimeout(function() { timedOut = true; if (controller) try { controller.abort(); } catch(e) {} }, 12000);
+    // METHOD 2: Simple GET ping to /api/version (works with nativeFetch)
+    var serverUrl = getServerUrl();
+    if (!serverUrl) {
+        _realOnlineStatus = false;
+        updateConnectionStatus();
+        _onlineCheckTimer = setTimeout(checkRealConnection, 15000);
+        return;
+    }
 
-    var fetchOpts = { method: 'OPTIONS', cache: 'no-store' };
-    if (controller) fetchOpts.signal = controller.signal;
-
-    fetch(pingUrl, fetchOpts).then(function(r) {
-        clearTimeout(timeoutId);
-        if (timedOut) throw new Error('timeout');
+    fetch(serverUrl + '/api/version?_t=' + Date.now(), { method: 'GET', cache: 'no-store' }).then(function(r) {
         var wasOffline = (_realOnlineStatus !== true);
         _realOnlineStatus = true;
         updateConnectionStatus();
@@ -2995,36 +2992,9 @@ function checkRealConnection() {
             }, 1000);
         }
     }).catch(function(err) {
-        clearTimeout(timeoutId);
-        // METHOD 3: If auth ping failed, try server URL directly
-        var serverUrl = getServerUrl();
-        if (serverUrl) {
-            var timedOut2 = false;
-            var controller2;
-            try { controller2 = new AbortController(); } catch(e) { controller2 = null; }
-            var timeoutId2 = setTimeout(function() { timedOut2 = true; if (controller2) try { controller2.abort(); } catch(e) {} }, 12000);
-            var fetchOpts2 = { method: 'GET', cache: 'no-store' };
-            if (controller2) fetchOpts2.signal = controller2.signal;
-            fetch(serverUrl + '/api/version?_t=' + Date.now(), fetchOpts2).then(function(r) {
-                clearTimeout(timeoutId2);
-                if (timedOut2) throw new Error('timeout');
-                var wasOffline = (_realOnlineStatus !== true);
-                _realOnlineStatus = true;
-                updateConnectionStatus();
-                if (wasOffline) {
-                    setTimeout(function() { processOfflineQueue().then(function() { autoSyncFromServer(); }); }, 1000);
-                }
-            }).catch(function() {
-                // Both methods failed — truly offline
-                console.log('[SYNC] All ping methods failed, going offline');
-                _realOnlineStatus = false;
-                updateConnectionStatus();
-            });
-        } else {
-            console.log('[SYNC] Ping failed:', err.message || err);
-            _realOnlineStatus = false;
-            updateConnectionStatus();
-        }
+        console.log('[SYNC] Ping failed:', err.message || err);
+        _realOnlineStatus = false;
+        updateConnectionStatus();
     });
 
     // Check again every 15 seconds
@@ -7860,9 +7830,9 @@ function testServerConnection() {
         showToast('Tiempo de espera agotado', 'error');
     }, 12000);
 
-    // Test connection using the auth server (NOT intercepted by syncFetchHandler)
+    // Test connection using GET to /api/version
     var authUrl = getAuthUrl();
-    fetch(authUrl + '/api/auth/login', { method: 'OPTIONS', cache: 'no-store' })
+    fetch(authUrl + '/api/version?_t=' + Date.now(), { method: 'GET', cache: 'no-store' })
         .then(function(r) {
             clearTimeout(timeout);
             if (r.ok || r.status === 200) {
@@ -7919,7 +7889,7 @@ function updateServerStatus() {
         if (txt) txt.textContent = 'Verificando conexión...';
         // Quick auto-test
         var authUrl = getAuthUrl();
-        fetch(authUrl + '/api/auth/login', { method: 'OPTIONS', cache: 'no-store' }).then(function(r) {
+        fetch(authUrl + '/api/version?_t=' + Date.now(), { method: 'GET', cache: 'no-store' }).then(function(r) {
             if (r.ok || r.status === 200) {
                 _realOnlineStatus = true;
                 updateConnectionStatus();

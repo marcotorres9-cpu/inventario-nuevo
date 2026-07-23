@@ -65,10 +65,10 @@ public class MainActivity extends BridgeActivity {
 
     public class NativeBridge {
 
-        // === CORS-SAFE FETCH: makes HTTP requests from Java (bypasses WebView CORS) ===
+        // === CORS-SAFE FETCH with ID-based callbacks ===
         @JavascriptInterface
-        public void nativeFetch(String url, String method, String body) {
-            Log.d(TAG, "nativeFetch: " + method + " " + (url != null && url.length() > 120 ? url.substring(0, 120) + "..." : url));
+        public void nativeFetch(final int callbackId, String url, String method, String body) {
+            Log.d(TAG, "nativeFetch[" + callbackId + "]: " + method + " " + (url != null && url.length() > 120 ? url.substring(0, 120) + "..." : url));
             new Thread(new Runnable() {
                 @Override
                 public void run() {
@@ -77,13 +77,15 @@ public class MainActivity extends BridgeActivity {
                     try {
                         URL targetUrl = new URL(url);
                         HttpURLConnection conn = (HttpURLConnection) targetUrl.openConnection();
-                        conn.setRequestMethod(method != null ? method : "GET");
+                        String m = method != null ? method : "GET";
+                        conn.setRequestMethod(m);
                         conn.setRequestProperty("Content-Type", "application/json");
                         conn.setRequestProperty("Accept", "application/json");
                         conn.setConnectTimeout(15000);
                         conn.setReadTimeout(15000);
+                        conn.setInstanceFollowRedirects(true);
 
-                        if (body != null && !body.isEmpty() && (method != null && (method.equals("POST") || method.equals("PUT")))) {
+                        if (body != null && !body.isEmpty() && (m.equals("POST") || m.equals("PUT") || m.equals("PATCH"))) {
                             conn.setDoOutput(true);
                             byte[] bodyBytes = body.getBytes(StandardCharsets.UTF_8);
                             conn.getOutputStream().write(bodyBytes);
@@ -93,39 +95,40 @@ public class MainActivity extends BridgeActivity {
 
                         statusCode = conn.getResponseCode();
                         BufferedReader reader;
-                        if (statusCode >= 200 && statusCode < 300) {
-                            reader = new BufferedReader(new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8));
+                        InputStream is = conn.getErrorStream();
+                        if (is == null) is = conn.getInputStream();
+                        if (is == null) {
+                            result = "";
                         } else {
-                            reader = new BufferedReader(new InputStreamReader(conn.getErrorStream() != null ? conn.getErrorStream() : conn.getInputStream(), StandardCharsets.UTF_8));
+                            reader = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8));
+                            StringBuilder sb = new StringBuilder();
+                            String line;
+                            while ((line = reader.readLine()) != null) {
+                                sb.append(line);
+                            }
+                            reader.close();
+                            result = sb.toString();
                         }
-                        StringBuilder sb = new StringBuilder();
-                        String line;
-                        while ((line = reader.readLine()) != null) {
-                            sb.append(line);
-                        }
-                        reader.close();
-                        result = sb.toString();
+                        conn.disconnect();
 
-                        Log.d(TAG, "nativeFetch response: " + statusCode + " len=" + result.length());
+                        Log.d(TAG, "nativeFetch[" + callbackId + "] response: " + statusCode + " len=" + result.length());
 
-                        // Call back to JavaScript on main thread
                         final String finalResult = result;
                         final int finalStatus = statusCode;
                         runOnUiThread(new Runnable() {
                             @Override
                             public void run() {
                                 String escaped = finalResult.replace("\\", "\\\\").replace("'", "\\'").replace("\n", "\\n").replace("\r", "");
-                                webViewEvaluateJavascript("if(window._nativeFetchCallback) window._nativeFetchCallback(" + finalStatus + ",'" + escaped + "');");
+                                webViewEvaluateJavascript("window._nfc(" + callbackId + "," + finalStatus + ",'" + escaped + "');");
                             }
                         });
 
                     } catch (final Exception e) {
-                        Log.e(TAG, "nativeFetch error", e);
+                        Log.e(TAG, "nativeFetch[" + callbackId + "] error", e);
                         runOnUiThread(new Runnable() {
                             @Override
                             public void run() {
-                                String errMsg = e.getMessage().replace("'", "\\'").replace("\n", " ");
-                                webViewEvaluateJavascript("if(window._nativeFetchCallback) window._nativeFetchCallback(0,'ERROR: " + errMsg + "');");
+                                webViewEvaluateJavascript("window._nfc(" + callbackId + ",0,'ERROR')");
                             }
                         });
                     }
