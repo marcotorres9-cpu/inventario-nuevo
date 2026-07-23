@@ -2537,24 +2537,72 @@ function getCurrentUser() {
 function setCurrentUser(u) {
     localStorage.setItem('inv_currentUser', JSON.stringify(u));
 }
+
+// CORS-SAFE FETCH: When running locally (Capacitor), route through NativeBridge
+(function() {
+    var _origFetch = window.fetch;
+    window._nativeFetchCallback = null;
+    var _nativeFetchId = 0;
+    var _nativeFetchPending = {};
+
+    window.fetch = function(url, options) {
+        if (!_isLocalApp()) return _origFetch.apply(this, arguments);
+
+        var method = (options && options.method) || 'GET';
+        var body = (options && options.body) || '';
+
+        return new Promise(function(resolve, reject) {
+            var id = ++_nativeFetchId;
+
+            window._nativeFetchCallback = function(status, responseText) {
+                if (_nativeFetchPending[id]) {
+                    delete _nativeFetchPending[id];
+                    if (status === 0) {
+                        reject(new TypeError('Native fetch failed: ' + responseText));
+                    } else {
+                        resolve(new Response(responseText, {
+                            status: status,
+                            statusText: status >= 200 && status < 300 ? 'OK' : 'Error',
+                            headers: { 'Content-Type': 'application/json' }
+                        }));
+                    }
+                }
+            };
+            _nativeFetchPending[id] = true;
+
+            try {
+                window.NativeBridge.nativeFetch(String(url), method, body);
+            } catch(e) {
+                delete _nativeFetchPending[id];
+                _origFetch.apply(window, [url, options]).then(resolve).catch(reject);
+            }
+
+            setTimeout(function() {
+                if (_nativeFetchPending[id]) {
+                    delete _nativeFetchPending[id];
+                    reject(new TypeError('Native fetch timeout'));
+                }
+            }, 20000);
+        });
+    };
+})();
+function _isLocalApp() {
+    try {
+        var o = window.location.origin;
+        return o.indexOf('localhost') >= 0 || o === 'null' || o.indexOf('192.168') >= 0;
+    } catch(e) { return false; }
+}
 function getServerUrl() {
-    // When running in Capacitor WebView (localhost), always use the Vercel server for API
     if (typeof window !== 'undefined' && window.location && window.location.origin) {
         var origin = window.location.origin;
-        // If running from local Capacitor assets (localhost), use Vercel server
-        if (origin.indexOf('localhost') >= 0 || origin === 'null' || origin === 'file://' || origin.indexOf('192.168') >= 0) {
-            localStorage.setItem('inv_serverUrl', 'https://inventario-nuevo-v2.vercel.app');
-            return 'https://inventario-nuevo-v2.vercel.app';
-        }
-        // If running on Vercel, use the current origin
-        if (origin.indexOf('http') === 0) {
+        if (origin.indexOf('http') === 0 && origin.indexOf('localhost') < 0) {
             localStorage.setItem('inv_serverUrl', origin);
             return origin;
         }
     }
-    // Hardcoded fallback
-    localStorage.setItem('inv_serverUrl', 'https://inventario-nuevo-v2.vercel.app');
-    return 'https://inventario-nuevo-v2.vercel.app';
+    var fallback = 'https://inventario-nuevo-v2.vercel.app';
+    localStorage.setItem('inv_serverUrl', fallback);
+    return fallback;
 }
 // Auth uses the SAME server as data — all routes in one deployment
 function getAuthUrl() {

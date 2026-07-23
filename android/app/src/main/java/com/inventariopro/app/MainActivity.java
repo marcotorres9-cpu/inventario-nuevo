@@ -14,17 +14,24 @@ import android.os.Environment;
 import android.util.Base64;
 import android.util.Log;
 import android.webkit.JavascriptInterface;
+import android.webkit.WebSettings;
+import android.webkit.CookieManager;
+import android.webkit.WebView;
 import android.widget.Toast;
 
 import androidx.core.content.FileProvider;
 import com.getcapacitor.BridgeActivity;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.FileInputStream;
 import java.io.InputStream;
-import java.net.URL;
+import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
+import java.net.URL;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 
 public class MainActivity extends BridgeActivity {
 
@@ -33,16 +40,115 @@ public class MainActivity extends BridgeActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        getBridge().getWebView().addJavascriptInterface(new NativeBridge(), "NativeBridge");
+
+        // Configure WebView to allow CORS from local origin
+        WebView webView = getBridge().getWebView();
+        WebSettings settings = webView.getSettings();
+        settings.setAllowUniversalAccessFromFileURLs(true);
+        settings.setAllowFileAccessFromFileURLs(true);
+        settings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
+        settings.setJavaScriptCanOpenWindowsAutomatically(true);
+        settings.setDomStorageEnabled(true);
+        settings.setDatabaseEnabled(true);
+
+        // Clear WebView cache to prevent stale content
+        webView.clearCache(true);
+        webView.clearHistory();
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP_MR1) {
+            CookieManager.getInstance().removeAllCookies(null);
+            CookieManager.getInstance().flush();
+        }
+
+        // Add NativeBridge for native functions + CORS-safe fetch
+        webView.addJavascriptInterface(new NativeBridge(), "NativeBridge");
     }
 
     public class NativeBridge {
+
+        // === CORS-SAFE FETCH: makes HTTP requests from Java (bypasses WebView CORS) ===
+        @JavascriptInterface
+        public void nativeFetch(String url, String method, String body) {
+            Log.d(TAG, "nativeFetch: " + method + " " + (url != null && url.length() > 120 ? url.substring(0, 120) + "..." : url));
+            new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    String result = "";
+                    int statusCode = 0;
+                    try {
+                        URL targetUrl = new URL(url);
+                        HttpURLConnection conn = (HttpURLConnection) targetUrl.openConnection();
+                        conn.setRequestMethod(method != null ? method : "GET");
+                        conn.setRequestProperty("Content-Type", "application/json");
+                        conn.setRequestProperty("Accept", "application/json");
+                        conn.setConnectTimeout(15000);
+                        conn.setReadTimeout(15000);
+
+                        if (body != null && !body.isEmpty() && (method != null && (method.equals("POST") || method.equals("PUT")))) {
+                            conn.setDoOutput(true);
+                            byte[] bodyBytes = body.getBytes(StandardCharsets.UTF_8);
+                            conn.getOutputStream().write(bodyBytes);
+                            conn.getOutputStream().flush();
+                            conn.getOutputStream().close();
+                        }
+
+                        statusCode = conn.getResponseCode();
+                        BufferedReader reader;
+                        if (statusCode >= 200 && statusCode < 300) {
+                            reader = new BufferedReader(new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8));
+                        } else {
+                            reader = new BufferedReader(new InputStreamReader(conn.getErrorStream() != null ? conn.getErrorStream() : conn.getInputStream(), StandardCharsets.UTF_8));
+                        }
+                        StringBuilder sb = new StringBuilder();
+                        String line;
+                        while ((line = reader.readLine()) != null) {
+                            sb.append(line);
+                        }
+                        reader.close();
+                        result = sb.toString();
+
+                        Log.d(TAG, "nativeFetch response: " + statusCode + " len=" + result.length());
+
+                        // Call back to JavaScript on main thread
+                        final String finalResult = result;
+                        final int finalStatus = statusCode;
+                        runOnUiThread(new Runnable() {
+                            @Override
+                            public void run() {
+                                String escaped = finalResult.replace("\\", "\\\\").replace("'", "\\'").replace("\n", "\\n").replace("\r", "");
+                                webViewEvaluateJavascript("if(window._nativeFetchCallback) window._nativeFetchCallback(" + finalStatus + ",'" + escaped + "');");
+                            }
+                        });
+
+                    } catch (final Exception e) {
+                        Log.e(TAG, "nativeFetch error", e);
+                        runOnUiThread(new Runnable() {
+                            @Override
+                            public void run() {
+                                String errMsg = e.getMessage().replace("'", "\\'").replace("\n", " ");
+                                webViewEvaluateJavascript("if(window._nativeFetchCallback) window._nativeFetchCallback(0,'ERROR: " + errMsg + "');");
+                            }
+                        });
+                    }
+                }
+            }).start();
+        }
+
+        // Helper to evaluate JS safely
+        private void webViewEvaluateJavascript(String script) {
+            try {
+                WebView wv = getBridge().getWebView();
+                if (wv != null) {
+                    wv.evaluateJavascript(script, null);
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "evaluateJS error", e);
+            }
+        }
 
         @JavascriptInterface
         public void openInBrowser(String url) {
             Log.d(TAG, "openInBrowser: " + (url != null && url.length() > 100 ? url.substring(0, 100) + "..." : url));
             if (url == null || url.isEmpty()) return;
-            // If it's a data URI, handle it differently
             if (url.startsWith("data:")) {
                 openDataImage(url);
                 return;
@@ -60,7 +166,6 @@ public class MainActivity extends BridgeActivity {
         public void openDataImage(String dataUri) {
             Log.d(TAG, "openDataImage called, length=" + (dataUri != null ? dataUri.length() : 0));
             try {
-                // Parse data URI: "data:image/png;base64,XXXXX..."
                 String base64Data;
                 String mimeType = "image/png";
 
@@ -69,17 +174,10 @@ public class MainActivity extends BridgeActivity {
                     if (commaIdx > 0) {
                         String header = dataUri.substring(0, commaIdx);
                         base64Data = dataUri.substring(commaIdx + 1);
-
-                        // Extract mime type from header
-                        if (header.contains("image/jpeg") || header.contains("image/jpg")) {
-                            mimeType = "image/jpeg";
-                        } else if (header.contains("image/png")) {
-                            mimeType = "image/png";
-                        } else if (header.contains("image/webp")) {
-                            mimeType = "image/webp";
-                        } else if (header.contains("image/gif")) {
-                            mimeType = "image/gif";
-                        }
+                        if (header.contains("image/jpeg") || header.contains("image/jpg")) mimeType = "image/jpeg";
+                        else if (header.contains("image/png")) mimeType = "image/png";
+                        else if (header.contains("image/webp")) mimeType = "image/webp";
+                        else if (header.contains("image/gif")) mimeType = "image/gif";
                     } else {
                         base64Data = dataUri.substring(5);
                     }
@@ -87,16 +185,12 @@ public class MainActivity extends BridgeActivity {
                     base64Data = dataUri;
                 }
 
-                // Decode base64
                 byte[] imageData = Base64.decode(base64Data, Base64.DEFAULT);
-
-                // Determine extension
                 String extension = ".jpg";
                 if (mimeType.contains("png")) extension = ".png";
                 else if (mimeType.contains("webp")) extension = ".webp";
                 else if (mimeType.contains("gif")) extension = ".gif";
 
-                // Save to cache directory
                 File cacheDir = getCacheDir();
                 String fileName = "catalogo_" + System.currentTimeMillis() + extension;
                 File imageFile = new File(cacheDir, fileName);
@@ -105,24 +199,15 @@ public class MainActivity extends BridgeActivity {
                 fos.flush();
                 fos.close();
 
-                Log.d(TAG, "Image saved to: " + imageFile.getAbsolutePath() + " size=" + imageData.length);
-
-                // Open with image viewer
                 Intent intent = new Intent(Intent.ACTION_VIEW);
                 Uri fileUri = Uri.fromFile(imageFile);
 
-                // On Android 7+, use FileProvider for shared access
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
                     try {
-                        Uri contentUri = FileProvider.getUriForFile(
-                            MainActivity.this,
-                            "com.inventariopro.app.fileprovider",
-                            imageFile
-                        );
+                        Uri contentUri = FileProvider.getUriForFile(MainActivity.this, "com.inventariopro.app.fileprovider", imageFile);
                         intent.setDataAndType(contentUri, mimeType);
                         intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
                     } catch (Exception e) {
-                        // Fallback without FileProvider
                         intent.setDataAndType(fileUri, mimeType);
                     }
                 } else {
@@ -134,12 +219,8 @@ public class MainActivity extends BridgeActivity {
 
             } catch (Exception e) {
                 Log.e(TAG, "openDataImage error", e);
-                // Fallback: save to Downloads and let user open manually
                 try {
-                    byte[] imageData = Base64.decode(
-                        dataUri.contains(",") ? dataUri.substring(dataUri.indexOf(',') + 1) : dataUri.substring(5),
-                        Base64.DEFAULT
-                    );
+                    byte[] imageData = Base64.decode(dataUri.contains(",") ? dataUri.substring(dataUri.indexOf(',') + 1) : dataUri.substring(5), Base64.DEFAULT);
                     File downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
                     String fileName = "catalogo_" + System.currentTimeMillis() + ".jpg";
                     File outFile = new File(downloadsDir, fileName);
@@ -147,7 +228,6 @@ public class MainActivity extends BridgeActivity {
                     fos.write(imageData);
                     fos.flush();
                     fos.close();
-
                     Toast.makeText(MainActivity.this, "Imagen guardada en Descargas: " + fileName, Toast.LENGTH_LONG).show();
                 } catch (Exception e2) {
                     Log.e(TAG, "Fallback save also failed", e2);
@@ -158,20 +238,14 @@ public class MainActivity extends BridgeActivity {
 
         @JavascriptInterface
         public void downloadAndOpen(String url, String fileName) {
-            Log.d(TAG, "downloadAndOpen: " + (url != null && url.length() > 100 ? url.substring(0, 100) : url) + " -> " + fileName);
+            Log.d(TAG, "downloadAndOpen: " + (url != null && url.length() > 100 ? url.substring(0, 100) + "..." : url) + " -> " + fileName);
             try {
-                if (fileName == null || fileName.isEmpty()) {
-                    fileName = "archivo";
-                }
+                if (fileName == null || fileName.isEmpty()) fileName = "archivo";
                 DownloadManager.Request request = new DownloadManager.Request(Uri.parse(url));
                 request.setTitle(fileName);
                 request.setDescription("Descargando " + fileName);
                 request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, fileName);
-                } else {
-                    request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, fileName);
-                }
+                request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, fileName);
                 DownloadManager dm = (DownloadManager) getSystemService(Context.DOWNLOAD_SERVICE);
                 dm.enqueue(request);
                 Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
@@ -179,13 +253,6 @@ public class MainActivity extends BridgeActivity {
                 startActivity(intent);
             } catch (Exception e) {
                 Log.e(TAG, "downloadAndOpen error", e);
-                try {
-                    Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
-                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                    startActivity(intent);
-                } catch (Exception e2) {
-                    Log.e(TAG, "fallback also failed", e2);
-                }
             }
         }
 
@@ -196,9 +263,7 @@ public class MainActivity extends BridgeActivity {
                 Intent shareIntent = new Intent(Intent.ACTION_SEND);
                 shareIntent.setType("text/plain");
                 shareIntent.putExtra(Intent.EXTRA_TEXT, url);
-                if (description != null) {
-                    shareIntent.putExtra(Intent.EXTRA_SUBJECT, description);
-                }
+                if (description != null) shareIntent.putExtra(Intent.EXTRA_SUBJECT, description);
                 Intent chooser = Intent.createChooser(shareIntent, fileName != null ? fileName : "Compartir");
                 chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                 startActivity(chooser);
