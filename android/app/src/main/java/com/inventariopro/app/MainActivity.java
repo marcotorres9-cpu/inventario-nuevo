@@ -113,13 +113,15 @@ public class MainActivity extends BridgeActivity {
 
                         Log.d(TAG, "nativeFetch[" + callbackId + "] response: " + statusCode + " len=" + result.length());
 
+                        // Use base64 encoding to safely pass large JSON through evaluateJavascript
+                        // This eliminates all escaping issues with quotes, backslashes, newlines, etc.
                         final String finalResult = result;
                         final int finalStatus = statusCode;
+                        final String b64 = Base64.encodeToString(finalResult.getBytes(StandardCharsets.UTF_8), Base64.NO_WRAP);
                         runOnUiThread(new Runnable() {
                             @Override
                             public void run() {
-                                String escaped = finalResult.replace("\\", "\\\\").replace("'", "\\'").replace("\n", "\\n").replace("\r", "");
-                                webViewEvaluateJavascript("window._nfc(" + callbackId + "," + finalStatus + ",'" + escaped + "');");
+                                webViewEvaluateJavascript("window._nfb(" + callbackId + "," + finalStatus + ",'" + b64 + "');");
                             }
                         });
 

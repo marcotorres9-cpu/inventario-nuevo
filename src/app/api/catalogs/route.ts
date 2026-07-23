@@ -78,7 +78,7 @@ export async function GET(){
     await ensureTable();
     await ensureImageTable();
     const rows=await query('SELECT id,slug,name,description,products,"storeInfo","storeId","mainImage","createdAt","updatedAt" FROM "ElectronicCatalog" ORDER BY "updatedAt" DESC');
-    // For list view, return products as-is (no image resolution) for speed
+    // For list view, return products as-is (imageIds only, no full image data) for speed
     return NextResponse.json(rows,{headers:H});
   }catch(e:any){
     console.error('[DB] GET /catalogs:',e.message);

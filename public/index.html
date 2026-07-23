@@ -39,7 +39,7 @@
     // FORCE fresh code: always check server version, reload if different
     (function(){
         try {
-            var _NV = 'NV63';
+            var _NV = 'NV64';
             var _ck = '_inv_nv';
             var stored = localStorage.getItem(_ck);
             // Only reload if version changed AND we haven't already reloaded for this version
@@ -1117,7 +1117,7 @@
             <div>
                 <div class="header-name" id="storeHeaderName">Inventario Pro</div>
                 <div class="header-role" id="userRole">rol</div>
-                <div class="header-ver" id="headerVersion">v2.6.11 NV63</div>
+                <div class="header-ver" id="headerVersion">v2.6.12 NV64</div>
             </div>
         </div>
         <button class="btn-logout" onclick="toggleTheme()" style="background:none;border:none;font-size:20px;cursor:pointer;margin-right:8px;color:var(--text2);" title="Cambiar tema">🌓</button>
@@ -1590,14 +1590,16 @@
             <button class="modal-close" onclick="_closeSharePreview()">&times;</button>
         </div>
         <div style="padding:0 16px 16px;">
-            <a id="sharePreviewLinkWrap" href="#" style="display:block;background:var(--bg);border-radius:10px;overflow:hidden;margin-bottom:12px;max-height:60vh;text-decoration:none;">
+            <a id="sharePreviewLinkWrap" href="#" style="display:block;background:var(--bg);border-radius:10px;overflow:hidden;margin-bottom:10px;max-height:55vh;text-decoration:none;">
                 <img id="sharePreviewImg" src="" style="width:100%;display:block;" draggable="false">
             </a>
-            <a id="sharePreviewLinkA" href="#" style="display:block;background:var(--primary-bg);border:1px solid var(--primary);border-radius:8px;padding:10px 12px;margin-bottom:12px;word-break:break-all;font-size:12px;color:var(--primary);text-decoration:none;font-weight:600;">Toca aquí para ver el catálogo en el navegador</a>
-            <div style="display:flex;gap:8px;">
-                <button onclick="_sharePreviewDoShare()" class="btn btn-primary" style="display:flex;align-items:center;justify-content:center;gap:6px;flex:1;min-width:0;padding:12px;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.625.846 5.059 2.284 7.034L.789 23.492a.5.5 0 00.612.638l4.694-1.228A11.946 11.946 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-2.372 0-4.572-.747-6.378-2.019l-.455-.334-2.96.774.773-2.9-.346-.464A9.953 9.953 0 012 12C2 6.486 6.486 2 12 2s10 4.486 10 10-4.486 10-10 10z"/></svg><span style="min-width:0;overflow:hidden;text-overflow:ellipsis"> Enviar por WhatsApp</span></button>
-                <button onclick="_sharePreviewDoDownload()" class="btn" style="display:flex;align-items:center;justify-content:center;gap:6px;flex:1;min-width:0;padding:12px;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:var(--bg3);color:var(--text);border:1px solid var(--border);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg><span style="min-width:0;overflow:hidden;text-overflow:ellipsis"> Guardar</span></button>
-                <button onclick="_sharePreviewCopyLink()" class="btn" style="display:flex;align-items:center;justify-content:center;gap:6px;flex:1;min-width:0;padding:12px;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:var(--bg3);color:var(--text);border:1px solid var(--border);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg><span style="min-width:0;overflow:hidden;text-overflow:ellipsis"> Link</span></button>
+            <a id="sharePreviewLinkA" href="#" style="display:flex;align-items:center;gap:8px;background:var(--primary-bg);border:1px solid var(--primary);border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:11px;color:var(--primary);text-decoration:none;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">🔗 Toca para ver en el navegador</a>
+            <div style="display:flex;flex-direction:column;gap:6px;">
+                <button onclick="_sharePreviewDoShare()" class="btn btn-primary" style="display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:11px;font-size:13px;border-radius:10px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.625.846 5.059 2.284 7.034L.789 23.492a.5.5 0 00.612.638l4.694-1.228A11.946 11.946 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-2.372 0-4.572-.747-6.378-2.019l-.455-.334-2.96.774.773-2.9-.346-.464A9.953 9.953 0 012 12C2 6.486 6.486 2 12 2s10 4.486 10 10-4.486 10-10 10z"/></svg> Enviar por WhatsApp</button>
+                <div style="display:flex;gap:8px;">
+                    <button onclick="_sharePreviewDoDownload()" class="btn" style="display:flex;align-items:center;justify-content:center;gap:6px;flex:1;padding:11px;font-size:13px;border-radius:10px;background:var(--bg3);color:var(--text);border:1px solid var(--border);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Guardar</button>
+                    <button onclick="_sharePreviewCopyLink()" class="btn" style="display:flex;align-items:center;justify-content:center;gap:6px;flex:1;padding:11px;font-size:13px;border-radius:10px;background:var(--bg3);color:var(--text);border:1px solid var(--border);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg> Copiar Link</button>
+                </div>
             </div>
         </div>
     </div>
@@ -2544,22 +2546,29 @@ function setCurrentUser(u) {
     var _fetchId = 0;
     var _fetchResolvers = {};
 
-    // Native callback from Java: window._nfc(id, status, responseText)
-    window._nfc = function(id, status, text) {
+    // Native callback from Java (base64 encoded): window._nfb(id, status, base64Text)
+    window._nfb = function(id, status, b64) {
         var r = _fetchResolvers[id];
         if (r) {
             delete _fetchResolvers[id];
             if (status === 0) {
                 r.reject(new TypeError('Network error'));
             } else {
-                r.resolve(new Response(text, {
-                    status: status,
-                    statusText: status >= 200 && status < 300 ? 'OK' : 'Error',
-                    headers: { 'Content-Type': 'application/json' }
-                }));
+                try {
+                    var text = atob(b64);
+                    r.resolve(new Response(text, {
+                        status: status,
+                        statusText: status >= 200 && status < 300 ? 'OK' : 'Error',
+                        headers: { 'Content-Type': 'application/json' }
+                    }));
+                } catch(e) {
+                    r.reject(new TypeError('Base64 decode error: ' + e.message));
+                }
             }
         }
     };
+    // Keep old callback for backwards compatibility (old APK versions)
+    window._nfc = window._nfb;
 
     window.fetch = function(url, options) {
         if (!_isLocalApp()) return _origFetch.apply(this, arguments);
@@ -2583,7 +2592,7 @@ function setCurrentUser(u) {
                     delete _fetchResolvers[id];
                     reject(new TypeError('Fetch timeout'));
                 }
-            }, 20000);
+            }, 30000);
         });
     };
 })();
@@ -3508,116 +3517,16 @@ function forcePullAndRefresh() {
     console.log('[SYNC] Force pulling data from server: ' + url);
     showToast('Descargando datos del servidor...', 'info');
 
-    // First verify server is reachable
-    fetch(url + '/api/version?_t=' + Date.now(), { method: 'GET', headers: { 'Content-Type': 'application/json' } })
-    .then(function(r) {
-        if (!r.ok) throw new Error('Server responded ' + r.status);
-        return r.json();
-    })
-    .then(function(ver) {
-        console.log('[SYNC] Server version:', ver ? ver.v : '?');
-        _realOnlineStatus = true;
-        updateConnectionStatus();
-    })
-    .then(function() {
-        // Step 1: Pull store config
-        return fetch(url + '/api/store', { method: 'GET', headers: { 'Content-Type': 'application/json' } })
-    })
-    .then(function(r) { return r.json(); })
-    .then(function(storeData) {
-        if (storeData && storeData.name) {
-            var cfg = getStoreConfig();
-            if (storeData.name) cfg.storeName = storeData.name;
-            if (storeData.address) cfg.address = storeData.address;
-            if (storeData.phone) cfg.phone = storeData.phone;
-            if (storeData.email) cfg.email = storeData.email;
-            if (storeData.currency) cfg.currency = storeData.currency;
-            if (storeData.footer) cfg.footerText = storeData.footer;
-            if (storeData.logo) cfg.logo = storeData.logo;
-            if (storeData.categorySpecs) cfg.categorySpecs = storeData.categorySpecs;
-                if (storeData.specValues) cfg.specValues = storeData.specValues;
-            saveStoreConfig(cfg);
+    // Use independent fetch calls instead of chained .then() to prevent
+    // one failure from blocking all subsequent steps
+    var pullResults = { store: false, products: false, quotations: false, totalProducts: 0 };
 
-            // Update categories/brands/colors
-            try {
-                var cats = typeof storeData.categories === 'string' ? JSON.parse(storeData.categories) : (storeData.categories || []);
-                if (Array.isArray(cats)) setCategories(cats);
-            } catch(e) {}
-            try {
-                var brands = typeof storeData.brands === 'string' ? JSON.parse(storeData.brands) : (storeData.brands || []);
-                if (Array.isArray(brands)) setBrands(brands);
-            } catch(e) {}
-            try {
-                var colors = typeof storeData.colors === 'string' ? JSON.parse(storeData.colors) : (storeData.colors || []);
-                if (Array.isArray(colors)) setColors(colors);
-            } catch(e) {}
+    function safeJson(r) {
+        if (!r || typeof r.json !== 'function') return Promise.resolve(null);
+        return r.json().catch(function(e) { console.warn('[SYNC] JSON parse error:', e); return null; });
+    }
 
-            // Update header immediately — always show 'Inventario Pro'
-            var headerName = document.getElementById('storeHeaderName');
-            if (headerName) headerName.textContent = 'Inventario Pro';
-            var storeLogo = document.getElementById('storeLogo');
-            if (storeLogo && storeData.logo) { storeLogo.src = storeData.logo; storeLogo.style.display = 'block'; }
-            console.log('[SYNC] Store pulled:', storeData.name);
-        }
-        return fetch(url + '/api/products', { method: 'GET', headers: { 'Content-Type': 'application/json' } });
-    })
-    .then(function(r) { if (r && typeof r.json === 'function') return r.json(); return []; })
-    .then(function(productsData) {
-        if (Array.isArray(productsData) && productsData.length > 0) {
-            var localProducts = getProducts();
-            var localImageMap = {};
-            var localProductMap = {};
-            for (var lp = 0; lp < localProducts.length; lp++) {
-                var lpId = localProducts[lp].id;
-                localProductMap[lpId] = localProducts[lp];
-                if (localProducts[lp].images && localProducts[lp].images.length > 0) {
-                    localImageMap[lpId] = localProducts[lp].images;
-                }
-            }
-
-            var serverProducts = [];
-            var serverIdSet = {};
-            for (var si = 0; si < productsData.length; si++) {
-                var rp = productsData[si];
-                serverIdSet[rp.id] = true;
-                var existing = localProductMap[rp.id];
-                serverProducts.push({
-                    id: rp.id, name: rp.name || '', sku: rp.sku || '', barcode: rp.barcode || '',
-                    category: rp.category || '', brand: rp.brand || '', color: rp.color || '',
-                    costPrice: parseFloat(rp.costPrice) || 0,
-                    salePrice: parseFloat(rp.salePrice) || parseFloat(rp.price) || 0,
-                    price: parseFloat(rp.salePrice) || parseFloat(rp.price) || 0,
-                    stock: parseInt(rp.stock) || 0,
-                    minStock: parseInt(rp.minStock) || 5,
-                    description: rp.description || '',
-                    specifications: rp.specifications || null,
-                    images: (localImageMap[rp.id] || (existing && existing.images) || []),
-                    createdAt: rp.createdAt || (existing && existing.createdAt) || new Date().toISOString(),
-                    updatedAt: rp.updatedAt || new Date().toISOString()
-                });
-            }
-
-            // Keep local products that don't exist on server (created offline)
-            for (var li = 0; li < localProducts.length; li++) {
-                if (!serverIdSet[localProducts[li].id]) {
-                    serverProducts.push(localProducts[li]);
-                    console.log('[SYNC] Kept offline product:', localProducts[li].id, localProducts[li].name);
-                }
-            }
-
-            saveProducts(serverProducts);
-            console.log('[SYNC] Products pulled:', productsData.length, 'total:', serverProducts.length);
-        }
-        return fetch(url + '/api/quotations', { method: 'GET', headers: { 'Content-Type': 'application/json' } });
-    })
-    .then(function(r) { if (r && typeof r.json === 'function') return r.json(); return []; })
-    .then(function(quotData) {
-        if (Array.isArray(quotData) && quotData.length > 0) {
-            saveQuotations(quotData);
-            console.log('[SYNC] Quotations pulled:', quotData.length);
-        }
-
-        // NOW refresh the entire UI with the downloaded data
+    function refreshUI() {
         updateDashboard();
         renderProductList();
         populateAllSelects();
@@ -3626,14 +3535,149 @@ function forcePullAndRefresh() {
         renderColors();
         renderUsers();
         loadStoreInfoUI();
-        showToast('Datos sincronizados con el servidor', 'success');
-        console.log('[SYNC] Force pull complete - UI refreshed');
+        var parts = [];
+        if (pullResults.totalProducts > 0) parts.push(pullResults.totalProducts + ' productos');
+        if (parts.length > 0) {
+            showToast('Sincronizado: ' + parts.join(', '), 'success');
+        } else {
+            showToast('Datos sincronizados', 'success');
+        }
+        console.log('[SYNC] Force pull complete - Products:', pullResults.totalProducts);
+    }
+
+    // Step 1: Check server is reachable
+    fetch(url + '/api/version?_t=' + Date.now(), { method: 'GET', headers: { 'Content-Type': 'application/json' } })
+    .then(function(r) {
+        _realOnlineStatus = r.ok;
+        updateConnectionStatus();
+        if (r.ok) console.log('[SYNC] Server reachable');
+    })
+    .catch(function(e) {
+        console.warn('[SYNC] Version check failed:', e.message);
+    })
+    .then(function() {
+        // Step 2: Pull store config (independent)
+        fetch(url + '/api/store?_t=' + Date.now(), { method: 'GET', headers: { 'Content-Type': 'application/json' } })
+        .then(safeJson)
+        .then(function(storeData) {
+            if (storeData && storeData.name) {
+                var cfg = getStoreConfig();
+                if (storeData.name) cfg.storeName = storeData.name;
+                if (storeData.address) cfg.address = storeData.address;
+                if (storeData.phone) cfg.phone = storeData.phone;
+                if (storeData.email) cfg.email = storeData.email;
+                if (storeData.currency) cfg.currency = storeData.currency;
+                if (storeData.footer) cfg.footerText = storeData.footer;
+                if (storeData.logo) cfg.logo = storeData.logo;
+                if (storeData.categorySpecs) cfg.categorySpecs = storeData.categorySpecs;
+                if (storeData.specValues) cfg.specValues = storeData.specValues;
+                saveStoreConfig(cfg);
+
+                try {
+                    var cats = typeof storeData.categories === 'string' ? JSON.parse(storeData.categories) : (storeData.categories || []);
+                    if (Array.isArray(cats)) setCategories(cats);
+                } catch(e) {}
+                try {
+                    var brands = typeof storeData.brands === 'string' ? JSON.parse(storeData.brands) : (storeData.brands || []);
+                    if (Array.isArray(brands)) setBrands(brands);
+                } catch(e) {}
+                try {
+                    var colors = typeof storeData.colors === 'string' ? JSON.parse(storeData.colors) : (storeData.colors || []);
+                    if (Array.isArray(colors)) setColors(colors);
+                } catch(e) {}
+
+                var headerName = document.getElementById('storeHeaderName');
+                if (headerName) headerName.textContent = 'Inventario Pro';
+                var storeLogo = document.getElementById('storeLogo');
+                if (storeLogo && storeData.logo) { storeLogo.src = storeData.logo; storeLogo.style.display = 'block'; }
+                pullResults.store = true;
+                console.log('[SYNC] Store pulled:', storeData.name);
+            }
+        })
+        .catch(function(e) { console.warn('[SYNC] Store pull failed:', e.message); });
+
+        // Step 3: Pull products (independent — CRITICAL for catalog)
+        fetch(url + '/api/products?_t=' + Date.now(), { method: 'GET', headers: { 'Content-Type': 'application/json' } })
+        .then(safeJson)
+        .then(function(productsData) {
+            if (Array.isArray(productsData)) {
+                pullResults.totalProducts = productsData.length;
+                var localProducts = getProducts();
+                var localImageMap = {};
+                var localProductMap = {};
+                for (var lp = 0; lp < localProducts.length; lp++) {
+                    var lpId = localProducts[lp].id;
+                    localProductMap[lpId] = localProducts[lp];
+                    if (localProducts[lp].images && localProducts[lp].images.length > 0) {
+                        localImageMap[lpId] = localProducts[lp].images;
+                    }
+                }
+
+                var serverProducts = [];
+                var serverIdSet = {};
+                for (var si = 0; si < productsData.length; si++) {
+                    var rp = productsData[si];
+                    serverIdSet[rp.id] = true;
+                    var existing = localProductMap[rp.id];
+                    serverProducts.push({
+                        id: rp.id, name: rp.name || '', sku: rp.sku || '', barcode: rp.barcode || '',
+                        category: rp.category || '', brand: rp.brand || '', color: rp.color || '',
+                        costPrice: parseFloat(rp.costPrice) || 0,
+                        salePrice: parseFloat(rp.salePrice) || parseFloat(rp.price) || 0,
+                        price: parseFloat(rp.salePrice) || parseFloat(rp.price) || 0,
+                        stock: parseInt(rp.stock) || 0,
+                        minStock: parseInt(rp.minStock) || 5,
+                        description: rp.description || '',
+                        specifications: rp.specifications || null,
+                        images: (localImageMap[rp.id] || (existing && existing.images) || []),
+                        createdAt: rp.createdAt || (existing && existing.createdAt) || new Date().toISOString(),
+                        updatedAt: rp.updatedAt || new Date().toISOString()
+                    });
+                }
+
+                // Keep local products not on server
+                for (var li = 0; li < localProducts.length; li++) {
+                    if (!serverIdSet[localProducts[li].id]) {
+                        serverProducts.push(localProducts[li]);
+                    }
+                }
+
+                saveProducts(serverProducts);
+                pullResults.products = true;
+                console.log('[SYNC] Products pulled:', productsData.length, 'total:', serverProducts.length);
+            } else {
+                console.warn('[SYNC] Products response not array:', typeof productsData);
+            }
+        })
+        .catch(function(e) {
+            console.error('[SYNC] Products pull failed:', e);
+            showToast('Error al descargar productos', 'error');
+        })
+        .then(function() {
+            // Step 4: Pull quotations (independent)
+            fetch(url + '/api/quotations?_t=' + Date.now(), { method: 'GET', headers: { 'Content-Type': 'application/json' } })
+            .then(safeJson)
+            .then(function(quotData) {
+                if (Array.isArray(quotData) && quotData.length > 0) {
+                    saveQuotations(quotData);
+                    pullResults.quotations = true;
+                    console.log('[SYNC] Quotations pulled:', quotData.length);
+                }
+            })
+            .catch(function(e) { console.warn('[SYNC] Quotations pull failed:', e.message); })
+            .then(function() {
+                // Final step: refresh UI after ALL data is pulled
+                refreshUI();
+            });
+        });
     })
     .catch(function(err) {
         console.error('[SYNC] Force pull error:', err);
         showToast('Error de conexion al servidor', 'error');
         _realOnlineStatus = false;
         updateConnectionStatus();
+        // Still render local data
+        refreshUI();
     });
 }
 
@@ -3647,7 +3691,7 @@ function logout() {
 // ====================================================================
 // CHANGELOG — Show latest updates to the user
 // ====================================================================
-var APP_VERSION = '2.6.11 NV63'
+var APP_VERSION = '2.6.12 NV64'
 var CHANGELOG_ENTRIES = [
     { ver: '2.4.0', date: '24 Abr 2026', items: [
         { icon: '📊', text: '<b>Capacidad por espacio:</b> Controla unidades mínimas y máximas para Exhibición, Local Pequeño, Local Grande desde el panel de Control del Local.' },
@@ -19454,12 +19498,12 @@ var _catalogEditId = null;
 var _ecatSelectedProduct = null;
 
 function _getCatalogBaseUrl() {
-    var base = window.location.origin;
-    return base;
+    // Always use the server URL for API calls (works in both web and Capacitor)
+    return getServerUrl();
 }
 
 function _getCatalogShortLink(slug) {
-    return window.location.origin + '/c/' + slug;
+    return getServerUrl() + '/c/' + slug;
 }
 
 function _getProductImageFromData(p) {
@@ -19496,17 +19540,28 @@ function _getSpecsStr(specs) {
 }
 
 // --- RENDER CATALOG LIST ---
+// Helper: XHR-style fetch using server URL (bypasses CORS via NativeBridge)
+function _serverFetch(method, path, body, callback) {
+    var url = getServerUrl() + path;
+    var opts = { method: method, headers: { 'Content-Type': 'application/json' } };
+    if (body !== undefined && body !== null) opts.body = (typeof body === 'string') ? body : JSON.stringify(body);
+    fetch(url, opts)
+    .then(function(r) { return r.text(); })
+    .then(function(text) { if (callback) callback(text, null); })
+    .catch(function(err) { if (callback) callback(null, err); });
+}
+
 function renderCatalogsList() {
     var container = document.getElementById('catalogsListContainer');
     if (!container) return;
     var baseUrl = _getCatalogBaseUrl();
+    var serverUrl = getServerUrl();
     var searchEl = document.getElementById('ecatalogSearch');
     var search = searchEl ? searchEl.value.toLowerCase().trim() : '';
-    var xhr = new XMLHttpRequest();
-    xhr.open('GET', '/api/catalogs');
-    xhr.onload = function () {
-        var cats = [];
-        try { cats = JSON.parse(xhr.responseText); } catch (e) { cats = []; }
+    fetch(serverUrl + '/api/catalogs?_t=' + Date.now(), { method: 'GET', headers: { 'Content-Type': 'application/json' } })
+    .then(function(r) { return r.json(); })
+    .then(function(cats) {
+        if (!Array.isArray(cats)) cats = [];
         // Filter by search
         if (search) {
             var filtered = [];
@@ -19534,21 +19589,17 @@ function renderCatalogsList() {
             var prods = [];
             try { prods = (typeof c.products === 'string') ? JSON.parse(c.products) : (c.products || []); } catch (e) {}
             var p0 = prods[0] || {};
-            // Use mainImage index for thumbnail
+            // Use imageIds for thumbnail (images are server-side, need to fetch separately)
+            var imageIds = p0.imageIds || [];
             var mainIdx = parseInt(c.mainImage) || 0;
-            var p0imgs = p0.images || [];
-            if (mainIdx >= p0imgs.length) mainIdx = 0;
-            var mainImg = p0imgs[mainIdx];
-            var img = '';
-            if (mainImg && mainImg.data) img = 'data:' + (mainImg.type || 'image/jpeg') + ';base64,' + mainImg.data;
-            else if (mainImg && mainImg.url) img = mainImg.url;
-            if (!img) img = _getProductImageFromData(p0);
+            if (mainIdx >= imageIds.length) mainIdx = 0;
+            var mainImgId = imageIds[mainIdx] || '';
             var link = _getCatalogShortLink(c.slug);
             var price = parseFloat(p0.salePrice) || 0;
             html += '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:8px;display:flex;gap:12px;align-items:center;">';
-            // Thumbnail
-            html += '<div style="width:56px;height:56px;border-radius:10px;overflow:hidden;flex-shrink:0;background:var(--bg);display:flex;align-items:center;justify-content:center;">';
-            if (img) html += '<img src="' + img + '" style="width:100%;height:100%;object-fit:cover;" loading="lazy">';
+            // Thumbnail placeholder (loaded async)
+            html += '<div id="catListThumb_' + i + '" data-imgid="' + escapeHtml(mainImgId) + '" style="width:56px;height:56px;border-radius:10px;overflow:hidden;flex-shrink:0;background:var(--bg);display:flex;align-items:center;justify-content:center;">';
+            if (mainImgId) html += '<span style="font-size:20px;opacity:0.3;">⏳</span>';
             else html += '<span style="font-size:24px;opacity:0.3;">📦</span>';
             html += '</div>';
             // Info
@@ -19572,8 +19623,43 @@ function renderCatalogsList() {
             html += '</div>';
         }
         container.innerHTML = html;
-    };
-    xhr.send();
+        // Load thumbnails asynchronously from server
+        for (var ti = 0; ti < cats.length; ti++) {
+            (function(idx) {
+                var cat = cats[idx];
+                var prods2 = [];
+                try { prods2 = (typeof cat.products === 'string') ? JSON.parse(cat.products) : (cat.products || []); } catch (e) {}
+                var p0b = prods2[0] || {};
+                var ids = p0b.imageIds || [];
+                var mIdx = parseInt(cat.mainImage) || 0;
+                if (mIdx >= ids.length) mIdx = 0;
+                var firstId = ids[mIdx] || '';
+                if (!firstId) return;
+                var thumbEl = document.getElementById('catListThumb_' + idx);
+                if (!thumbEl) return;
+                _serverFetch('GET', '/api/catalog-upload?id=' + encodeURIComponent(firstId), null, function(text, err) {
+                    if (err || !text) {
+                        if (thumbEl) thumbEl.innerHTML = '<span style="font-size:24px;opacity:0.3;">📦</span>';
+                        return;
+                    }
+                    try {
+                        var res = JSON.parse(text);
+                        if (res.data && thumbEl) {
+                            thumbEl.innerHTML = '<img src="data:' + (res.imageType || 'image/jpeg') + ';base64,' + res.data + '" style="width:100%;height:100%;object-fit:cover;" loading="lazy" draggable="false">';
+                        } else {
+                            if (thumbEl) thumbEl.innerHTML = '<span style="font-size:24px;opacity:0.3;">📦</span>';
+                        }
+                    } catch(e) {
+                        if (thumbEl) thumbEl.innerHTML = '<span style="font-size:24px;opacity:0.3;">📦</span>';
+                    }
+                });
+            })(ti);
+        }
+    })
+    .catch(function(err) {
+        console.error('[CATALOGS] Error loading:', err);
+        container.innerHTML = '<div style="text-align:center;padding:40px 20px;color:var(--text3);"><div style="font-size:48px;margin-bottom:12px;">📖</div><div style="font-size:14px;font-weight:600;margin-bottom:4px;">Error al cargar</div><div style="font-size:12px;">Verifica tu conexión e intenta de nuevo.</div></div>';
+    });
 }
 
 function copyCatalogLink(slug) {
@@ -19591,11 +19677,10 @@ function copyCatalogLink(slug) {
 // --- SHARE CATALOG IMAGE WITH QR ---
 function shareCatalogImage(slug, catId) {
     showToast('Generando imagen...', 'info');
-    var xhr = new XMLHttpRequest();
-    xhr.open('GET', '/api/catalogs/' + slug);
-    xhr.onload = function () {
+    _serverFetch('GET', '/api/catalogs/' + slug, null, function(responseText, err) {
+        if (err) { showToast('Error de conexión', 'error'); return; }
         try {
-            var cat = JSON.parse(xhr.responseText);
+            var cat = JSON.parse(responseText);
             if (cat.error) { showToast(cat.error, 'error'); return; }
             var prods = cat.products || [];
             var p = prods[0];
@@ -19603,9 +19688,7 @@ function shareCatalogImage(slug, catId) {
             var imgs = p.images || [];
             var mainIdx = parseInt(cat.mainImage) || 0;
             if (mainIdx >= imgs.length) mainIdx = 0;
-            // Collect ALL image sources (not just main)
             var allImgSrcs = [];
-            // Build ordered list: main first, then rest
             var orderedImgs = [];
             if (imgs[mainIdx]) orderedImgs.push(imgs[mainIdx]);
             for (var ii = 0; ii < imgs.length; ii++) {
@@ -19613,13 +19696,9 @@ function shareCatalogImage(slug, catId) {
             }
             for (var oi = 0; oi < orderedImgs.length; oi++) {
                 var im = orderedImgs[oi];
-                if (im && im.data) {
-                    allImgSrcs.push('data:' + (im.type || 'image/jpeg') + ';base64,' + im.data);
-                } else if (im && im.url) {
-                    allImgSrcs.push(im.url);
-                }
+                if (im && im.data) allImgSrcs.push('data:' + (im.type || 'image/jpeg') + ';base64,' + im.data);
+                else if (im && im.url) allImgSrcs.push(im.url);
             }
-            // If no images from list, try imageIds via catalog-upload endpoint
             if (allImgSrcs.length === 0 && p.imageIds && p.imageIds.length > 0) {
                 var pendingIds = [];
                 for (var iid = 0; iid < p.imageIds.length; iid++) {
@@ -19630,16 +19709,13 @@ function shareCatalogImage(slug, catId) {
                     var fetchCount = 0;
                     for (var fi2 = 0; fi2 < pendingIds.length; fi2++) {
                         (function(imgId) {
-                            var ixhr = new XMLHttpRequest();
-                            ixhr.open('GET', '/api/catalog-upload?id=' + encodeURIComponent(imgId));
-                            ixhr.onload = function () {
+                            _serverFetch('GET', '/api/catalog-upload?id=' + encodeURIComponent(imgId), null, function(iText, iErr) {
                                 try {
-                                    var ires = JSON.parse(ixhr.responseText);
+                                    var ires = JSON.parse(iText || '{}');
                                     if (ires.data) resolvedSrcs.push({ src: 'data:' + (ires.imageType || 'image/jpeg') + ';base64,' + ires.data, id: imgId });
                                 } catch(e) {}
                                 fetchCount++;
                                 if (fetchCount >= pendingIds.length) {
-                                    // Put mainIdx image first
                                     var finalSrcs = [];
                                     var mainImgId = pendingIds[mainIdx] || pendingIds[0];
                                     for (var rs = 0; rs < resolvedSrcs.length; rs++) {
@@ -19651,15 +19727,7 @@ function shareCatalogImage(slug, catId) {
                                     var shortLink = _getCatalogShortLink(slug);
                                     _generateShareCard(finalSrcs.length > 0 ? finalSrcs : [''], p, shortLink, cat.storeInfo);
                                 }
-                            };
-                            ixhr.onerror = function () {
-                                fetchCount++;
-                                if (fetchCount >= pendingIds.length) {
-                                    var shortLink = _getCatalogShortLink(slug);
-                                    _generateShareCard([''], p, shortLink, cat.storeInfo);
-                                }
-                            };
-                            ixhr.send();
+                            });
                         })(pendingIds[fi2]);
                     }
                     return;
@@ -19668,9 +19736,7 @@ function shareCatalogImage(slug, catId) {
             var shortLink = _getCatalogShortLink(slug);
             _generateShareCard(allImgSrcs.length > 0 ? allImgSrcs : [''], p, shortLink, cat.storeInfo);
         } catch (e) { showToast('Error al generar', 'error'); }
-    };
-    xhr.onerror = function () { showToast('Error de conexión', 'error'); };
-    xhr.send();
+    });
 }
 
 function _generateShareCard(imgSrcs, product, link, storeInfo) {
@@ -19711,8 +19777,20 @@ function _generateShareCard(imgSrcs, product, link, storeInfo) {
 
 function _loadAndDrawSingle(ctx, src, area, done) {
     var img = new Image();
+    var loaded = false;
+    var fallbackTimer = setTimeout(function() {
+        if (!loaded) {
+            loaded = true;
+            // Draw placeholder with product info
+            _drawImagePlaceholder(ctx, area);
+            done();
+        }
+    }, 8000); // 8s timeout
     if (src.indexOf('data:') !== 0) img.crossOrigin = 'anonymous';
     img.onload = function () {
+        if (loaded) return;
+        loaded = true;
+        clearTimeout(fallbackTimer);
         var scale = Math.min(area.w / img.width, area.h / img.height);
         var sw = img.width * scale, sh = img.height * scale;
         var sx = area.x + (area.w - sw) / 2, sy = area.y + (area.h - sh) / 2;
@@ -19720,13 +19798,49 @@ function _loadAndDrawSingle(ctx, src, area, done) {
         done();
     };
     img.onerror = function () {
-        ctx.fillStyle = '#ccc';
-        ctx.font = '48px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText('📷', area.x + area.w / 2, area.y + area.h / 2 + 16);
+        if (loaded) return;
+        loaded = true;
+        clearTimeout(fallbackTimer);
+        _drawImagePlaceholder(ctx, area);
         done();
     };
-    img.src = src;
+    // Try to compress large data URIs before loading
+    if (src.indexOf('data:') === 0 && src.length > 200000) {
+        try {
+            var tmpC = document.createElement('canvas');
+            var tmpSz = 600;
+            tmpC.width = tmpSz; tmpC.height = tmpSz;
+            var tmpCtx = tmpC.getContext('2d');
+            var tmpImg = new Image();
+            tmpImg.onload = function() {
+                if (loaded) return;
+                var aspect = tmpImg.width / tmpImg.height;
+                var tw, th;
+                if (aspect > 1) { tw = tmpSz; th = Math.round(tmpSz / aspect); }
+                else { th = tmpSz; tw = Math.round(tmpSz * aspect); }
+                tmpC.width = tw; tmpC.height = th;
+                tmpCtx.drawImage(tmpImg, 0, 0, tw, th);
+                var compressed = tmpC.toDataURL('image/jpeg', 0.7);
+                img.src = compressed;
+            };
+            tmpImg.onerror = function() {
+                _drawImagePlaceholder(ctx, area);
+                done();
+            };
+            tmpImg.src = src;
+        } catch(e) {
+            img.src = src;
+        }
+    } else {
+        img.src = src;
+    }
+}
+
+function _drawImagePlaceholder(ctx, area) {
+    ctx.fillStyle = '#e8e8e8';
+    ctx.font = '48px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('\uD83D\uDCF7', area.x + area.w / 2, area.y + area.h / 2 + 16);
 }
 
 function _loadAndDrawGrid(ctx, srcs, area, done) {
@@ -20777,10 +20891,10 @@ function _wrapText(ctx, text, maxWidth) {
 
 function deleteCatalog(id, name) {
     if (!confirm('¿Eliminar del catálogo: "' + name + '"?')) return;
-    var xhr = new XMLHttpRequest();
-    xhr.open('DELETE', '/api/catalogs?id=' + id);
-    xhr.onload = function () { renderCatalogsList(); showToast('Eliminado del catálogo', 'success'); };
-    xhr.send();
+    _serverFetch('DELETE', '/api/catalogs?id=' + id, null, function(text, err) {
+        renderCatalogsList();
+        showToast('Eliminado del catálogo', 'success');
+    });
 }
 
 // --- CATALOG EDITOR ---
@@ -20794,11 +20908,10 @@ var _sharePreviewProductName = ''; // product name for share preview modal
 
 function _loadExistingCatalogProducts(callback) {
     _ecatExistingProductIds = {};
-    var xhr = new XMLHttpRequest();
-    xhr.open('GET', '/api/catalogs');
-    xhr.onload = function () {
+    _serverFetch('GET', '/api/catalogs', null, function(responseText, err) {
+        if (!responseText) { if (callback) callback(); return; }
         try {
-            var cats = JSON.parse(xhr.responseText);
+            var cats = JSON.parse(responseText);
             for (var i = 0; i < cats.length; i++) {
                 var prods = [];
                 try { prods = (typeof cats[i].products === 'string') ? JSON.parse(cats[i].products) : (cats[i].products || []); } catch(e) {}
@@ -20808,9 +20921,7 @@ function _loadExistingCatalogProducts(callback) {
             }
         } catch(e) {}
         if (callback) callback();
-    };
-    xhr.onerror = function () { if (callback) callback(); };
-    xhr.send();
+    });
 }
 
 function _loadCatalogImagesFromServer(catalogId, imageIds, callback) {
@@ -20818,30 +20929,19 @@ function _loadCatalogImagesFromServer(catalogId, imageIds, callback) {
     var loaded = 0;
     for (var i = 0; i < imageIds.length; i++) {
         (function(imgId, index) {
-            var xhr = new XMLHttpRequest();
-            xhr.open('GET', '/api/catalog-upload?id=' + encodeURIComponent(imgId));
-            xhr.onload = function () {
+            _serverFetch('GET', '/api/catalog-upload?id=' + encodeURIComponent(imgId), null, function(text, err) {
                 try {
-                    var res = JSON.parse(xhr.responseText);
+                    var res = JSON.parse(text || '{}');
                     if (res.data) {
                         _ecatUploadedImages[index] = { type: res.imageType || 'image/jpeg', data: res.data, serverId: imgId };
                     }
                 } catch (e) {}
                 loaded++;
                 if (loaded >= imageIds.length) {
-                    // Remove gaps
                     _ecatUploadedImages = _ecatUploadedImages.filter(function(x) { return x; });
                     if (callback) callback();
                 }
-            };
-            xhr.onerror = function () {
-                loaded++;
-                if (loaded >= imageIds.length) {
-                    _ecatUploadedImages = _ecatUploadedImages.filter(function(x) { return x; });
-                    if (callback) callback();
-                }
-            };
-            xhr.send();
+            });
         })(imageIds[i], i);
     }
 }
@@ -20863,11 +20963,9 @@ function openEcatalogEditor(editId) {
 
     if (editId) {
         // Load existing catalog to edit
-        var xhr = new XMLHttpRequest();
-        xhr.open('GET', '/api/catalogs');
-        xhr.onload = function () {
+        _serverFetch('GET', '/api/catalogs', null, function(responseText, err) {
             var cats = [];
-            try { cats = JSON.parse(xhr.responseText); } catch (e) {}
+            try { cats = JSON.parse(responseText || '[]'); } catch (e) {}
             var cat = null;
             for (var i = 0; i < cats.length; i++) { if (cats[i].id === editId) { cat = cats[i]; break; } }
             if (!cat) { showToast('No encontrado', 'error'); return; }
@@ -20918,12 +21016,10 @@ function openEcatalogEditor(editId) {
                 updateEcatLinkPreview();
                 openModal('catalogEditorModal');
             } else {
-                // No products, show product selector
                 _renderEcatProductList(getProducts());
                 openModal('catalogEditorModal');
             }
-        };
-        xhr.send();
+        });
     } else {
         _loadExistingCatalogProducts(function() {
             _renderEcatProductList(getProducts());
@@ -21350,25 +21446,17 @@ function _doSaveWithImages(p, slug, btn, imagesToUpload, existingServerIds) {
         }
         var img = imagesToUpload[idx];
         btn.textContent = '⏳ Subiendo foto ' + (idx + 1) + '/' + imagesToUpload.length + '...';
-        var xhr = new XMLHttpRequest();
-        xhr.open('POST', '/api/catalog-upload');
-        xhr.setRequestHeader('Content-Type', 'application/json');
-        xhr.onload = function () {
+        _serverFetch('POST', '/api/catalog-upload', { catalogId: _catalogEditId || '', imageType: img.type || 'image/jpeg', data: img.data }, function(text, err) {
             try {
-                var res = JSON.parse(xhr.responseText);
+                var res = JSON.parse(text || '{}');
                 if (res.id) {
                     uploadedIds.push(res.id);
-                    _ecatUploadedImages[idx].serverId = res.id; // cache server ID
+                    _ecatUploadedImages[idx].serverId = res.id;
                 }
             } catch (e) {}
             idx++;
             uploadNext();
-        };
-        xhr.onerror = function () {
-            idx++;
-            uploadNext();
-        };
-        xhr.send(JSON.stringify({ catalogId: _catalogEditId || '', imageType: img.type || 'image/jpeg', data: img.data }));
+        });
     }
     uploadNext();
 }
@@ -21393,36 +21481,26 @@ function _finalizeCatalogSave(p, slug, btn, imageIds) {
         storeInfo: { name: cfg.storeName || '', phone: cfg.phone || '' },
         mainImage: _ecatMainImage || 0
     };
-    var xhr = new XMLHttpRequest();
-    xhr.open('POST', '/api/catalogs');
-    xhr.setRequestHeader('Content-Type', 'application/json');
-    xhr.onload = function () {
+    _serverFetch('POST', '/api/catalogs', body, function(text, err) {
         btn.disabled = false;
         btn.textContent = '💾 Guardar en Catálogo';
         try {
-            var res = JSON.parse(xhr.responseText);
+            var res = JSON.parse(text || '{}');
             if (res.error) { showToast(res.error, 'error'); return; }
-            // Update serverIds on images with the new catalog ID
             if (res.id) {
                 for (var i = 0; i < _ecatUploadedImages.length; i++) {
                     if (_ecatUploadedImages[i].serverId) {
-                        // update catalogId on server (fire and forget)
                         (function(sId, catId) {
-                            var ux = new XMLHttpRequest();
-                            ux.open('POST', '/api/catalog-upload');
-                            ux.setRequestHeader('Content-Type', 'application/json');
-                            ux.send(JSON.stringify({ id: sId, catalogId: catId, imageType: 'image/jpeg', data: 'keep' }));
+                            _serverFetch('POST', '/api/catalog-upload', { id: sId, catalogId: catId, imageType: 'image/jpeg', data: 'keep' }, null);
                         })(_ecatUploadedImages[i].serverId, res.id);
                     }
                 }
             }
-            showToast('✅ Producto en catálogo', 'success');
+            showToast('Producto en catálogo', 'success');
             closeModal('catalogEditorModal');
             renderCatalogsList();
         } catch (e) { showToast('Error al guardar', 'error'); }
-    };
-    xhr.onerror = function () { btn.disabled = false; btn.textContent = '💾 Guardar en Catálogo'; showToast('Error de conexión', 'error'); };
-    xhr.send(JSON.stringify(body));
+    });
 }
 
 // --- PUBLIC CATALOG VIEW (redirect to short URL) ---
