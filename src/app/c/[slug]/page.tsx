@@ -76,11 +76,12 @@ export default async function CatalogPage({ params }: Props) {
   let p: any = null;
   let storeInfo: any = {};
   let mainImageIdx = 0;
+  let displaySettings: any = {};
 
   // STRATEGY 1: Fetch from DB directly
   try {
     const rows = await query(
-      'SELECT id, slug, name, description, products, "storeInfo", "mainImage", "createdAt" FROM "ElectronicCatalog" WHERE slug=$1',
+      'SELECT id, slug, name, description, products, "storeInfo", "mainImage", "displaySettings", "createdAt" FROM "ElectronicCatalog" WHERE slug=$1',
       [slug]
     );
     if (rows.length > 0) cat = rows[0];
@@ -93,6 +94,7 @@ export default async function CatalogPage({ params }: Props) {
     p = prods[0] || null;
     storeInfo = cat.storeInfo || {};
     mainImageIdx = parseInt(cat.mainImage) || 0;
+    try { displaySettings = typeof cat.displaySettings === 'string' ? JSON.parse(cat.displaySettings) : (cat.displaySettings || {}); } catch {}
   }
 
   // STRATEGY 2: If DB query failed or no product, try fetching from our own API
@@ -132,6 +134,15 @@ export default async function CatalogPage({ params }: Props) {
   const storeName = storeInfo.name || '';
   const price = parseFloat(p.salePrice) || 0;
   const mainImage = mainImageIdx;
+
+  // Display settings for catalog view
+  const catDS = (displaySettings as any).catalog || {};
+  const showPrice = catDS.price !== false;
+  const showMeasurements = catDS.measurements !== false;
+  const showColor = catDS.color !== false;
+  const showSpecs = catDS.specs !== false;
+  const showDescription = catDS.description !== false;
+  const showActions = catDS.actions !== false;
 
   // Resolve images: use imageIds from DB, or images from API fallback
   let allImgs: { src: string }[] = [];
@@ -437,22 +448,22 @@ export default async function CatalogPage({ params }: Props) {
           {(p.brand || p.color) && (
             <div className="catpg-brand">{esc(p.brand || '')}{p.color ? ` · ${esc(p.color)}` : ''}</div>
           )}
-          {price > 0 && <div className="catpg-price">${price.toLocaleString('es-MX')}</div>}
+          {showPrice && price > 0 && <div className="catpg-price">${price.toLocaleString('es-MX')}</div>}
 
           {/* Measurement grid (Kisuu-style) - shown prominently after price */}
-          <div dangerouslySetInnerHTML={{ __html: measureGridHtml }} />
+          {showMeasurements && <div dangerouslySetInnerHTML={{ __html: measureGridHtml }} />}
 
           {/* Color swatch */}
-          <div dangerouslySetInnerHTML={{ __html: colorSwatchHtml }} />
+          {showColor && <div dangerouslySetInnerHTML={{ __html: colorSwatchHtml }} />}
 
           {/* Specs accordion */}
-          <div dangerouslySetInnerHTML={{ __html: specAccordionHtml }} />
+          {showSpecs && <div dangerouslySetInnerHTML={{ __html: specAccordionHtml }} />}
 
           {/* Description accordion */}
-          <div dangerouslySetInnerHTML={{ __html: descAccordionHtml }} />
+          {showDescription && <div dangerouslySetInnerHTML={{ __html: descAccordionHtml }} />}
 
           {/* Action icons */}
-          <div dangerouslySetInnerHTML={{ __html: actionIconsHtml }} />
+          {showActions && <div dangerouslySetInnerHTML={{ __html: actionIconsHtml }} />}
         </div>
 
         {storeName && <div className="catpg-footer">{esc(storeName)}</div>}

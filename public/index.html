@@ -39,7 +39,7 @@
     // FORCE fresh code: always check server version, reload if different
     (function(){
         try {
-            var _NV = 'NV65';
+            var _NV = 'NV66';
             var _ck = '_inv_nv';
             var stored = localStorage.getItem(_ck);
             // Only reload if version changed AND we haven't already reloaded for this version
@@ -1117,7 +1117,7 @@
             <div>
                 <div class="header-name" id="storeHeaderName">Inventario Pro</div>
                 <div class="header-role" id="userRole">rol</div>
-                <div class="header-ver" id="headerVersion">v2.6.19 NV65</div>
+                <div class="header-ver" id="headerVersion">v2.6.20 NV66</div>
             </div>
         </div>
         <button class="btn-logout" onclick="toggleTheme()" style="background:none;border:none;font-size:20px;cursor:pointer;margin-right:8px;color:var(--text2);" title="Cambiar tema">🌓</button>
@@ -1572,6 +1572,13 @@
                     <div style="font-size:10px;color:var(--text3);margin-top:3px;">
                         Detalles adicionales que verá el cliente
                     </div>
+                </div>
+
+                <!-- Display Settings: Admin decides what shows in preview & catalog -->
+                <div style="margin-bottom:14px;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:12px;">
+                    <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:8px;display:flex;align-items:center;gap:6px;">🎛️ Secciones visibles</div>
+                    <div style="font-size:10px;color:var(--text3);margin-bottom:10px;">Elige qué información se muestra en el preview (tarjeta) y el catálogo electrónico.</div>
+                    <div id="ecatDisplaySettings"></div>
                 </div>
 
                 <button class="btn btn-primary" id="ecatSaveBtn" onclick="saveEcatalogItem()" style="width:100%;padding:12px;font-size:14px;">💾 Guardar en Catálogo</button>
@@ -3691,7 +3698,7 @@ function logout() {
 // ====================================================================
 // CHANGELOG — Show latest updates to the user
 // ====================================================================
-var APP_VERSION = '2.6.19 NV65'
+var APP_VERSION = '2.6.20 NV66'
 var CHANGELOG_ENTRIES = [
     { ver: '2.4.0', date: '24 Abr 2026', items: [
         { icon: '📊', text: '<b>Capacidad por espacio:</b> Controla unidades mínimas y máximas para Exhibición, Local Pequeño, Local Grande desde el panel de Control del Local.' },
@@ -19680,8 +19687,6 @@ function copyCatalogLink(slug) {
 // --- SHARE CATALOG IMAGE WITH QR ---
 function shareCatalogImage(slug, catId) {
     showToast('Generando imagen...', 'info');
-    // Use the lightweight list endpoint to get catalog metadata (no embedded images)
-    // Then fetch only the main image individually to avoid huge NativeBridge responses
     _serverFetch('GET', '/api/catalogs?_t=' + Date.now(), null, function(responseText, err) {
         if (err) { showToast('Error de conexión', 'error'); return; }
         try {
@@ -19701,28 +19706,29 @@ function shareCatalogImage(slug, catId) {
             var mainIdx = parseInt(cat.mainImage) || 0;
             if (mainIdx >= imgIds.length) mainIdx = 0;
             var shortLink = _getCatalogShortLink(slug);
+            var ds = {};
+            try { ds = typeof cat.displaySettings === 'string' ? JSON.parse(cat.displaySettings) : (cat.displaySettings || {}); } catch(e) {}
 
-            // Fetch only the MAIN image (one small request ~70KB)
             if (imgIds.length > 0 && imgIds[mainIdx]) {
                 _serverFetch('GET', '/api/catalog-upload?id=' + encodeURIComponent(imgIds[mainIdx]), null, function(iText, iErr) {
                     try {
                         var ires = JSON.parse(iText || '{}');
                         if (ires.data) {
                             var imgSrc = 'data:' + (ires.imageType || 'image/jpeg') + ';base64,' + ires.data;
-                            _generateShareCard([imgSrc], p, shortLink, cat.storeInfo);
+                            _generateShareCard([imgSrc], p, shortLink, cat.storeInfo, ds);
                         } else {
-                            _generateShareCard([''], p, shortLink, cat.storeInfo);
+                            _generateShareCard([''], p, shortLink, cat.storeInfo, ds);
                         }
-                    } catch(e) { _generateShareCard([''], p, shortLink, cat.storeInfo); }
+                    } catch(e) { _generateShareCard([''], p, shortLink, cat.storeInfo, ds); }
                 });
             } else {
-                _generateShareCard([''], p, shortLink, cat.storeInfo);
+                _generateShareCard([''], p, shortLink, cat.storeInfo, ds);
             }
         } catch (e) { showToast('Error al generar', 'error'); }
     });
 }
 
-function _generateShareCard(imgSrcs, product, link, storeInfo) {
+function _generateShareCard(imgSrcs, product, link, storeInfo, displaySettings) {
     // Only use the FIRST (main) image for the share card — no grid
     if (!Array.isArray(imgSrcs)) imgSrcs = [imgSrcs || ''];
     var src = '';
@@ -19747,14 +19753,14 @@ function _generateShareCard(imgSrcs, product, link, storeInfo) {
     // Draw single image only
     if (src) {
         _loadAndDrawSingle(ctx, src, imgArea, function() {
-            _finishShareCard(ctx, W, H, product, link, storeInfo, canvas);
+            _finishShareCard(ctx, W, H, product, link, storeInfo, canvas, displaySettings);
         });
     } else {
         ctx.fillStyle = '#ccc';
         ctx.font = '48px sans-serif';
         ctx.textAlign = 'center';
         ctx.fillText('📷', W / 2, imgArea.y + imgArea.h / 2 + 16);
-        _finishShareCard(ctx, W, H, product, link, storeInfo, canvas);
+        _finishShareCard(ctx, W, H, product, link, storeInfo, canvas, displaySettings);
     }
 }
 
@@ -19963,13 +19969,22 @@ function _getGridPos(idx, total, area, pad) {
     return { x: area.x + col * (cellW3 + pad), y: area.y + row * (cellH3 + pad), w: cellW3, h: cellH3 };
 }
 
-function _finishShareCard(ctx, W, H, product, link, storeInfo, canvas) {
+function _finishShareCard(ctx, W, H, product, link, storeInfo, canvas, displaySettings) {
     var price = parseFloat(product.salePrice) || 0;
     var costPrice = parseFloat(product.costPrice) || 0;
     var specs = product.specifications || null;
     var color = product.color || '';
     // For catalog products, if stock is undefined/null, default to 'available'
     var stock = (product.stock !== undefined && product.stock !== null && product.stock !== '') ? parseInt(product.stock) : 1;
+
+    // Apply display settings for preview
+    var ds = (displaySettings || {}).preview || {};
+    var showPrice = ds.price !== false;
+    var showMeasurements = ds.measurements !== false;
+    var showColor = ds.color !== false;
+    var showSpecs = ds.specs !== false;
+    var showStock = ds.stock !== false;
+    var showDescription = ds.description !== false;
 
     // === KISSU-STYLE PROFESSIONAL CARD ===
     var H2 = 1150;
@@ -19992,8 +20007,10 @@ function _finishShareCard(ctx, W, H, product, link, storeInfo, canvas) {
     // --- Status Badges Row ---
     var badges = [];
     if (product.sku && product.sku.length > 0) badges.push({ text: product.sku.toUpperCase(), bg: '#f0f0f0', fg: '#666' });
-    if (stock > 0) badges.push({ text: 'DISPONIBLE', bg: '#e8f5e9', fg: '#2e7d32' });
-    else badges.push({ text: 'AGOTADO', bg: '#ffebee', fg: '#c62828' });
+    if (showStock) {
+        if (stock > 0) badges.push({ text: 'DISPONIBLE', bg: '#e8f5e9', fg: '#2e7d32' });
+        else badges.push({ text: 'AGOTADO', bg: '#ffebee', fg: '#c62828' });
+    }
 
     var badgeX = 30;
     var badgeH = 24;
@@ -20035,7 +20052,7 @@ function _finishShareCard(ctx, W, H, product, link, storeInfo, canvas) {
     textY += 16;
 
     // --- Price Section ---
-    if (price > 0) {
+    if (showPrice && price > 0) {
         ctx.fillStyle = '#1565c0';
         ctx.font = 'bold 34px -apple-system, sans-serif';
         ctx.fillText('$' + price.toLocaleString('es-MX'), 30, textY);
@@ -20043,7 +20060,7 @@ function _finishShareCard(ctx, W, H, product, link, storeInfo, canvas) {
     }
 
     // --- Specifications ---
-    if (specs && typeof specs === 'object') {
+    if (showSpecs && specs && typeof specs === 'object') {
         var specKeys = Object.keys(specs);
         if (specKeys.length > 0) {
             ctx.fillStyle = '#444444';
@@ -20072,7 +20089,7 @@ function _finishShareCard(ctx, W, H, product, link, storeInfo, canvas) {
 
     // --- Size Chart (Kisuu-style) when description has dimensions ---
     var dims = _parseDimensions(product.description || '');
-    if (dims && dims.length > 0) {
+    if (showMeasurements && dims && dims.length > 0) {
         ctx.fillStyle = '#444444';
         ctx.font = 'bold 13px -apple-system, sans-serif';
         ctx.textAlign = 'left';
@@ -20118,7 +20135,7 @@ function _finishShareCard(ctx, W, H, product, link, storeInfo, canvas) {
     }
 
     // --- Color Swatch ---
-    if (color) {
+    if (showColor && color) {
         ctx.fillStyle = '#444444';
         ctx.font = 'bold 13px -apple-system, sans-serif';
         ctx.textAlign = 'left';
@@ -20150,7 +20167,7 @@ function _finishShareCard(ctx, W, H, product, link, storeInfo, canvas) {
     }
 
     // --- Stock info ---
-    if (stock > 0) {
+    if (showStock && stock > 0) {
         ctx.font = '13px -apple-system, sans-serif';
         var stockText = 'Stock: ' + stock + ' unidades';
         var stw = ctx.measureText(stockText).width + 12;
@@ -20975,6 +20992,90 @@ var _sharePreviewFile = null; // File object for share preview modal
 var _sharePreviewLink = ''; // link for share preview modal
 var _sharePreviewProductName = ''; // product name for share preview modal
 
+// --- DISPLAY SETTINGS for catalog (admin decides what shows) ---
+var _ecatDisplaySettings = {
+    preview: { price: true, measurements: true, color: true, specs: true, stock: true, description: true },
+    catalog: { price: true, measurements: true, color: true, specs: true, description: true, actions: true }
+};
+
+function _renderDisplaySettings() {
+    var container = document.getElementById('ecatDisplaySettings');
+    if (!container) return;
+    var sections = [
+        { key: 'price', label: 'Precio', icon: '💰' },
+        { key: 'measurements', label: 'Medidas', icon: '📐' },
+        { key: 'color', label: 'Color', icon: '🎨' },
+        { key: 'specs', label: 'Especificaciones', icon: '⚙️' },
+        { key: 'stock', label: 'Estado stock', icon: '📦' },
+        { key: 'description', label: 'Descripción', icon: '📝' }
+    ];
+    var catalogOnly = [
+        { key: 'actions', label: 'Botones (Compartir/Guardar)', icon: '🔘' }
+    ];
+    var html = '';
+    // Preview column
+    html += '<div style="display:flex;gap:6px;margin-bottom:6px;font-size:10px;font-weight:700;color:var(--text3);padding:0 2px;">';
+    html += '<div style="flex:1;text-align:center;">PREVIEW</div>';
+    html += '<div style="flex:1;text-align:center;">CATÁLOGO</div>';
+    html += '<div style="width:60px;"></div>';
+    html += '</div>';
+    for (var i = 0; i < sections.length; i++) {
+        var s = sections[i];
+        var pvOn = _ecatDisplaySettings.preview[s.key] !== false;
+        var ctOn = _ecatDisplaySettings.catalog[s.key] !== false;
+        html += '<div style="display:flex;align-items:center;gap:6px;padding:6px 0;border-top:1px solid var(--border);">';
+        html += '<div style="flex:1;display:flex;align-items:center;gap:4px;font-size:12px;">';
+        html += '<span>' + s.icon + '</span>';
+        html += '<span style="font-weight:600;">' + s.label + '</span>';
+        html += '</div>';
+        // Preview toggle
+        html += '<div style="flex:1;text-align:center;"><label style="cursor:pointer;display:inline-block;position:relative;width:40px;height:22px;">';
+        html += '<input type="checkbox" data-ds="preview" data-key="' + s.key + '"' + (pvOn ? ' checked' : '') + ' onchange="_toggleDisplaySetting(this)" style="position:absolute;opacity:0;width:0;height:0;">';
+        html += '<span style="position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background:' + (pvOn ? 'var(--primary)' : 'var(--border)') + ';border-radius:11px;transition:.3s;"></span>';
+        html += '<span style="position:absolute;content:\'\';height:18px;width:18px;left:' + (pvOn ? '20px' : '2px') + ';bottom:2px;background:#fff;border-radius:50%;transition:.3s;"></span>';
+        html += '</label></div>';
+        // Catalog toggle
+        html += '<div style="flex:1;text-align:center;"><label style="cursor:pointer;display:inline-block;position:relative;width:40px;height:22px;">';
+        html += '<input type="checkbox" data-ds="catalog" data-key="' + s.key + '"' + (ctOn ? ' checked' : '') + ' onchange="_toggleDisplaySetting(this)" style="position:absolute;opacity:0;width:0;height:0;">';
+        html += '<span style="position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background:' + (ctOn ? 'var(--primary)' : 'var(--border)') + ';border-radius:11px;transition:.3s;"></span>';
+        html += '<span style="position:absolute;content:\'\';height:18px;width:18px;left:' + (ctOn ? '20px' : '2px') + ';bottom:2px;background:#fff;border-radius:50%;transition:.3s;"></span>';
+        html += '</label></div>';
+        html += '</div>';
+    }
+    // Catalog-only sections
+    for (var j = 0; j < catalogOnly.length; j++) {
+        var cs = catalogOnly[j];
+        var csOn = _ecatDisplaySettings.catalog[cs.key] !== false;
+        html += '<div style="display:flex;align-items:center;gap:6px;padding:6px 0;border-top:1px solid var(--border);">';
+        html += '<div style="flex:1;display:flex;align-items:center;gap:4px;font-size:12px;">';
+        html += '<span>' + cs.icon + '</span>';
+        html += '<span style="font-weight:600;">' + cs.label + '</span>';
+        html += '</div>';
+        html += '<div style="flex:1;text-align:center;color:var(--text3);font-size:10px;">---</div>';
+        // Catalog toggle only
+        html += '<div style="flex:1;text-align:center;"><label style="cursor:pointer;display:inline-block;position:relative;width:40px;height:22px;">';
+        html += '<input type="checkbox" data-ds="catalog" data-key="' + cs.key + '"' + (csOn ? ' checked' : '') + ' onchange="_toggleDisplaySetting(this)" style="position:absolute;opacity:0;width:0;height:0;">';
+        html += '<span style="position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background:' + (csOn ? 'var(--primary)' : 'var(--border)') + ';border-radius:11px;transition:.3s;"></span>';
+        html += '<span style="position:absolute;content:\'\';height:18px;width:18px;left:' + (csOn ? '20px' : '2px') + ';bottom:2px;background:#fff;border-radius:50%;transition:.3s;"></span>';
+        html += '</label></div>';
+        html += '</div>';
+    }
+    container.innerHTML = html;
+}
+
+function _toggleDisplaySetting(el) {
+    var ds = el.dataset.ds; // 'preview' or 'catalog'
+    var key = el.dataset.key;
+    var checked = el.checked;
+    if (!_ecatDisplaySettings[ds]) _ecatDisplaySettings[ds] = {};
+    _ecatDisplaySettings[ds][key] = checked;
+    _renderDisplaySettings();
+}
+
+function _getEcatDisplaySettings() {
+    return JSON.parse(JSON.stringify(_ecatDisplaySettings));
+}
+
 function _loadExistingCatalogProducts(callback) {
     _ecatExistingProductIds = {};
     _serverFetch('GET', '/api/catalogs', null, function(responseText, err) {
@@ -21062,6 +21163,12 @@ function openEcatalogEditor(editId) {
                         document.getElementById('catEdSlug').value = cat.slug || '';
                         var editDesc = (prods[0].description || '') || (cat.description || '');
                         document.getElementById('catEdDescription').value = editDesc;
+                        // Load display settings from server
+                        if (cat.displaySettings) {
+                            try { _ecatDisplaySettings = typeof cat.displaySettings === 'string' ? JSON.parse(cat.displaySettings) : cat.displaySettings; } catch(e) {}
+                        } else {
+                            _ecatDisplaySettings = { preview: { price: true, measurements: true, color: true, specs: true, stock: true, description: true }, catalog: { price: true, measurements: true, color: true, specs: true, description: true, actions: true } };
+                        }
                         updateEcatLinkPreview();
                         openModal('catalogEditorModal');
                     });
@@ -21082,6 +21189,12 @@ function openEcatalogEditor(editId) {
                 // Preload description: prefer product-level, fallback to catalog-level
                 var editDesc = (prods[0].description || '') || (cat.description || '');
                 document.getElementById('catEdDescription').value = editDesc;
+                // Load display settings from server
+                if (cat.displaySettings) {
+                    try { _ecatDisplaySettings = typeof cat.displaySettings === 'string' ? JSON.parse(cat.displaySettings) : cat.displaySettings; } catch(e) {}
+                } else {
+                    _ecatDisplaySettings = { preview: { price: true, measurements: true, color: true, specs: true, stock: true, description: true }, catalog: { price: true, measurements: true, color: true, specs: true, description: true, actions: true } };
+                }
                 updateEcatLinkPreview();
                 openModal('catalogEditorModal');
             } else {
@@ -21271,6 +21384,7 @@ function _showEcatStep2() {
     if (!p) return;
     document.getElementById('ecatStep1').style.display = 'none';
     document.getElementById('ecatStep2').style.display = 'block';
+    _renderDisplaySettings();
     // Build preview
     var preview = document.getElementById('ecatSelectedPreview');
     var imgHtml = '<div style="width:48px;height:48px;border-radius:10px;overflow:hidden;flex-shrink:0;background:var(--bg);display:flex;align-items:center;justify-content:center;">';
@@ -21548,7 +21662,8 @@ function _finalizeCatalogSave(p, slug, btn, imageIds) {
         description: desc,
         products: [catalogProduct],
         storeInfo: { name: cfg.storeName || '', phone: cfg.phone || '' },
-        mainImage: _ecatMainImage || 0
+        mainImage: _ecatMainImage || 0,
+        displaySettings: _getEcatDisplaySettings()
     };
     _serverFetch('POST', '/api/catalogs', body, function(text, err) {
         btn.disabled = false;

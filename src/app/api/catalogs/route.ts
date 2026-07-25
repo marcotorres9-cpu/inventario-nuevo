@@ -22,6 +22,7 @@ async function ensureTable(){
     await query(`CREATE INDEX IF NOT EXISTS "idx_ecatalog_slug" ON "ElectronicCatalog"(slug)`);
     try{ await query(`ALTER TABLE "ElectronicCatalog" ADD COLUMN IF NOT EXISTS "storeInfo" JSONB DEFAULT '{}'`); }catch{}
     try{ await query(`ALTER TABLE "ElectronicCatalog" ADD COLUMN IF NOT EXISTS "mainImage" INTEGER DEFAULT 0`); }catch{}
+    try{ await query(`ALTER TABLE "ElectronicCatalog" ADD COLUMN IF NOT EXISTS "displaySettings" JSONB DEFAULT '{}'`); }catch{}
   }catch(e:any){console.error('[DB] ensureTable:',e.message);}
 }
 
@@ -77,7 +78,7 @@ export async function GET(){
   try{
     await ensureTable();
     await ensureImageTable();
-    const rows=await query('SELECT id,slug,name,description,products,"storeInfo","storeId","mainImage","createdAt","updatedAt" FROM "ElectronicCatalog" ORDER BY "updatedAt" DESC');
+    const rows=await query('SELECT id,slug,name,description,products,"storeInfo","storeId","mainImage","displaySettings","createdAt","updatedAt" FROM "ElectronicCatalog" ORDER BY "updatedAt" DESC');
     // Resolve first image per catalog for thumbnail display
     for(const r of rows as any[]){
       let prods:any[]=[];
@@ -107,10 +108,11 @@ export async function POST(request:Request){
     await ensureTable();
     await ensureImageTable();
     const body=await request.json();
-    const {id,slug,name,description,products,storeInfo,storeId,mainImage}=body;
+    const {id,slug,name,description,products,storeInfo,storeId,mainImage,displaySettings}=body;
     if(!slug||!name)return NextResponse.json({error:'Identificador y nombre requeridos'},{status:400,headers:H});
     const prods=products||[];
     const info=storeInfo||{};
+    const ds=displaySettings||{};
     const catalogId=id||('cat_'+Date.now()+'_'+Math.random().toString(36).substr(2,6));
     const cleanSlug=slug.trim().toLowerCase().replace(/\s+/g,'-');
     const mainIdx=typeof mainImage==='number'?mainImage:0;
@@ -120,10 +122,10 @@ export async function POST(request:Request){
       return rest;
     });
     await query(
-      `INSERT INTO "ElectronicCatalog" (id,slug,name,description,products,"storeInfo","storeId","mainImage","createdAt","updatedAt")
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,NOW(),NOW())
-       ON CONFLICT (id) DO UPDATE SET slug=$2,name=$3,description=$4,products=$5,"storeInfo"=$6,"storeId"=$7,"mainImage"=$8,"updatedAt"=NOW()`,
-      [catalogId,cleanSlug,name,description||'',JSON.stringify(leanProds),JSON.stringify(info),storeId||'',mainIdx]
+      `INSERT INTO "ElectronicCatalog" (id,slug,name,description,products,"storeInfo","storeId","mainImage","displaySettings","createdAt","updatedAt")
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NOW(),NOW())
+       ON CONFLICT (id) DO UPDATE SET slug=$2,name=$3,description=$4,products=$5,"storeInfo"=$6,"storeId"=$7,"mainImage"=$8,"displaySettings"=$9,"updatedAt"=NOW()`,
+      [catalogId,cleanSlug,name,description||'',JSON.stringify(leanProds),JSON.stringify(info),storeId||'',mainIdx,JSON.stringify(ds)]
     );
     return NextResponse.json({success:true,id:catalogId,slug:cleanSlug},{headers:H});
   }catch(e:any){
