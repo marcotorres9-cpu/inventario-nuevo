@@ -19988,6 +19988,14 @@ function _finishShareCard(ctx, W, H, product, link, storeInfo, canvas, displaySe
 
     // === KISSU-STYLE PROFESSIONAL CARD ===
     var H2 = 1150;
+    var imgArea = { x: 30, y: 30, w: W - 60, h: 520 };
+
+    // Save product image before any canvas manipulation
+    var _savedImgData = null;
+    try {
+        _savedImgData = ctx.getImageData(0, 0, W, Math.min(canvas.height, 580));
+    } catch(e) {}
+
     // Resize canvas if needed
     if (canvas.height < H2) {
         var imgData = ctx.getImageData(0, 0, W, canvas.height);
@@ -19998,9 +20006,12 @@ function _finishShareCard(ctx, W, H, product, link, storeInfo, canvas, displaySe
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, W, H2);
 
-    // Re-fill image area background
-    var imgArea = { x: 30, y: 30, w: W - 60, h: 520 };
+    // Re-fill image area background and restore saved image
     _drawRoundedRect(ctx, imgArea.x, imgArea.y, imgArea.w, imgArea.h, 16, '#f8f8f8');
+    // Restore the product image that was drawn before
+    if (_savedImgData) {
+        try { ctx.putImageData(_savedImgData, 0, 0); } catch(e) {}
+    }
 
     var textY = 570;
 
