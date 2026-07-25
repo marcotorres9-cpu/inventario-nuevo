@@ -26,13 +26,19 @@ export async function POST(request:Request){
     await ensureTable();
     const body=await request.json();
     const {catalogId,imageType,data}=body;
+    const imgId=body.id;
+    // If id provided, update catalogId only (no data overwrite with "keep")
+    if(imgId && !data){
+      await query(`UPDATE "CatalogImage" SET "catalogId"=$1 WHERE id=$2`,[catalogId||'',imgId]);
+      return NextResponse.json({success:true,id:imgId},{headers:H});
+    }
     if(!data) return NextResponse.json({error:'No image data'},{status:400,headers:H});
-    const imgId='img_'+Date.now()+'_'+Math.random().toString(36).substr(2,6);
+    const newImgId='img_'+Date.now()+'_'+Math.random().toString(36).substr(2,6);
     await query(
       `INSERT INTO "CatalogImage" (id,"catalogId","imageType",data,"createdAt") VALUES ($1,$2,$3,$4,NOW())`,
-      [imgId, catalogId||'', imageType||'image/jpeg', data]
+      [newImgId, catalogId||'', imageType||'image/jpeg', data]
     );
-    return NextResponse.json({success:true,id:imgId},{headers:H});
+    return NextResponse.json({success:true,id:newImgId},{headers:H});
   }catch(e:any){
     console.error('[DB] POST /catalog-upload:',e.message);
     return NextResponse.json({error:e.message},{status:500,headers:H});

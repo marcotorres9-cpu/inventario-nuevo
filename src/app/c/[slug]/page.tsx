@@ -159,7 +159,6 @@ export default async function CatalogPage({ params }: Props) {
   const specEntries = Object.entries(specObj).filter(([, v]) => v?.trim());
 
   // Extract measurement-related specs for the measurement grid
-  const measurementKeys = ['alto', 'ancho', 'profundidad', 'peso', 'largo', 'altura', 'dimensiones', 'largo total', 'alto total', 'ancho total', 'diametro'];
   const measurements: { key: string; value: string; type: string }[] = [];
   for (const [k, v] of specEntries) {
     const lk = k.toLowerCase().trim();
@@ -173,6 +172,24 @@ export default async function CatalogPage({ params }: Props) {
       measurements.push({ key: k, value: v, type: 'weight' });
     }
   }
+
+  // Fallback: parse dimensions from description text (e.g., "91 x 54 x 56 cm")
+  if (measurements.length === 0 && p.description) {
+    const dimMatch = p.description.match(/(\d+(?:\.\d+)?)\s*[xX×]\s*(\d+(?:\.\d+)?)\s*[xX×]\s*(\d+(?:\.\d+)?)\s*(cm|mm|m|in|pulg)?/);
+    if (dimMatch) {
+      const unit = dimMatch[4] || 'cm';
+      measurements.push({ key: 'Alto', value: dimMatch[1] + ' ' + unit, type: 'height' });
+      measurements.push({ key: 'Ancho', value: dimMatch[2] + ' ' + unit, type: 'width' });
+      measurements.push({ key: 'Profundidad', value: dimMatch[3] + ' ' + unit, type: 'depth' });
+    }
+  }
+
+  // Calculate proportional bar percentages for Kisuu-style visualization
+  const measureNums = measurements.map(m => {
+    const num = parseFloat(m.value) || 0;
+    return { ...m, num };
+  });
+  const maxMeasure = Math.max(...measureNums.map(m => m.num), 1);
 
   const esc = (s: string) => s ? s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') : '';
 
@@ -252,17 +269,39 @@ export default async function CatalogPage({ params }: Props) {
     measureGridHtml = `<div class="catpg-measure-section">
       <div class="catpg-measure-heading">Medidas del producto</div>
       <div class="catpg-measure-grid">
-        ${measurements.map(m => {
+        ${measureNums.map(m => {
           const info = iconMap[m.type] || iconMap.depth;
+          const pct = maxMeasure > 0 ? Math.round((m.num / maxMeasure) * 100) : 50;
+          const barPct = Math.max(pct, 15);
           return `<div class="catpg-measure-cell">
             ${info.svg}
             <div class="catpg-measure-value">${esc(m.value)}</div>
+            <div class="catpg-measure-bar-wrap"><div class="catpg-measure-bar" style="width:${barPct}%;"></div></div>
             <div class="catpg-measure-label">${info.label}</div>
           </div>`;
         }).join('')}
       </div>
     </div>`;
   }
+
+  // Color swatch HTML (Kisuu-style)
+  const colorSwatchHtml = p.color ? (() => {
+    const colorMap: Record<string, string> = {
+      'Negro': '#222222', 'Blanco': '#f5f5f5', 'Gris': '#9e9e9e',
+      'Rojo': '#d32f2f', 'Azul': '#1976d2', 'Verde': '#388e3c',
+      'Dorado': '#c5a028', 'Rosa': '#e91e63', 'Plateado': '#bdbdbd',
+      'Naranja': '#f57c00', 'Marron': '#795548'
+    };
+    const hex = colorMap[p.color] || '#888888';
+    const border = hex === '#f5f5f5' ? '#ccc' : 'transparent';
+    return `<div class="catpg-color-section">
+      <div class="catpg-color-label">Color</div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="width:28px;height:28px;border-radius:50%;background:${hex};border:2px solid ${border};display:inline-block;box-shadow:0 1px 4px rgba(0,0,0,0.15);"></span>
+        <span class="catpg-color-name">${esc(p.color)}</span>
+      </div>
+    </div>`;
+  })() : '';
 
   // Action icons HTML
   const actionIconsHtml = `<div class="catpg-actions" id="catpgActions">
@@ -351,8 +390,14 @@ export default async function CatalogPage({ params }: Props) {
         .catpg-measure-heading{font-size:14px;font-weight:700;color:#202124;margin-bottom:12px;}
         .catpg-measure-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;background:#f8f9fa;border-radius:10px;padding:16px 8px;}
         .catpg-measure-cell{display:flex;flex-direction:column;align-items:center;gap:4px;text-align:center;}
-        .catpg-measure-value{font-size:14px;font-weight:700;color:#202124;line-height:1.2;}
-        .catpg-measure-label{font-size:11px;color:#9aa0a6;}
+        .catpg-measure-value{font-size:16px;font-weight:800;color:#1a73e8;line-height:1.2;}
+        .catpg-measure-bar-wrap{width:80%;height:5px;background:#e8eaf6;border-radius:3px;overflow:hidden;}
+        .catpg-measure-bar{height:100%;background:linear-gradient(90deg,#1a73e8,#42a5f5);border-radius:3px;transition:width .4s ease;}
+        .catpg-measure-label{font-size:11px;color:#9aa0a6;font-weight:600;}
+        /* Color swatch */
+        .catpg-color-section{margin-bottom:12px;padding:12px 16px;background:#f8f9fa;border-radius:10px;display:flex;align-items:center;gap:14px;}
+        .catpg-color-label{font-size:11px;color:#9aa0a6;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;}
+        .catpg-color-name{font-size:14px;font-weight:600;color:#202124;}
         /* Action icons */
         .catpg-actions{display:flex;justify-content:center;gap:28px;padding:20px 16px 8px;}
         .catpg-action-item{display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;}
@@ -394,11 +439,14 @@ export default async function CatalogPage({ params }: Props) {
           )}
           {price > 0 && <div className="catpg-price">${price.toLocaleString('es-MX')}</div>}
 
+          {/* Measurement grid (Kisuu-style) - shown prominently after price */}
+          <div dangerouslySetInnerHTML={{ __html: measureGridHtml }} />
+
+          {/* Color swatch */}
+          <div dangerouslySetInnerHTML={{ __html: colorSwatchHtml }} />
+
           {/* Specs accordion */}
           <div dangerouslySetInnerHTML={{ __html: specAccordionHtml }} />
-
-          {/* Measurement grid */}
-          <div dangerouslySetInnerHTML={{ __html: measureGridHtml }} />
 
           {/* Description accordion */}
           <div dangerouslySetInnerHTML={{ __html: descAccordionHtml }} />

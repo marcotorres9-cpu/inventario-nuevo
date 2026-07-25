@@ -39,7 +39,7 @@
     // FORCE fresh code: always check server version, reload if different
     (function(){
         try {
-            var _NV = 'NV64';
+            var _NV = 'NV65';
             var _ck = '_inv_nv';
             var stored = localStorage.getItem(_ck);
             // Only reload if version changed AND we haven't already reloaded for this version
@@ -1117,7 +1117,7 @@
             <div>
                 <div class="header-name" id="storeHeaderName">Inventario Pro</div>
                 <div class="header-role" id="userRole">rol</div>
-                <div class="header-ver" id="headerVersion">v2.6.12 NV64</div>
+                <div class="header-ver" id="headerVersion">v2.6.19 NV65</div>
             </div>
         </div>
         <button class="btn-logout" onclick="toggleTheme()" style="background:none;border:none;font-size:20px;cursor:pointer;margin-right:8px;color:var(--text2);" title="Cambiar tema">🌓</button>
@@ -1584,21 +1584,21 @@
 <!-- MODAL: SHARE CARD PREVIEW                                     -->
 <!-- ============================================================ -->
 <div class="modal-overlay" id="sharePreviewModal">
-    <div class="modal-content" style="max-width:400px;padding:0;overflow:hidden;">
-        <div class="modal-header" style="padding:14px 16px;">
+    <div class="modal-content" style="max-width:400px;padding:0;overflow:hidden;max-height:88vh;display:flex;flex-direction:column;">
+        <div class="modal-header" style="padding:14px 16px;flex-shrink:0;">
             <div class="modal-title" style="font-size:15px;">Tarjeta de Catálogo</div>
             <button class="modal-close" onclick="_closeSharePreview()">&times;</button>
         </div>
-        <div style="padding:0 16px 16px;">
-            <a id="sharePreviewLinkWrap" href="#" style="display:block;background:var(--bg);border-radius:10px;overflow:hidden;margin-bottom:10px;max-height:55vh;text-decoration:none;">
-                <img id="sharePreviewImg" src="" style="width:100%;display:block;" draggable="false">
+        <div style="padding:0 16px 16px;overflow-y:auto;flex:1;-webkit-overflow-scrolling:touch;">
+            <a id="sharePreviewLinkWrap" href="#" style="display:block;background:var(--bg);border-radius:10px;overflow:hidden;margin-bottom:10px;text-decoration:none;">
+                <img id="sharePreviewImg" src="" style="width:100%;display:block;max-height:38vh;object-fit:contain;background:#fff;" draggable="false">
             </a>
             <a id="sharePreviewLinkA" href="#" style="display:flex;align-items:center;gap:8px;background:var(--primary-bg);border:1px solid var(--primary);border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:11px;color:var(--primary);text-decoration:none;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">🔗 Toca para ver en el navegador</a>
-            <div style="display:flex;flex-direction:column;gap:6px;">
-                <button onclick="_sharePreviewDoShare()" class="btn btn-primary" style="display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:11px;font-size:13px;border-radius:10px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.625.846 5.059 2.284 7.034L.789 23.492a.5.5 0 00.612.638l4.694-1.228A11.946 11.946 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-2.372 0-4.572-.747-6.378-2.019l-.455-.334-2.96.774.773-2.9-.346-.464A9.953 9.953 0 012 12C2 6.486 6.486 2 12 2s10 4.486 10 10-4.486 10-10 10z"/></svg> Enviar por WhatsApp</button>
+            <div style="display:flex;flex-direction:column;gap:8px;padding-bottom:env(safe-area-inset-bottom,8px);">
+                <button onclick="_sharePreviewDoShare()" class="btn btn-primary" style="display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:13px;font-size:14px;font-weight:700;border-radius:10px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.625.846 5.059 2.284 7.034L.789 23.492a.5.5 0 00.612.638l4.694-1.228A11.946 11.946 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-2.372 0-4.572-.747-6.378-2.019l-.455-.334-2.96.774.773-2.9-.346-.464A9.953 9.953 0 012 12C2 6.486 6.486 2 12 2s10 4.486 10 10-4.486 10-10 10z"/></svg> Enviar por WhatsApp</button>
                 <div style="display:flex;gap:8px;">
-                    <button onclick="_sharePreviewDoDownload()" class="btn" style="display:flex;align-items:center;justify-content:center;gap:6px;flex:1;padding:11px;font-size:13px;border-radius:10px;background:var(--bg3);color:var(--text);border:1px solid var(--border);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Guardar</button>
-                    <button onclick="_sharePreviewCopyLink()" class="btn" style="display:flex;align-items:center;justify-content:center;gap:6px;flex:1;padding:11px;font-size:13px;border-radius:10px;background:var(--bg3);color:var(--text);border:1px solid var(--border);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg> Copiar Link</button>
+                    <button onclick="_sharePreviewDoDownload()" class="btn" style="display:flex;align-items:center;justify-content:center;gap:6px;flex:1;padding:13px;font-size:13px;font-weight:600;border-radius:10px;background:var(--bg3);color:var(--text);border:1px solid var(--border);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Guardar</button>
+                    <button onclick="_sharePreviewCopyLink()" class="btn" style="display:flex;align-items:center;justify-content:center;gap:6px;flex:1;padding:13px;font-size:13px;font-weight:600;border-radius:10px;background:var(--bg3);color:var(--text);border:1px solid var(--border);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg> Copiar Link</button>
                 </div>
             </div>
         </div>
@@ -3691,7 +3691,7 @@ function logout() {
 // ====================================================================
 // CHANGELOG — Show latest updates to the user
 // ====================================================================
-var APP_VERSION = '2.6.12 NV64'
+var APP_VERSION = '2.6.19 NV65'
 var CHANGELOG_ENTRIES = [
     { ver: '2.4.0', date: '24 Abr 2026', items: [
         { icon: '📊', text: '<b>Capacidad por espacio:</b> Controla unidades mínimas y máximas para Exhibición, Local Pequeño, Local Grande desde el panel de Control del Local.' },
@@ -19589,18 +19589,18 @@ function renderCatalogsList() {
             var prods = [];
             try { prods = (typeof c.products === 'string') ? JSON.parse(c.products) : (c.products || []); } catch (e) {}
             var p0 = prods[0] || {};
-            // Use imageIds for thumbnail (images are server-side, need to fetch separately)
-            var imageIds = p0.imageIds || [];
-            var mainIdx = parseInt(c.mainImage) || 0;
-            if (mainIdx >= imageIds.length) mainIdx = 0;
-            var mainImgId = imageIds[mainIdx] || '';
             var link = _getCatalogShortLink(c.slug);
             var price = parseFloat(p0.salePrice) || 0;
-            html += '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:8px;display:flex;gap:12px;align-items:center;">';
-            // Thumbnail placeholder (loaded async)
-            html += '<div id="catListThumb_' + i + '" data-imgid="' + escapeHtml(mainImgId) + '" style="width:56px;height:56px;border-radius:10px;overflow:hidden;flex-shrink:0;background:var(--bg);display:flex;align-items:center;justify-content:center;">';
-            if (mainImgId) html += '<span style="font-size:20px;opacity:0.3;">⏳</span>';
-            else html += '<span style="font-size:24px;opacity:0.3;">📦</span>';
+            // Get thumbnail from _thumb (server-resolved) or fallback to imageIds
+            var thumbSrc = '';
+            if (c._thumb && c._thumb.data) {
+                thumbSrc = 'data:' + (c._thumb.type || 'image/jpeg') + ';base64,' + c._thumb.data;
+            }
+            html += '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:8px;display:flex;gap:12px;align-items:center;" data-cat-slug="' + escapeHtml(c.slug) + '">';
+            // Thumbnail
+            html += '<div style="width:56px;height:56px;border-radius:10px;overflow:hidden;flex-shrink:0;background:var(--bg);display:flex;align-items:center;justify-content:center;">';
+            html += '<img class="cat-thumb-img" src="" style="width:100%;height:100%;object-fit:cover;display:none;" draggable="false">';
+            html += '<span class="cat-thumb-ph" style="font-size:24px;opacity:0.3;">📦</span>';
             html += '</div>';
             // Info
             html += '<div style="flex:1;min-width:0;">';
@@ -19623,37 +19623,40 @@ function renderCatalogsList() {
             html += '</div>';
         }
         container.innerHTML = html;
-        // Load thumbnails asynchronously from server
+
+        // Load thumbnails client-side: fetch first image per catalog via individual image endpoint
         for (var ti = 0; ti < cats.length; ti++) {
-            (function(idx) {
-                var cat = cats[idx];
-                var prods2 = [];
-                try { prods2 = (typeof cat.products === 'string') ? JSON.parse(cat.products) : (cat.products || []); } catch (e) {}
-                var p0b = prods2[0] || {};
-                var ids = p0b.imageIds || [];
-                var mIdx = parseInt(cat.mainImage) || 0;
-                if (mIdx >= ids.length) mIdx = 0;
-                var firstId = ids[mIdx] || '';
-                if (!firstId) return;
-                var thumbEl = document.getElementById('catListThumb_' + idx);
-                if (!thumbEl) return;
-                _serverFetch('GET', '/api/catalog-upload?id=' + encodeURIComponent(firstId), null, function(text, err) {
-                    if (err || !text) {
-                        if (thumbEl) thumbEl.innerHTML = '<span style="font-size:24px;opacity:0.3;">📦</span>';
-                        return;
-                    }
-                    try {
-                        var res = JSON.parse(text);
-                        if (res.data && thumbEl) {
-                            thumbEl.innerHTML = '<img src="data:' + (res.imageType || 'image/jpeg') + ';base64,' + res.data + '" style="width:100%;height:100%;object-fit:cover;" loading="lazy" draggable="false">';
-                        } else {
-                            if (thumbEl) thumbEl.innerHTML = '<span style="font-size:24px;opacity:0.3;">📦</span>';
-                        }
-                    } catch(e) {
-                        if (thumbEl) thumbEl.innerHTML = '<span style="font-size:24px;opacity:0.3;">📦</span>';
-                    }
-                });
-            })(ti);
+            var tc = cats[ti];
+            var tprods = [];
+            try { tprods = (typeof tc.products === 'string') ? JSON.parse(tc.products) : (tc.products || []); } catch (e) {}
+            var tp0 = tprods[0] || {};
+            var timgIds = tp0.imageIds || [];
+
+            // Use _thumb if server provided it
+            if (tc._thumb && tc._thumb.data) {
+                var tThumbEl = container.querySelector('[data-cat-slug="' + tc.slug + '"] .cat-thumb-img');
+                var tPhEl = container.querySelector('[data-cat-slug="' + tc.slug + '"] .cat-thumb-ph');
+                if (tThumbEl) { tThumbEl.src = 'data:' + (tc._thumb.type || 'image/jpeg') + ';base64,' + tc._thumb.data; tThumbEl.style.display = 'block'; }
+                if (tPhEl) tPhEl.style.display = 'none';
+                continue;
+            }
+
+            // Otherwise fetch first image from imageIds
+            if (timgIds.length > 0) {
+                (function(slug, firstImgId) {
+                    _serverFetch('GET', '/api/catalog-upload?id=' + encodeURIComponent(firstImgId), null, function(text, err) {
+                        try {
+                            var res = JSON.parse(text || '{}');
+                            if (res.data) {
+                                var thumbEl = container.querySelector('[data-cat-slug="' + slug + '"] .cat-thumb-img');
+                                var phEl = container.querySelector('[data-cat-slug="' + slug + '"] .cat-thumb-ph');
+                                if (thumbEl) { thumbEl.src = 'data:' + (res.imageType || 'image/jpeg') + ';base64,' + res.data; thumbEl.style.display = 'block'; }
+                                if (phEl) phEl.style.display = 'none';
+                            }
+                        } catch (e) {}
+                    });
+                })(tc.slug, timgIds[0]);
+            }
         }
     })
     .catch(function(err) {
@@ -19677,64 +19680,44 @@ function copyCatalogLink(slug) {
 // --- SHARE CATALOG IMAGE WITH QR ---
 function shareCatalogImage(slug, catId) {
     showToast('Generando imagen...', 'info');
-    _serverFetch('GET', '/api/catalogs/' + slug, null, function(responseText, err) {
+    // Use the lightweight list endpoint to get catalog metadata (no embedded images)
+    // Then fetch only the main image individually to avoid huge NativeBridge responses
+    _serverFetch('GET', '/api/catalogs?_t=' + Date.now(), null, function(responseText, err) {
         if (err) { showToast('Error de conexión', 'error'); return; }
         try {
-            var cat = JSON.parse(responseText);
-            if (cat.error) { showToast(cat.error, 'error'); return; }
-            var prods = cat.products || [];
+            var cats = JSON.parse(responseText);
+            if (!Array.isArray(cats)) cats = [];
+            var cat = null;
+            for (var ci = 0; ci < cats.length; ci++) {
+                if (cats[ci].slug === slug) { cat = cats[ci]; break; }
+            }
+            if (!cat) { showToast('Catálogo no encontrado', 'error'); return; }
+            var prods = [];
+            try { prods = (typeof cat.products === 'string') ? JSON.parse(cat.products) : (cat.products || []); } catch (e) {}
             var p = prods[0];
             if (!p) { showToast('Sin producto', 'error'); return; }
-            var imgs = p.images || [];
+
+            var imgIds = p.imageIds || [];
             var mainIdx = parseInt(cat.mainImage) || 0;
-            if (mainIdx >= imgs.length) mainIdx = 0;
-            var allImgSrcs = [];
-            var orderedImgs = [];
-            if (imgs[mainIdx]) orderedImgs.push(imgs[mainIdx]);
-            for (var ii = 0; ii < imgs.length; ii++) {
-                if (ii !== mainIdx && imgs[ii]) orderedImgs.push(imgs[ii]);
-            }
-            for (var oi = 0; oi < orderedImgs.length; oi++) {
-                var im = orderedImgs[oi];
-                if (im && im.data) allImgSrcs.push('data:' + (im.type || 'image/jpeg') + ';base64,' + im.data);
-                else if (im && im.url) allImgSrcs.push(im.url);
-            }
-            if (allImgSrcs.length === 0 && p.imageIds && p.imageIds.length > 0) {
-                var pendingIds = [];
-                for (var iid = 0; iid < p.imageIds.length; iid++) {
-                    if (p.imageIds[iid]) pendingIds.push(p.imageIds[iid]);
-                }
-                if (pendingIds.length > 0) {
-                    var resolvedSrcs = [];
-                    var fetchCount = 0;
-                    for (var fi2 = 0; fi2 < pendingIds.length; fi2++) {
-                        (function(imgId) {
-                            _serverFetch('GET', '/api/catalog-upload?id=' + encodeURIComponent(imgId), null, function(iText, iErr) {
-                                try {
-                                    var ires = JSON.parse(iText || '{}');
-                                    if (ires.data) resolvedSrcs.push({ src: 'data:' + (ires.imageType || 'image/jpeg') + ';base64,' + ires.data, id: imgId });
-                                } catch(e) {}
-                                fetchCount++;
-                                if (fetchCount >= pendingIds.length) {
-                                    var finalSrcs = [];
-                                    var mainImgId = pendingIds[mainIdx] || pendingIds[0];
-                                    for (var rs = 0; rs < resolvedSrcs.length; rs++) {
-                                        if (resolvedSrcs[rs].id === mainImgId) { finalSrcs.push(resolvedSrcs[rs].src); break; }
-                                    }
-                                    for (var rs2 = 0; rs2 < resolvedSrcs.length; rs2++) {
-                                        if (resolvedSrcs[rs2].id !== mainImgId) finalSrcs.push(resolvedSrcs[rs2].src);
-                                    }
-                                    var shortLink = _getCatalogShortLink(slug);
-                                    _generateShareCard(finalSrcs.length > 0 ? finalSrcs : [''], p, shortLink, cat.storeInfo);
-                                }
-                            });
-                        })(pendingIds[fi2]);
-                    }
-                    return;
-                }
-            }
+            if (mainIdx >= imgIds.length) mainIdx = 0;
             var shortLink = _getCatalogShortLink(slug);
-            _generateShareCard(allImgSrcs.length > 0 ? allImgSrcs : [''], p, shortLink, cat.storeInfo);
+
+            // Fetch only the MAIN image (one small request ~70KB)
+            if (imgIds.length > 0 && imgIds[mainIdx]) {
+                _serverFetch('GET', '/api/catalog-upload?id=' + encodeURIComponent(imgIds[mainIdx]), null, function(iText, iErr) {
+                    try {
+                        var ires = JSON.parse(iText || '{}');
+                        if (ires.data) {
+                            var imgSrc = 'data:' + (ires.imageType || 'image/jpeg') + ';base64,' + ires.data;
+                            _generateShareCard([imgSrc], p, shortLink, cat.storeInfo);
+                        } else {
+                            _generateShareCard([''], p, shortLink, cat.storeInfo);
+                        }
+                    } catch(e) { _generateShareCard([''], p, shortLink, cat.storeInfo); }
+                });
+            } else {
+                _generateShareCard([''], p, shortLink, cat.storeInfo);
+            }
         } catch (e) { showToast('Error al generar', 'error'); }
     });
 }
@@ -19843,6 +19826,51 @@ function _drawImagePlaceholder(ctx, area) {
     ctx.fillText('\uD83D\uDCF7', area.x + area.w / 2, area.y + area.h / 2 + 16);
 }
 
+// Parse dimensions from description text (Kisuu-style size chart)
+// Supports: "60x50x85", "60x50x85cm", "60 x 50 x 85", "alto:60 ancho:50 fondo:85"
+function _parseDimensions(desc) {
+    if (!desc) return [];
+    var dims = [];
+    // Pattern: numbers with "x" separator (e.g., "60x50x85", "60 x 50 x 85 cm")
+    var xr = desc.match(/(\d+(?:\.\d+)?)\s*[xX×]\s*(\d+(?:\.\d+)?)\s*[xX×]\s*(\d+(?:\.\d+)?)/);
+    if (xr) {
+        var vals = [parseFloat(xr[1]), parseFloat(xr[2]), parseFloat(xr[3])];
+        var mx = Math.max.apply(null, vals);
+        var labels = ['Ancho', 'Fondo', 'Alto'];
+        var units = desc.match(/(cm|mm|m|in|pulg)/i);
+        var unit = units ? units[1].toLowerCase() : 'cm';
+        for (var i = 0; i < vals.length; i++) {
+            dims.push({ label: labels[i], value: vals[i] + ' ' + unit, raw: vals[i], pct: (vals[i] / mx) * 100 });
+        }
+        return dims;
+    }
+    // Pattern: "alto:60 ancho:50 fondo:85" or "Alto 60cm Ancho 50cm"
+    var kv = desc.match(/(?:alto|ancho|fondo|profundidad|largo|lenght|width|height|depth)\s*[:\s]\s*(\d+(?:\.\d+)?)\s*(cm|mm|m|in|pulg)?/gi);
+    if (kv && kv.length >= 2) {
+        var unit2 = 'cm';
+        var labelMap = { 'alto': 'Alto', 'ancho': 'Ancho', 'fondo': 'Fondo', 'profundidad': 'Profundidad', 'largo': 'Largo', 'height': 'Alto', 'width': 'Ancho', 'depth': 'Fondo', 'length': 'Largo' };
+        var vals2 = [];
+        for (var ki = 0; ki < kv.length; ki++) {
+            var parts = kv[ki].match(/(\w+)\s*[:\s]\s*(\d+(?:\.\d+)?)\s*(cm|mm|m|in|pulg)?/i);
+            if (parts) {
+                if (parts[3]) unit2 = parts[3].toLowerCase();
+                var label = labelMap[(parts[1]).toLowerCase()] || parts[1];
+                vals2.push({ label: label, value: parts[2] + ' ' + unit2, raw: parseFloat(parts[2]) });
+            }
+        }
+        var mx2 = 0;
+        for (var vi = 0; vi < vals2.length; vi++) { if (vals2[vi].raw > mx2) mx2 = vals2[vi].raw; }
+        for (var vi2 = 0; vi2 < vals2.length; vi2++) { vals2[vi2].pct = mx2 > 0 ? (vals2[vi2].raw / mx2) * 100 : 50; }
+        return vals2;
+    }
+    // Pattern: single "dimensiones: 60x50x85" mention
+    var dimLine = desc.match(/dimensiones?\s*[:\s]\s*(\d+(?:\.\d+)?\s*[xX×]\s*\d+(?:\.\d+)?\s*[xX×]\s*\d+(?:\.\d+)?\s*(cm|mm|m|in|pulg)?)/i);
+    if (dimLine) {
+        return _parseDimensions(dimLine[1]);
+    }
+    return dims;
+}
+
 function _loadAndDrawGrid(ctx, srcs, area, done) {
     var n = srcs.length;
     var loaded = 0;
@@ -19940,10 +19968,11 @@ function _finishShareCard(ctx, W, H, product, link, storeInfo, canvas) {
     var costPrice = parseFloat(product.costPrice) || 0;
     var specs = product.specifications || null;
     var color = product.color || '';
-    var stock = parseInt(product.stock) || 0;
+    // For catalog products, if stock is undefined/null, default to 'available'
+    var stock = (product.stock !== undefined && product.stock !== null && product.stock !== '') ? parseInt(product.stock) : 1;
 
     // === KISSU-STYLE PROFESSIONAL CARD ===
-    var H2 = 1050;
+    var H2 = 1150;
     // Resize canvas if needed
     if (canvas.height < H2) {
         var imgData = ctx.getImageData(0, 0, W, canvas.height);
@@ -19963,8 +19992,7 @@ function _finishShareCard(ctx, W, H, product, link, storeInfo, canvas) {
     // --- Status Badges Row ---
     var badges = [];
     if (product.sku && product.sku.length > 0) badges.push({ text: product.sku.toUpperCase(), bg: '#f0f0f0', fg: '#666' });
-    if (stock > 5) badges.push({ text: 'DISPONIBLE', bg: '#e8f5e9', fg: '#2e7d32' });
-    else if (stock > 0) badges.push({ text: '\u00d9LTIMAS UNIDADES', bg: '#fff3e0', fg: '#e65100' });
+    if (stock > 0) badges.push({ text: 'DISPONIBLE', bg: '#e8f5e9', fg: '#2e7d32' });
     else badges.push({ text: 'AGOTADO', bg: '#ffebee', fg: '#c62828' });
 
     var badgeX = 30;
@@ -20008,12 +20036,6 @@ function _finishShareCard(ctx, W, H, product, link, storeInfo, canvas) {
 
     // --- Price Section ---
     if (price > 0) {
-        if (costPrice > 0 && costPrice > price) {
-            ctx.fillStyle = '#999999';
-            ctx.font = '16px -apple-system, sans-serif';
-            ctx.fillText('PRECIO TARJETA  $' + costPrice.toLocaleString('es-MX'), 30, textY);
-            textY += 24;
-        }
         ctx.fillStyle = '#1565c0';
         ctx.font = 'bold 34px -apple-system, sans-serif';
         ctx.fillText('$' + price.toLocaleString('es-MX'), 30, textY);
@@ -20046,6 +20068,53 @@ function _finishShareCard(ctx, W, H, product, link, storeInfo, canvas) {
             }
             textY = chipY + 36;
         }
+    }
+
+    // --- Size Chart (Kisuu-style) when description has dimensions ---
+    var dims = _parseDimensions(product.description || '');
+    if (dims && dims.length > 0) {
+        ctx.fillStyle = '#444444';
+        ctx.font = 'bold 13px -apple-system, sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText('MEDIDAS', 30, textY);
+        textY += 24;
+        var chartX = 30;
+        var chartW = W - 60;
+        var chartH = dims.length * 36 + 36;
+        _drawRoundedRect(ctx, chartX, textY, chartW, chartH, 10, '#f8f9fc');
+        // Draw header row
+        _drawRoundedRect(ctx, chartX, textY, chartW, 32, 10, '#1565c0');
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 12px -apple-system, sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText('DIMENSION', chartX + 14, textY + 21);
+        ctx.textAlign = 'center';
+        ctx.fillText('VALOR', chartX + chartW / 2 + 20, textY + 21);
+        // Draw dimension rows
+        var rowY = textY + 36;
+        for (var di = 0; di < dims.length; di++) {
+            var d = dims[di];
+            if (di % 2 === 0) {
+                _drawRoundedRect(ctx, chartX, rowY - 12, chartW, 32, 0, '#ffffff');
+            }
+            ctx.fillStyle = '#555555';
+            ctx.font = '13px -apple-system, sans-serif';
+            ctx.textAlign = 'left';
+            ctx.fillText(d.label, chartX + 14, rowY + 8);
+            // Draw visual bar
+            var barMaxW = 100;
+            var barW = Math.min(d.pct || 50, barMaxW);
+            var barBgX = chartX + chartW / 2 - 10;
+            _drawRoundedRect(ctx, barBgX, rowY - 4, barMaxW, 16, 8, '#e8eaf6');
+            _drawRoundedRect(ctx, barBgX, rowY - 4, barW, 16, 8, '#1565c0');
+            // Value text
+            ctx.fillStyle = '#1565c0';
+            ctx.font = 'bold 12px -apple-system, sans-serif';
+            ctx.textAlign = 'left';
+            ctx.fillText(d.value, barBgX + barMaxW + 10, rowY + 8);
+            rowY += 36;
+        }
+        textY += chartH + 12;
     }
 
     // --- Color Swatch ---
@@ -21488,11 +21557,14 @@ function _finalizeCatalogSave(p, slug, btn, imageIds) {
             var res = JSON.parse(text || '{}');
             if (res.error) { showToast(res.error, 'error'); return; }
             if (res.id) {
-                for (var i = 0; i < _ecatUploadedImages.length; i++) {
-                    if (_ecatUploadedImages[i].serverId) {
-                        (function(sId, catId) {
-                            _serverFetch('POST', '/api/catalog-upload', { id: sId, catalogId: catId, imageType: 'image/jpeg', data: 'keep' }, null);
-                        })(_ecatUploadedImages[i].serverId, res.id);
+                // Update catalogId on existing images (only if new catalog)
+                if (!_catalogEditId) {
+                    for (var i = 0; i < _ecatUploadedImages.length; i++) {
+                        if (_ecatUploadedImages[i].serverId) {
+                            (function(sId, catId) {
+                                _serverFetch('POST', '/api/catalog-upload', { id: sId, catalogId: catId }, null);
+                            })(_ecatUploadedImages[i].serverId, res.id);
+                        }
                     }
                 }
             }

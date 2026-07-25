@@ -78,7 +78,23 @@ export async function GET(){
     await ensureTable();
     await ensureImageTable();
     const rows=await query('SELECT id,slug,name,description,products,"storeInfo","storeId","mainImage","createdAt","updatedAt" FROM "ElectronicCatalog" ORDER BY "updatedAt" DESC');
-    // For list view, return products as-is (imageIds only, no full image data) for speed
+    // Resolve first image per catalog for thumbnail display
+    for(const r of rows as any[]){
+      let prods:any[]=[];
+      try{prods=typeof r.products==='string'?JSON.parse(r.products):(r.products||[]);}catch{}
+      const p0=prods[0]||{};
+      const ids:string[]=(p0 as any).imageIds||[];
+      const mainIdx=(typeof r.mainImage==='number')?r.mainImage:0;
+      const firstId=ids[mainIdx]||ids[0]||'';
+      if(firstId){
+        try{
+          const imgRows=await query(`SELECT "imageType",data FROM "CatalogImage" WHERE id=$1`,[firstId]);
+          if(imgRows.length>0){
+            r._thumb={type:(imgRows[0] as any).imageType,data:(imgRows[0] as any).data};
+          }
+        }catch{}
+      }
+    }
     return NextResponse.json(rows,{headers:H});
   }catch(e:any){
     console.error('[DB] GET /catalogs:',e.message);
