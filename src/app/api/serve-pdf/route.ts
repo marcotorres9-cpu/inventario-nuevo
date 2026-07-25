@@ -2,6 +2,7 @@ import {NextResponse} from 'next/server';
 import {query} from '@/lib/db';
 export const dynamic='force-dynamic';
 export const maxDuration=30;
+// serve-pdf v2 - deploy trigger
 
 const H={'Cache-Control':'no-store','Access-Control-Allow-Origin':'*','Access-Control-Allow-Methods':'GET,POST,OPTIONS','Access-Control-Allow-Headers':'Content-Type'};
 
