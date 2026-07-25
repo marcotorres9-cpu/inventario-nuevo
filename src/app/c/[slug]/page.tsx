@@ -184,14 +184,28 @@ export default async function CatalogPage({ params }: Props) {
     }
   }
 
-  // Fallback: parse dimensions from description text (e.g., "91 x 54 x 56 cm")
-  if (measurements.length === 0 && p.description) {
-    const dimMatch = p.description.match(/(\d+(?:\.\d+)?)\s*[xX×]\s*(\d+(?:\.\d+)?)\s*[xX×]\s*(\d+(?:\.\d+)?)\s*(cm|mm|m|in|pulg)?/);
-    if (dimMatch) {
-      const unit = dimMatch[4] || 'cm';
-      measurements.push({ key: 'Alto', value: dimMatch[1] + ' ' + unit, type: 'height' });
-      measurements.push({ key: 'Ancho', value: dimMatch[2] + ' ' + unit, type: 'width' });
-      measurements.push({ key: 'Profundidad', value: dimMatch[3] + ' ' + unit, type: 'depth' });
+  // Fallback: parse dimensions from "Medidas"/"Dimensiones" spec key or description text
+  if (measurements.length === 0) {
+    // Check specs for combined dimension keys first
+    let dimText = '';
+    for (const [k, v] of specEntries) {
+      const lk = k.toLowerCase().trim();
+      if (lk.includes('medida') || lk.includes('dimensi') || lk.includes('tama')) {
+        dimText = String(v);
+        break;
+      }
+    }
+    // Also check description as fallback
+    if (!dimText) dimText = p.description || '';
+
+    if (dimText) {
+      const dimMatch = dimText.match(/(\d+(?:\.\d+)?)\s*[xX×]\s*(\d+(?:\.\d+)?)\s*[xX×]\s*(\d+(?:\.\d+)?)\s*(cm|mm|m|in|pulg)?/);
+      if (dimMatch) {
+        const unit = dimMatch[4] || 'cm';
+        measurements.push({ key: 'Alto', value: dimMatch[1] + ' ' + unit, type: 'height' });
+        measurements.push({ key: 'Ancho', value: dimMatch[2] + ' ' + unit, type: 'width' });
+        measurements.push({ key: 'Profundidad', value: dimMatch[3] + ' ' + unit, type: 'depth' });
+      }
     }
   }
 
