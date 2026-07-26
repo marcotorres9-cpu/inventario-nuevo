@@ -86,7 +86,7 @@
   }
 
   function renderQuote(q){
-    var store = q.store || {};
+    var store = q.s || q.store || {};
     var storeName = store.nm || store.name || 'Mi Tienda';
     var storeAddr = store.ad || store.address || '';
     var storePhone = store.ph || store.phone || '';
@@ -94,7 +94,16 @@
     var footerText = store.ft || store.footer || 'Gracias por su preferencia';
     var currency = store.cr || store.currency || 'MXN';
 
-    // Normalize items: compact format (q, n, p, d) → full format (qty, productName, price, lineDiscount)
+    // Support both compact format (q.q, q.i, q.iB) and full format (q.id, q.itemsA, q.itemsB)
+    var Q = q.q || q;
+    var itemsA = Q.i || q.itemsA || q.items || [];
+    var itemsB = Q.iB || q.itemsB || [];
+    var isDual = !!(Q.dm || (q.isDualMode && itemsB.length > 0));
+    var optionTitleA = Q.otA || q.optionTitleA || 'Opción A';
+    var optionTitleB = Q.otB || q.optionTitleB || 'Opción B';
+    var truncCount = Q.trunc || 0;
+
+    // Normalize items: compact format (q, n, p, d) -> full format (qty, productName, price, lineDiscount)
     function normItems(arr){
       if (!Array.isArray(arr)) return [];
       return arr.map(function(it){
@@ -107,13 +116,22 @@
       });
     }
 
-    var isDual = !!q.isDualMode && Array.isArray(q.itemsB) && q.itemsB.length > 0;
     var sections = isDual ? [
-      { title: q.optionTitleA || 'Opción A', items: normItems(q.itemsA || q.items || []), totals: q.totalsA, color: '#22c55e' },
-      { title: q.optionTitleB || 'Opción B', items: normItems(q.itemsB || []), totals: q.totalsB, color: '#3b82f6' }
+      { title: optionTitleA, items: normItems(itemsA), totals: { subtotal: Q.s || Q.sA, total: Q.sA || Q.s || Q.t }, color: '#22c55e' },
+      { title: optionTitleB, items: normItems(itemsB), totals: { subtotal: Q.sB, total: Q.sB }, color: '#3b82f6' }
     ] : [
-      { title: null, items: normItems(q.itemsA || q.items || []), totals: q.totalsA || { subtotal: q.subtotal, total: q.total }, color: '#22c55e' }
+      { title: null, items: normItems(itemsA), totals: { subtotal: Q.s != null ? Q.s : q.subtotal, total: Q.t != null ? Q.t : q.total }, color: '#22c55e' }
     ];
+
+    var totalVal = Q.t != null ? Q.t : (q.total || 0);
+    var quoteNumber = Q.n || q.number || 'COT-001';
+    var clientName = Q.c || q.clientName || q.customerName || '';
+    var customerPhone = Q.cp || q.customerPhone || '';
+    var customerEmail = q.customerEmail || '';
+    var createdAt = Q.cd || q.createdAt || '';
+    var validDays = Q.vu ? null : (q.validDays || 15); // vu is already a date string
+    var validDateStr = Q.vu || '';
+    var notes = Q.nt || q.notes || '';
 
     var html = '';
     html += '<div class="actions">';
@@ -127,12 +145,12 @@
     if (storePhone) html += '📞 ' + esc(storePhone) + ' ';
     if (storeEmail) html += '✉️ ' + esc(storeEmail);
     html += '</div></div>';
-    html += '<div class="titlebar"><div class="badge">COTIZACIÓN</div><div style="text-align:right;"><div style="font-size:20px;font-weight:700;">' + esc(q.number || 'COT-001') + '</div><div style="font-size:12px;color:#94a3b8;">' + fmtDate(q.createdAt) + '</div></div></div>';
+    html += '<div class="titlebar"><div class="badge">COTIZACIÓN</div><div style="text-align:right;"><div style="font-size:20px;font-weight:700;">' + esc(quoteNumber) + '</div><div style="font-size:12px;color:#94a3b8;">' + fmtDate(createdAt) + '</div></div></div>';
 
-    if (q.clientName || q.customerPhone || q.customerEmail) {
-      html += '<div class="client"><div class="lbl">Cliente</div><div class="nm">' + esc(q.clientName || '—') + '</div>';
-      if (q.customerPhone) html += '<div class="ph">📞 ' + esc(q.customerPhone) + '</div>';
-      if (q.customerEmail) html += '<div class="ph">✉️ ' + esc(q.customerEmail) + '</div>';
+    if (clientName || customerPhone || customerEmail) {
+      html += '<div class="client"><div class="lbl">Cliente</div><div class="nm">' + esc(clientName || '—') + '</div>';
+      if (customerPhone) html += '<div class="ph">📞 ' + esc(customerPhone) + '</div>';
+      if (customerEmail) html += '<div class="ph">✉️ ' + esc(customerEmail) + '</div>';
       html += '</div>';
     }
 
@@ -150,29 +168,39 @@
         var lineFinal = Math.max(0, lineCost - disc);
         html += '<tr><td>' + esc(it.productName || it.name || '') + '</td><td class="ctr">' + qty + '</td><td class="num">' + fmt(price) + '</td><td class="num">' + (disc > 0 ? fmt(disc) : '—') + '</td><td class="num" style="font-weight:700;">' + fmt(lineFinal) + '</td></tr>';
       }
+      // Show "+N productos" notice if items were truncated for QR size
+      if (s === 0 && truncCount > 0) {
+        html += '<tr><td colspan="5" style="text-align:center;color:#94a3b8;font-style:italic;padding:10px;">+' + truncCount + ' producto' + (truncCount > 1 ? 's' : '') + ' no mostrado' + (truncCount > 1 ? 's' : '') + ' (cotización completa en PDF)</td></tr>';
+      }
       html += '</tbody></table>';
-      if (isDual && sec.totals) {
+      if (isDual && sec.totals && sec.totals.total != null) {
         html += '<div style="padding:8px 24px;text-align:right;font-size:13px;color:#64748b;">Subtotal: <strong style="color:#0f172a;">' + fmt(sec.totals.subtotal) + '</strong> · Total: <strong style="color:' + sec.color + ';">' + fmt(sec.totals.total) + '</strong></div>';
       }
     }
 
-    html += '<div class="total"><div><div class="lbl">Total</div><div style="font-size:11px;color:#64748b;margin-top:2px;">Moneda: ' + esc(currency) + '</div></div><div class="val">' + fmt(q.total) + '</div></div>';
+    html += '<div class="total"><div><div class="lbl">Total</div><div style="font-size:11px;color:#64748b;margin-top:2px;">Moneda: ' + esc(currency) + '</div></div><div class="val">' + fmt(totalVal) + '</div></div>';
 
-    var validDays = q.validDays || 15;
-    var validDate = q.createdAt ? fmtDate(new Date(new Date(q.createdAt).getTime() + validDays * 86400000).toISOString()) : '';
     html += '<div class="validity">';
-    if (validDate) html += '✅ Válida hasta: <strong>' + validDate + '</strong> (' + validDays + ' días)';
-    if (q.notes) html += '<div class="box"><strong>Notas:</strong> ' + esc(q.notes) + '</div>';
+    if (validDateStr) {
+      // vu is a YYYY-MM-DD string
+      var d = new Date(validDateStr + 'T00:00:00');
+      var fmtted = isNaN(d.getTime()) ? validDateStr : d.toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' });
+      html += '✅ Válida hasta: <strong>' + esc(fmtted) + '</strong>';
+    } else if (validDays && createdAt) {
+      var vd = new Date(new Date(createdAt).getTime() + validDays * 86400000);
+      html += '✅ Válida hasta: <strong>' + fmtDate(vd.toISOString()) + '</strong> (' + validDays + ' días)';
+    }
+    if (notes) html += '<div class="box"><strong>Notas:</strong> ' + esc(notes) + '</div>';
     html += '</div>';
 
     html += '<div class="footer"><div class="ft">' + esc(footerText) + '</div><div>Generado desde Inventario Pro</div></div>';
     html += '</div>';
 
     document.getElementById('root').innerHTML = html;
-    document.title = 'Cotización ' + (q.number || '');
+    document.title = 'Cotización ' + quoteNumber;
 
     // Store quote for WA share
-    window._quote = q;
+    window._quote = { number: quoteNumber, clientName: clientName, total: totalVal };
   }
 
   function shareWA(){

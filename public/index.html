@@ -1117,7 +1117,7 @@
             <div>
                 <div class="header-name" id="storeHeaderName">Inventario Pro</div>
                 <div class="header-role" id="userRole">rol</div>
-                <div class="header-ver" id="headerVersion">v2.6.25 NV71</div>
+                <div class="header-ver" id="headerVersion">v2.6.26 NV72</div>
             </div>
         </div>
         <button class="btn-logout" onclick="toggleTheme()" style="background:none;border:none;font-size:20px;cursor:pointer;margin-right:8px;color:var(--text2);" title="Cambiar tema">🌓</button>
@@ -3691,7 +3691,7 @@ function logout() {
 // ====================================================================
 // CHANGELOG — Show latest updates to the user
 // ====================================================================
-var APP_VERSION = '2.6.25 NV71'
+var APP_VERSION = '2.6.26 NV72'
 var CHANGELOG_ENTRIES = [
     { ver: '2.4.0', date: '24 Abr 2026', items: [
         { icon: '📊', text: '<b>Capacidad por espacio:</b> Controla unidades mínimas y máximas para Exhibición, Local Pequeño, Local Grande desde el panel de Control del Local.' },
@@ -16172,15 +16172,75 @@ function shareQuotationQR(id) {
     var cfg = getStoreConfig();
     var isDual = q.isDualMode && q.itemsB && q.itemsB.length > 0;
 
-    // NV71 FIX: QR now encodes a normal HTTPS URL to the /qr page on Vercel.
-    // Previous implementation embedded raw HTML as a data:text/html;base64 URI,
-    // which Android/iOS phone cameras show as plain source code or refuse to open.
-    // A normal https://... URL opens in any phone browser and renders the React
-    // /qr page that fetches the quotation JSON from /api/quotation?id=<id>.
-    var serverUrl = getServerUrl();
-    var qrUrl = serverUrl + '/qr?id=' + encodeURIComponent(q.id);
+    // NV72: QR encodes an HTTPS URL to raw.githack.com (serves GitHub HTML with
+    // correct text/html content-type). The HTML page is fetched once and runs
+    // 100% client-side from the URL's ?d= param (base64-encoded JSON).
+    // Previous attempts failed because:
+    //   NV70: data:text/html;base64 URIs show as raw source on Android cameras
+    //   NV71: Vercel deployment was stale, /qr page returns 404
+    // raw.githack.com serves public/qr.html from the GitHub main branch with
+    // content-type text/html; charset=utf-8 — verified working.
+    var HTML_PAGE_URL = 'https://raw.githack.com/marcotorres9-cpu/inventario-nuevo/main/public/qr.html';
 
-    console.log('[QR] URL length:', qrUrl.length, 'bytes — URL to /qr page (Vercel)');
+    // Build compact JSON snapshot that qr.html knows how to render.
+    var qrData = buildQuotationQRData(id);
+    if (!qrData) { showToast('No se pudo generar el QR', 'error'); return; }
+
+    // For dual mode, add itemsB + optionTitleB to the snapshot
+    if (isDual) {
+        var itemsBCompact = [];
+        var rawB = q.itemsB || [];
+        for (var ib = 0; ib < rawB.length && ib < 20; ib++) {
+            var itb = rawB[ib];
+            itemsBCompact.push({
+                q: itb.qty || 1,
+                n: ((itb.productName || itb.name || '') + '').substring(0, 40),
+                p: itb.price || 0,
+                d: parseFloat(itb.lineDiscount) || 0
+            });
+        }
+        qrData.q.iB = itemsBCompact;
+        qrData.q.otA = q.optionTitleA || 'Opción A';
+        qrData.q.otB = q.optionTitleB || 'Opción B';
+        if (q.totalsA) qrData.q.sA = q.totalsA.total;
+        if (q.totalsB) qrData.q.sB = q.totalsB.total;
+        qrData.q.dm = 1;
+    }
+
+    function encodeB64Json(obj) {
+        try {
+            var json = JSON.stringify(obj);
+            // UTF-8 safe base64
+            return btoa(unescape(encodeURIComponent(json)));
+        } catch(e) {
+            console.error('encodeB64Json error:', e);
+            return null;
+        }
+    }
+
+    // Build the URL — try with all items, progressively trim if too long
+    function buildUrl(maxItems) {
+        var data = JSON.parse(JSON.stringify(qrData));
+        if (maxItems && data.q && data.q.i && data.q.i.length > maxItems) {
+            data.q.i = data.q.i.slice(0, maxItems);
+            data.q.trunc = qrData.q.i.length - maxItems;
+        }
+        var b64 = encodeB64Json(data);
+        if (!b64) return null;
+        return HTML_PAGE_URL + '?d=' + b64;
+    }
+
+    var qrUrl = buildUrl(null);
+    var maxLen = 2300; // safe limit for QR byte mode L (max 2953) — leave margin for safety
+    if (!qrUrl || qrUrl.length > maxLen) qrUrl = buildUrl(20);
+    if (!qrUrl || qrUrl.length > maxLen) qrUrl = buildUrl(12);
+    if (!qrUrl || qrUrl.length > maxLen) qrUrl = buildUrl(8);
+    if (!qrUrl || qrUrl.length > maxLen) qrUrl = buildUrl(5);
+    if (!qrUrl || qrUrl.length > maxLen) qrUrl = buildUrl(3);
+    if (!qrUrl || qrUrl.length > maxLen) qrUrl = buildUrl(2);
+    if (!qrUrl || qrUrl.length > maxLen) { showToast('Cotización demasiado grande para QR', 'error'); return; }
+
+    console.log('[QR] URL length:', qrUrl.length, 'bytes — raw.githack.com + base64 JSON');
 
     // Generate QR — use SVG for maximum WebView compatibility
     var qrSvgHtml = '';
@@ -16238,7 +16298,6 @@ function shareQuotationQR(id) {
     infoArea.style.cssText = 'padding:0 24px 16px;display:flex;justify-content:space-around;text-align:center;border-bottom:1px solid #f0f0f0;';
     var infoParts = [];
     infoParts.push('<div><div style="font-size:11px;color:#9ca3af;">Cliente</div><div style="font-size:13px;font-weight:600;color:#1f2937;">' + (q.clientName || '—') + '</div></div>');
-    // Show individual totals for dual, single total otherwise
     if (isDual) {
         var tA = q.totalsA ? q.totalsA.total : 0;
         var tB = q.totalsB ? q.totalsB.total : 0;
@@ -16250,17 +16309,10 @@ function shareQuotationQR(id) {
     infoParts.push('<div><div style="font-size:11px;color:#9ca3af;">Válido</div><div style="font-size:13px;font-weight:600;color:#1f2937;">' + (q.validDays || 15) + ' días</div></div>');
     infoArea.innerHTML = infoParts.join('');
 
-    // Sync status indicator
-    var syncStatus = document.createElement('div');
-    syncStatus.id = 'qrSyncStatus';
-    syncStatus.style.cssText = 'padding:10px 16px;font-size:12px;color:#f59e0b;text-align:center;background:#fffbeb;font-weight:600;';
-    syncStatus.innerHTML = '⏳ Sincronizando cotización con el servidor...';
-
-    // Link row (visible after sync completes)
-    var linkRow = document.createElement('div');
-    linkRow.id = 'qrLinkRow';
-    linkRow.style.cssText = 'padding:8px 16px;font-size:11px;color:#3b82f6;text-align:center;background:#eff6ff;display:none;word-break:break-all;';
-    linkRow.innerHTML = '<a href="' + qrUrl + '" target="_blank" style="color:#3b82f6;">' + qrUrl + '</a>';
+    // Status: ready (no async sync needed — data is embedded in the URL)
+    var statusEl = document.createElement('div');
+    statusEl.style.cssText = 'padding:10px 16px;font-size:12px;color:#10b981;text-align:center;background:#ecfdf5;font-weight:600;';
+    statusEl.innerHTML = '✅ QR listo para escanear<br><span style="font-size:10px;font-weight:400;color:#6b7280;">La cotización va embebida en el código</span>';
 
     // Action buttons
     var btnsArea = document.createElement('div');
@@ -16298,8 +16350,7 @@ function shareQuotationQR(id) {
     container.appendChild(header);
     container.appendChild(qrArea);
     container.appendChild(infoArea);
-    container.appendChild(syncStatus);
-    container.appendChild(linkRow);
+    container.appendChild(statusEl);
     container.appendChild(btnsArea);
     container.appendChild(closeBtn);
     overlay.appendChild(container);
@@ -16313,35 +16364,13 @@ function shareQuotationQR(id) {
 
     document.body.appendChild(overlay);
 
-    // NV71 FIX: Push quotation to server FIRST, then update status.
-    // The QR encodes /qr?id=<id> which fetches /api/quotation?id=<id>, so the
-    // server MUST have the data before the user scans. Show clear status feedback.
+    // Also push the quotation to the server (best-effort) so the /api/quotation
+    // endpoint can also find it if someone visits the URL directly without ?d=.
+    var serverUrl = getServerUrl();
     if (serverUrl && isOnline()) {
-        pushQuotationToServer(q, serverUrl).then(function() {
-            var statusEl = document.getElementById('qrSyncStatus');
-            if (statusEl) {
-                statusEl.style.color = '#10b981';
-                statusEl.style.background = '#ecfdf5';
-                statusEl.innerHTML = '✅ Cotización sincronizada<br>El QR está listo para escanear';
-            }
-            var linkEl = document.getElementById('qrLinkRow');
-            if (linkEl) { linkEl.style.display = 'block'; }
-        }).catch(function(err) {
-            var statusEl = document.getElementById('qrSyncStatus');
-            if (statusEl) {
-                statusEl.style.color = '#ef4444';
-                statusEl.style.background = '#fef2f2';
-                statusEl.textContent = '⚠️ Error al sincronizar. Revisa tu conexión e inténtalo de nuevo.';
-            }
-            console.error('QR sync error:', err);
+        pushQuotationToServer(q, serverUrl).catch(function(err) {
+            console.error('Background quotation sync error (non-fatal — QR has embedded data):', err);
         });
-    } else {
-        var statusEl = document.getElementById('qrSyncStatus');
-        if (statusEl) {
-            statusEl.style.color = '#6b7280';
-            statusEl.style.background = '#f3f4f6';
-            statusEl.innerHTML = '📡 Sin conexión<br>Conéctate a internet para sincronizar y usar el QR';
-        }
     }
 }
 
