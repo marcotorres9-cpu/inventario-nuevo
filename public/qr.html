@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cotización</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f1f5f9; margin: 0; padding: 12px; color: #0f172a; }
+  .card { max-width: 720px; margin: 0 auto; background: #fff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 16px rgba(0,0,0,0.06); }
+  .header { background: linear-gradient(135deg, #16a34a, #15803d); padding: 20px 24px; color: #fff; }
+  .header h1 { margin: 0 0 4px; font-size: 26px; font-weight: 800; }
+  .header .meta { font-size: 12px; opacity: 0.9; line-height: 1.6; }
+  .titlebar { padding: 16px 24px; background: #fff; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
+  .badge { background: #16a34a; color: #fff; padding: 6px 16px; border-radius: 10px; font-size: 14px; font-weight: 700; }
+  .client { margin: 16px 24px; background: #f0fdf4; border-radius: 12px; padding: 16px; border-left: 4px solid #16a34a; }
+  .client .lbl { font-size: 11px; font-weight: 700; color: #15803d; text-transform: uppercase; margin-bottom: 6px; }
+  .client .nm { font-size: 18px; font-weight: 700; }
+  .client .ph { font-size: 13px; color: #475569; margin-top: 4px; }
+  .sec-title { padding: 12px 24px 4px; font-size: 14px; font-weight: 700; }
+  table { width: calc(100% - 48px); margin: 0 24px; border-collapse: collapse; background: #fff; }
+  th, td { padding: 8px; font-size: 12px; text-align: left; border-bottom: 1px solid #f1f5f9; }
+  th { background: #22c55e; color: #fff; font-size: 10px; text-transform: uppercase; }
+  th.num, td.num { text-align: right; }
+  th.ctr, td.ctr { text-align: center; }
+  .total { padding: 16px 24px; display: flex; justify-content: space-between; align-items: center; background: linear-gradient(135deg, #f0fdf4, #dcfce7); border-top: 1px solid #bbf7d0; margin-top: 12px; }
+  .total .lbl { font-size: 11px; color: #15803d; text-transform: uppercase; font-weight: 700; }
+  .total .val { font-size: 26px; font-weight: 800; color: #15803d; }
+  .notes { padding: 0 24px 12px; font-size: 12px; color: #64748b; }
+  .notes .box { margin-top: 8px; padding: 12px; background: #fef9c3; border-radius: 8px; border: 1px solid #fde68a; color: #713f12; }
+  .validity { padding: 0 24px 12px; font-size: 12px; color: #64748b; }
+  .footer { background: #0f172a; color: #94a3b8; padding: 14px 24px; text-align: center; font-size: 12px; }
+  .footer .ft { color: #fff; font-weight: 600; margin-bottom: 4px; }
+  .actions { position: sticky; top: 0; background: #fff; padding: 12px; border-bottom: 2px solid #e2e8f0; display: flex; gap: 8px; z-index: 10; }
+  .btn { flex: 1; padding: 12px 8px; border: none; border-radius: 10px; font-size: 14px; font-weight: 700; cursor: pointer; color: #fff; }
+  .btn-pdf { background: #22c55e; }
+  .btn-wa { background: #25D366; }
+  .err { padding: 40px; text-align: center; }
+  .err h1 { font-size: 18px; color: #0f172a; }
+  .err p { font-size: 13px; color: #64748b; }
+  @media print { body { background: #fff; padding: 0; } .actions { display: none; } @page { margin: 12mm; } }
+</style>
+</head>
+<body>
+<div id="root"><p style="text-align:center;padding:40px;color:#64748b;">Cargando cotización…</p></div>
+<script>
+(function(){
+  function fmt(n){ var v=Number(n||0); return '$'+v.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+  function fmtDate(s){ if(!s) return ''; try { return new Date(s).toLocaleDateString('es-MX',{year:'numeric',month:'long',day:'numeric'}); } catch(e){ return s; } }
+  function esc(s){ if(!s) return ''; return String(s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+
+  var params = new URLSearchParams(location.search);
+  var id = params.get('id') || '';
+  var d = params.get('d') || '';
+
+  // If 'd' param present, decode base64 JSON and render directly
+  if (d) {
+    try {
+      var json = atob(d);
+      var q = JSON.parse(json);
+      renderQuote(q);
+      return;
+    } catch(e) {
+      console.error('Decode error:', e);
+    }
+  }
+
+  // Otherwise, try fetching from API
+  if (id) {
+    fetch('/api/quotation?id=' + encodeURIComponent(id), { cache: 'no-store' })
+      .then(function(r){ return r.json(); })
+      .then(function(q){
+        if (q && q.id) renderQuote(q);
+        else renderError(q && q.error ? q.error : 'Cotización no encontrada');
+      })
+      .catch(function(e){ renderError('Error de red: ' + e.message); });
+    return;
+  }
+
+  renderError('Falta el parámetro id o d en la URL');
+
+  function renderError(msg){
+    document.getElementById('root').innerHTML =
+      '<div class="err"><h1>😕 Cotización no disponible</h1><p>' + esc(msg) + '</p>' +
+      '<p style="margin-top:16px;font-size:12px;color:#94a3b8;">Solicita al vendedor que regenere el QR desde la app.</p></div>';
+  }
+
+  function renderQuote(q){
+    var store = q.store || {};
+    var storeName = store.nm || store.name || 'Mi Tienda';
+    var storeAddr = store.ad || store.address || '';
+    var storePhone = store.ph || store.phone || '';
+    var storeEmail = store.em || store.email || '';
+    var footerText = store.ft || store.footer || 'Gracias por su preferencia';
+    var currency = store.cr || store.currency || 'MXN';
+
+    // Normalize items: compact format (q, n, p, d) → full format (qty, productName, price, lineDiscount)
+    function normItems(arr){
+      if (!Array.isArray(arr)) return [];
+      return arr.map(function(it){
+        return {
+          productName: it.n || it.productName || it.name || '',
+          qty: it.q || it.qty || 1,
+          price: parseFloat(it.p != null ? it.p : (it.price != null ? it.price : (it.costPrice != null ? it.costPrice : 0))) || 0,
+          lineDiscount: parseFloat(it.d != null ? it.d : (it.lineDiscount || 0)) || 0
+        };
+      });
+    }
+
+    var isDual = !!q.isDualMode && Array.isArray(q.itemsB) && q.itemsB.length > 0;
+    var sections = isDual ? [
+      { title: q.optionTitleA || 'Opción A', items: normItems(q.itemsA || q.items || []), totals: q.totalsA, color: '#22c55e' },
+      { title: q.optionTitleB || 'Opción B', items: normItems(q.itemsB || []), totals: q.totalsB, color: '#3b82f6' }
+    ] : [
+      { title: null, items: normItems(q.itemsA || q.items || []), totals: q.totalsA || { subtotal: q.subtotal, total: q.total }, color: '#22c55e' }
+    ];
+
+    var html = '';
+    html += '<div class="actions">';
+    html += '<button class="btn btn-pdf" onclick="window.print()">📄 Descargar PDF</button>';
+    html += '<button class="btn btn-wa" onclick="shareWA()">📱 WhatsApp</button>';
+    html += '</div>';
+    html += '<div class="card">';
+    html += '<div class="header"><h1>' + esc(storeName) + '</h1>';
+    html += '<div class="meta">';
+    if (storeAddr) html += '📍 ' + esc(storeAddr) + '<br>';
+    if (storePhone) html += '📞 ' + esc(storePhone) + ' ';
+    if (storeEmail) html += '✉️ ' + esc(storeEmail);
+    html += '</div></div>';
+    html += '<div class="titlebar"><div class="badge">COTIZACIÓN</div><div style="text-align:right;"><div style="font-size:20px;font-weight:700;">' + esc(q.number || 'COT-001') + '</div><div style="font-size:12px;color:#94a3b8;">' + fmtDate(q.createdAt) + '</div></div></div>';
+
+    if (q.clientName || q.customerPhone || q.customerEmail) {
+      html += '<div class="client"><div class="lbl">Cliente</div><div class="nm">' + esc(q.clientName || '—') + '</div>';
+      if (q.customerPhone) html += '<div class="ph">📞 ' + esc(q.customerPhone) + '</div>';
+      if (q.customerEmail) html += '<div class="ph">✉️ ' + esc(q.customerEmail) + '</div>';
+      html += '</div>';
+    }
+
+    for (var s = 0; s < sections.length; s++) {
+      var sec = sections[s];
+      if (!sec.items || sec.items.length === 0) continue;
+      if (isDual) html += '<div class="sec-title" style="color:' + sec.color + ';">' + esc(sec.title) + '</div>';
+      html += '<table><thead><tr style="background:' + sec.color + ';"><th>Producto</th><th class="ctr">Cant.</th><th class="num">Costo</th><th class="num">Desc.</th><th class="num">Final</th></tr></thead><tbody>';
+      for (var i = 0; i < sec.items.length; i++) {
+        var it = sec.items[i];
+        var qty = it.qty || 1;
+        var price = parseFloat(it.price != null ? it.price : 0) || 0;
+        var lineCost = qty * price;
+        var disc = parseFloat(it.lineDiscount || 0) || 0;
+        var lineFinal = Math.max(0, lineCost - disc);
+        html += '<tr><td>' + esc(it.productName || it.name || '') + '</td><td class="ctr">' + qty + '</td><td class="num">' + fmt(price) + '</td><td class="num">' + (disc > 0 ? fmt(disc) : '—') + '</td><td class="num" style="font-weight:700;">' + fmt(lineFinal) + '</td></tr>';
+      }
+      html += '</tbody></table>';
+      if (isDual && sec.totals) {
+        html += '<div style="padding:8px 24px;text-align:right;font-size:13px;color:#64748b;">Subtotal: <strong style="color:#0f172a;">' + fmt(sec.totals.subtotal) + '</strong> · Total: <strong style="color:' + sec.color + ';">' + fmt(sec.totals.total) + '</strong></div>';
+      }
+    }
+
+    html += '<div class="total"><div><div class="lbl">Total</div><div style="font-size:11px;color:#64748b;margin-top:2px;">Moneda: ' + esc(currency) + '</div></div><div class="val">' + fmt(q.total) + '</div></div>';
+
+    var validDays = q.validDays || 15;
+    var validDate = q.createdAt ? fmtDate(new Date(new Date(q.createdAt).getTime() + validDays * 86400000).toISOString()) : '';
+    html += '<div class="validity">';
+    if (validDate) html += '✅ Válida hasta: <strong>' + validDate + '</strong> (' + validDays + ' días)';
+    if (q.notes) html += '<div class="box"><strong>Notas:</strong> ' + esc(q.notes) + '</div>';
+    html += '</div>';
+
+    html += '<div class="footer"><div class="ft">' + esc(footerText) + '</div><div>Generado desde Inventario Pro</div></div>';
+    html += '</div>';
+
+    document.getElementById('root').innerHTML = html;
+    document.title = 'Cotización ' + (q.number || '');
+
+    // Store quote for WA share
+    window._quote = q;
+  }
+
+  function shareWA(){
+    var q = window._quote || {};
+    var text = 'Cotización ' + (q.number || '') + ' - ' + (q.clientName || '') + ' - Total: ' + fmt(q.total);
+    window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank');
+  }
+  window.shareWA = shareWA;
+})();
+</script>
+</body>
+</html>
