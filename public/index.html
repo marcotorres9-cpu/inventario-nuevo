@@ -39,7 +39,7 @@
     // FORCE fresh code: always check server version, reload if different
     (function(){
         try {
-            var _NV = 'NV68';
+            var _NV = 'NV69';
             var _ck = '_inv_nv';
             var stored = localStorage.getItem(_ck);
             // Only reload if version changed AND we haven't already reloaded for this version
@@ -1117,7 +1117,7 @@
             <div>
                 <div class="header-name" id="storeHeaderName">Inventario Pro</div>
                 <div class="header-role" id="userRole">rol</div>
-                <div class="header-ver" id="headerVersion">v2.6.22 NV68</div>
+                <div class="header-ver" id="headerVersion">v2.6.23 NV69</div>
             </div>
         </div>
         <button class="btn-logout" onclick="toggleTheme()" style="background:none;border:none;font-size:20px;cursor:pointer;margin-right:8px;color:var(--text2);" title="Cambiar tema">🌓</button>
@@ -3691,7 +3691,7 @@ function logout() {
 // ====================================================================
 // CHANGELOG — Show latest updates to the user
 // ====================================================================
-var APP_VERSION = '2.6.22 NV68'
+var APP_VERSION = '2.6.23 NV69'
 var CHANGELOG_ENTRIES = [
     { ver: '2.4.0', date: '24 Abr 2026', items: [
         { icon: '📊', text: '<b>Capacidad por espacio:</b> Controla unidades mínimas y máximas para Exhibición, Local Pequeño, Local Grande desde el panel de Control del Local.' },
