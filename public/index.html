@@ -16213,7 +16213,9 @@ function shareQuotationQR(id) {
     }
 
     // Build the QR URL pointing to /qr.html with embedded data
-    var qrUrl = serverBase ? (serverBase + '/qr.html?d=' + b64) : '';
+    // Use jsDelivr CDN (serves public/ files directly from GitHub) as primary URL
+    // because Vercel deployment is not always up-to-date with the latest commits.
+    var qrUrl = 'https://cdn.jsdelivr.net/gh/marcotorres9-cpu/inventario-nuevo@main/public/qr.html?d=' + b64;
 
     // If no server URL, fall back to plain-text summary
     if (!qrUrl || qrUrl.length < 10) {
@@ -16233,10 +16235,10 @@ function shareQuotationQR(id) {
         snapshot.itemsB = snapshot.itemsB.slice(0, 5);
         jsonStr = JSON.stringify(snapshot);
         try { b64 = btoa(unescape(encodeURIComponent(jsonStr))); } catch(e) { b64 = btoa(jsonStr); }
-        qrUrl = serverBase + '/qr.html?d=' + b64;
+        qrUrl = 'https://cdn.jsdelivr.net/gh/marcotorres9-cpu/inventario-nuevo@main/public/qr.html?d=' + b64;
         if (qrUrl.length > maxLen) {
             // Last resort: use ?id= and rely on server fetch
-            qrUrl = serverBase + '/qr.html?id=' + encodeURIComponent(id);
+            qrUrl = (serverBase || 'https://inventario-nuevo-v2.vercel.app') + '/qr.html?id=' + encodeURIComponent(id);
         }
     }
 
