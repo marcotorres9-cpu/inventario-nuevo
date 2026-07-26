@@ -88,3 +88,4 @@ export async function GET(request:Request){
     return new NextResponse('Error interno', {status:500,headers:{'Content-Type':'text/plain'}});
   }
 }
+// bump Sun Jul 26 00:00:36 UTC 2026
