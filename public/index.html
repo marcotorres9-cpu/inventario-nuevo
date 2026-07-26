@@ -1117,7 +1117,7 @@
             <div>
                 <div class="header-name" id="storeHeaderName">Inventario Pro</div>
                 <div class="header-role" id="userRole">rol</div>
-                <div class="header-ver" id="headerVersion">v2.6.24 NV70</div>
+                <div class="header-ver" id="headerVersion">v2.6.25 NV71</div>
             </div>
         </div>
         <button class="btn-logout" onclick="toggleTheme()" style="background:none;border:none;font-size:20px;cursor:pointer;margin-right:8px;color:var(--text2);" title="Cambiar tema">🌓</button>
@@ -3691,7 +3691,7 @@ function logout() {
 // ====================================================================
 // CHANGELOG — Show latest updates to the user
 // ====================================================================
-var APP_VERSION = '2.6.24 NV70'
+var APP_VERSION = '2.6.25 NV71'
 var CHANGELOG_ENTRIES = [
     { ver: '2.4.0', date: '24 Abr 2026', items: [
         { icon: '📊', text: '<b>Capacidad por espacio:</b> Controla unidades mínimas y máximas para Exhibición, Local Pequeño, Local Grande desde el panel de Control del Local.' },
@@ -15697,6 +15697,26 @@ function autoSyncFromServer() {
                 var rq = serverQuotations[j];
                 if (!rq || !rq.id || localQMap[rq.id]) continue;
 
+                // NV71 FIX: Prefer the full JSON snapshot stored in the `data`
+                // column (returned by GET /api/sync/quotations since NV71).
+                // Previously the sync endpoint returned only basic fields and
+                // hardcoded items='[]', so a quotation restored from the server
+                // would lose all items, totals, and dual-mode information —
+                // appearing "empty" to the user ("se pierde mis cotizaciones").
+                if (rq.data && typeof rq.data === 'object' && rq.data.id) {
+                    // Restore the full snapshot as-is, but keep server-side
+                    // createdAt/updatedAt if the snapshot lacks them.
+                    var snap = rq.data;
+                    if (!snap.createdAt && rq.createdAt) snap.createdAt = rq.createdAt;
+                    if (!snap.number) snap.number = 'COT-' + String(rq.id).slice(-6).toUpperCase();
+                    if (!snap.validDays) snap.validDays = 15;
+                    if (!snap.itemsA && snap.items) snap.itemsA = snap.items;
+                    if (!snap.totalsA) snap.totalsA = { subtotal: snap.subtotal || 0, total: snap.total || 0 };
+                    localQ.push(snap);
+                    continue;
+                }
+
+                // Legacy fallback for older server rows without `data`:
                 var syncData = null;
                 if (rq.notes) { try { syncData = JSON.parse(rq.notes); } catch(e) {} }
 
@@ -16152,88 +16172,21 @@ function shareQuotationQR(id) {
     var cfg = getStoreConfig();
     var isDual = q.isDualMode && q.itemsB && q.itemsB.length > 0;
 
-    // Build a SELF-CONTAINED HTML page with the quote data and embed it as a data URI
-    // directly in the QR code. No external CDN, no Vercel, no jsDelivr — works 100%
-    // offline on any phone camera. The browser renders the HTML natively.
-    // Why this approach: jsDelivr and raw.githubusercontent.com both serve .html files
-    // with content-type=text/plain (showing source code instead of rendered page),
-    // and the Vercel deployment is stale (404). data:text/html;base64 URIs always render.
-    var cur = (cfg.currency || 'MXN');
-    var dateStr = q.createdAt ? new Date(q.createdAt).toLocaleDateString('es-MX') : new Date().toLocaleDateString('es-MX');
+    // NV71 FIX: QR now encodes a normal HTTPS URL to the /qr page on Vercel.
+    // Previous implementation embedded raw HTML as a data:text/html;base64 URI,
+    // which Android/iOS phone cameras show as plain source code or refuse to open.
+    // A normal https://... URL opens in any phone browser and renders the React
+    // /qr page that fetches the quotation JSON from /api/quotation?id=<id>.
+    var serverUrl = getServerUrl();
+    var qrUrl = serverUrl + '/qr?id=' + encodeURIComponent(q.id);
 
-    function buildRows(items, max) {
-        if (!items || items.length === 0) return '<tr><td colspan=4 style="text-align:center;color:#999;font-style:italic">Sin items</td></tr>';
-        var out = '';
-        var list = max && items.length > max ? items.slice(0, max) : items;
-        for (var i = 0; i < list.length; i++) {
-            var it = list[i];
-            var qty = it.qty || 1;
-            var price = parseFloat(it.price != null ? it.price : (it.costPrice != null ? it.costPrice : 0)) || 0;
-            var lt = qty * price;
-            out += '<tr><td>' + qty + '</td><td>' + escapeHtml((it.productName || it.name || '').substring(0, 36)) + '</td><td class=r>$' + fmtDec(price) + '</td><td class=r>$' + fmtDec(lt) + '</td></tr>';
-        }
-        if (max && items.length > max) {
-            out += '<tr><td colspan=4 style="text-align:center;color:#999;font-style:italic">+' + (items.length - max) + ' productos</td></tr>';
-        }
-        return out;
-    }
-
-    function buildHtml(maxItems) {
-        var itemsA = q.itemsA || q.items || [];
-        var itemsB = isDual ? (q.itemsB || []) : [];
-        var addrLine = (cfg.address ? '<br>' + escapeHtml(cfg.address) : '') + (cfg.phone ? '<br>Tel: ' + escapeHtml(cfg.phone) : '');
-        var notesHtml = q.notes ? '<div class=n><b>Notas:</b> ' + escapeHtml((q.notes||'').substring(0, 100)) + '</div>' : '';
-        var secA = '<tr><th>C</th><th>Producto</th><th class=r>P</th><th class=r>T</th></tr>' + buildRows(itemsA, maxItems);
-        var secB = isDual ? '<tr><th colspan=4 style="background:#3b82f6">' + escapeHtml(q.optionTitleB||'Opción B') + '</th></tr>' + buildRows(itemsB, maxItems) : '';
-
-        // Minimal CSS — using class names instead of inline styles (compact for many table rows)
-        var html = '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Cot ' + escapeHtml(q.number||'') + '</title><style>body{margin:0;padding:8px;font-family:sans-serif;background:#f1f5f9;color:#0f172a}.c{max-width:480px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden}.h{background:#16a34a;color:#fff;padding:12px}.h b{font-size:17px;display:block}.h p{margin:3px 0 0;font-size:10px;opacity:.9;line-height:1.5}.cl{padding:8px 12px;font-size:13px;font-weight:600}.cl small{font-size:10px;color:#666;font-weight:400}.t{width:calc(100% - 24px);margin:0 12px;border-collapse:collapse;font-size:11px}.t td,.t th{padding:4px 3px;text-align:left}.t th{background:#22c55e;color:#fff;font-size:9px;text-transform:uppercase}.r{text-align:right}.to{padding:10px 12px;background:#f0fdf4;border-top:2px solid #16a34a;display:flex;justify-content:space-between}.to b{font-size:11px;color:#15803d;text-transform:uppercase}.to s{font-size:19px;color:#15803d;font-weight:800;text-decoration:none}.n{padding:6px 12px;font-size:10px;color:#666}.n b{color:#15803d}.b{display:block;margin:6px 12px 10px;padding:10px;background:#16a34a;color:#fff;text-align:center;text-decoration:none;border-radius:6px;font-weight:700;font-size:13px}</style></head><body><div class=c><div class=h><b>' + escapeHtml(cfg.storeName||'Cotizacion') + '</b><p>Cot N&deg; ' + escapeHtml(q.number||'') + ' &middot; ' + dateStr + '<br>Valida: ' + (q.validDays||15) + ' dias' + addrLine + '</p></div><div class=cl>' + escapeHtml(q.clientName||'Consumidor Final') + (q.customerPhone?' <small>'+escapeHtml(q.customerPhone)+'</small>':'') + '</div>' + (isDual?'<div class=cl style="color:#15803d;font-size:10px;text-transform:uppercase;font-weight:700;padding:0 12px">'+escapeHtml(q.optionTitleA||'Opción A')+'</div>':'') + '<table class=t>' + secA + secB + '</table><div class=to><b>Total</b><s>$' + fmtDec(q.total||0) + ' ' + cur + '</s></div>' + notesHtml + '<a class=b href="javascript:window.print()">Descargar PDF</a></div></body></html>';
-        return html;
-    }
-
-    // Encode HTML as data URI using base64 (more compact than URL encoding for HTML)
-    function encodeDataUri(html) {
-        try {
-            // UTF-8 safe base64
-            var b64 = btoa(unescape(encodeURIComponent(html)));
-            return 'data:text/html;charset=utf-8;base64,' + b64;
-        } catch(e) {
-            return 'data:text/html;charset=utf-8,' + encodeURIComponent(html);
-        }
-    }
-
-    // Try with full items list first; progressively truncate if too long for QR
-    var html = buildHtml(50);
-    var qrUrl = encodeDataUri(html);
-    var maxLen = 2900; // safe limit for QR byte mode L (max 2953)
-
-    if (qrUrl.length > maxLen) {
-        html = buildHtml(20); qrUrl = encodeDataUri(html);
-    }
-    if (qrUrl.length > maxLen) {
-        html = buildHtml(12); qrUrl = encodeDataUri(html);
-    }
-    if (qrUrl.length > maxLen) {
-        html = buildHtml(8); qrUrl = encodeDataUri(html);
-    }
-    if (qrUrl.length > maxLen) {
-        html = buildHtml(5); qrUrl = encodeDataUri(html);
-    }
-    if (qrUrl.length > maxLen) {
-        html = buildHtml(3); qrUrl = encodeDataUri(html);
-    }
-    if (qrUrl.length > maxLen) {
-        html = buildHtml(2); qrUrl = encodeDataUri(html);
-    }
-
-    console.log('[QR] URL length:', qrUrl.length, 'bytes (data URI base64, self-contained HTML)');
+    console.log('[QR] URL length:', qrUrl.length, 'bytes — URL to /qr page (Vercel)');
 
     // Generate QR — use SVG for maximum WebView compatibility
     var qrSvgHtml = '';
     try {
-        var qrText = qrUrl;
-        var qr = qrcode(0, 'L'); // L = max capacity 2953 bytes
-        qr.addData(qrText);
+        var qr = qrcode(0, 'L');
+        qr.addData(qrUrl);
         qr.make();
         qrSvgHtml = qr.createSvgTag({ cellSize: 6, margin: 8, scalable: true });
     } catch(e) {
@@ -16268,14 +16221,14 @@ function shareQuotationQR(id) {
     qrArea.style.cssText = 'padding:24px 24px 16px;text-align:center;background:#fff;';
 
     var qrContainer = document.createElement('div');
-    qrContainer.style.cssText = 'width:220px;height:220px;max-width:70vw;max-height:70vw;margin:0 auto;display:flex;align-items:center;justify-content:center;border:4px solid #e5e7eb;border-radius:12px;overflow:hidden;padding:8px;background:#fff;';
+    qrContainer.style.cssText = 'width:240px;height:240px;max-width:70vw;max-height:70vw;margin:0 auto;display:flex;align-items:center;justify-content:center;border:4px solid #e5e7eb;border-radius:12px;overflow:hidden;padding:8px;background:#fff;';
     qrContainer.innerHTML = qrSvgHtml;
     var svgEl = qrContainer.querySelector('svg');
     if (svgEl) { svgEl.setAttribute('width', '100%'); svgEl.setAttribute('height', '100%'); svgEl.style.display = 'block'; }
 
     var hint = document.createElement('div');
     hint.style.cssText = 'font-size:13px;color:#6b7280;margin-top:14px;line-height:1.6;';
-    hint.innerHTML = '&#128247; Escanea para ver la cotización<br>en tu navegador y descargar PDF';
+    hint.innerHTML = '&#128247; Escanea con la cámara del teléfono<br>para ver la cotización en el navegador';
 
     qrArea.appendChild(qrContainer);
     qrArea.appendChild(hint);
@@ -16300,8 +16253,14 @@ function shareQuotationQR(id) {
     // Sync status indicator
     var syncStatus = document.createElement('div');
     syncStatus.id = 'qrSyncStatus';
-    syncStatus.style.cssText = 'padding:8px 16px;font-size:11px;color:#f59e0b;text-align:center;background:#fffbeb;';
-    syncStatus.textContent = '⏳ Sincronizando cotización con el servidor...';
+    syncStatus.style.cssText = 'padding:10px 16px;font-size:12px;color:#f59e0b;text-align:center;background:#fffbeb;font-weight:600;';
+    syncStatus.innerHTML = '⏳ Sincronizando cotización con el servidor...';
+
+    // Link row (visible after sync completes)
+    var linkRow = document.createElement('div');
+    linkRow.id = 'qrLinkRow';
+    linkRow.style.cssText = 'padding:8px 16px;font-size:11px;color:#3b82f6;text-align:center;background:#eff6ff;display:none;word-break:break-all;';
+    linkRow.innerHTML = '<a href="' + qrUrl + '" target="_blank" style="color:#3b82f6;">' + qrUrl + '</a>';
 
     // Action buttons
     var btnsArea = document.createElement('div');
@@ -16340,6 +16299,7 @@ function shareQuotationQR(id) {
     container.appendChild(qrArea);
     container.appendChild(infoArea);
     container.appendChild(syncStatus);
+    container.appendChild(linkRow);
     container.appendChild(btnsArea);
     container.appendChild(closeBtn);
     overlay.appendChild(container);
@@ -16353,22 +16313,25 @@ function shareQuotationQR(id) {
 
     document.body.appendChild(overlay);
 
-    // Push quotation to server in background (so QR can be scanned)
-    var serverUrl = getServerUrl();
+    // NV71 FIX: Push quotation to server FIRST, then update status.
+    // The QR encodes /qr?id=<id> which fetches /api/quotation?id=<id>, so the
+    // server MUST have the data before the user scans. Show clear status feedback.
     if (serverUrl && isOnline()) {
         pushQuotationToServer(q, serverUrl).then(function() {
             var statusEl = document.getElementById('qrSyncStatus');
             if (statusEl) {
                 statusEl.style.color = '#10b981';
                 statusEl.style.background = '#ecfdf5';
-                statusEl.textContent = '✅ Cotización sincronizada — QR listo para escanear';
+                statusEl.innerHTML = '✅ Cotización sincronizada<br>El QR está listo para escanear';
             }
+            var linkEl = document.getElementById('qrLinkRow');
+            if (linkEl) { linkEl.style.display = 'block'; }
         }).catch(function(err) {
             var statusEl = document.getElementById('qrSyncStatus');
             if (statusEl) {
                 statusEl.style.color = '#ef4444';
                 statusEl.style.background = '#fef2f2';
-                statusEl.textContent = '⚠️ Error al sincronizar — El QR usará datos locales';
+                statusEl.textContent = '⚠️ Error al sincronizar. Revisa tu conexión e inténtalo de nuevo.';
             }
             console.error('QR sync error:', err);
         });
@@ -16377,7 +16340,7 @@ function shareQuotationQR(id) {
         if (statusEl) {
             statusEl.style.color = '#6b7280';
             statusEl.style.background = '#f3f4f6';
-            statusEl.textContent = '📡 Sin conexión — Sincroniza cuando tengas internet';
+            statusEl.innerHTML = '📡 Sin conexión<br>Conéctate a internet para sincronizar y usar el QR';
         }
     }
 }

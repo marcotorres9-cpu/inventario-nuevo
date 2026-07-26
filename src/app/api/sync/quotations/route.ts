@@ -17,14 +17,29 @@ async function ensureDataColumn() {
 export async function GET() {
   try {
     await ensureDataColumn();
-    const rows: any[] = await query('SELECT id, "customerName", "customerPhone", "customerEmail", subtotal, total, notes, "createdAt", "updatedAt" FROM "Quotation" ORDER BY "updatedAt" DESC');
-    const quotes = rows.map((r: any) => ({
-      id: r.id, clientName: r.customerName || '', clientPhone: r.customerPhone || '',
-      clientEmail: r.customerEmail || '', items: '[]',
-      subtotal: r.subtotal || 0, tax: 0, discount: 0,
-      total: r.total || 0, status: '', notes: r.notes || '',
-      createdAt: r.createdAt, updatedAt: r.updatedAt
-    }));
+    // NV71 FIX: return the `data` column too, so the client can restore the
+    // full quotation snapshot (items, dual mode, totals, store info) instead
+    // of an empty stub when a quotation exists on the server but not locally.
+    const rows: any[] = await query('SELECT id, "customerName", "customerPhone", "customerEmail", subtotal, total, notes, data, "createdAt", "updatedAt" FROM "Quotation" ORDER BY "updatedAt" DESC');
+    const quotes = rows.map((r: any) => {
+      let full: any = null;
+      if (r.data) {
+        try { full = typeof r.data === 'string' ? JSON.parse(r.data) : r.data; } catch { full = null; }
+      }
+      return {
+        id: r.id,
+        clientName: (full?.clientName) || r.customerName || '',
+        clientPhone: (full?.customerPhone) || r.customerPhone || '',
+        clientEmail: (full?.customerEmail) || r.customerEmail || '',
+        // NV71: pass the full snapshot so the client can restore it as-is
+        data: full,
+        subtotal: (full?.subtotal) || r.subtotal || 0,
+        total: (full?.total) || r.total || 0,
+        notes: (full?.notes) || r.notes || '',
+        createdAt: r.createdAt,
+        updatedAt: r.updatedAt
+      };
+    });
     return NextResponse.json(quotes, { headers: H });
   } catch (e: any) {
     console.error('[DB] GET /sync/quotations:', e.message);

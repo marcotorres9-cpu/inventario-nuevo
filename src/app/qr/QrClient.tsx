@@ -261,6 +261,56 @@ export default function QrClient() {
           <div style={{ color: '#fff', fontWeight: 600, marginBottom: 4 }}>{footerText}</div>
           <div>Generado desde Inventario Pro</div>
         </div>
+
+        {/* Action bar — print / save as PDF using the browser's native dialog */}
+        <div style={{ padding: '0 24px 24px', display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          <button
+            onClick={() => window.print()}
+            style={{
+              flex: '1 1 200px',
+              background: '#16a34a',
+              color: '#fff',
+              border: 'none',
+              borderRadius: 12,
+              padding: '14px 16px',
+              fontSize: 14,
+              fontWeight: 700,
+              cursor: 'pointer',
+              minWidth: 180,
+            }}
+          >
+            🖨️ Imprimir / Guardar PDF
+          </button>
+          <button
+            onClick={() => {
+              const txt =
+                'Cotización ' + (q.number || '') + ' de ' + storeName + '\n' +
+                'Total: ' + fmt(q.total, currency) + '\n' +
+                'Válida por ' + validDays + ' días\n' +
+                window.location.href;
+              if (navigator.share) {
+                navigator.share({ title: 'Cotización ' + (q.number || ''), text: txt }).catch(() => {});
+              } else {
+                navigator.clipboard?.writeText(window.location.href);
+                alert('Enlace copiado: ' + window.location.href);
+              }
+            }}
+            style={{
+              flex: '1 1 200px',
+              background: '#3b82f6',
+              color: '#fff',
+              border: 'none',
+              borderRadius: 12,
+              padding: '14px 16px',
+              fontSize: 14,
+              fontWeight: 700,
+              cursor: 'pointer',
+              minWidth: 180,
+            }}
+          >
+            📤 Compartir
+          </button>
+        </div>
       </div>
     </div>
   );
