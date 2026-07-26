@@ -2,6 +2,8 @@ package com.inventariopro.app;
 
 import android.Manifest;
 import android.app.DownloadManager;
+import android.content.ContentResolver;
+import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -11,6 +13,7 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
+import android.provider.MediaStore;
 import android.util.Base64;
 import android.util.Log;
 import android.webkit.JavascriptInterface;
@@ -274,6 +277,158 @@ public class MainActivity extends BridgeActivity {
                 startActivity(chooser);
             } catch (Exception e) {
                 Log.e(TAG, "shareUrl error", e);
+            }
+        }
+
+        // === BLOB-BASED SAVE/SHARE (no server upload needed) ===
+        // Decodes base64 blob, writes to cache, then saves to Downloads or shares via FileProvider.
+
+        private File writeBlobToCache(String base64Data, String fileName, String mimeType) throws Exception {
+            byte[] data = Base64.decode(base64Data, Base64.NO_WRAP);
+            if (fileName == null || fileName.isEmpty()) fileName = "archivo_" + System.currentTimeMillis();
+            File cacheDir = getCacheDir();
+            File outFile = new File(cacheDir, fileName);
+            FileOutputStream fos = new FileOutputStream(outFile);
+            fos.write(data);
+            fos.flush();
+            fos.close();
+            Log.d(TAG, "writeBlobToCache: " + outFile.getAbsolutePath() + " (" + data.length + " bytes)");
+            return outFile;
+        }
+
+        private Uri getShareUri(File file) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                try {
+                    return FileProvider.getUriForFile(MainActivity.this, "com.inventariopro.app.fileprovider", file);
+                } catch (Exception e) {
+                    Log.e(TAG, "FileProvider failed, falling back to file://", e);
+                    return Uri.fromFile(file);
+                }
+            }
+            return Uri.fromFile(file);
+        }
+
+        // Save base64 blob directly to Downloads folder (no server needed)
+        @JavascriptInterface
+        public void saveBlobToDownloads(String base64Data, String fileName, String mimeType) {
+            Log.d(TAG, "saveBlobToDownloads: " + fileName + " (" + (base64Data != null ? base64Data.length() : 0) + " b64 chars)");
+            try {
+                if (fileName == null || fileName.isEmpty()) fileName = "archivo_" + System.currentTimeMillis();
+                if (mimeType == null || mimeType.isEmpty()) mimeType = "application/octet-stream";
+
+                byte[] data = Base64.decode(base64Data, Base64.NO_WRAP);
+
+                // For Android 10+ (API 29+), use MediaStore to write to Downloads without permission
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    ContentValues values = new ContentValues();
+                    values.put(MediaStore.Downloads.DISPLAY_NAME, fileName);
+                    values.put(MediaStore.Downloads.MIME_TYPE, mimeType);
+                    values.put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS);
+                    values.put(MediaStore.Downloads.IS_PENDING, 1);
+
+                    ContentResolver resolver = getContentResolver();
+                    Uri collection = MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY);
+                    Uri itemUri = resolver.insert(collection, values);
+                    if (itemUri == null) throw new Exception("No se pudo crear entrada en MediaStore");
+
+                    java.io.OutputStream os = resolver.openOutputStream(itemUri);
+                    if (os == null) throw new Exception("No se pudo abrir output stream");
+                    os.write(data);
+                    os.flush();
+                    os.close();
+
+                    values.clear();
+                    values.put(MediaStore.Downloads.IS_PENDING, 0);
+                    resolver.update(itemUri, values, null, null);
+                } else {
+                    // Legacy: direct file write for Android 9 and below
+                    File downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
+                    if (!downloadsDir.exists()) downloadsDir.mkdirs();
+                    File outFile = new File(downloadsDir, fileName);
+                    FileOutputStream fos = new FileOutputStream(outFile);
+                    fos.write(data);
+                    fos.flush();
+                    fos.close();
+
+                    Intent mediaScan = new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE);
+                    mediaScan.setData(Uri.fromFile(outFile));
+                    sendBroadcast(mediaScan);
+                }
+
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        Toast.makeText(MainActivity.this, "✅ Guardado en Descargas: " + fileName, Toast.LENGTH_LONG).show();
+                    }
+                });
+            } catch (final Exception e) {
+                Log.e(TAG, "saveBlobToDownloads error", e);
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        Toast.makeText(MainActivity.this, "Error al guardar: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                    }
+                });
+            }
+        }
+
+        // Share base64 blob via Android share sheet (WhatsApp, email, etc.)
+        @JavascriptInterface
+        public void shareBlob(String base64Data, String fileName, String mimeType, String description) {
+            Log.d(TAG, "shareBlob: " + fileName + " (" + (base64Data != null ? base64Data.length() : 0) + " b64 chars)");
+            try {
+                if (fileName == null || fileName.isEmpty()) fileName = "archivo_" + System.currentTimeMillis();
+                if (mimeType == null || mimeType.isEmpty()) mimeType = "application/octet-stream";
+
+                File file = writeBlobToCache(base64Data, fileName, mimeType);
+                Uri contentUri = getShareUri(file);
+
+                Intent shareIntent = new Intent(Intent.ACTION_SEND);
+                shareIntent.setType(mimeType);
+                shareIntent.putExtra(Intent.EXTRA_STREAM, contentUri);
+                if (description != null && !description.isEmpty()) {
+                    shareIntent.putExtra(Intent.EXTRA_TEXT, description);
+                    shareIntent.putExtra(Intent.EXTRA_SUBJECT, fileName);
+                }
+                shareIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                Intent chooser = Intent.createChooser(shareIntent, "Compartir " + fileName);
+                chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                startActivity(chooser);
+            } catch (Exception e) {
+                Log.e(TAG, "shareBlob error", e);
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        Toast.makeText(MainActivity.this, "Error al compartir: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                    }
+                });
+            }
+        }
+
+        // Open base64 blob (e.g. PDF) in external viewer (Chrome / PDF reader)
+        @JavascriptInterface
+        public void openBlob(String base64Data, String fileName, String mimeType) {
+            Log.d(TAG, "openBlob: " + fileName + " (" + (base64Data != null ? base64Data.length() : 0) + " b64 chars)");
+            try {
+                if (fileName == null || fileName.isEmpty()) fileName = "archivo_" + System.currentTimeMillis();
+                if (mimeType == null || mimeType.isEmpty()) mimeType = "application/octet-stream";
+
+                File file = writeBlobToCache(base64Data, fileName, mimeType);
+                Uri contentUri = getShareUri(file);
+
+                Intent viewIntent = new Intent(Intent.ACTION_VIEW);
+                viewIntent.setDataAndType(contentUri, mimeType);
+                viewIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                viewIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                startActivity(viewIntent);
+            } catch (Exception e) {
+                Log.e(TAG, "openBlob error", e);
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        Toast.makeText(MainActivity.this, "Error al abrir: " + e.getMessage() + " — intenta Descargar en su lugar", Toast.LENGTH_LONG).show();
+                    }
+                });
             }
         }
     }
