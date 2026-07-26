@@ -39,7 +39,7 @@
     // FORCE fresh code: always check server version, reload if different
     (function(){
         try {
-            var _NV = 'NV69';
+            var _NV = 'NV70';
             var _ck = '_inv_nv';
             var stored = localStorage.getItem(_ck);
             // Only reload if version changed AND we haven't already reloaded for this version
@@ -1117,7 +1117,7 @@
             <div>
                 <div class="header-name" id="storeHeaderName">Inventario Pro</div>
                 <div class="header-role" id="userRole">rol</div>
-                <div class="header-ver" id="headerVersion">v2.6.23 NV69</div>
+                <div class="header-ver" id="headerVersion">v2.6.24 NV70</div>
             </div>
         </div>
         <button class="btn-logout" onclick="toggleTheme()" style="background:none;border:none;font-size:20px;cursor:pointer;margin-right:8px;color:var(--text2);" title="Cambiar tema">🌓</button>
@@ -3691,7 +3691,7 @@ function logout() {
 // ====================================================================
 // CHANGELOG — Show latest updates to the user
 // ====================================================================
-var APP_VERSION = '2.6.23 NV69'
+var APP_VERSION = '2.6.24 NV70'
 var CHANGELOG_ENTRIES = [
     { ver: '2.4.0', date: '24 Abr 2026', items: [
         { icon: '📊', text: '<b>Capacidad por espacio:</b> Controla unidades mínimas y máximas para Exhibición, Local Pequeño, Local Grande desde el panel de Control del Local.' },
@@ -16152,97 +16152,81 @@ function shareQuotationQR(id) {
     var cfg = getStoreConfig();
     var isDual = q.isDualMode && q.itemsB && q.itemsB.length > 0;
 
-    // Build URL for QR — points to /qr.html which is a STATIC file served from public/.
-    // The quote data is embedded as base64 in ?d= so the page renders without any DB fetch.
-    var serverBase = getServerUrl() || '';
-    if (!serverBase && window.location.origin && window.location.origin !== 'null' && window.location.origin !== 'file://') {
-        serverBase = window.location.origin;
-    }
+    // Build a SELF-CONTAINED HTML page with the quote data and embed it as a data URI
+    // directly in the QR code. No external CDN, no Vercel, no jsDelivr — works 100%
+    // offline on any phone camera. The browser renders the HTML natively.
+    // Why this approach: jsDelivr and raw.githubusercontent.com both serve .html files
+    // with content-type=text/plain (showing source code instead of rendered page),
+    // and the Vercel deployment is stale (404). data:text/html;base64 URIs always render.
+    var cur = (cfg.currency || 'MXN');
+    var dateStr = q.createdAt ? new Date(q.createdAt).toLocaleDateString('es-MX') : new Date().toLocaleDateString('es-MX');
 
-    // Build compact quote snapshot for embedding in URL
-    var snapshot = {
-        id: q.id,
-        number: q.number || '',
-        clientName: q.clientName || '',
-        customerPhone: q.customerPhone || '',
-        customerEmail: q.customerEmail || '',
-        itemsA: (q.itemsA || q.items || []).map(function(it){
-            return {
-                q: it.qty || 1,
-                n: (it.productName || it.name || '').substring(0, 60),
-                p: parseFloat(it.price != null ? it.price : (it.costPrice != null ? it.costPrice : 0)) || 0,
-                d: parseFloat(it.lineDiscount || 0) || 0
-            };
-        }),
-        itemsB: isDual ? (q.itemsB || []).map(function(it){
-            return {
-                q: it.qty || 1,
-                n: (it.productName || it.name || '').substring(0, 60),
-                p: parseFloat(it.price != null ? it.price : (it.costPrice != null ? it.costPrice : 0)) || 0,
-                d: parseFloat(it.lineDiscount || 0) || 0
-            };
-        }) : [],
-        isDualMode: !!isDual,
-        optionTitleA: q.optionTitleA || 'Opción A',
-        optionTitleB: q.optionTitleB || 'Opción B',
-        totalsA: q.totalsA || null,
-        totalsB: q.totalsB || null,
-        subtotal: q.subtotal || 0,
-        total: q.total || 0,
-        notes: (q.notes || '').substring(0, 200),
-        validDays: q.validDays || 15,
-        createdAt: q.createdAt || new Date().toISOString(),
-        store: {
-            nm: cfg.storeName || '',
-            ad: cfg.address || '',
-            ph: cfg.phone || '',
-            em: cfg.email || '',
-            ft: cfg.footerText || '',
-            cr: cfg.currency || 'MXN'
+    function buildRows(items, max) {
+        if (!items || items.length === 0) return '<tr><td colspan=4 style="text-align:center;color:#999;font-style:italic">Sin items</td></tr>';
+        var out = '';
+        var list = max && items.length > max ? items.slice(0, max) : items;
+        for (var i = 0; i < list.length; i++) {
+            var it = list[i];
+            var qty = it.qty || 1;
+            var price = parseFloat(it.price != null ? it.price : (it.costPrice != null ? it.costPrice : 0)) || 0;
+            var lt = qty * price;
+            out += '<tr><td>' + qty + '</td><td>' + escapeHtml((it.productName || it.name || '').substring(0, 36)) + '</td><td class=r>$' + fmtDec(price) + '</td><td class=r>$' + fmtDec(lt) + '</td></tr>';
         }
-    };
-
-    // Encode JSON as base64 (UTF-8 safe)
-    var jsonStr = JSON.stringify(snapshot);
-    var b64;
-    try {
-        // UTF-8 safe base64 encoding
-        b64 = btoa(unescape(encodeURIComponent(jsonStr)));
-    } catch(e) {
-        b64 = btoa(jsonStr);
+        if (max && items.length > max) {
+            out += '<tr><td colspan=4 style="text-align:center;color:#999;font-style:italic">+' + (items.length - max) + ' productos</td></tr>';
+        }
+        return out;
     }
 
-    // Build the QR URL pointing to /qr.html with embedded data
-    // Use jsDelivr CDN (serves public/ files directly from GitHub) as primary URL
-    // because Vercel deployment is not always up-to-date with the latest commits.
-    var qrUrl = 'https://cdn.jsdelivr.net/gh/marcotorres9-cpu/inventario-nuevo@main/public/qr.html?d=' + b64;
+    function buildHtml(maxItems) {
+        var itemsA = q.itemsA || q.items || [];
+        var itemsB = isDual ? (q.itemsB || []) : [];
+        var addrLine = (cfg.address ? '<br>' + escapeHtml(cfg.address) : '') + (cfg.phone ? '<br>Tel: ' + escapeHtml(cfg.phone) : '');
+        var notesHtml = q.notes ? '<div class=n><b>Notas:</b> ' + escapeHtml((q.notes||'').substring(0, 100)) + '</div>' : '';
+        var secA = '<tr><th>C</th><th>Producto</th><th class=r>P</th><th class=r>T</th></tr>' + buildRows(itemsA, maxItems);
+        var secB = isDual ? '<tr><th colspan=4 style="background:#3b82f6">' + escapeHtml(q.optionTitleB||'Opción B') + '</th></tr>' + buildRows(itemsB, maxItems) : '';
 
-    // If no server URL, fall back to plain-text summary
-    if (!qrUrl || qrUrl.length < 10) {
-        var summary = (cfg.storeName || 'Cotización') + ' - ' + (q.number || '') + '\n';
-        summary += 'Cliente: ' + (q.clientName || '') + '\n';
-        summary += 'Total: $' + fmtDec(q.total || 0) + '\n';
-        summary += 'Fecha: ' + (q.createdAt ? new Date(q.createdAt).toLocaleDateString() : '');
-        qrUrl = summary.substring(0, 500);
+        // Minimal CSS — using class names instead of inline styles (compact for many table rows)
+        var html = '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Cot ' + escapeHtml(q.number||'') + '</title><style>body{margin:0;padding:8px;font-family:sans-serif;background:#f1f5f9;color:#0f172a}.c{max-width:480px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden}.h{background:#16a34a;color:#fff;padding:12px}.h b{font-size:17px;display:block}.h p{margin:3px 0 0;font-size:10px;opacity:.9;line-height:1.5}.cl{padding:8px 12px;font-size:13px;font-weight:600}.cl small{font-size:10px;color:#666;font-weight:400}.t{width:calc(100% - 24px);margin:0 12px;border-collapse:collapse;font-size:11px}.t td,.t th{padding:4px 3px;text-align:left}.t th{background:#22c55e;color:#fff;font-size:9px;text-transform:uppercase}.r{text-align:right}.to{padding:10px 12px;background:#f0fdf4;border-top:2px solid #16a34a;display:flex;justify-content:space-between}.to b{font-size:11px;color:#15803d;text-transform:uppercase}.to s{font-size:19px;color:#15803d;font-weight:800;text-decoration:none}.n{padding:6px 12px;font-size:10px;color:#666}.n b{color:#15803d}.b{display:block;margin:6px 12px 10px;padding:10px;background:#16a34a;color:#fff;text-align:center;text-decoration:none;border-radius:6px;font-weight:700;font-size:13px}</style></head><body><div class=c><div class=h><b>' + escapeHtml(cfg.storeName||'Cotizacion') + '</b><p>Cot N&deg; ' + escapeHtml(q.number||'') + ' &middot; ' + dateStr + '<br>Valida: ' + (q.validDays||15) + ' dias' + addrLine + '</p></div><div class=cl>' + escapeHtml(q.clientName||'Consumidor Final') + (q.customerPhone?' <small>'+escapeHtml(q.customerPhone)+'</small>':'') + '</div>' + (isDual?'<div class=cl style="color:#15803d;font-size:10px;text-transform:uppercase;font-weight:700;padding:0 12px">'+escapeHtml(q.optionTitleA||'Opción A')+'</div>':'') + '<table class=t>' + secA + secB + '</table><div class=to><b>Total</b><s>$' + fmtDec(q.total||0) + ' ' + cur + '</s></div>' + notesHtml + '<a class=b href="javascript:window.print()">Descargar PDF</a></div></body></html>';
+        return html;
     }
 
-    // Check URL length — if too long for QR, fall back to ?id= URL (requires server fetch)
-    var maxLen = 2300; // safe limit for QR byte mode L
+    // Encode HTML as data URI using base64 (more compact than URL encoding for HTML)
+    function encodeDataUri(html) {
+        try {
+            // UTF-8 safe base64
+            var b64 = btoa(unescape(encodeURIComponent(html)));
+            return 'data:text/html;charset=utf-8;base64,' + b64;
+        } catch(e) {
+            return 'data:text/html;charset=utf-8,' + encodeURIComponent(html);
+        }
+    }
+
+    // Try with full items list first; progressively truncate if too long for QR
+    var html = buildHtml(50);
+    var qrUrl = encodeDataUri(html);
+    var maxLen = 2900; // safe limit for QR byte mode L (max 2953)
+
     if (qrUrl.length > maxLen) {
-        // Truncate items list
-        console.warn('[QR] URL too long (' + qrUrl.length + ' bytes), truncating items');
-        snapshot.itemsA = snapshot.itemsA.slice(0, 5);
-        snapshot.itemsB = snapshot.itemsB.slice(0, 5);
-        jsonStr = JSON.stringify(snapshot);
-        try { b64 = btoa(unescape(encodeURIComponent(jsonStr))); } catch(e) { b64 = btoa(jsonStr); }
-        qrUrl = 'https://cdn.jsdelivr.net/gh/marcotorres9-cpu/inventario-nuevo@main/public/qr.html?d=' + b64;
-        if (qrUrl.length > maxLen) {
-            // Last resort: use ?id= and rely on server fetch
-            qrUrl = (serverBase || 'https://inventario-nuevo-v2.vercel.app') + '/qr.html?id=' + encodeURIComponent(id);
-        }
+        html = buildHtml(20); qrUrl = encodeDataUri(html);
+    }
+    if (qrUrl.length > maxLen) {
+        html = buildHtml(12); qrUrl = encodeDataUri(html);
+    }
+    if (qrUrl.length > maxLen) {
+        html = buildHtml(8); qrUrl = encodeDataUri(html);
+    }
+    if (qrUrl.length > maxLen) {
+        html = buildHtml(5); qrUrl = encodeDataUri(html);
+    }
+    if (qrUrl.length > maxLen) {
+        html = buildHtml(3); qrUrl = encodeDataUri(html);
+    }
+    if (qrUrl.length > maxLen) {
+        html = buildHtml(2); qrUrl = encodeDataUri(html);
     }
 
-    console.log('[QR] URL length:', qrUrl.length, 'bytes');
+    console.log('[QR] URL length:', qrUrl.length, 'bytes (data URI base64, self-contained HTML)');
 
     // Generate QR — use SVG for maximum WebView compatibility
     var qrSvgHtml = '';
