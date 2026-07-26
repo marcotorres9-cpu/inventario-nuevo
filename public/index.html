@@ -16849,6 +16849,13 @@ function downloadQuotationCard() {
     try {
         var blob = dataURLtoBlob(du);
         var sn = (window._quotCardNumber || 'COT-001').replace(/[^a-zA-Z0-9\-]/g, '') + '.png';
+        // NV68: Native blob save (no server upload needed)
+        if (_esAppNativa() && window.NativeBridge.saveBlobToDownloads) {
+            _blobToBase64(blob, function(b64) {
+                if (b64) window.NativeBridge.saveBlobToDownloads(b64, sn, 'image/png');
+            });
+            return;
+        }
         _uploadFile(blob, sn, 'image/png', function(u) { descargarArchivo(u, sn, 'Cotizacion'); });
     } catch(ex) { showToast('Error: ' + ex.message, 'error'); }
 }
@@ -16858,6 +16865,13 @@ function shareQuotationCard() {
     try {
         var blob = dataURLtoBlob(du);
         var sn = (window._quotCardNumber || 'COT-001').replace(/[^a-zA-Z0-9\-]/g, '') + '.png';
+        // NV68: Native blob share (no server upload needed)
+        if (_esAppNativa() && window.NativeBridge.shareBlob) {
+            _blobToBase64(blob, function(b64) {
+                if (b64) window.NativeBridge.shareBlob(b64, sn, 'image/png', 'Cotización');
+            });
+            return;
+        }
         _uploadFile(blob, sn, 'image/png', function(u) { compartirArchivo(u, sn, 'Cotizacion'); });
     } catch(ex) { showToast('Error: ' + ex.message, 'error'); }
 }
@@ -17601,6 +17615,13 @@ function imprimirCatalogo() {
     var dateStr = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
     var fileName = 'Catalogo_' + dateStr + '.html';
     var blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+    // NV68: Native blob open
+    if (_esAppNativa() && window.NativeBridge.openBlob) {
+        _blobToBase64(blob, function(b64) {
+            if (b64) window.NativeBridge.openBlob(b64, fileName, 'text/html');
+        });
+        return;
+    }
     _uploadFile(blob, fileName, 'text/html', function(fileUrl) {
         imprimirArchivo(fileUrl, fileName, 'Reporte de Catalogo');
     });
@@ -17614,6 +17635,13 @@ function descargarCatalogo() {
     var dateStr = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
     var fileName = 'Catalogo_' + dateStr + '.html';
     var blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+    // NV68: Native blob save
+    if (_esAppNativa() && window.NativeBridge.saveBlobToDownloads) {
+        _blobToBase64(blob, function(b64) {
+            if (b64) window.NativeBridge.saveBlobToDownloads(b64, fileName, 'text/html');
+        });
+        return;
+    }
     _uploadFile(blob, fileName, 'text/html', function(fileUrl) {
         descargarArchivo(fileUrl, fileName, 'Reporte de Catalogo');
     });
@@ -17628,6 +17656,12 @@ function imprimirFaltantes() {
     var dateStr = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
     var fileName = 'Faltantes_' + dateStr + '.html';
     var blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+    if (_esAppNativa() && window.NativeBridge.openBlob) {
+        _blobToBase64(blob, function(b64) {
+            if (b64) window.NativeBridge.openBlob(b64, fileName, 'text/html');
+        });
+        return;
+    }
     _uploadFile(blob, fileName, 'text/html', function(fileUrl) {
         imprimirArchivo(fileUrl, fileName, 'Reporte de Faltantes');
     });
@@ -17641,6 +17675,12 @@ function descargarFaltantes() {
     var dateStr = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
     var fileName = 'Faltantes_' + dateStr + '.html';
     var blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+    if (_esAppNativa() && window.NativeBridge.saveBlobToDownloads) {
+        _blobToBase64(blob, function(b64) {
+            if (b64) window.NativeBridge.saveBlobToDownloads(b64, fileName, 'text/html');
+        });
+        return;
+    }
     _uploadFile(blob, fileName, 'text/html', function(fileUrl) {
         descargarArchivo(fileUrl, fileName, 'Reporte de Faltantes');
     });

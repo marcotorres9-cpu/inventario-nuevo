@@ -312,17 +312,19 @@ public class MainActivity extends BridgeActivity {
         @JavascriptInterface
         public void saveBlobToDownloads(String base64Data, String fileName, String mimeType) {
             Log.d(TAG, "saveBlobToDownloads: " + fileName + " (" + (base64Data != null ? base64Data.length() : 0) + " b64 chars)");
+            final String finalFileName;
             try {
-                if (fileName == null || fileName.isEmpty()) fileName = "archivo_" + System.currentTimeMillis();
-                if (mimeType == null || mimeType.isEmpty()) mimeType = "application/octet-stream";
+                if (fileName == null || fileName.isEmpty()) finalFileName = "archivo_" + System.currentTimeMillis();
+                else finalFileName = fileName;
+                final String finalMime = (mimeType == null || mimeType.isEmpty()) ? "application/octet-stream" : mimeType;
 
                 byte[] data = Base64.decode(base64Data, Base64.NO_WRAP);
 
                 // For Android 10+ (API 29+), use MediaStore to write to Downloads without permission
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                     ContentValues values = new ContentValues();
-                    values.put(MediaStore.Downloads.DISPLAY_NAME, fileName);
-                    values.put(MediaStore.Downloads.MIME_TYPE, mimeType);
+                    values.put(MediaStore.Downloads.DISPLAY_NAME, finalFileName);
+                    values.put(MediaStore.Downloads.MIME_TYPE, finalMime);
                     values.put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS);
                     values.put(MediaStore.Downloads.IS_PENDING, 1);
 
@@ -344,7 +346,7 @@ public class MainActivity extends BridgeActivity {
                     // Legacy: direct file write for Android 9 and below
                     File downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
                     if (!downloadsDir.exists()) downloadsDir.mkdirs();
-                    File outFile = new File(downloadsDir, fileName);
+                    File outFile = new File(downloadsDir, finalFileName);
                     FileOutputStream fos = new FileOutputStream(outFile);
                     fos.write(data);
                     fos.flush();
@@ -358,7 +360,7 @@ public class MainActivity extends BridgeActivity {
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
-                        Toast.makeText(MainActivity.this, "✅ Guardado en Descargas: " + fileName, Toast.LENGTH_LONG).show();
+                        Toast.makeText(MainActivity.this, "✅ Guardado en Descargas: " + finalFileName, Toast.LENGTH_LONG).show();
                     }
                 });
             } catch (final Exception e) {
