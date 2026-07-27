@@ -5,6 +5,29 @@ export const dynamic = 'force-dynamic';
 
 const H = { 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' };
 
+// Fix double-encoded UTF-8 stored in DB (e.g. "SanguÃ±a" → "Sanguña")
+function fixUtf8(str: string | undefined | null): string {
+  if (!str) return '';
+  try { return decodeURIComponent(escape(str)); } catch { return str; }
+}
+
+// Fix encoding in all string fields of a quotation snapshot
+function fixDataFields(obj: any): any {
+  if (!obj || typeof obj !== 'object') return obj;
+  const out: any = Array.isArray(obj) ? [] : {};
+  for (const k of Object.keys(obj)) {
+    const v = obj[k];
+    if (typeof v === 'string') {
+      out[k] = fixUtf8(v);
+    } else if (typeof v === 'object' && v !== null) {
+      out[k] = fixDataFields(v);
+    } else {
+      out[k] = v;
+    }
+  }
+  return out;
+}
+
 // Returns the FULL quotation JSON (items, dual mode, totals, etc.) by id
 export async function GET(request: Request) {
   try {
@@ -65,7 +88,10 @@ export async function GET(request: Request) {
       store: fullData?.store || null,
     };
 
-    return NextResponse.json(merged, { headers: H });
+    // Fix double-encoded UTF-8 in all string fields (e.g. store address "SanguÃ±a" → "Sanguña")
+    const fixed = fixDataFields(merged);
+
+    return NextResponse.json(fixed, { headers: H });
   } catch (e: any) {
     console.error('[DB] GET /api/quotation:', e.message);
     return NextResponse.json({ error: 'Error interno: ' + e.message }, { status: 500, headers: H });
