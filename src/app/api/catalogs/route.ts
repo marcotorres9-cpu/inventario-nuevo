@@ -78,7 +78,7 @@ export async function GET(){
     await ensureTable();
     await ensureImageTable();
     const rows=await query('SELECT id,slug,name,description,products,"storeInfo","storeId","mainImage","createdAt","updatedAt" FROM "ElectronicCatalog" ORDER BY "updatedAt" DESC');
-    // Resolve first image per catalog for thumbnail display
+    // Resolve first image ID per catalog for thumbnail (send ID only, not full data)
     for(const r of rows as any[]){
       let prods:any[]=[];
       try{prods=typeof r.products==='string'?JSON.parse(r.products):(r.products||[]);}catch{}
@@ -87,12 +87,16 @@ export async function GET(){
       const mainIdx=(typeof r.mainImage==='number')?r.mainImage:0;
       const firstId=ids[mainIdx]||ids[0]||'';
       if(firstId){
-        try{
-          const imgRows=await query(`SELECT "imageType",data FROM "CatalogImage" WHERE id=$1`,[firstId]);
-          if(imgRows.length>0){
-            r._thumb={type:(imgRows[0] as any).imageType,data:(imgRows[0] as any).data};
-          }
-        }catch{}
+        // Just send the ID; client will fetch the image individually
+        r._thumbId=firstId;
+      }
+      // Fallback: check if product has embedded images (old format)
+      if(!r._thumbId){
+        const imgs:any[]=(p0 as any).images||[];
+        if(imgs.length>0&&imgs[0]&&imgs[0].data){
+          r._thumbId='embedded';
+          r._thumbEmbedded=imgs[0];
+        }
       }
     }
     return NextResponse.json(rows,{headers:H});
