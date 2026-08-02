@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="theme-color" content="#09090b">
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
@@ -417,7 +417,7 @@
         /* ================================================================
            MAIN CONTENT & SECTIONS
            ================================================================ */
-        .main { padding: 16px; padding-bottom: 84px; }
+        .main { padding: 16px; padding-bottom: calc(84px + env(safe-area-inset-bottom, 0px)); }
         .section { display: none; }
         .section.active { display: block; animation: fadeIn 0.2s ease; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
@@ -568,7 +568,7 @@
             position: fixed; bottom: 0; left: 0; right: 0;
             background: rgba(9,9,11,0.95); backdrop-filter: blur(12px);
             border-top: 1px solid var(--border);
-            display: flex; justify-content: flex-start; padding: 6px 0 12px;
+            display: flex; justify-content: flex-start; padding: 6px 0 calc(12px + env(safe-area-inset-bottom, 0px));
             z-index: 100;
             overflow-x: auto; -webkit-overflow-scrolling: touch;
             scrollbar-width: none;
@@ -1530,14 +1530,14 @@
 <!-- MODAL: SHARE CARD PREVIEW                                     -->
 <!-- ============================================================ -->
 <div class="modal-overlay" id="sharePreviewModal">
-    <div class="modal-content" style="max-width:400px;padding:0;overflow:hidden;">
+    <div class="modal-content" style="max-width:400px;padding:0;overflow-y:auto;overflow-x:hidden;max-height:85vh;">
         <div class="modal-header" style="padding:14px 16px;">
             <div class="modal-title" style="font-size:15px;">Tarjeta de Catálogo</div>
             <button class="modal-close" onclick="_closeSharePreview()">&times;</button>
         </div>
         <div style="padding:0 16px 16px;">
-            <a id="sharePreviewLinkWrap" href="#" style="display:block;background:var(--bg);border-radius:10px;overflow:hidden;margin-bottom:10px;max-height:55vh;text-decoration:none;">
-                <img id="sharePreviewImg" src="" style="width:100%;display:block;" draggable="false">
+            <a id="sharePreviewLinkWrap" href="#" style="display:block;background:var(--bg2);border-radius:10px;overflow:hidden;margin-bottom:10px;max-height:40vh;text-decoration:none;">
+                <img id="sharePreviewImg" src="" style="width:100%;max-height:40vh;object-fit:contain;display:block;" draggable="false">
             </a>
             <a id="sharePreviewLinkA" href="#" style="display:flex;align-items:center;gap:8px;background:var(--primary-bg);border:1px solid var(--primary);border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:11px;color:var(--primary);text-decoration:none;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">🔗 Toca para ver en el navegador</a>
             <div style="display:flex;flex-direction:column;gap:6px;">
@@ -1724,7 +1724,7 @@
 <!-- ============================================================ -->
 <!-- MODAL: NEW QUOTATION                                         -->
 <!-- ============================================================ -->
-<div id="quotationModal" class="modal-overlay">
+<div id="quotationModal" class="modal-overlay" style="padding:0;">
     <div class="modal-content modal-fullscreen">
         <div class="modal-header" style="margin-bottom:6px;padding:0 2px;">
             <h2 class="modal-title" id="quotModalTitle" style="font-size:15px;">📝 Cotizador</h2>
@@ -2501,7 +2501,10 @@ function setCurrentUser(u) {
                 r.reject(new TypeError('Network error'));
             } else {
                 try {
-                    var text = atob(b64);
+                    var binary = atob(b64);
+                    var bytes = new Uint8Array(binary.length);
+                    for (var bi = 0; bi < binary.length; bi++) bytes[bi] = binary.charCodeAt(bi);
+                    var text = new TextDecoder('utf-8').decode(bytes);
                     r.resolve(new Response(text, {
                         status: status,
                         statusText: status >= 200 && status < 300 ? 'OK' : 'Error',
@@ -7500,7 +7503,7 @@ function renderLightboxUI() {
             '<div style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:40px;color:rgba(255,255,255,0.5);">⏳</div>' +
         '</div>' +
         (total > 1 ?
-        '<div style="position:absolute;bottom:0;left:0;right:0;display:flex;align-items:center;justify-content:center;padding:20px 16px;gap:16px;z-index:3;opacity:0;transition:opacity 0.35s ease;" id="lbFooter">' +
+        '<div style="position:absolute;bottom:0;left:0;right:0;display:flex;align-items:center;justify-content:center;padding:calc(16px + env(safe-area-inset-bottom, 0px)) 16px 20px;gap:16px;z-index:3;opacity:0;transition:opacity 0.35s ease;" id="lbFooter">' +
             '<button id="lbPrevBtn" style="background:rgba(0,0,0,0.35);color:#fff;border:none;font-size:20px;width:46px;height:46px;border-radius:50%;cursor:pointer;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);transition:transform 0.15s ease;">◀</button>' +
             '<div id="lightboxDots" style="display:flex;gap:6px;"></div>' +
             '<button id="lbNextBtn" style="background:rgba(0,0,0,0.35);color:#fff;border:none;font-size:20px;width:46px;height:46px;border-radius:50%;cursor:pointer;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);transition:transform 0.15s ease;">▶</button>' +
@@ -17827,7 +17830,7 @@ function generateQuotationHtmlDocument(q) {
     fullHtml += '<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Segoe UI,Arial,sans-serif;color:#222;font-size:14px;line-height:1.5;background:#f3f4f6}';
     fullHtml += '.container{max-width:800px;margin:0 auto;background:#fff;min-height:100vh}@media print{body{background:#fff}.no-print{display:none!important}.container{max-width:100%}}';
     fullHtml += '.header{position:relative;overflow:hidden;border-bottom:3px solid #22c55e;}';
-    fullHtml += '.header-img{width:100%;height:280px;object-fit:cover;display:block;}';
+    fullHtml += '.header-img{width:100%;height:auto;max-height:280px;object-fit:contain;display:block;background:#f3f4f6;}';
     fullHtml += '.header-overlay{position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,0.15) 0%,rgba(0,0,0,0.55) 100%);display:flex;flex-direction:column;justify-content:flex-end;padding:20px 24px 16px;}';
     fullHtml += '.header-overlay h1{font-size:26px;color:#ffffff;margin:0 0 4px;text-shadow:0 2px 8px rgba(0,0,0,0.4);}.header-overlay .info{font-size:12px;color:rgba(255,255,255,0.9);text-shadow:0 1px 4px rgba(0,0,0,0.3)}';
     fullHtml += '.meta{display:flex;justify-content:space-between;padding:12px 20px;background:#f9fafb;border-bottom:1px solid #e5e7eb;font-size:13px}.meta strong{color:#374151}';
@@ -21758,7 +21761,7 @@ function renderPublicCatalog(cat) {
         '*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}' +
         'body{font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',Roboto,Arial,sans-serif;background:#f5f5f5;color:#333;}' +
         '.pg-wrap{max-width:600px;margin:0 auto;min-height:100vh;background:#fff;}' +
-        '.pg-gallery{position:relative;width:100%;aspect-ratio:1;background:#f0f0f0;overflow:hidden;touch-action:pan-y;}' +
+        '.pg-gallery{position:relative;width:100%;max-height:60vh;aspect-ratio:1;background:#f0f0f0;overflow:hidden;touch-action:pan-y;}' +
         '.pg-slide{position:absolute;top:0;left:0;width:100%;height:100%;display:none;align-items:center;justify-content:center;background:#fafafa;}' +
         '.pg-slide.pg-active{display:flex;}' +
         '.pg-slide img{width:100%;height:100%;object-fit:contain;}' +
