@@ -19822,7 +19822,7 @@ function shareCatalogImage(slug, catId) {
     var serverUrl = getServerUrl();
     var shortLink = _getCatalogShortLink(slug);
 
-    // Use fetch() — same path as renderCatalogsList, goes through NativeBridge in APK
+    // Use fetch() for catalog metadata (small response, works via NativeBridge)
     fetch(serverUrl + '/api/catalogs?_t=' + Date.now(), { method: 'GET', headers: { 'Content-Type': 'application/json' } })
     .then(function(r) { return r.json(); })
     .then(function(cats) {
@@ -19838,73 +19838,65 @@ function shareCatalogImage(slug, catId) {
         if (!p) { showToast('Sin producto', 'error'); return; }
         var mainIdx = parseInt(cat.mainImage) || 0;
 
-        // SOURCE 1: _thumbEmbedded from server (old format, small thumbnail)
+        // Store catalog data for fallback if canvas is tainted
+        window._lastShareCatData = cat;
+
+        // Build image source: prefer direct binary URL (bypasses all base64/JSON/NativeBridge issues)
+        var imgSrc = '';
+
+        // SOURCE 1: _thumbEmbedded (old format catalogs with embedded thumbnail)
         if (cat._thumbEmbedded && cat._thumbEmbedded.data) {
-            var emb = cat._thumbEmbedded;
-            _generateShareCard(['data:' + (emb.type || 'image/jpeg') + ';base64,' + emb.data], p, shortLink, cat.storeInfo);
-            return;
+            imgSrc = 'data:' + (cat._thumbEmbedded.type || 'image/jpeg') + ';base64,' + cat._thumbEmbedded.data;
         }
 
-        // SOURCE 2: Embedded images in product (old format)
-        var embeddedImages = p.images || [];
-        if (embeddedImages.length > 0 && embeddedImages[mainIdx] && embeddedImages[mainIdx].data) {
-            var ei = embeddedImages[mainIdx];
-            _generateShareCard(['data:' + (ei.type || 'image/jpeg') + ';base64,' + ei.data], p, shortLink, cat.storeInfo);
-            return;
+        // SOURCE 2: Direct image URL via /api/catalog-image/[id] — binary, no JSON, no base64 overhead
+        if (!imgSrc) {
+            var imgId = '';
+            // Use _thumbId from server (already resolved)
+            if (cat._thumbId && cat._thumbId !== 'embedded') {
+                imgId = cat._thumbId;
+            }
+            // Fallback: get from product imageIds
+            if (!imgId) {
+                var imgIds = p.imageIds || [];
+                var idx = mainIdx;
+                if (idx >= imgIds.length) idx = 0;
+                imgId = imgIds[idx] || '';
+            }
+            if (imgId) {
+                imgSrc = serverUrl + '/api/catalog-image/' + encodeURIComponent(imgId);
+            }
         }
 
-        // SOURCE 3: Server imageIds (new format) — try local IndexedDB first
-        var imgIds = p.imageIds || [];
-        if (mainIdx >= imgIds.length) mainIdx = 0;
-        if (imgIds.length === 0 || !imgIds[mainIdx]) {
-            _generateShareCard([''], p, shortLink, cat.storeInfo);
-            return;
+        // SOURCE 3: Try local IndexedDB as last resort
+        if (!imgSrc) {
+            var localProducts = getProducts();
+            var localProd = null;
+            for (var lp = 0; lp < localProducts.length; lp++) {
+                if (localProducts[lp].id === p.id) { localProd = localProducts[lp]; break; }
+            }
+            var localImgIds = (localProd && localProd.images) ? localProd.images : [];
+            var localIdx = mainIdx;
+            if (localIdx >= localImgIds.length) localIdx = 0;
+            if (localImgIds.length > 0 && localImgIds[localIdx] && typeof idbGetImage === 'function') {
+                idbGetImage(localImgIds[localIdx]).then(function(data) {
+                    if (data && data.length > 100) {
+                        _generateShareCard([data], p, shortLink, cat.storeInfo);
+                    } else {
+                        _generateShareCard([''], p, shortLink, cat.storeInfo);
+                    }
+                }).catch(function() {
+                    _generateShareCard([''], p, shortLink, cat.storeInfo);
+                });
+                return;
+            }
         }
 
-        var localProducts = getProducts();
-        var localProd = null;
-        for (var lp = 0; lp < localProducts.length; lp++) {
-            if (localProducts[lp].id === p.id) { localProd = localProducts[lp]; break; }
-        }
-        var localImgIds = (localProd && localProd.images) ? localProd.images : [];
-        var localMainIdx = mainIdx;
-        if (localMainIdx >= localImgIds.length) localMainIdx = 0;
-
-        if (localImgIds.length > 0 && localImgIds[localMainIdx] && typeof idbGetImage === 'function') {
-            idbGetImage(localImgIds[localMainIdx]).then(function(data) {
-                if (data && data.length > 100) {
-                    _generateShareCard([data], p, shortLink, cat.storeInfo);
-                    return;
-                }
-                _fetchCatalogImage(serverUrl, imgIds[mainIdx], p, shortLink, cat.storeInfo);
-            }).catch(function() {
-                _fetchCatalogImage(serverUrl, imgIds[mainIdx], p, shortLink, cat.storeInfo);
-            });
-        } else {
-            _fetchCatalogImage(serverUrl, imgIds[mainIdx], p, shortLink, cat.storeInfo);
-        }
+        _generateShareCard([imgSrc], p, shortLink, cat.storeInfo);
     })
     .catch(function(err) {
-        console.error('[shareCatalogImage] Error loading catalogs:', err);
+        console.error('[shareCatalogImage] Error:', err);
         showToast('Error de conexión', 'error');
-    });
-}
-
-// Fetch catalog image from server using fetch() (goes through NativeBridge in APK)
-function _fetchCatalogImage(serverUrl, imgId, product, link, storeInfo) {
-    fetch(serverUrl + '/api/catalog-upload?id=' + encodeURIComponent(imgId))
-    .then(function(r) { return r.json(); })
-    .then(function(res) {
-        if (res.data && res.data.length > 100) {
-            var serverImgSrc = 'data:' + (res.imageType || 'image/jpeg') + ';base64,' + res.data;
-            _generateShareCard([serverImgSrc], product, link, storeInfo);
-        } else {
-            _generateShareCard([''], product, link, storeInfo);
-        }
-    })
-    .catch(function(err) {
-        console.error('[fetchCatalogImage] Error:', err);
-        _generateShareCard([''], product, link, storeInfo);
     });
 }
 
@@ -19959,7 +19951,7 @@ function _generateShareCard(imgSrcs, product, link, storeInfo) {
     }
 
     var canvas = document.createElement('canvas');
-    var W = 800, H = 950;
+    var W = 800, H = 1150;
     canvas.width = W;
     canvas.height = H;
     var ctx = canvas.getContext('2d');
@@ -19995,9 +19987,17 @@ function _loadAndDrawSingle(ctx, src, area, done) {
             _drawImagePlaceholder(ctx, area);
             done();
         }
-    }, 12000);
-    if (src.indexOf('data:') !== 0) img.crossOrigin = 'anonymous';
-    img.onload = function () {
+    }, 15000);
+    
+    function onFail() {
+        if (loaded) return;
+        loaded = true;
+        clearTimeout(fallbackTimer);
+        _drawImagePlaceholder(ctx, area);
+        done();
+    }
+    
+    function onReady() {
         if (loaded) return;
         loaded = true;
         clearTimeout(fallbackTimer);
@@ -20018,15 +20018,29 @@ function _loadAndDrawSingle(ctx, src, area, done) {
             _drawImagePlaceholder(ctx, area);
         }
         done();
-    };
-    img.onerror = function () {
-        if (loaded) return;
-        loaded = true;
-        clearTimeout(fallbackTimer);
-        _drawImagePlaceholder(ctx, area);
-        done();
-    };
-    img.src = src;
+    }
+    
+    img.onload = onReady;
+    img.onerror = onFail;
+    
+    // For cross-origin URLs, try with CORS first, fallback without
+    if (src.indexOf('data:') !== 0 && src.indexOf('http') === 0) {
+        img.crossOrigin = 'anonymous';
+        img.src = src;
+        // If CORS fails, Android WebView fires onerror — retry without crossOrigin
+        var origOnError = img.onerror;
+        img.onerror = function() {
+            if (loaded) return;
+            // Retry without CORS (canvas will be tainted but image will display)
+            var img2 = new Image();
+            img2.onload = onReady;
+            img2.onerror = onFail;
+            // No crossOrigin — loads as opaque cross-origin
+            img2.src = src;
+        };
+    } else {
+        img.src = src;
+    }
 }
 
 function _drawImagePlaceholder(ctx, area) {
@@ -20182,12 +20196,6 @@ function _finishShareCard(ctx, W, H, product, link, storeInfo, canvas) {
 
     // === KISSU-STYLE PROFESSIONAL CARD ===
     var H2 = 1150;
-    // Resize canvas if needed
-    if (canvas.height < H2) {
-        var imgData = ctx.getImageData(0, 0, W, canvas.height);
-        canvas.height = H2;
-        ctx.putImageData(imgData, 0, 0);
-    }
     // Clear full canvas
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, W, H2);
@@ -20434,14 +20442,51 @@ function _finishShareCard(ctx, W, H, product, link, storeInfo, canvas) {
         ctx.fillText(storeInfo.name + ' \u00b7 Cat\u00e1logo', W / 2, H2 - 6);
     }
 
-    // Convert to blob
-    canvas.toBlob(function (blob) {
-        if (!blob) { showToast('Error al generar imagen', 'error'); return; }
-        var file = new File([blob], 'catalogo-' + (product.name || 'producto').substring(0, 20) + '.png', { type: 'image/png' });
-        _sharePreviewFile = file;
-        _sharePreviewLink = link;
-        _showSharePreviewModal(file, link);
-    }, 'image/png');
+    // Convert to blob — handle tainted canvas (cross-origin image without CORS)
+    try {
+        canvas.toBlob(function (blob) {
+            if (!blob) { _shareCardFallback(product, link, storeInfo); return; }
+            var file = new File([blob], 'catalogo-' + (product.name || 'producto').substring(0, 20) + '.png', { type: 'image/png' });
+            _sharePreviewFile = file;
+            _sharePreviewLink = link;
+            _showSharePreviewModal(file, link);
+        }, 'image/png');
+    } catch (e) {
+        // Canvas tainted by cross-origin image — re-generate using data URI
+        console.warn('[shareCard] toBlob failed, canvas tainted. Retrying with fetch...');
+        _shareCardFallback(product, link, storeInfo);
+    }
+}
+
+function _shareCardFallback(product, link, storeInfo) {
+    // Canvas was tainted by cross-origin image.
+    // Re-generate card using data URI from server (slower but canvas stays clean).
+    var serverUrl = getServerUrl();
+    // Find the imageId from the most recent catalog data
+    var imgId = '';
+    // Try to find from _lastCatalogData if available
+    if (window._lastShareCatData) {
+        var cat = window._lastShareCatData;
+        if (cat._thumbId && cat._thumbId !== 'embedded') imgId = cat._thumbId;
+    }
+    if (!imgId) {
+        showToast('Error al generar imagen para compartir', 'error');
+        return;
+    }
+    showToast('Reintentando...', 'info');
+    fetch(serverUrl + '/api/catalog-upload?id=' + encodeURIComponent(imgId))
+    .then(function(r) { return r.json(); })
+    .then(function(res) {
+        if (res.data && res.data.length > 100) {
+            var dataUri = 'data:' + (res.imageType || 'image/jpeg') + ';base64,' + res.data;
+            _generateShareCard([dataUri], product, link, storeInfo);
+        } else {
+            showToast('No se pudo cargar la imagen', 'error');
+        }
+    })
+    .catch(function() {
+        showToast('Error de conexi\u00f3n al reintentar', 'error');
+    });
 }
 
 function _showSharePreviewModal(file, link) {
