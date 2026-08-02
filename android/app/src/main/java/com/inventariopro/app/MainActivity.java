@@ -26,11 +26,13 @@ import androidx.core.content.FileProvider;
 import com.getcapacitor.BridgeActivity;
 
 import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.FileInputStream;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLDecoder;
@@ -39,6 +41,8 @@ import java.nio.charset.StandardCharsets;
 public class MainActivity extends BridgeActivity {
 
     private static final String TAG = "NativeBridge";
+    // Maximum base64 payload per evaluateJavascript call (~500KB safe limit)
+    private static final int MAX_B64_CHUNK = 500000;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -66,16 +70,35 @@ public class MainActivity extends BridgeActivity {
         webView.addJavascriptInterface(new NativeBridge(), "NativeBridge");
     }
 
+    // Helper to evaluate JS safely on UI thread
+    private void webViewEvaluateJavascript(final String script) {
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    WebView wv = getBridge().getWebView();
+                    if (wv != null) {
+                        wv.evaluateJavascript(script, null);
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "evaluateJS error", e);
+                }
+            }
+        });
+    }
+
     public class NativeBridge {
 
         // === CORS-SAFE FETCH with ID-based callbacks ===
+        // Supports chunked transfer for large responses that exceed
+        // evaluateJavascript string limits on some Android devices.
         @JavascriptInterface
         public void nativeFetch(final int callbackId, String url, String method, String body) {
             Log.d(TAG, "nativeFetch[" + callbackId + "]: " + method + " " + (url != null && url.length() > 120 ? url.substring(0, 120) + "..." : url));
             new Thread(new Runnable() {
                 @Override
                 public void run() {
-                    String result = "";
+                    byte[] resultBytes = new byte[0];
                     int statusCode = 0;
                     try {
                         URL targetUrl = new URL(url);
@@ -85,7 +108,7 @@ public class MainActivity extends BridgeActivity {
                         conn.setRequestProperty("Content-Type", "application/json");
                         conn.setRequestProperty("Accept", "application/json");
                         conn.setConnectTimeout(15000);
-                        conn.setReadTimeout(15000);
+                        conn.setReadTimeout(20000);
                         conn.setInstanceFollowRedirects(true);
 
                         if (body != null && !body.isEmpty() && (m.equals("POST") || m.equals("PUT") || m.equals("PATCH"))) {
@@ -97,60 +120,70 @@ public class MainActivity extends BridgeActivity {
                         }
 
                         statusCode = conn.getResponseCode();
-                        BufferedReader reader;
                         InputStream is = conn.getErrorStream();
                         if (is == null) is = conn.getInputStream();
                         if (is == null) {
-                            result = "";
+                            resultBytes = new byte[0];
                         } else {
-                            reader = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8));
-                            StringBuilder sb = new StringBuilder();
-                            String line;
-                            while ((line = reader.readLine()) != null) {
-                                sb.append(line);
+                            // Read ALL bytes directly (no readLine which strips newlines)
+                            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                            byte[] buf = new byte[8192];
+                            int len;
+                            while ((len = is.read(buf)) != -1) {
+                                baos.write(buf, 0, len);
                             }
-                            reader.close();
-                            result = sb.toString();
+                            is.close();
+                            resultBytes = baos.toByteArray();
                         }
                         conn.disconnect();
 
-                        Log.d(TAG, "nativeFetch[" + callbackId + "] response: " + statusCode + " len=" + result.length());
+                        Log.d(TAG, "nativeFetch[" + callbackId + "] response: " + statusCode + " bytes=" + resultBytes.length);
 
-                        // Use base64 encoding to safely pass large JSON through evaluateJavascript
-                        // This eliminates all escaping issues with quotes, backslashes, newlines, etc.
-                        final String finalResult = result;
                         final int finalStatus = statusCode;
-                        final String b64 = Base64.encodeToString(finalResult.getBytes(StandardCharsets.UTF_8), Base64.NO_WRAP);
-                        runOnUiThread(new Runnable() {
-                            @Override
-                            public void run() {
-                                webViewEvaluateJavascript("window._nfb(" + callbackId + "," + finalStatus + ",'" + b64 + "');");
+                        final byte[] finalBytes = resultBytes;
+
+                        // Base64 encode the raw bytes
+                        final String b64 = Base64.encodeToString(finalBytes, Base64.NO_WRAP);
+
+                        if (b64.length() <= MAX_B64_CHUNK) {
+                            // Small response: single call (fast path)
+                            webViewEvaluateJavascript("window._nfb(" + callbackId + "," + finalStatus + ",'" + b64 + "');");
+                        } else {
+                            // Large response: chunked transfer to avoid evaluateJavascript limits
+                            int totalChunks = (b64.length() + MAX_B64_CHUNK - 1) / MAX_B64_CHUNK;
+                            Log.d(TAG, "nativeFetch[" + callbackId + "] chunked: " + totalChunks + " chunks, b64len=" + b64.length());
+                            final String finalB64 = b64;
+                            final int finalTotalChunks = totalChunks;
+
+                            // Signal start of chunked transfer
+                            webViewEvaluateJavascript("window._nfbStart(" + callbackId + "," + finalStatus + "," + finalTotalChunks + ");");
+
+                            // Small delay to let JS initialize the chunk buffer
+                            try { Thread.sleep(50); } catch (InterruptedException ie) {}
+
+                            // Send each chunk
+                            for (int ci = 0; ci < finalTotalChunks; ci++) {
+                                final int chunkIdx = ci;
+                                final int start = ci * MAX_B64_CHUNK;
+                                final int end = Math.min(start + MAX_B64_CHUNK, finalB64.length());
+                                final String chunk = finalB64.substring(start, end);
+                                webViewEvaluateJavascript("window._nfbChunk(" + callbackId + "," + chunkIdx + ",'" + chunk + "');");
+                                // Small delay between chunks to avoid overwhelming the WebView
+                                if (ci < finalTotalChunks - 1) {
+                                    try { Thread.sleep(20); } catch (InterruptedException ie) {}
+                                }
                             }
-                        });
+
+                            // Signal end of chunked transfer
+                            webViewEvaluateJavascript("window._nfbEnd(" + callbackId + ");");
+                        }
 
                     } catch (final Exception e) {
                         Log.e(TAG, "nativeFetch[" + callbackId + "] error", e);
-                        runOnUiThread(new Runnable() {
-                            @Override
-                            public void run() {
-                                webViewEvaluateJavascript("window._nfc(" + callbackId + ",0,'ERROR')");
-                            }
-                        });
+                        webViewEvaluateJavascript("window._nfc(" + callbackId + ",0,'ERROR');");
                     }
                 }
             }).start();
-        }
-
-        // Helper to evaluate JS safely
-        private void webViewEvaluateJavascript(String script) {
-            try {
-                WebView wv = getBridge().getWebView();
-                if (wv != null) {
-                    wv.evaluateJavascript(script, null);
-                }
-            } catch (Exception e) {
-                Log.e(TAG, "evaluateJS error", e);
-            }
         }
 
         @JavascriptInterface
@@ -281,7 +314,6 @@ public class MainActivity extends BridgeActivity {
         }
 
         // === BLOB-BASED SAVE/SHARE (no server upload needed) ===
-        // Decodes base64 blob, writes to cache, then saves to Downloads or shares via FileProvider.
 
         private File writeBlobToCache(String base64Data, String fileName, String mimeType) throws Exception {
             byte[] data = Base64.decode(base64Data, Base64.NO_WRAP);
@@ -308,7 +340,6 @@ public class MainActivity extends BridgeActivity {
             return Uri.fromFile(file);
         }
 
-        // Save base64 blob directly to Downloads folder (no server needed)
         @JavascriptInterface
         public void saveBlobToDownloads(String base64Data, String fileName, String mimeType) {
             Log.d(TAG, "saveBlobToDownloads: " + fileName + " (" + (base64Data != null ? base64Data.length() : 0) + " b64 chars)");
@@ -320,7 +351,6 @@ public class MainActivity extends BridgeActivity {
 
                 byte[] data = Base64.decode(base64Data, Base64.NO_WRAP);
 
-                // For Android 10+ (API 29+), use MediaStore to write to Downloads without permission
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                     ContentValues values = new ContentValues();
                     values.put(MediaStore.Downloads.DISPLAY_NAME, finalFileName);
@@ -343,7 +373,6 @@ public class MainActivity extends BridgeActivity {
                     values.put(MediaStore.Downloads.IS_PENDING, 0);
                     resolver.update(itemUri, values, null, null);
                 } else {
-                    // Legacy: direct file write for Android 9 and below
                     File downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
                     if (!downloadsDir.exists()) downloadsDir.mkdirs();
                     File outFile = new File(downloadsDir, finalFileName);
@@ -360,7 +389,7 @@ public class MainActivity extends BridgeActivity {
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
-                        Toast.makeText(MainActivity.this, "✅ Guardado en Descargas: " + finalFileName, Toast.LENGTH_LONG).show();
+                        Toast.makeText(MainActivity.this, "\u2705 Guardado en Descargas: " + finalFileName, Toast.LENGTH_LONG).show();
                     }
                 });
             } catch (final Exception e) {
@@ -374,7 +403,6 @@ public class MainActivity extends BridgeActivity {
             }
         }
 
-        // Share base64 blob via Android share sheet (WhatsApp, email, etc.)
         @JavascriptInterface
         public void shareBlob(String base64Data, String fileName, String mimeType, String description) {
             Log.d(TAG, "shareBlob: " + fileName + " (" + (base64Data != null ? base64Data.length() : 0) + " b64 chars)");
@@ -407,7 +435,6 @@ public class MainActivity extends BridgeActivity {
             }
         }
 
-        // Open base64 blob (e.g. PDF) in external viewer (Chrome / PDF reader)
         @JavascriptInterface
         public void openBlob(String base64Data, String fileName, String mimeType) {
             Log.d(TAG, "openBlob: " + fileName + " (" + (base64Data != null ? base64Data.length() : 0) + " b64 chars)");

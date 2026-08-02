@@ -2491,8 +2491,23 @@ function setCurrentUser(u) {
     var _origFetch = window.fetch;
     var _fetchId = 0;
     var _fetchResolvers = {};
+    // Chunked transfer buffer for large responses
+    var _chunkBuffers = {};
 
-    // Native callback from Java (base64 encoded): window._nfb(id, status, base64Text)
+    // Helper: decode base64 → UTF-8 text → Response
+    function _b64ToResponse(b64, status) {
+        var binary = atob(b64);
+        var bytes = new Uint8Array(binary.length);
+        for (var bi = 0; bi < binary.length; bi++) bytes[bi] = binary.charCodeAt(bi);
+        var text = new TextDecoder('utf-8').decode(bytes);
+        return new Response(text, {
+            status: status,
+            statusText: status >= 200 && status < 300 ? 'OK' : 'Error',
+            headers: { 'Content-Type': 'application/json' }
+        });
+    }
+
+    // Native callback from Java (single chunk, base64 encoded)
     window._nfb = function(id, status, b64) {
         var r = _fetchResolvers[id];
         if (r) {
@@ -2501,21 +2516,44 @@ function setCurrentUser(u) {
                 r.reject(new TypeError('Network error'));
             } else {
                 try {
-                    var binary = atob(b64);
-                    var bytes = new Uint8Array(binary.length);
-                    for (var bi = 0; bi < binary.length; bi++) bytes[bi] = binary.charCodeAt(bi);
-                    var text = new TextDecoder('utf-8').decode(bytes);
-                    r.resolve(new Response(text, {
-                        status: status,
-                        statusText: status >= 200 && status < 300 ? 'OK' : 'Error',
-                        headers: { 'Content-Type': 'application/json' }
-                    }));
+                    r.resolve(_b64ToResponse(b64, status));
                 } catch(e) {
                     r.reject(new TypeError('Base64 decode error: ' + e.message));
                 }
             }
         }
     };
+
+    // Chunked transfer: Java signals start with total chunk count
+    window._nfbStart = function(id, status, totalChunks) {
+        _chunkBuffers[id] = { status: status, chunks: new Array(totalChunks), received: 0, total: totalChunks };
+    };
+
+    // Chunked transfer: Java sends each chunk
+    window._nfbChunk = function(id, chunkIndex, chunk) {
+        var buf = _chunkBuffers[id];
+        if (!buf) return;
+        buf.chunks[chunkIndex] = chunk;
+        buf.received++;
+    };
+
+    // Chunked transfer: Java signals all chunks sent
+    window._nfbEnd = function(id) {
+        var buf = _chunkBuffers[id];
+        if (!buf) return;
+        delete _chunkBuffers[id];
+        var r = _fetchResolvers[id];
+        if (r) {
+            delete _fetchResolvers[id];
+            try {
+                var fullB64 = buf.chunks.join('');
+                r.resolve(_b64ToResponse(fullB64, buf.status));
+            } catch(e) {
+                r.reject(new TypeError('Chunked base64 decode error: ' + e.message));
+            }
+        }
+    };
+
     // Keep old callback for backwards compatibility (old APK versions)
     window._nfc = window._nfb;
 
@@ -19807,21 +19845,69 @@ function shareCatalogImage(slug, catId) {
             // Fetch only the MAIN image (one small request ~70KB)
             if (imgIds.length > 0 && imgIds[mainIdx]) {
                 _serverFetch('GET', '/api/catalog-upload?id=' + encodeURIComponent(imgIds[mainIdx]), null, function(iText, iErr) {
+                    var serverImgSrc = '';
                     try {
                         var ires = JSON.parse(iText || '{}');
-                        if (ires.data) {
-                            var imgSrc = 'data:' + (ires.imageType || 'image/jpeg') + ';base64,' + ires.data;
-                            _generateShareCard([imgSrc], p, shortLink, cat.storeInfo);
-                        } else {
-                            _generateShareCard([''], p, shortLink, cat.storeInfo);
+                        if (ires.data && ires.data.length > 100) {
+                            serverImgSrc = 'data:' + (ires.imageType || 'image/jpeg') + ';base64,' + ires.data;
                         }
-                    } catch(e) { _generateShareCard([''], p, shortLink, cat.storeInfo); }
+                    } catch(e) {}
+
+                    if (serverImgSrc) {
+                        _generateShareCard([serverImgSrc], p, shortLink, cat.storeInfo);
+                    } else {
+                        // FALLBACK: try loading from local IndexedDB (product images stored locally)
+                        _tryLocalImageFallback(imgIds, mainIdx, function(localSrc) {
+                            _generateShareCard([localSrc || ''], p, shortLink, cat.storeInfo);
+                        });
+                    }
                 });
             } else {
                 _generateShareCard([''], p, shortLink, cat.storeInfo);
             }
         } catch (e) { showToast('Error al generar', 'error'); }
     });
+}
+
+// Fallback: try to load image from local IndexedDB or from product list in memory
+function _tryLocalImageFallback(imgIds, mainIdx, callback) {
+    var idToTry = imgIds[mainIdx] || imgIds[0];
+    if (!idToTry) { callback(''); return; }
+    // Try IndexedDB first
+    if (typeof idbGetImage === 'function') {
+        idbGetImage(idToTry).then(function(data) {
+            if (data && data.length > 100) { callback(data); return; }
+            // Try other image IDs
+            _tryOtherLocalImages(imgIds, mainIdx, callback);
+        }).catch(function() {
+            _tryOtherLocalImages(imgIds, mainIdx, callback);
+        });
+    } else {
+        _tryOtherLocalImages(imgIds, mainIdx, callback);
+    }
+}
+
+function _tryOtherLocalImages(imgIds, mainIdx, callback) {
+    var tried = 0;
+    for (var i = 0; i < imgIds.length; i++) {
+        if (i === mainIdx) continue;
+        (function(tryId) {
+            tried++;
+            if (typeof idbGetImage === 'function') {
+                idbGetImage(tryId).then(function(data) {
+                    if (data && data.length > 100) { callback(data); return; }
+                    tried++;
+                    if (tried >= imgIds.length) callback('');
+                }).catch(function() {
+                    tried++;
+                    if (tried >= imgIds.length) callback('');
+                });
+            } else {
+                if (tried >= imgIds.length) callback('');
+            }
+        })(imgIds[i]);
+    }
+    if (imgIds.length <= 1) callback('');
 }
 
 function _generateShareCard(imgSrcs, product, link, storeInfo) {
@@ -19876,10 +19962,23 @@ function _loadAndDrawSingle(ctx, src, area, done) {
         if (loaded) return;
         loaded = true;
         clearTimeout(fallbackTimer);
+        // Validate image dimensions — corrupted data URIs can load with 0×0
+        if (!img.width || !img.height || !isFinite(img.width) || !isFinite(img.height)) {
+            _drawImagePlaceholder(ctx, area);
+            done();
+            return;
+        }
         var scale = Math.min(area.w / img.width, area.h / img.height);
         var sw = img.width * scale, sh = img.height * scale;
+        if (!isFinite(sw) || !isFinite(sh) || sw <= 0 || sh <= 0) {
+            _drawImagePlaceholder(ctx, area);
+            done();
+            return;
+        }
         var sx = area.x + (area.w - sw) / 2, sy = area.y + (area.h - sh) / 2;
-        ctx.drawImage(img, sx, sy, sw, sh);
+        try { ctx.drawImage(img, sx, sy, sw, sh); } catch(e) {
+            _drawImagePlaceholder(ctx, area);
+        }
         done();
     };
     img.onerror = function () {
@@ -19899,6 +19998,11 @@ function _loadAndDrawSingle(ctx, src, area, done) {
             var tmpImg = new Image();
             tmpImg.onload = function() {
                 if (loaded) return;
+                if (!tmpImg.width || !tmpImg.height || !isFinite(tmpImg.width) || !isFinite(tmpImg.height)) {
+                    _drawImagePlaceholder(ctx, area);
+                    done();
+                    return;
+                }
                 var aspect = tmpImg.width / tmpImg.height;
                 var tw, th;
                 if (aspect > 1) { tw = tmpSz; th = Math.round(tmpSz / aspect); }
