@@ -19784,7 +19784,7 @@ function renderCatalogsList() {
 
             if (fetchId && fetchId !== 'embedded') {
                 (function(slug, imgId) {
-                    _serverFetch('GET', '/api/catalog-upload?id=' + encodeURIComponent(imgId), null, function(text, err) {
+                    _fetchDirect(getServerUrl() + '/api/catalog-upload?id=' + encodeURIComponent(imgId), function(text, err) {
                         try {
                             var res = JSON.parse(text || '{}');
                             if (res.data) {
@@ -19820,14 +19820,35 @@ function copyCatalogLink(slug) {
 // --- SHARE CATALOG IMAGE WITH QR ---
 function shareCatalogImage(slug, catId) {
     showToast('Generando imagen...', 'info');
-    // Use the lightweight list endpoint to get catalog metadata (no embedded images)
-    // Then fetch only the main image individually to avoid huge NativeBridge responses
-    _serverFetch('GET', '/api/catalogs?_t=' + Date.now(), null, function(responseText, err) {
+    var serverUrl = getServerUrl();
+    var shortLink = _getCatalogShortLink(slug);
+
+    // STRATEGY: Try local product images first (fastest, no network),
+    // then fetch catalog metadata + image from server via XHR (bypasses native bridge)
+
+    // Step 1: Try to find the product in local inventory and get image from IndexedDB
+    var localImgSrc = '';
+    var localProduct = null;
+    var products = getProducts();
+    var cat = null;
+
+    // Check if we already have the catalog data from the list
+    var container = document.getElementById('catalogsListContainer');
+
+    // Find catalog from the rendered list items to get product ID
+    for (var pi = 0; pi < products.length; pi++) {
+        var prod = products[pi];
+        if (prod.images && prod.images.length > 0) {
+            // We'll try to match later
+        }
+    }
+
+    // Step 2: Fetch catalog metadata from server, then try multiple image sources
+    _fetchDirect(serverUrl + '/api/catalogs?_t=' + Date.now(), function(responseText, err) {
         if (err) { showToast('Error de conexión', 'error'); return; }
         try {
             var cats = JSON.parse(responseText);
             if (!Array.isArray(cats)) cats = [];
-            var cat = null;
             for (var ci = 0; ci < cats.length; ci++) {
                 if (cats[ci].slug === slug) { cat = cats[ci]; break; }
             }
@@ -19840,74 +19861,83 @@ function shareCatalogImage(slug, catId) {
             var imgIds = p.imageIds || [];
             var mainIdx = parseInt(cat.mainImage) || 0;
             if (mainIdx >= imgIds.length) mainIdx = 0;
-            var shortLink = _getCatalogShortLink(slug);
 
-            // Fetch only the MAIN image (one small request ~70KB)
-            if (imgIds.length > 0 && imgIds[mainIdx]) {
-                _serverFetch('GET', '/api/catalog-upload?id=' + encodeURIComponent(imgIds[mainIdx]), null, function(iText, iErr) {
-                    var serverImgSrc = '';
-                    try {
-                        var ires = JSON.parse(iText || '{}');
-                        if (ires.data && ires.data.length > 100) {
-                            serverImgSrc = 'data:' + (ires.imageType || 'image/jpeg') + ';base64,' + ires.data;
-                        }
-                    } catch(e) {}
+            if (imgIds.length === 0 || !imgIds[mainIdx]) {
+                _generateShareCard([''], p, shortLink, cat.storeInfo);
+                return;
+            }
 
-                    if (serverImgSrc) {
-                        _generateShareCard([serverImgSrc], p, shortLink, cat.storeInfo);
-                    } else {
-                        // FALLBACK: try loading from local IndexedDB (product images stored locally)
-                        _tryLocalImageFallback(imgIds, mainIdx, function(localSrc) {
-                            _generateShareCard([localSrc || ''], p, shortLink, cat.storeInfo);
-                        });
+            // Step 3: Try loading from local IndexedDB using the PRODUCT's local image
+            // The product in inventory has local image IDs (different from server IDs)
+            var localProducts = getProducts();
+            var localProd = null;
+            for (var lp = 0; lp < localProducts.length; lp++) {
+                if (localProducts[lp].id === p.id) { localProd = localProducts[lp]; break; }
+            }
+
+            var localImgIds = (localProd && localProd.images) ? localProd.images : [];
+            var localMainIdx = mainIdx;
+            if (localMainIdx >= localImgIds.length) localMainIdx = 0;
+
+            if (localImgIds.length > 0 && localImgIds[localMainIdx] && typeof idbGetImage === 'function') {
+                idbGetImage(localImgIds[localMainIdx]).then(function(data) {
+                    if (data && data.length > 100) {
+                        _generateShareCard([data], p, shortLink, cat.storeInfo);
+                        return;
                     }
+                    // Fallback: fetch from server via XHR
+                    _fetchServerImage(serverUrl, imgIds[mainIdx], p, shortLink, cat.storeInfo);
+                }).catch(function() {
+                    _fetchServerImage(serverUrl, imgIds[mainIdx], p, shortLink, cat.storeInfo);
                 });
             } else {
-                _generateShareCard([''], p, shortLink, cat.storeInfo);
+                // No local images, fetch from server via XHR
+                _fetchServerImage(serverUrl, imgIds[mainIdx], p, shortLink, cat.storeInfo);
             }
         } catch (e) { showToast('Error al generar', 'error'); }
     });
 }
 
-// Fallback: try to load image from local IndexedDB or from product list in memory
-function _tryLocalImageFallback(imgIds, mainIdx, callback) {
-    var idToTry = imgIds[mainIdx] || imgIds[0];
-    if (!idToTry) { callback(''); return; }
-    // Try IndexedDB first
-    if (typeof idbGetImage === 'function') {
-        idbGetImage(idToTry).then(function(data) {
-            if (data && data.length > 100) { callback(data); return; }
-            // Try other image IDs
-            _tryOtherLocalImages(imgIds, mainIdx, callback);
-        }).catch(function() {
-            _tryOtherLocalImages(imgIds, mainIdx, callback);
-        });
-    } else {
-        _tryOtherLocalImages(imgIds, mainIdx, callback);
-    }
+// Fetch image from server using XHR (bypasses native bridge to avoid base64 corruption)
+function _fetchServerImage(serverUrl, imgId, product, link, storeInfo) {
+    _fetchDirect(serverUrl + '/api/catalog-upload?id=' + encodeURIComponent(imgId), function(iText, iErr) {
+        var serverImgSrc = '';
+        try {
+            var ires = JSON.parse(iText || '{}');
+            if (ires.data && ires.data.length > 100) {
+                serverImgSrc = 'data:' + (ires.imageType || 'image/jpeg') + ';base64,' + ires.data;
+            }
+        } catch(e) {}
+
+        if (serverImgSrc) {
+            _generateShareCard([serverImgSrc], product, link, storeInfo);
+        } else {
+            _generateShareCard([''], product, link, storeInfo);
+        }
+    });
 }
 
-function _tryOtherLocalImages(imgIds, mainIdx, callback) {
-    var tried = 0;
-    for (var i = 0; i < imgIds.length; i++) {
-        if (i === mainIdx) continue;
-        (function(tryId) {
-            tried++;
-            if (typeof idbGetImage === 'function') {
-                idbGetImage(tryId).then(function(data) {
-                    if (data && data.length > 100) { callback(data); return; }
-                    tried++;
-                    if (tried >= imgIds.length) callback('');
-                }).catch(function() {
-                    tried++;
-                    if (tried >= imgIds.length) callback('');
-                });
+// Direct XHR fetch — bypasses the native bridge fetch override
+// Works in Capacitor WebView because setAllowUniversalAccessFromFileURLs(true) is set
+function _fetchDirect(url, callback) {
+    try {
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', url, true);
+        xhr.onload = function() {
+            if (xhr.status >= 200 && xhr.status < 300) {
+                callback(xhr.responseText, null);
             } else {
-                if (tried >= imgIds.length) callback('');
+                callback(null, 'HTTP ' + xhr.status);
             }
-        })(imgIds[i]);
+        };
+        xhr.onerror = function() { callback(null, 'XHR network error'); };
+        xhr.timeout = 20000;
+        xhr.ontimeout = function() { callback(null, 'XHR timeout'); };
+        xhr.send();
+    } catch(e) {
+        // XHR failed (e.g., CORS), fall back to _serverFetch (native bridge)
+        _serverFetch('GET', url.replace(getServerUrl(), ''), null, callback);
     }
-    if (imgIds.length <= 1) callback('');
 }
 
 function _generateShareCard(imgSrcs, product, link, storeInfo) {
