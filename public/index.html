@@ -19784,17 +19784,16 @@ function renderCatalogsList() {
 
             if (fetchId && fetchId !== 'embedded') {
                 (function(slug, imgId) {
-                    _fetchDirect(getServerUrl() + '/api/catalog-upload?id=' + encodeURIComponent(imgId), function(text, err) {
-                        try {
-                            var res = JSON.parse(text || '{}');
-                            if (res.data) {
-                                var el = container.querySelector('[data-cat-slug="' + slug + '"] .cat-thumb-img');
-                                var ph = container.querySelector('[data-cat-slug="' + slug + '"] .cat-thumb-ph');
-                                if (el) { el.src = 'data:' + (res.imageType || 'image/jpeg') + ';base64,' + res.data; el.style.display = 'block'; }
-                                if (ph) ph.style.display = 'none';
-                            }
-                        } catch (e) {}
-                    });
+                    fetch(getServerUrl() + '/api/catalog-upload?id=' + encodeURIComponent(imgId))
+                    .then(function(r) { return r.json(); })
+                    .then(function(res) {
+                        if (res.data) {
+                            var el = container.querySelector('[data-cat-slug="' + slug + '"] .cat-thumb-img');
+                            var ph = container.querySelector('[data-cat-slug="' + slug + '"] .cat-thumb-ph');
+                            if (el) { el.src = 'data:' + (res.imageType || 'image/jpeg') + ';base64,' + res.data; el.style.display = 'block'; }
+                            if (ph) ph.style.display = 'none';
+                        }
+                    }).catch(function() {});
                 })(tc.slug, fetchId);
             }
         }
@@ -19823,78 +19822,89 @@ function shareCatalogImage(slug, catId) {
     var serverUrl = getServerUrl();
     var shortLink = _getCatalogShortLink(slug);
 
-    // STRATEGY: Try local product images first (fastest, no network),
-    // then fetch catalog metadata + image from server via XHR (bypasses native bridge)
-
-    // Step 1: Try to find the product in local inventory and get image from IndexedDB
-    var localImgSrc = '';
-    var localProduct = null;
-    var products = getProducts();
-    var cat = null;
-
-    // Check if we already have the catalog data from the list
-    var container = document.getElementById('catalogsListContainer');
-
-    // Find catalog from the rendered list items to get product ID
-    for (var pi = 0; pi < products.length; pi++) {
-        var prod = products[pi];
-        if (prod.images && prod.images.length > 0) {
-            // We'll try to match later
+    // Use fetch() — same path as renderCatalogsList, goes through NativeBridge in APK
+    fetch(serverUrl + '/api/catalogs?_t=' + Date.now(), { method: 'GET', headers: { 'Content-Type': 'application/json' } })
+    .then(function(r) { return r.json(); })
+    .then(function(cats) {
+        if (!Array.isArray(cats)) cats = [];
+        var cat = null;
+        for (var ci = 0; ci < cats.length; ci++) {
+            if (cats[ci].slug === slug) { cat = cats[ci]; break; }
         }
-    }
+        if (!cat) { showToast('Catálogo no encontrado', 'error'); return; }
+        var prods = [];
+        try { prods = (typeof cat.products === 'string') ? JSON.parse(cat.products) : (cat.products || []); } catch (e) {}
+        var p = prods[0];
+        if (!p) { showToast('Sin producto', 'error'); return; }
+        var mainIdx = parseInt(cat.mainImage) || 0;
 
-    // Step 2: Fetch catalog metadata from server, then try multiple image sources
-    _fetchDirect(serverUrl + '/api/catalogs?_t=' + Date.now(), function(responseText, err) {
-        if (err) { showToast('Error de conexión', 'error'); return; }
-        try {
-            var cats = JSON.parse(responseText);
-            if (!Array.isArray(cats)) cats = [];
-            for (var ci = 0; ci < cats.length; ci++) {
-                if (cats[ci].slug === slug) { cat = cats[ci]; break; }
-            }
-            if (!cat) { showToast('Catálogo no encontrado', 'error'); return; }
-            var prods = [];
-            try { prods = (typeof cat.products === 'string') ? JSON.parse(cat.products) : (cat.products || []); } catch (e) {}
-            var p = prods[0];
-            if (!p) { showToast('Sin producto', 'error'); return; }
+        // SOURCE 1: _thumbEmbedded from server (old format, small thumbnail)
+        if (cat._thumbEmbedded && cat._thumbEmbedded.data) {
+            var emb = cat._thumbEmbedded;
+            _generateShareCard(['data:' + (emb.type || 'image/jpeg') + ';base64,' + emb.data], p, shortLink, cat.storeInfo);
+            return;
+        }
 
-            var imgIds = p.imageIds || [];
-            var mainIdx = parseInt(cat.mainImage) || 0;
-            if (mainIdx >= imgIds.length) mainIdx = 0;
+        // SOURCE 2: Embedded images in product (old format)
+        var embeddedImages = p.images || [];
+        if (embeddedImages.length > 0 && embeddedImages[mainIdx] && embeddedImages[mainIdx].data) {
+            var ei = embeddedImages[mainIdx];
+            _generateShareCard(['data:' + (ei.type || 'image/jpeg') + ';base64,' + ei.data], p, shortLink, cat.storeInfo);
+            return;
+        }
 
-            if (imgIds.length === 0 || !imgIds[mainIdx]) {
-                _generateShareCard([''], p, shortLink, cat.storeInfo);
-                return;
-            }
+        // SOURCE 3: Server imageIds (new format) — try local IndexedDB first
+        var imgIds = p.imageIds || [];
+        if (mainIdx >= imgIds.length) mainIdx = 0;
+        if (imgIds.length === 0 || !imgIds[mainIdx]) {
+            _generateShareCard([''], p, shortLink, cat.storeInfo);
+            return;
+        }
 
-            // Step 3: Try loading from local IndexedDB using the PRODUCT's local image
-            // The product in inventory has local image IDs (different from server IDs)
-            var localProducts = getProducts();
-            var localProd = null;
-            for (var lp = 0; lp < localProducts.length; lp++) {
-                if (localProducts[lp].id === p.id) { localProd = localProducts[lp]; break; }
-            }
+        var localProducts = getProducts();
+        var localProd = null;
+        for (var lp = 0; lp < localProducts.length; lp++) {
+            if (localProducts[lp].id === p.id) { localProd = localProducts[lp]; break; }
+        }
+        var localImgIds = (localProd && localProd.images) ? localProd.images : [];
+        var localMainIdx = mainIdx;
+        if (localMainIdx >= localImgIds.length) localMainIdx = 0;
 
-            var localImgIds = (localProd && localProd.images) ? localProd.images : [];
-            var localMainIdx = mainIdx;
-            if (localMainIdx >= localImgIds.length) localMainIdx = 0;
+        if (localImgIds.length > 0 && localImgIds[localMainIdx] && typeof idbGetImage === 'function') {
+            idbGetImage(localImgIds[localMainIdx]).then(function(data) {
+                if (data && data.length > 100) {
+                    _generateShareCard([data], p, shortLink, cat.storeInfo);
+                    return;
+                }
+                _fetchCatalogImage(serverUrl, imgIds[mainIdx], p, shortLink, cat.storeInfo);
+            }).catch(function() {
+                _fetchCatalogImage(serverUrl, imgIds[mainIdx], p, shortLink, cat.storeInfo);
+            });
+        } else {
+            _fetchCatalogImage(serverUrl, imgIds[mainIdx], p, shortLink, cat.storeInfo);
+        }
+    })
+    .catch(function(err) {
+        console.error('[shareCatalogImage] Error loading catalogs:', err);
+        showToast('Error de conexión', 'error');
+    });
+}
 
-            if (localImgIds.length > 0 && localImgIds[localMainIdx] && typeof idbGetImage === 'function') {
-                idbGetImage(localImgIds[localMainIdx]).then(function(data) {
-                    if (data && data.length > 100) {
-                        _generateShareCard([data], p, shortLink, cat.storeInfo);
-                        return;
-                    }
-                    // Fallback: fetch from server via XHR
-                    _fetchServerImage(serverUrl, imgIds[mainIdx], p, shortLink, cat.storeInfo);
-                }).catch(function() {
-                    _fetchServerImage(serverUrl, imgIds[mainIdx], p, shortLink, cat.storeInfo);
-                });
-            } else {
-                // No local images, fetch from server via XHR
-                _fetchServerImage(serverUrl, imgIds[mainIdx], p, shortLink, cat.storeInfo);
-            }
-        } catch (e) { showToast('Error al generar', 'error'); }
+// Fetch catalog image from server using fetch() (goes through NativeBridge in APK)
+function _fetchCatalogImage(serverUrl, imgId, product, link, storeInfo) {
+    fetch(serverUrl + '/api/catalog-upload?id=' + encodeURIComponent(imgId))
+    .then(function(r) { return r.json(); })
+    .then(function(res) {
+        if (res.data && res.data.length > 100) {
+            var serverImgSrc = 'data:' + (res.imageType || 'image/jpeg') + ';base64,' + res.data;
+            _generateShareCard([serverImgSrc], product, link, storeInfo);
+        } else {
+            _generateShareCard([''], product, link, storeInfo);
+        }
+    })
+    .catch(function(err) {
+        console.error('[fetchCatalogImage] Error:', err);
+        _generateShareCard([''], product, link, storeInfo);
     });
 }
 
@@ -19982,17 +19992,15 @@ function _loadAndDrawSingle(ctx, src, area, done) {
     var fallbackTimer = setTimeout(function() {
         if (!loaded) {
             loaded = true;
-            // Draw placeholder with product info
             _drawImagePlaceholder(ctx, area);
             done();
         }
-    }, 8000); // 8s timeout
+    }, 12000);
     if (src.indexOf('data:') !== 0) img.crossOrigin = 'anonymous';
     img.onload = function () {
         if (loaded) return;
         loaded = true;
         clearTimeout(fallbackTimer);
-        // Validate image dimensions — corrupted data URIs can load with 0×0
         if (!img.width || !img.height || !isFinite(img.width) || !isFinite(img.height)) {
             _drawImagePlaceholder(ctx, area);
             done();
@@ -20018,41 +20026,7 @@ function _loadAndDrawSingle(ctx, src, area, done) {
         _drawImagePlaceholder(ctx, area);
         done();
     };
-    // Try to compress large data URIs before loading
-    if (src.indexOf('data:') === 0 && src.length > 200000) {
-        try {
-            var tmpC = document.createElement('canvas');
-            var tmpSz = 600;
-            tmpC.width = tmpSz; tmpC.height = tmpSz;
-            var tmpCtx = tmpC.getContext('2d');
-            var tmpImg = new Image();
-            tmpImg.onload = function() {
-                if (loaded) return;
-                if (!tmpImg.width || !tmpImg.height || !isFinite(tmpImg.width) || !isFinite(tmpImg.height)) {
-                    _drawImagePlaceholder(ctx, area);
-                    done();
-                    return;
-                }
-                var aspect = tmpImg.width / tmpImg.height;
-                var tw, th;
-                if (aspect > 1) { tw = tmpSz; th = Math.round(tmpSz / aspect); }
-                else { th = tmpSz; tw = Math.round(tmpSz * aspect); }
-                tmpC.width = tw; tmpC.height = th;
-                tmpCtx.drawImage(tmpImg, 0, 0, tw, th);
-                var compressed = tmpC.toDataURL('image/jpeg', 0.7);
-                img.src = compressed;
-            };
-            tmpImg.onerror = function() {
-                _drawImagePlaceholder(ctx, area);
-                done();
-            };
-            tmpImg.src = src;
-        } catch(e) {
-            img.src = src;
-        }
-    } else {
-        img.src = src;
-    }
+    img.src = src;
 }
 
 function _drawImagePlaceholder(ctx, area) {
