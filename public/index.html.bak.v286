@@ -953,32 +953,7 @@
         .cruce-actions { display: flex; gap: 8px; padding: 0 18px 18px; }
         .cruce-space-title { font-size: 12px; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: 0.5px; margin: 14px 0 8px; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
         .cruce-space-title:first-child { margin-top: 0; }
-    
-/* ===== CATALOG BOTTOM SHEET ===== */
-.cat-detail-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:100000;align-items:flex-end;justify-content:center}
-.cat-detail-overlay.show{display:flex}
-.cat-detail-sheet{background:var(--bg);border-radius:20px 20px 0 0;width:100%;max-width:500px;max-height:88vh;overflow-y:auto;animation:catSlideUp .25s ease}
-@keyframes catSlideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
-.cat-detail-handle{width:36px;height:4px;background:var(--border);border-radius:4px;margin:10px auto 0}
-.cat-detail-img{width:100%;max-height:280px;object-fit:contain;background:var(--bg2);display:block;margin:8px auto 0;padding:12px}
-.cat-detail-body{padding:16px 20px 30px}
-.cat-detail-name{font-size:20px;font-weight:800;color:var(--text);line-height:1.3}
-.cat-detail-brand{font-size:14px;color:var(--text3);margin-top:4px}
-.cat-detail-price-row{margin-top:12px;display:flex;align-items:baseline;gap:8px}
-.cat-detail-price-old{font-size:14px;color:var(--text3);text-decoration:line-through}
-.cat-detail-price{font-size:28px;font-weight:800;color:var(--primary)}
-.cat-detail-discount{background:#e53935;color:#fff;font-size:11px;font-weight:700;padding:3px 10px;border-radius:12px}
-.cat-detail-specs{margin-top:16px;background:var(--bg2);border-radius:12px;overflow:hidden}
-.cat-spec-row{display:flex;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--border);font-size:13px}
-.cat-spec-row:last-child{border-bottom:none}
-.cat-spec-label{color:var(--text3)}
-.cat-spec-value{font-weight:600;color:var(--text);text-align:right;max-width:60%}
-.cat-detail-wa{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:16px;width:100%;padding:14px;background:#25d366;color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;text-decoration:none}
-.cat-detail-wa:active{opacity:.85}
-.cat-detail-close{margin-top:10px;width:100%;padding:13px;background:var(--bg2);color:var(--text2);border:1px solid var(--border);border-radius:12px;font-size:14px;font-weight:600;cursor:pointer}
-.cat-detail-open{margin-top:8px;width:100%;padding:13px;background:var(--primary);color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px}
-
-</style>
+    </style>
 </head>
 <body>
 
@@ -1088,7 +1063,7 @@
             <div>
                 <div class="header-name" id="storeHeaderName">Inventario Pro</div>
                 <div class="header-role" id="userRole">rol</div>
-                <div class="header-ver" id="headerVersion">v2.6.57 NV103</div>
+                <div class="header-ver" id="headerVersion">v2.6.32 NV78</div>
             </div>
         </div>
         <button class="btn-logout" onclick="toggleTheme()" style="background:none;border:none;font-size:20px;cursor:pointer;margin-right:8px;color:var(--text2);" title="Cambiar tema">🌓</button>
@@ -1303,25 +1278,20 @@
     <!-- ===== CATALOGS SECTION ===== -->
     <div id="catalogsSection" class="section">
         <div class="main">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
                 <div>
                     <h2 style="font-size:22px;font-weight:800;">📖 Catálogo Electrónico</h2>
                     <div style="font-size:12px;color:var(--text3);margin-top:2px;">Comparte productos con enlace corto</div>
                 </div>
                 <div style="display:flex;gap:8px;">
-                    <button class="btn btn-outline btn-sm" onclick="openClientCatalog()" style="font-size:12px;background:linear-gradient(135deg,#1a73e8,#4fc3f7);color:#fff;border:none;">🌐 Clientes</button>
+                    <button class="btn btn-outline btn-sm" onclick="openCatalogControl()" style="font-size:12px;white-space:nowrap;">📊 Control</button>
                     <button class="btn btn-primary btn-sm" onclick="openEcatalogEditor()">+ Agregar</button>
                 </div>
             </div>
-            <!-- Category tabs -->
-            <div id="catalogCategoryTabs" style="display:flex;gap:8px;overflow-x:auto;padding:6px 0 10px;scrollbar-width:none;-ms-overflow-style:none;"></div>
-            <div id="catalogSubcategoryList" style="display:none;margin-bottom:10px;"></div>
-            <!-- Stats bar -->
-            <div id="catalogStatsBar" style="display:flex;gap:12px;padding:8px 12px;background:var(--bg2);border-radius:10px;margin-bottom:12px;font-size:12px;color:var(--text2);"></div>
             <div style="margin-bottom:12px;">
                 <input type="text" id="ecatalogSearch" placeholder="🔍 Buscar en catálogo..." oninput="renderCatalogsList()" style="width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:10px;background:var(--bg2);color:var(--text);font-size:14px;box-sizing:border-box;">
             </div>
-            <div id="catalogsListContainer" style="columns:2;column-gap:10px;"></div>
+            <div id="catalogsListContainer"></div>
         </div>
     </div>
 
@@ -1493,6 +1463,26 @@
             <span class="nav-icon">⚙️</span>
             <span>Config</span>
         </button>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- MODAL: CATALOG PRODUCT CONTROL                                    -->
+<!-- ============================================================ -->
+<div class="modal-overlay" id="catalogControlModal">
+    <div class="modal-content" style="max-width:500px;">
+        <div class="modal-handle"></div>
+        <div class="modal-header">
+            <div class="modal-title">📊 Control de Productos</div>
+            <button class="modal-close" onclick="closeModal('catalogControlModal')">&times;</button>
+        </div>
+        <div style="padding:0 16px 20px;overflow-y:auto;max-height:80vh;">
+            <div id="ctrlStats" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;background:var(--bg2);border-radius:12px;overflow:hidden;margin-bottom:12px;"></div>
+            <div id="ctrlProgress" style="height:8px;background:var(--border);border-radius:4px;overflow:hidden;margin-bottom:4px;"></div>
+            <div id="ctrlPctText" style="text-align:center;font-size:12px;color:var(--text3);font-weight:600;margin-bottom:14px;"></div>
+            <input type="text" id="ctrlSearchInput" placeholder="🔍 Buscar producto..." oninput="renderCtrlList()" style="width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:10px;background:var(--bg2);color:var(--text);font-size:13px;box-sizing:border-box;margin-bottom:12px;">
+            <div id="ctrlListContainer"></div>
+        </div>
     </div>
 </div>
 
@@ -2814,8 +2804,10 @@ function syncFetchHandler(urlStr, opts) {
         }
     }
 
-    // Locations — removed: was blocking /api/locations sync
-    // Now /api/locations goes directly to Supabase (working endpoint)
+    // Locations — not persisted in DB, return empty
+    if (url.indexOf('/api/sync/locations') !== -1) {
+        return Promise.resolve(_mockResp([]));
+    }
 
     // Unknown — pass through to real fetch
     return _realFetch(urlStr, opts);
@@ -3709,7 +3701,7 @@ function logout() {
 // ====================================================================
 // CHANGELOG — Show latest updates to the user
 // ====================================================================
-var APP_VERSION = '2.6.56 NV102'
+var APP_VERSION = '2.6.32 NV78'
 var CHANGELOG_ENTRIES = [
     { ver: '2.4.0', date: '24 Abr 2026', items: [
         { icon: '📊', text: '<b>Capacidad por espacio:</b> Controla unidades mínimas y máximas para Exhibición, Local Pequeño, Local Grande desde el panel de Control del Local.' },
@@ -3735,11 +3727,6 @@ function renderChangelog() {
         return;
     }
     localStorage.setItem('inv_changelogSeen', APP_VERSION);
-    // Migration: clear stale zone assignments from old versions
-    try {
-        var _oldZA = localStorage.getItem('inv_tvZoneAssign');
-        if (_oldZA) { localStorage.removeItem('inv_tvZoneAssign'); console.log('[MIGRATION] Cleared stale zone assignments'); }
-    } catch(_e) {}
     var html = '';
     for (var e = 0; e < CHANGELOG_ENTRIES.length; e++) {
         var entry = CHANGELOG_ENTRIES[e];
@@ -12389,36 +12376,16 @@ var _zoneConfig = {
     izquierda:{ color:'#10b981', bg:'rgba(16,185,129,0.1)',  border:'rgba(16,185,129,0.3)',  icon:'\u2B05\uFE0F', label:'Izquierda' },
     lateral:  { color:'#f59e0b', bg:'rgba(245,158,11,0.1)',  border:'rgba(245,158,11,0.3)',  icon:'\u2194\uFE0F', label:'Lateral' },
     centro:   { color:'#8b5cf6', bg:'rgba(139,92,246,0.1)',  border:'rgba(139,92,246,0.3)',  icon:'\uD83D\uDCCD', label:'Centro' },
-    fondo:    { color:'#06b6d4', bg:'rgba(6,182,212,0.1)',  border:'rgba(6,182,212,0.3)',  icon:'\uD83D\uDD04', label:'Fondo' },
     general:  { color:'#6b7280', bg:'rgba(107,114,128,0.1)', border:'rgba(107,114,128,0.3)', icon:'\uD83D\uDCE6', label:'General' }
 };
 
-var _dynamicZoneColors = ['#10b981','#8b5cf6','#ec4899','#06b6d4','#84cc16','#f59e0b','#ef4444','#3b82f6'];
-var _dynZoneIdx = 0;
-
-function _getZoneConfig(key) {
-    if (_zoneConfig[key]) return _zoneConfig[key];
-    var c = _dynamicZoneColors[_dynZoneIdx % _dynamicZoneColors.length];
-    _dynZoneIdx++;
-    var label = key.charAt(0).toUpperCase() + key.slice(1);
-    _zoneConfig[key] = {
-        color: c, bg: c + '1a', border: c + '4d',
-        icon: '\uD83C\uDFF7\uFE0F', label: label
-    };
-    return _zoneConfig[key];
-}
-
 function classifySpaceZone(name) {
-    var n = (name || '').toLowerCase().trim();
-    if (!n) return 'general';
+    var n = (name || '').toLowerCase();
     if (n.indexOf('derecha') >= 0 || n.indexOf('der.') >= 0 || n.indexOf('right') >= 0) return 'derecha';
     if (n.indexOf('izquierda') >= 0 || n.indexOf('izq.') >= 0 || n.indexOf('left') >= 0) return 'izquierda';
     if (n.indexOf('lateral') >= 0 || n.indexOf('lat.') >= 0 || n.indexOf('side') >= 0) return 'lateral';
     if (n.indexOf('centro') >= 0 || n.indexOf('center') >= 0 || n.indexOf('central') >= 0) return 'centro';
-    if (n.indexOf('fondo') >= 0 || n.indexOf('back') >= 0 || n.indexOf('rear') >= 0) return 'fondo';
-    // Use actual space name as zone - auto-register config
-    _getZoneConfig(n);
-    return n;
+    return 'general';
 }
 
 // Compute flow (initial, entradas, salidas) for a product within a specific space
@@ -12752,33 +12719,6 @@ function generateLocalesTVReport(isReduced) {
     if (showFaltantes) rHtml += '<div class="summary-box"><div class="num ' + (isComplete ? 'ok' : 'danger') + '">' + (isComplete ? globalPct + '%' : grandFaltantes) + '</div><div class="lbl">' + (isComplete ? 'Completo' : 'Faltan ' + grandFaltantes) + '</div></div>';
     rHtml += '</div>';
 
-    // Per-local summary table (printable)
-    rHtml += '<div class="section-title">Resumen por Local</div>';
-    rHtml += '<table><thead><tr><th>Local</th><th>Espacios</th><th>TVs</th>';
-    if (showEntradas) rHtml += '<th>Entradas</th>';
-    if (showSalidas) rHtml += '<th>Salidas</th>';
-    rHtml += '</tr></thead><tbody>';
-    for (var sLocI = 0; sLocI < filteredLocs.length; sLocI++) {
-        var sLoc = filteredLocs[sLocI];
-        var sSp = sLoc.spaces || [];
-        var sLQ = 0, sLE = 0, sLS = 0, sLSpCnt = 0;
-        for (var sSi = 0; sSi < sSp.length; sSi++) {
-            var sPrds = sSp[sSi].products || [];
-            if (sPrds.length === 0) continue;
-            sLSpCnt++;
-            for (var sPi = 0; sPi < sPrds.length; sPi++) {
-                sLQ += (sPrds[sPi].qty || 0);
-                var sFl2 = computeProductFlowSpace(sLoc, sSp[sSi], sPrds[sPi]);
-                sLE += sFl2.entradas; sLS += sFl2.salidas;
-            }
-        }
-        rHtml += '<tr><td class="name-col" style="font-weight:700;">' + escapeHtml(sLoc.name) + '</td><td>' + sLSpCnt + '</td><td style="font-weight:800;font-size:12px;">' + sLQ + '</td>';
-        if (showEntradas) rHtml += '<td class="ok">+' + sLE + '</td>';
-        if (showSalidas) rHtml += '<td class="danger">-' + sLS + '</td>';
-        rHtml += '</tr>';
-    }
-    rHtml += '</tbody></table>';
-
     // Zone summary cards (printable) - PROMINENT zone counts
     rHtml += '<div style="font-size:14px;font-weight:800;color:#1b7897;text-align:center;margin:14px 0 10px;">RESUMEN DE TVs POR ZONA</div>';
     rHtml += '<table style="width:100%;border-collapse:collapse;margin-bottom:14px;"><thead><tr><th style="background:#1b7897;color:#fff;padding:6px;">Zona</th><th style="background:#1b7897;color:#fff;padding:6px;">TVs</th><th style="background:#1b7897;color:#fff;padding:6px;">Modelos</th><th style="background:#1b7897;color:#fff;padding:6px;">Espacios</th>';
@@ -12848,95 +12788,43 @@ function generateLocalesTVReport(isReduced) {
     tRow += '<td>' + (isComplete ? '\u2705 OK' : '\u26A0\uFE0F Faltan ' + grandFaltantes) + '</td></tr>';
     rHtml += tRow + '</tbody></table>';
 
-    // Detail by LOCAL → ZONE → SPACE (printable)
-    rHtml += '<div class="section-title">Detalle por Local y Zona</div>';
-    for (var pLocI = 0; pLocI < filteredLocs.length; pLocI++) {
-        var pLoc = filteredLocs[pLocI];
-        var pSpaces = pLoc.spaces || [];
-        // Group spaces by zone within this local
-        var pLocZones = {};
-        var pLocZoneOrder = [];
-        var pLocTotalQty = 0, pLocTotalEnt = 0, pLocTotalSal = 0;
-        for (var pSi = 0; pSi < pSpaces.length; pSi++) {
-            var pSp = pSpaces[pSi];
-            var pSpName = pSp.name || ('Espacio ' + (pSi+1));
-            if (hasZoneFilter && !allowedSpaceNames[pSpName]) continue;
-            var pSpProds = pSp.products || [];
-            if (pSpProds.length === 0) continue;
-            var pZone = zoneAssignments[pSpName] || classifySpaceZone(pSpName);
-            if (!pLocZones[pZone]) {
-                pLocZones[pZone] = { spaces: [], total: 0, entradas: 0, salidas: 0, models: 0 };
-                pLocZoneOrder.push(pZone);
+    // Detail by zone (printable)
+    rHtml += '<div class="section-title">Detalle por Zona</div>';
+    for (var dzoi = 0; dzoi < printedZoneOrder.length; dzoi++) {
+        var dzoName = printedZoneOrder[dzoi];
+        var dzoCfg = _zoneConfig[dzoName] || _zoneConfig.general;
+        var dzoData = zoneData[dzoName];
+        var dzoSpKeys = Object.keys(dzoData.spaces);
+        if (dzoSpKeys.length === 0) continue;
+        rHtml += '<hr class="zone-divider" style="background:' + dzoCfg.color + ';">';
+        rHtml += '<div style="font-size:14px;font-weight:800;color:' + dzoCfg.color + ';margin-bottom:8px;">' + dzoCfg.icon + ' ' + dzoCfg.label + ' <span style="font-size:11px;font-weight:400;">(' + dzoData.total + ' uds, ' + dzoData.models + ' modelos)</span></div>';
+        for (var dzsi = 0; dzsi < dzoSpKeys.length; dzsi++) {
+            var dzSpName = dzoSpKeys[dzsi];
+            var dzSp = dzoData.spaces[dzSpName];
+            rHtml += '<div style="font-size:12px;font-weight:700;color:#333;margin:10px 0 4px;padding:4px 8px;background:#f0f0f0;border-radius:6px;border-left:4px solid ' + dzoCfg.color + ';">' + escapeHtml(dzSpName) + ' (' + dzSp.qty + ' uds)</div>';
+            rHtml += '<table><thead><tr><th>Modelo</th><th>Marca</th>';
+            if (hasFlow) { if (showEntradas) rHtml += '<th>Entradas</th>'; if (showSalidas) rHtml += '<th>Salidas</th>'; }
+            if (showStock) rHtml += '<th>Actual</th>';
+            if (showFaltantes) rHtml += '<th>Objetivo</th>';
+            rHtml += '<th>Estado</th></tr></thead><tbody>';
+            for (var dzpi = 0; dzpi < dzSp.products.length; dzpi++) {
+                var dzPr = dzSp.products[dzpi];
+                var dzFalt = Math.max(0, dzPr.target - dzPr.qty);
+                var dRow = '<tr><td class="name-col">' + escapeHtml(dzPr.name) + '</td><td>' + escapeHtml(dzPr.brand || '\u2014') + '</td>';
+                if (showEntradas) dRow += '<td class="ok">+' + (dzPr.flow ? dzPr.flow.entradas : 0) + '</td>';
+                if (showSalidas) dRow += '<td class="danger">-' + (dzPr.flow ? dzPr.flow.salidas : 0) + '</td>';
+                if (showStock) dRow += '<td style="font-weight:700;">' + dzPr.qty + '</td>';
+                if (showFaltantes) dRow += '<td>' + (dzPr.target > 0 ? dzPr.target : '\u2014') + '</td>';
+                dRow += '<td>' + getStatusLabel(dzPr.qty, dzPr.target) + '</td></tr>';
+                rHtml += dRow;
             }
-            var pSpEnt = 0, pSpSal = 0, pSpQty = 0;
-            var pSpProducts = [];
-            for (var pPi = 0; pPi < pSpProds.length; pPi++) {
-                var pPr = pSpProds[pPi];
-                var pQty = pPr.qty || 0;
-                var pFlow = computeProductFlowSpace(pLoc, pSp, pPr);
-                var pKey = buildModelKey(pPr.productId, pPr.name, pPr.brand, pPr.specifications);
-                var pMt = allModelTargets[pKey];
-                var pTarget = pMt ? pMt.target : 0;
-                pSpProducts.push({ name: pPr.name || 'TV', brand: pPr.brand || '', qty: pQty, target: pTarget, specs: getSpecsStr(pPr.specifications), flow: pFlow });
-                pSpQty += pQty; pSpEnt += pFlow.entradas; pSpSal += pFlow.salidas;
-            }
-            pLocZones[pZone].spaces.push({ name: pSpName, products: pSpProducts, qty: pSpQty, entradas: pSpEnt, salidas: pSpSal });
-            pLocZones[pZone].total += pSpQty;
-            pLocZones[pZone].entradas += pSpEnt;
-            pLocZones[pZone].salidas += pSpSal;
-            pLocZones[pZone].models += pSpProducts.length;
-            pLocTotalQty += pSpQty; pLocTotalEnt += pSpEnt; pLocTotalSal += pSpSal;
+            rHtml += '<tr class="total-row"><td colspan="2" style="text-align:right;padding-right:6px;">Subtotal</td>';
+            if (showEntradas) rHtml += '<td>+' + dzSp.entradas + '</td>';
+            if (showSalidas) rHtml += '<td>-' + dzSp.salidas + '</td>';
+            if (showStock) rHtml += '<td>' + dzSp.qty + '</td>';
+            if (showFaltantes) rHtml += '<td></td>';
+            rHtml += '<td></td></tr></tbody></table>';
         }
-        if (pLocZoneOrder.length === 0) continue;
-        // Local header
-        rHtml += '<div style="font-size:15px;font-weight:900;color:#1e40af;margin:18px 0 6px;padding:6px 10px;background:#e0e7ff;border-radius:8px;border-left:5px solid #1e40af;">\uD83C\uDFE8 ' + escapeHtml(pLoc.name) + ' <span style="font-size:11px;font-weight:400;color:#555;">(' + pLocTotalQty + ' uds';
-        if (showEntradas) rHtml += ', +' + pLocTotalEnt + ' ent.';
-        if (showSalidas) rHtml += ', -' + pLocTotalSal + ' sal.';
-        rHtml += ')</span></div>';
-        // Zones within this local
-        for (var pZi = 0; pZi < pLocZoneOrder.length; pZi++) {
-            var pZName = pLocZoneOrder[pZi];
-            var pZCfg = _zoneConfig[pZName] || _zoneConfig.general;
-            var pZData = pLocZones[pZName];
-            rHtml += '<hr class="zone-divider" style="background:' + pZCfg.color + ';">';
-            rHtml += '<div style="font-size:13px;font-weight:800;color:' + pZCfg.color + ';margin:8px 0 6px;">' + pZCfg.icon + ' ' + pZCfg.label + ' <span style="font-size:10px;font-weight:400;">(' + pZData.total + ' uds, ' + pZData.models + ' modelos)</span></div>';
-            for (var pSpI = 0; pSpI < pZData.spaces.length; pSpI++) {
-                var pSpD = pZData.spaces[pSpI];
-                rHtml += '<div style="font-size:11px;font-weight:700;color:#333;margin:8px 0 3px;padding:3px 8px;background:#f0f0f0;border-radius:6px;border-left:4px solid ' + pZCfg.color + ';">' + escapeHtml(pSpD.name) + ' (' + pSpD.qty + ' uds)</div>';
-                rHtml += '<table><thead><tr><th>Modelo</th><th>Marca</th>';
-                if (hasFlow) { if (showEntradas) rHtml += '<th>Entradas</th>'; if (showSalidas) rHtml += '<th>Salidas</th>'; }
-                if (showStock) rHtml += '<th>Actual</th>';
-                if (showFaltantes) rHtml += '<th>Objetivo</th>';
-                rHtml += '<th>Estado</th></tr></thead><tbody>';
-                for (var pPrI = 0; pPrI < pSpD.products.length; pPrI++) {
-                    var pPrD = pSpD.products[pPrI];
-                    var pFalt = Math.max(0, pPrD.target - pPrD.qty);
-                    var pRow = '<tr><td class="name-col">' + escapeHtml(pPrD.name) + '</td><td>' + escapeHtml(pPrD.brand || '\u2014') + '</td>';
-                    if (showEntradas) pRow += '<td class="ok">+' + (pPrD.flow ? pPrD.flow.entradas : 0) + '</td>';
-                    if (showSalidas) pRow += '<td class="danger">-' + (pPrD.flow ? pPrD.flow.salidas : 0) + '</td>';
-                    if (showStock) pRow += '<td style="font-weight:700;">' + pPrD.qty + '</td>';
-                    if (showFaltantes) pRow += '<td>' + (pPrD.target > 0 ? pPrD.target : '\u2014') + '</td>';
-                    pRow += '<td>' + getStatusLabel(pPrD.qty, pPrD.target) + '</td></tr>';
-                    rHtml += pRow;
-                }
-                rHtml += '<tr class="total-row"><td colspan="2" style="text-align:right;padding-right:6px;">Subtotal ' + escapeHtml(pSpD.name) + '</td>';
-                if (showEntradas) rHtml += '<td>+' + pSpD.entradas + '</td>';
-                if (showSalidas) rHtml += '<td>-' + pSpD.salidas + '</td>';
-                if (showStock) rHtml += '<td>' + pSpD.qty + '</td>';
-                if (showFaltantes) rHtml += '<td></td>';
-                rHtml += '<td></td></tr></tbody></table>';
-            }
-            // Zone subtotal
-            rHtml += '<div style="text-align:right;font-size:10px;color:' + pZCfg.color + ';font-weight:700;margin:4px 0;">Subtotal ' + pZCfg.label + ': ' + pZData.total + ' uds';
-            if (showEntradas) rHtml += ' | +' + pZData.entradas + ' ent.';
-            if (showSalidas) rHtml += ' | -' + pZData.salidas + ' sal.';
-            rHtml += '</div>';
-        }
-        // Local total
-        rHtml += '<div style="text-align:right;font-size:11px;color:#1e40af;font-weight:900;margin:6px 0 10px;padding:4px 8px;background:#e0e7ff;border-radius:6px;">Total ' + escapeHtml(pLoc.name) + ': ' + pLocTotalQty + ' uds';
-        if (showEntradas) rHtml += ' | +' + pLocTotalEnt + ' entradas';
-        if (showSalidas) rHtml += ' | -' + pLocTotalSal + ' salidas';
-        rHtml += '</div>';
     }
 
     // Movimientos (printable)
@@ -13054,99 +12942,75 @@ function renderTVReportTab(tab, search) {
 // ===== ZONA TAB =====
 function _renderTVZonaTab(d, search) {
     var h = _renderSummaryCards(d);
-    var locs = d.filteredLocs || [];
-    for (var li = 0; li < locs.length; li++) {
-        var loc = locs[li];
-        var locSpaces = loc.spaces || [];
-        var locTotal = 0, locEntradas = 0, locSalidas = 0, locModels = 0, locModelSet = {};
-        for (var lsi = 0; lsi < locSpaces.length; lsi++) {
-            var lsProds = locSpaces[lsi].products || [];
-            for (var lpi = 0; lpi < lsProds.length; lpi++) {
-                locTotal += (lsProds[lpi].qty || 0);
-                var lsFlow = computeProductFlowSpace(loc, locSpaces[lsi], lsProds[lpi]);
-                locEntradas += lsFlow.entradas;
-                locSalidas += lsFlow.salidas;
-                locModelSet[lsProds[lpi].name || 'TV'] = true;
-            }
+    var order = d.printedZoneOrder || [];
+    for (var i = 0; i < order.length; i++) {
+        var zName = order[i];
+        var zCfg = _zoneConfig[zName] || _zoneConfig.general;
+        var zData = d.zoneData[zName];
+        var spKeys = Object.keys(zData.spaces);
+        if (spKeys.length === 0) continue;
+        var zPct = zData.target > 0 ? Math.min(100, Math.round((zData.total / zData.target) * 100)) : 100;
+        var zFalt = Math.max(0, zData.target - zData.total);
+
+        h += '<div style="background:' + zCfg.bg + ';border:1.5px solid ' + zCfg.border + ';border-radius:12px;padding:12px;margin-bottom:12px;" id="tvZone_' + zName + '">' +
+            '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;cursor:pointer;" onclick="toggleTVZone(\'' + zName + '\')">' +
+                '<div style="width:36px;height:36px;border-radius:8px;background:' + zCfg.color + ';display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">' + zCfg.icon + '</div>' +
+                '<div style="flex:1;min-width:0;">' +
+                    '<div style="font-size:15px;font-weight:800;color:' + zCfg.color + ';">' + zCfg.label + '</div>' +
+                    '<div style="font-size:10px;color:var(--text3);">' + spKeys.length + ' espacio(s) \u2022 ' + zData.models + ' modelo(s)</div>' +
+                '</div>' +
+                '<div style="text-align:right;">' +
+                    '<div style="font-size:20px;font-weight:800;color:' + zCfg.color + ';">' + zData.total + '</div>' +
+                    '<div style="font-size:9px;color:var(--text3);">unidades</div>' +
+                '</div>' +
+                '<div id="tvZoneArrow_' + zName + '" style="font-size:12px;color:var(--text3);transition:transform 0.2s;">\u25BC</div>' +
+            '</div>' +
+            '<div style="background:rgba(0,0,0,0.08);border-radius:4px;height:6px;overflow:hidden;margin-bottom:4px;">' +
+                '<div style="height:100%;border-radius:4px;background:' + zCfg.color + ';width:' + zPct + '%;transition:width 0.3s;"></div>' +
+            '</div>' +
+            '<div style="display:flex;justify-content:space-between;font-size:9px;color:var(--text3);">' +
+                '<span>' + zPct + '% del objetivo' + (zData.target > 0 ? ' (' + zData.target + ')' : '') + '</span>' +
+                (zFalt > 0 ? '<span style="color:var(--danger);font-weight:600;">Faltan ' + zFalt + '</span>' : '<span style="color:#27ae60;font-weight:600;">\u2705 Completo</span>') +
+            '</div>';
+
+        if (d.showEntradas || d.showSalidas) {
+            h += '<div style="display:flex;gap:8px;margin-top:8px;">';
+            if (d.showEntradas) h += '<div style="flex:1;background:rgba(39,174,96,0.1);border-radius:6px;padding:6px;text-align:center;"><div style="font-size:14px;font-weight:700;color:#27ae60;">+' + zData.entradas + '</div><div style="font-size:8px;color:var(--text3);">Entradas</div></div>';
+            if (d.showSalidas) h += '<div style="flex:1;background:rgba(239,68,68,0.1);border-radius:6px;padding:6px;text-align:center;"><div style="font-size:14px;font-weight:700;color:var(--danger);">-' + zData.salidas + '</div><div style="font-size:8px;color:var(--text3);">Salidas</div></div>';
+            h += '</div>';
         }
-        locModels = Object.keys(locModelSet).length;
-        if (locTotal === 0) continue;
 
-        // Local header
-        h += '<div style="margin-bottom:14px;">';
-        h += '<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:linear-gradient(135deg,rgba(59,130,246,0.12),rgba(59,130,246,0.05));border:1.5px solid rgba(59,130,246,0.25);border-radius:12px;margin-bottom:10px;cursor:pointer;" onclick="toggleTVSection(\'zonaLoc_'+li+'\')">' +
-            '<div style="width:40px;height:40px;border-radius:10px;background:var(--primary);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">\uD83C\uDFE8</div>' +
-            '<div style="flex:1;min-width:0;">' +
-                '<div style="font-size:15px;font-weight:800;color:var(--primary);">' + escapeHtml(loc.name) + '</div>' +
-                '<div style="font-size:10px;color:var(--text3);">' + locSpaces.length + ' espacio(s) \u2022 ' + locModels + ' modelo(s)</div>' +
-            '</div>' +
-            '<div style="text-align:right;">' +
-                '<div style="font-size:22px;font-weight:800;color:var(--primary);">' + locTotal + '</div>' +
-                '<div style="font-size:9px;color:var(--text3);">unidades</div>' +
-            '</div>' +
-            (d.showEntradas || d.showSalidas ? '<div style="text-align:center;min-width:50px;"><div style="font-size:10px;color:#27ae60;font-weight:700;">+' + locEntradas + '</div><div style="font-size:10px;color:var(--danger);font-weight:700;">-' + locSalidas + '</div></div>' : '') +
-            '<div id="tvZoneArrow_zonaLoc_'+li+'" style="font-size:12px;color:var(--text3);transition:transform 0.2s;">\u25BC</div>' +
-        '</div>';
-
-        // Spaces within this local
-        h += '<div id="tvZoneContent_zonaLoc_'+li+'">';
-        var _spColors = ['#f59e0b','#06b6d4','#3b82f6','#8b5cf6','#ec4899'];
-        for (var si = 0; si < locSpaces.length; si++) {
-            var space = locSpaces[si];
-            var spName = space.name || ('Espacio ' + (si+1));
-            var prods = space.products || [];
-            var spTotal = 0, spEntradas = 0, spSalidas = 0;
-            for (var spi = 0; spi < prods.length; spi++) {
-                spTotal += (prods[spi].qty || 0);
-                var spFlow = computeProductFlowSpace(loc, space, prods[spi]);
-                spEntradas += spFlow.entradas;
-                spSalidas += spFlow.salidas;
-            }
-            var filtered = prods;
+        h += '<div id="tvZoneContent_' + zName + '" style="margin-top:10px;">';
+        for (var si = 0; si < spKeys.length; si++) {
+            var spName = spKeys[si];
+            var sp = zData.spaces[spName];
+            var filtered = sp.products;
             if (search) {
                 filtered = [];
-                for (var fi = 0; fi < prods.length; fi++) {
-                    var fp = prods[fi];
+                for (var fi = 0; fi < sp.products.length; fi++) {
+                    var fp = sp.products[fi];
                     if ((fp.name || '').toLowerCase().indexOf(search) >= 0 || (fp.brand || '').toLowerCase().indexOf(search) >= 0) filtered.push(fp);
                 }
                 if (filtered.length === 0) continue;
             }
-            if (spTotal === 0 && !search) continue;
-            var spCol = _spColors[si % _spColors.length];
-
-            // Space card
-            h += '<div style="background:' + spCol + '14;border:1.5px solid ' + spCol + '40;border-radius:10px;padding:10px;margin-bottom:8px;">';
+            h += '<div style="background:var(--bg);border-radius:8px;padding:8px;margin-bottom:6px;border:1px solid ' + zCfg.border + ';">';
             h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">' +
-                '<div style="display:flex;align-items:center;gap:6px;">' +
-                    '<div style="width:28px;height:28px;border-radius:6px;background:' + spCol + ';display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;color:#fff;">\uD83D\uDDD6</div>' +
-                    '<span style="font-size:13px;font-weight:700;color:' + spCol + ';">' + escapeHtml(spName) + '</span>' +
-                    '<span style="font-size:10px;color:var(--text3);">(' + filtered.length + ' modelo(s))</span>' +
-                '</div>' +
-                '<div style="display:flex;align-items:center;gap:8px;">' +
-                    (d.showEntradas ? '<span style="font-size:9px;color:#27ae60;">+' + spEntradas + '</span>' : '') +
-                    (d.showSalidas ? '<span style="font-size:9px;color:var(--danger);">-' + spSalidas + '</span>' : '') +
-                    '<span style="font-size:14px;font-weight:800;color:' + spCol + ';">' + spTotal + ' uds</span>' +
-                '</div></div>';
-
-            // Products
+                '<span style="font-size:12px;font-weight:700;color:var(--text);">\uD83D\uDDD6 ' + escapeHtml(spName) + '</span>' +
+                '<span style="font-size:11px;font-weight:700;color:' + zCfg.color + ';">' + sp.qty + ' uds</span></div>';
             for (var pi = 0; pi < filtered.length; pi++) {
                 var p = filtered[pi];
-                var pTarget = 0;
-                var pMt = d.allModelTargets ? d.allModelTargets[buildModelKey(p.productId, p.name, p.brand, p.specifications)] : null;
-                if (pMt) pTarget = pMt.target || 0;
-                var pFalt = Math.max(0, pTarget - (p.qty || 0));
-                var pSt = (p.qty || 0) === 0 ? 'var(--danger)' : (pFalt > 0 ? '#e67e22' : '#27ae60');
-                var pStTxt = (p.qty || 0) === 0 ? 'SIN STOCK' : (pFalt > 0 ? 'Faltan ' + pFalt : 'OK');
-                var pFlow = computeProductFlowSpace(loc, space, p);
+                var pFalt = Math.max(0, p.target - p.qty);
+                var pSt = p.qty === 0 ? 'var(--danger)' : (pFalt > 0 ? '#e67e22' : '#27ae60');
+                var pStTxt = p.qty === 0 ? 'SIN STOCK' : (pFalt > 0 ? 'Faltan ' + pFalt : 'OK');
                 h += '<div style="display:flex;align-items:center;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border);">' +
                     '<div style="flex:1;min-width:0;">' +
                         '<div style="font-size:11px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(p.name) + '</div>' +
-                        '<div style="font-size:9px;color:var(--text3);">' + escapeHtml(p.brand || '') + (p.specifications ? ' \u2022 ' + escapeHtml(d.getSpecsStr ? d.getSpecsStr(p.specifications) : '') : '') + '</div>' +
+                        '<div style="font-size:9px;color:var(--text3);">' + escapeHtml(p.brand || '') + (p.specs ? ' \u2022 ' + escapeHtml(p.specs) : '') + '</div>' +
                     '</div>' +
                     '<div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">' +
-                        (d.showEntradas ? '<span style="font-size:9px;color:#27ae60;">+' + pFlow.entradas + '</span>' : '') +
-                        (d.showSalidas ? '<span style="font-size:9px;color:var(--danger);">-' + pFlow.salidas + '</span>' : '') +
-                        '<span style="font-size:13px;font-weight:800;color:var(--text);">' + (p.qty || 0) + '</span>' +
+                        (d.showEntradas ? '<span style="font-size:9px;color:#27ae60;">+' + (p.flow?p.flow.entradas:0) + '</span>' : '') +
+                        (d.showSalidas ? '<span style="font-size:9px;color:var(--danger);">-' + (p.flow?p.flow.salidas:0) + '</span>' : '') +
+                        '<span style="font-size:13px;font-weight:800;color:var(--text);">' + p.qty + '</span>' +
                         '<span style="font-size:9px;font-weight:700;color:' + pSt + ';">' + pStTxt + '</span>' +
                     '</div></div>';
             }
@@ -13154,12 +13018,13 @@ function _renderTVZonaTab(d, search) {
         }
         h += '</div></div>';
     }
-    // Expand all locals
+
+    // Default: expand all zones
     if (!search) {
         setTimeout(function() {
-            for (var ez = 0; ez < locs.length; ez++) {
-                var el = document.getElementById('tvZoneContent_zonaLoc_' + ez);
-                var arr = document.getElementById('tvZoneArrow_zonaLoc_' + ez);
+            for (var ez = 0; ez < order.length; ez++) {
+                var el = document.getElementById('tvZoneContent_' + order[ez]);
+                var arr = document.getElementById('tvZoneArrow_' + order[ez]);
                 if (el) el.style.display = 'block';
                 if (arr) arr.style.transform = 'rotate(180deg)';
             }
@@ -13179,88 +13044,70 @@ function toggleTVZone(zone) {
 // ===== GLOBAL TAB =====
 function _renderTVGlobalTab(d, search) {
     var h = _renderSummaryCards(d);
-    h += '<div style="font-size:13px;font-weight:700;color:var(--primary);margin:14px 0 8px;padding:6px 10px;background:var(--bg2);border-radius:8px;border-left:4px solid var(--primary);">\uD83D\uDDFA Resumen Global por Local y Espacio</div>';
-    var _gCols = [];
-    var _spClr = ['#f59e0b','#06b6d4','#3b82f6','#8b5cf6','#ec4899','#10b981','#ef4444','#84cc16'];
-    var _colClr = [];
-    var _locColGroups = [];
-    for (var li = 0; li < d.filteredLocs.length; li++) {
-        var loc = d.filteredLocs[li];
-        var spaces = loc.spaces || [];
-        var startIdx = _gCols.length;
-        for (var si = 0; si < spaces.length; si++) {
-            var sp = spaces[si];
-            if ((sp.products || []).length === 0) continue;
-            var spName = sp.name || ('Espacio ' + (si+1));
-            _gCols.push({ locName: loc.name, spaceName: spName, key: loc.name + '|||' + spName });
-            _colClr.push(_spClr[(_gCols.length-1) % _spClr.length]);
-        }
-        if (_gCols.length > startIdx) _locColGroups.push({ locName: loc.name, startIdx: startIdx, count: _gCols.length - startIdx });
+    h += '<div style="font-size:13px;font-weight:700;color:var(--primary);margin:14px 0 8px;padding:6px 10px;background:var(--bg2);border-radius:8px;border-left:4px solid var(--primary);">\uD83D\uDDFA Resumen Global</div>';
+    h += '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:10px;"><thead><tr>';
+    h += '<th style="background:var(--primary);color:#fff;padding:6px 4px;">Modelo</th><th style="background:var(--primary);color:#fff;padding:6px 4px;">Marca</th>';
+    if (!d.isReduced) h += '<th style="background:var(--primary);color:#fff;padding:6px 4px;">Specs</th>';
+    var order = d.printedZoneOrder || [];
+    for (var zhi = 0; zhi < order.length; zhi++) {
+        var zhCfg = _zoneConfig[order[zhi]] || _zoneConfig.general;
+        var zhSpKeys = Object.keys(d.zoneData[order[zhi]].spaces);
+        if (zhSpKeys.length > 0) h += '<th colspan="' + zhSpKeys.length + '" style="background:' + zhCfg.color + ';color:#fff;padding:4px;">' + zhCfg.icon + ' ' + zhCfg.label + '</th>';
     }
-    if (_gCols.length === 0) return h + '<div style="text-align:center;color:var(--text3);padding:40px;">Sin datos</div>';
-    var _colByKey = {};
-    for (var ci = 0; ci < _gCols.length; ci++) _colByKey[_gCols[ci].key] = ci;
-    var _colTotals = [];
-    for (var ci2 = 0; ci2 < _gCols.length; ci2++) _colTotals.push(0);
-    var _prodColQty = {};
-    for (var pk = 0; pk < d.keys.length; pk++) {
-        var pKey = d.keys[pk];
-        var pm = d.productMap[pKey];
-        var colQ = [];
-        for (var ci3 = 0; ci3 < _gCols.length; ci3++) colQ.push(0);
-        for (var li2 = 0; li2 < pm.locales.length; li2++) {
-            var locInfo = pm.locales[li2];
-            var cKey = locInfo.locName + '|||' + locInfo.spaceName;
-            var cIdx = _colByKey[cKey];
-            if (cIdx !== undefined) { colQ[cIdx] += locInfo.qty; _colTotals[cIdx] += locInfo.qty; }
-        }
-        _prodColQty[pKey] = colQ;
-    }
-    h += '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:10px;"><thead>';
-    h += '<tr><th rowspan="2" style="background:var(--primary);color:#fff;padding:6px 4px;">Modelo</th><th rowspan="2" style="background:var(--primary);color:#fff;padding:6px 4px;">Marca</th>';
-    if (!d.isReduced) h += '<th rowspan="2" style="background:var(--primary);color:#fff;padding:6px 4px;">Specs</th>';
-    for (var lg = 0; lg < _locColGroups.length; lg++) {
-        var lgG = _locColGroups[lg];
-        h += '<th colspan="' + lgG.count + '" style="background:#1e40af;color:#fff;padding:4px;font-size:9px;">\uD83C\uDFE8 ' + escapeHtml(lgG.locName) + '</th>';
-    }
-    if (d.showEntradas) h += '<th rowspan="2" style="background:var(--primary);color:#fff;padding:6px 4px;">Entr.</th>';
-    if (d.showSalidas) h += '<th rowspan="2" style="background:var(--primary);color:#fff;padding:6px 4px;">Sal.</th>';
-    if (d.showStock) h += '<th rowspan="2" style="background:var(--primary);color:#fff;padding:6px 4px;">Stock</th>';
-    if (d.showFaltantes) h += '<th rowspan="2" style="background:var(--primary);color:#fff;padding:6px 4px;">Falt.</th>';
-    h += '<th rowspan="2" style="background:var(--primary);color:#fff;padding:6px 4px;">Estado</th></tr>';
+    if (d.showEntradas) h += '<th style="background:var(--primary);color:#fff;padding:6px 4px;">Entr.</th>';
+    if (d.showSalidas) h += '<th style="background:var(--primary);color:#fff;padding:6px 4px;">Sal.</th>';
+    if (d.showStock) h += '<th style="background:var(--primary);color:#fff;padding:6px 4px;">Stock</th>';
+    if (d.showFaltantes) h += '<th style="background:var(--primary);color:#fff;padding:6px 4px;">Falt.</th>';
+    h += '<th style="background:var(--primary);color:#fff;padding:6px 4px;">Estado</th></tr>';
+    // Sub-header: space names under each zone
     h += '<tr>';
-    for (var ci4 = 0; ci4 < _gCols.length; ci4++) {
-        h += '<th style="background:' + _colClr[ci4] + ';color:#fff;padding:3px 2px;font-size:8px;">' + escapeHtml(_gCols[ci4].spaceName) + '</th>';
-    }
-    h += '</tr></thead><tbody>';
-    var rTE=0,rTS=0,rTA=0,rTF=0;
-    for (var gi = 0; gi < d.keys.length; gi++) {
-        var pm2 = d.productMap[d.keys[gi]];
-        if (search && (pm2.name||'').toLowerCase().indexOf(search)<0 && (pm2.brand||'').toLowerCase().indexOf(search)<0) continue;
-        var pvT = d.allModelTargets[d.keys[gi]] ? d.allModelTargets[d.keys[gi]].target : 0;
-        var pvF = Math.max(0, pvT - pm2.totalQty);
-        var bg = gi%2===0?'':'background:var(--bg2);';
-        var cQ = _prodColQty[d.keys[gi]];
-        var row = '<tr style="'+bg+'"><td style="padding:5px 6px;text-align:left;border-bottom:1px solid var(--border);color:var(--text);font-weight:600;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+escapeHtml(pm2.name+(d.isReduced?'':(d.getSpecsStr(pm2.specifications)?' ('+d.getSpecsStr(pm2.specifications)+')':'')))+'  </td>';
-        row += '<td style="padding:5px 4px;text-align:center;border-bottom:1px solid var(--border);">'+escapeHtml(pm2.brand||'\u2014')+'</td>';
-        if(!d.isReduced) row += '<td style="padding:5px 3px;text-align:left;border-bottom:1px solid var(--border);font-size:8px;color:var(--text2);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+escapeHtml(d.getSpecsStr(pm2.specifications)||'\u2014')+'</td>';
-        for (var cqi = 0; cqi < cQ.length; cqi++) {
-            var sq = cQ[cqi];
-            row += '<td style="padding:5px 4px;text-align:center;border-bottom:1px solid var(--border);'+(sq>0?'font-weight:600;':'color:var(--text3);')+'">'+sq+'</td>';
+    h += '<th style="background:var(--primary);color:#fff;padding:2px;"></th><th style="background:var(--primary);color:#fff;padding:2px;"></th>';
+    if (!d.isReduced) h += '<th style="background:var(--primary);color:#fff;padding:2px;"></th>';
+    for (var zshi = 0; zshi < order.length; zshi++) {
+        var zsCfg = _zoneConfig[order[zshi]] || _zoneConfig.general;
+        var zsSpKeys = Object.keys(d.zoneData[order[zshi]].spaces);
+        for (var zsk = 0; zsk < zsSpKeys.length; zsk++) {
+            h += '<th style="background:' + zsCfg.color + ';color:#fff;padding:3px 2px;font-size:8px;opacity:0.9;">' + escapeHtml(zsSpKeys[zsk]) + '</th>';
         }
-        if(d.showEntradas){row+='<td style="padding:5px 4px;text-align:center;border-bottom:1px solid var(--border);color:#27ae60;">+'+pm2.totalEntradas+'</td>';rTE+=pm2.totalEntradas;}
-        if(d.showSalidas){row+='<td style="padding:5px 4px;text-align:center;border-bottom:1px solid var(--border);color:var(--danger);">-'+pm2.totalSalidas+'</td>';rTS+=pm2.totalSalidas;}
-        if(d.showStock){row+='<td style="padding:5px 4px;text-align:center;border-bottom:1px solid var(--border);">'+pm2.totalQty+'</td>';rTA+=pm2.totalQty;}
+    }
+    if (d.showEntradas) h += '<th style="background:var(--primary);color:#fff;padding:2px;"></th>';
+    if (d.showSalidas) h += '<th style="background:var(--primary);color:#fff;padding:2px;"></th>';
+    if (d.showStock) h += '<th style="background:var(--primary);color:#fff;padding:2px;"></th>';
+    if (d.showFaltantes) h += '<th style="background:var(--primary);color:#fff;padding:2px;"></th>';
+    h += '<th style="background:var(--primary);color:#fff;padding:2px;"></th></tr></thead><tbody>';
+
+    var rTE=0,rTS=0,rTA=0,rTF=0;
+    var rTSQ={};
+    for(var i=0;i<d.reportSpaceNames.length;i++) rTSQ[d.reportSpaceNames[i]]=0;
+
+    for (var gi = 0; gi < d.keys.length; gi++) {
+        var pm = d.productMap[d.keys[gi]];
+        if (search && (pm.name||'').toLowerCase().indexOf(search)<0 && (pm.brand||'').toLowerCase().indexOf(search)<0) continue;
+        var pvT = d.allModelTargets[d.keys[gi]] ? d.allModelTargets[d.keys[gi]].target : 0;
+        var pvF = Math.max(0, pvT - pm.totalQty);
+        var bg = gi%2===0?'':'background:var(--bg2);';
+        var row = '<tr style="'+bg+'"><td style="padding:5px 6px;text-align:left;border-bottom:1px solid var(--border);color:var(--text);font-weight:600;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+escapeHtml(pm.name+(d.isReduced?'':(d.getSpecsStr(pm.specifications)?' ('+d.getSpecsStr(pm.specifications)+')':'')))+'  </td>';
+        row += '<td style="padding:5px 4px;text-align:center;border-bottom:1px solid var(--border);">'+escapeHtml(pm.brand||'\u2014')+'</td>';
+        if(!d.isReduced) row += '<td style="padding:5px 3px;text-align:left;border-bottom:1px solid var(--border);font-size:8px;color:var(--text2);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+escapeHtml(d.getSpecsStr(pm.specifications)||'\u2014')+'</td>';
+        for(var gzo=0;gzo<order.length;gzo++){
+            var gzoSpKeys=Object.keys(d.zoneData[order[gzo]].spaces);
+            for(var gzk=0;gzk<gzoSpKeys.length;gzk++){
+                var sqty=(pm.spaceQty&&pm.spaceQty[gzoSpKeys[gzk]])||0;
+                rTSQ[gzoSpKeys[gzk]]+=sqty;
+                row+='<td style="padding:5px 4px;text-align:center;border-bottom:1px solid var(--border);'+(sqty>0?'font-weight:600;':'color:var(--text3);')+'">'+sqty+'</td>';
+            }
+        }
+        if(d.showEntradas){row+='<td style="padding:5px 4px;text-align:center;border-bottom:1px solid var(--border);color:#27ae60;">+'+pm.totalEntradas+'</td>';rTE+=pm.totalEntradas;}
+        if(d.showSalidas){row+='<td style="padding:5px 4px;text-align:center;border-bottom:1px solid var(--border);color:var(--danger);">-'+pm.totalSalidas+'</td>';rTS+=pm.totalSalidas;}
+        if(d.showStock){row+='<td style="padding:5px 4px;text-align:center;border-bottom:1px solid var(--border);">'+pm.totalQty+'</td>';rTA+=pm.totalQty;}
         if(d.showFaltantes){row+='<td style="padding:5px 4px;text-align:center;border-bottom:1px solid var(--border);color:'+(pvF>0?'var(--danger);font-weight:700':'#27ae60')+';">'+pvF+'</td>';rTF+=pvF;}
-        var pS=pm2.totalQty===0?'<span style="color:var(--danger);font-weight:700;">SIN STOCK</span>':(pvF>0?'<span style="color:#e67e22;font-weight:700;">INCOMPLETO</span>':'<span style="color:#27ae60;font-weight:700;">COMPLETO</span>');
+        var pS=pm.totalQty===0?'<span style="color:var(--danger);font-weight:700;">SIN STOCK</span>':(pvF>0?'<span style="color:#e67e22;font-weight:700;">INCOMPLETO</span>':'<span style="color:#27ae60;font-weight:700;">COMPLETO</span>');
         row+='<td style="padding:5px 4px;text-align:center;border-bottom:1px solid var(--border);">'+pS+'</td></tr>';
         h+=row;
     }
     var tCS=2+(d.isReduced?0:1);
     h+='<tr style="background:var(--primary);"><td colspan="'+tCS+'" style="padding:6px;text-align:right;color:#fff;font-weight:700;">TOTAL</td>';
-    for (var ti = 0; ti < _colTotals.length; ti++) {
-        h+='<td style="padding:6px;text-align:center;color:#fff;font-weight:700;">'+_colTotals[ti]+'</td>';
-    }
+    for(var gtz=0;gtz<order.length;gtz++){var gtzSK=Object.keys(d.zoneData[order[gtz]].spaces);for(var gtzk=0;gtzk<gtzSK.length;gtzk++)h+='<td style="padding:6px;text-align:center;color:#fff;font-weight:700;">'+(rTSQ[gtzSK[gtzk]]||0)+'</td>';}
     if(d.showEntradas)h+='<td style="padding:6px;text-align:center;color:#fff;">+'+rTE+'</td>';
     if(d.showSalidas)h+='<td style="padding:6px;text-align:center;color:#fff;">-'+rTS+'</td>';
     if(d.showStock)h+='<td style="padding:6px;text-align:center;color:#fff;font-weight:700;">'+rTA+'</td>';
@@ -13412,50 +13259,38 @@ function toggleTVSection(id) {
 // Summary cards helper
 function _renderSummaryCards(d) {
     var h = '';
-    var locs = d.filteredLocs || [];
-    var _spColors = ['#f59e0b','#06b6d4','#3b82f6','#8b5cf6','#ec4899','#10b981','#ef4444','#84cc16'];
+    var order = d.printedZoneOrder || [];
 
-    // === PER-LOCAL SPACE CARDS ===
-    for (var li = 0; li < locs.length; li++) {
-        var loc = locs[li];
-        var locSpaces = loc.spaces || [];
-        var locTotal = 0, locEntradas = 0, locSalidas = 0;
-        var spaceTotals = {};
-        for (var si = 0; si < locSpaces.length; si++) {
-            var sp = locSpaces[si];
-            var spName = sp.name || ('Espacio ' + (si+1));
-            var spT = 0, spE = 0, spS = 0;
-            var prods = sp.products || [];
-            for (var pi = 0; pi < prods.length; pi++) {
-                spT += (prods[pi].qty || 0);
-                var flow = computeProductFlowSpace(loc, sp, prods[pi]);
-                spE += flow.entradas; spS += flow.salidas;
-            }
-            spaceTotals[spName] = { total: spT, entradas: spE, salidas: spS };
-            locTotal += spT; locEntradas += spE; locSalidas += spS;
-        }
-        if (locTotal === 0) continue;
-        h += '<div style="background:var(--bg2);border-radius:12px;padding:12px;margin-bottom:10px;">';
-        h += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;"><span style="font-size:16px;">\uD83C\uDFE8</span><span style="font-size:12px;font-weight:800;color:var(--primary);">' + escapeHtml(loc.name) + '</span><span style="margin-left:auto;font-size:10px;color:var(--text3);">' + locTotal + ' uds</span></div>';
+    // === ZONE COUNT CARDS (most prominent, at the very top) ===
+    if (order.length > 0) {
+        h += '<div style="background:var(--bg2);border-radius:12px;padding:12px;margin-bottom:12px;">';
+        h += '<div style="font-size:11px;font-weight:800;color:var(--text);margin-bottom:10px;text-align:center;">\uD83D\uDCCA TVs POR ZONA</div>';
         h += '<div style="display:flex;gap:6px;flex-wrap:wrap;">';
-        var spKeys = Object.keys(spaceTotals);
-        for (var ski = 0; ski < spKeys.length; ski++) {
-            var sData = spaceTotals[spKeys[ski]]; if (sData.total === 0) continue;
-            var sCol = _spColors[ski % _spColors.length];
-            h += '<div style="flex:1;min-width:70px;background:' + sCol + '14;border:1.5px solid ' + sCol + '40;border-radius:8px;padding:8px 6px;text-align:center;">';
-            h += '<div style="font-size:9px;font-weight:700;color:' + sCol + ';margin-bottom:2px;">' + escapeHtml(spKeys[ski]) + '</div>';
-            h += '<div style="font-size:22px;font-weight:900;color:' + sCol + ';line-height:1;">' + sData.total + '</div>';
-            if (d.showEntradas && sData.entradas > 0) h += '<div style="font-size:8px;color:#27ae60;margin-top:2px;">+' + sData.entradas + ' ent.</div>';
-            if (d.showSalidas && sData.salidas > 0) h += '<div style="font-size:8px;color:var(--danger);margin-top:1px;">-' + sData.salidas + ' sal.</div>';
+        for (var zci = 0; zci < order.length; zci++) {
+            var zcName = order[zci];
+            var zcCfg = _zoneConfig[zcName] || _zoneConfig.general;
+            var zcData = d.zoneData[zcName];
+            var zcSpKeys = Object.keys(zcData.spaces);
+            h += '<div style="flex:1;min-width:80px;background:' + zcCfg.bg + ';border:2px solid ' + zcCfg.color + ';border-radius:10px;padding:10px 8px;text-align:center;">';
+            h += '<div style="font-size:20px;margin-bottom:2px;">' + zcCfg.icon + '</div>';
+            h += '<div style="font-size:9px;font-weight:700;color:' + zcCfg.color + ';margin-bottom:2px;">' + zcCfg.label.toUpperCase() + '</div>';
+            h += '<div style="font-size:26px;font-weight:900;color:' + zcCfg.color + ';line-height:1;">' + zcData.total + '</div>';
+            h += '<div style="font-size:8px;color:var(--text3);">TVs en ' + zcSpKeys.length + ' esp.</div>';
+            if (d.showEntradas && zcData.entradas > 0) h += '<div style="font-size:8px;color:#27ae60;margin-top:2px;">+' + zcData.entradas + ' ent.</div>';
+            if (d.showSalidas && zcData.salidas > 0) h += '<div style="font-size:8px;color:var(--danger);margin-top:1px;">-' + zcData.salidas + ' sal.</div>';
             h += '</div>';
         }
         h += '</div>';
-        if (spKeys.length > 1 && locTotal > 0) {
-            h += '<div style="display:flex;border-radius:6px;overflow:hidden;height:16px;margin-top:8px;">';
-            for (var bi = 0; bi < spKeys.length; bi++) {
-                var bData = spaceTotals[spKeys[bi]]; if (bData.total === 0) continue;
-                var bPct = Math.max(5, Math.round((bData.total / locTotal) * 100));
-                h += '<div style="width:' + bPct + '%;background:' + _spColors[bi % _spColors.length] + ';display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:800;color:#fff;">' + bData.total + '</div>';
+
+        // Stacked bar
+        if (d.grandTotal > 0) {
+            h += '<div style="display:flex;border-radius:6px;overflow:hidden;height:20px;margin-top:10px;">';
+            for (var bi = 0; bi < order.length; bi++) {
+                var bCfg = _zoneConfig[order[bi]] || _zoneConfig.general;
+                var bData = d.zoneData[order[bi]];
+                if (bData.total === 0) continue;
+                var bPct = Math.max(3, Math.round((bData.total / d.grandTotal) * 100));
+                h += '<div style="width:' + bPct + '%;background:' + bCfg.color + ';display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:800;color:#fff;">' + bData.total + '</div>';
             }
             h += '</div>';
         }
@@ -13470,6 +13305,8 @@ function _renderSummaryCards(d) {
     h += '<div style="display:flex;align-items:baseline;gap:6px;">';
     h += '<div style="font-size:32px;font-weight:800;color:var(--text);">' + d.grandTotal + '</div>';
     h += '<div style="font-size:12px;color:var(--text3);">unidades en ' + d.keys.length + ' modelo(s)</div></div></div>';
+
+    // Quick stats row
     var statCount = (d.showEntradas?1:0)+(d.showSalidas?1:0)+(d.showFaltantes?1:0);
     if (statCount > 0) {
         h += '<div style="display:flex;gap:6px;">';
@@ -13649,110 +13486,43 @@ function _regeneratePrintHtml(d) {
     }
     rHtml += '</div>';
 
-    // Per-local summary table
-    rHtml += '<div class="section-title">Resumen por Local</div>';
-    rHtml += '<table><thead><tr><th>Local</th><th>Espacios</th><th>TVs</th>';
-    if (d.showEntradas) rHtml += '<th>Entradas</th>';
-    if (d.showSalidas) rHtml += '<th>Salidas</th>';
-    rHtml += '</tr></thead><tbody>';
-    var rLSumLocs = d.filteredLocs || [];
-    for (var rLSi = 0; rLSi < rLSumLocs.length; rLSi++) {
-        var rSL = rLSumLocs[rLSi];
-        var rSSp = rSL.spaces || [];
-        var rSLQ = 0, rSLE = 0, rSLS = 0, rSLC = 0;
-        for (var rSSi = 0; rSSi < rSSp.length; rSSi++) {
-            var rSPrds = rSSp[rSSi].products || [];
-            if (rSPrds.length === 0) continue;
-            rSLC++;
-            for (var rSPi = 0; rSPi < rSPrds.length; rSPi++) {
-                rSLQ += (rSPrds[rSPi].qty || 0);
-                var rSFl = computeProductFlowSpace(rSL, rSSp[rSSi], rSPrds[rSPi]);
-                rSLE += rSFl.entradas; rSLS += rSFl.salidas;
+    // Detail by zone (grouped with zone headers)
+    rHtml += '<div class="section-title">Detalle por Zona</div>';
+    for (var rDzi = 0; rDzi < order.length; rDzi++) {
+        var rDzName = order[rDzi];
+        var rDzCfg = _zoneConfig[rDzName] || _zoneConfig.general;
+        var rDzData = d.zoneData[rDzName];
+        var rDzSpKeys = Object.keys(rDzData.spaces);
+        if (rDzSpKeys.length === 0) continue;
+        rHtml += '<hr class="zone-divider" style="background:' + rDzCfg.color + ';">';
+        rHtml += '<div style="font-size:14px;font-weight:800;color:' + rDzCfg.color + ';margin-bottom:8px;">' + rDzCfg.icon + ' ' + rDzCfg.label + ' <span style="font-size:11px;font-weight:400;">(' + rDzData.total + ' uds, ' + rDzData.models + ' modelos)</span></div>';
+        for (var rDsi = 0; rDsi < rDzSpKeys.length; rDsi++) {
+            var rDspName = rDzSpKeys[rDsi];
+            var rDsp = rDzData.spaces[rDspName];
+            rHtml += '<div style="font-size:12px;font-weight:700;color:#333;margin:10px 0 4px;padding:4px 8px;background:#f0f0f0;border-radius:6px;border-left:4px solid ' + rDzCfg.color + ';">' + escapeHtml(rDspName) + ' (' + rDsp.qty + ' uds)</div>';
+            rHtml += '<table><thead><tr><th>Modelo</th><th>Marca</th>';
+            if (d.hasFlow) { if (d.showEntradas) rHtml += '<th>Entradas</th>'; if (d.showSalidas) rHtml += '<th>Salidas</th>'; }
+            if (d.showStock) rHtml += '<th>Actual</th>';
+            if (d.showFaltantes) rHtml += '<th>Objetivo</th>';
+            rHtml += '<th>Estado</th></tr></thead><tbody>';
+            for (var rDpi = 0; rDpi < rDsp.products.length; rDpi++) {
+                var rDpr = rDsp.products[rDpi];
+                var rDfalt = Math.max(0, rDpr.target - rDpr.qty);
+                var rDrow = '<tr><td class="name-col">' + escapeHtml(rDpr.name) + '</td><td>' + escapeHtml(rDpr.brand || '\u2014') + '</td>';
+                if (d.showEntradas) rDrow += '<td class="ok">+' + (rDpr.flow ? rDpr.flow.entradas : 0) + '</td>';
+                if (d.showSalidas) rDrow += '<td class="danger">-' + (rDpr.flow ? rDpr.flow.salidas : 0) + '</td>';
+                if (d.showStock) rDrow += '<td style="font-weight:700;">' + rDpr.qty + '</td>';
+                if (d.showFaltantes) rDrow += '<td>' + (rDpr.target > 0 ? rDpr.target : '\u2014') + '</td>';
+                rDrow += '<td>' + (rDpr.target > 0 ? (rDpr.qty >= rDpr.target ? '<span class="ok">OK</span>' : (rDpr.qty > 0 ? '<span class="warn">Faltan ' + rDfalt + '</span>' : '<span class="danger">Sin stock</span>')) : (rDpr.qty > 0 ? '<span class="ok">En stock</span>' : '<span class="danger">Sin stock</span>')) + '</td></tr>';
+                rHtml += rDrow;
             }
+            rHtml += '<tr class="total-row"><td colspan="2" style="text-align:right;padding-right:6px;">Subtotal</td>';
+            if (d.showEntradas) rHtml += '<td>+' + rDsp.entradas + '</td>';
+            if (d.showSalidas) rHtml += '<td>-' + rDsp.salidas + '</td>';
+            if (d.showStock) rHtml += '<td>' + rDsp.qty + '</td>';
+            if (d.showFaltantes) rHtml += '<td></td>';
+            rHtml += '<td></td></tr></tbody></table>';
         }
-        rHtml += '<tr><td class="name-col" style="font-weight:700;">' + escapeHtml(rSL.name) + '</td><td>' + rSLC + '</td><td style="font-weight:800;font-size:12px;">' + rSLQ + '</td>';
-        if (d.showEntradas) rHtml += '<td class="ok">+' + rSLE + '</td>';
-        if (d.showSalidas) rHtml += '<td class="danger">-' + rSLS + '</td>';
-        rHtml += '</tr>';
-    }
-    rHtml += '</tbody></table>';
-
-    // Detail by LOCAL → ZONE → SPACE (grouped)
-    rHtml += '<div class="section-title">Detalle por Local y Zona</div>';
-    var rLocs = d.filteredLocs || [];
-    var rZA = d.zoneAssignments || {};
-    for (var rLi = 0; rLi < rLocs.length; rLi++) {
-        var rLoc = rLocs[rLi];
-        var rSpArr = rLoc.spaces || [];
-        var rLocZ = {}, rLocZOrd = [], rLTQ = 0, rLTE = 0, rLTS = 0;
-        for (var rSi = 0; rSi < rSpArr.length; rSi++) {
-            var rSp = rSpArr[rSi];
-            var rSpN = rSp.name || ('Espacio ' + (rSi+1));
-            var rSpPrds = rSp.products || [];
-            if (rSpPrds.length === 0) continue;
-            var rSpZ = rZA[rSpN] || classifySpaceZone(rSpN);
-            if (!rLocZ[rSpZ]) { rLocZ[rSpZ] = { spaces:[], total:0, entradas:0, salidas:0, models:0 }; rLocZOrd.push(rSpZ); }
-            var rSPE = 0, rSPS = 0, rSPQ = 0, rSPP = [];
-            for (var rPi = 0; rPi < rSpPrds.length; rPi++) {
-                var rP = rSpPrds[rPi];
-                var rQ = rP.qty || 0;
-                var rF = computeProductFlowSpace(rLoc, rSp, rP);
-                var rK = buildModelKey(rP.productId, rP.name, rP.brand, rP.specifications);
-                var rMt = d.allModelTargets ? d.allModelTargets[rK] : null;
-                var rTg = rMt ? rMt.target : 0;
-                rSPP.push({ name: rP.name||'TV', brand: rP.brand||'', qty: rQ, target: rTg, specs: d.getSpecsStr ? d.getSpecsStr(rP.specifications) : '', flow: rF });
-                rSPQ += rQ; rSPE += rF.entradas; rSPS += rF.salidas;
-            }
-            rLocZ[rSpZ].spaces.push({ name: rSpN, products: rSPP, qty: rSPQ, entradas: rSPE, salidas: rSPS });
-            rLocZ[rSpZ].total += rSPQ; rLocZ[rSpZ].entradas += rSPE; rLocZ[rSpZ].salidas += rSPS; rLocZ[rSpZ].models += rSPP.length;
-            rLTQ += rSPQ; rLTE += rSPE; rLTS += rSPS;
-        }
-        if (rLocZOrd.length === 0) continue;
-        rHtml += '<div style="font-size:15px;font-weight:900;color:#1e40af;margin:18px 0 6px;padding:6px 10px;background:#e0e7ff;border-radius:8px;border-left:5px solid #1e40af;">\uD83C\uDFE8 ' + escapeHtml(rLoc.name) + ' <span style="font-size:11px;font-weight:400;color:#555;">(' + rLTQ + ' uds';
-        if (d.showEntradas) rHtml += ', +' + rLTE + ' ent.';
-        if (d.showSalidas) rHtml += ', -' + rLTS + ' sal.';
-        rHtml += ')</span></div>';
-        for (var rZi = 0; rZi < rLocZOrd.length; rZi++) {
-            var rZN = rLocZOrd[rZi];
-            var rZC = _zoneConfig[rZN] || _zoneConfig.general;
-            var rZD = rLocZ[rZN];
-            rHtml += '<hr class="zone-divider" style="background:' + rZC.color + ';">';
-            rHtml += '<div style="font-size:13px;font-weight:800;color:' + rZC.color + ';margin:8px 0 6px;">' + rZC.icon + ' ' + rZC.label + ' <span style="font-size:10px;font-weight:400;">(' + rZD.total + ' uds, ' + rZD.models + ' modelos)</span></div>';
-            for (var rSpI = 0; rSpI < rZD.spaces.length; rSpI++) {
-                var rSD = rZD.spaces[rSpI];
-                rHtml += '<div style="font-size:11px;font-weight:700;color:#333;margin:8px 0 3px;padding:3px 8px;background:#f0f0f0;border-radius:6px;border-left:4px solid ' + rZC.color + ';">' + escapeHtml(rSD.name) + ' (' + rSD.qty + ' uds)</div>';
-                rHtml += '<table><thead><tr><th>Modelo</th><th>Marca</th>';
-                if (d.hasFlow) { if (d.showEntradas) rHtml += '<th>Entradas</th>'; if (d.showSalidas) rHtml += '<th>Salidas</th>'; }
-                if (d.showStock) rHtml += '<th>Actual</th>';
-                if (d.showFaltantes) rHtml += '<th>Objetivo</th>';
-                rHtml += '<th>Estado</th></tr></thead><tbody>';
-                for (var rPrI = 0; rPrI < rSD.products.length; rPrI++) {
-                    var rPD = rSD.products[rPrI];
-                    var rFl = Math.max(0, rPD.target - rPD.qty);
-                    var rR = '<tr><td class="name-col">' + escapeHtml(rPD.name) + '</td><td>' + escapeHtml(rPD.brand || '\u2014') + '</td>';
-                    if (d.showEntradas) rR += '<td class="ok">+' + (rPD.flow ? rPD.flow.entradas : 0) + '</td>';
-                    if (d.showSalidas) rR += '<td class="danger">-' + (rPD.flow ? rPD.flow.salidas : 0) + '</td>';
-                    if (d.showStock) rR += '<td style="font-weight:700;">' + rPD.qty + '</td>';
-                    if (d.showFaltantes) rR += '<td>' + (rPD.target > 0 ? rPD.target : '\u2014') + '</td>';
-                    rR += '<td>' + (rPD.target > 0 ? (rPD.qty >= rPD.target ? '<span class="ok">OK</span>' : (rPD.qty > 0 ? '<span class="warn">Faltan ' + rFl + '</span>' : '<span class="danger">Sin stock</span>')) : (rPD.qty > 0 ? '<span class="ok">En stock</span>' : '<span class="danger">Sin stock</span>')) + '</td></tr>';
-                    rHtml += rR;
-                }
-                rHtml += '<tr class="total-row"><td colspan="2" style="text-align:right;padding-right:6px;">Subtotal ' + escapeHtml(rSD.name) + '</td>';
-                if (d.showEntradas) rHtml += '<td>+' + rSD.entradas + '</td>';
-                if (d.showSalidas) rHtml += '<td>-' + rSD.salidas + '</td>';
-                if (d.showStock) rHtml += '<td>' + rSD.qty + '</td>';
-                if (d.showFaltantes) rHtml += '<td></td>';
-                rHtml += '<td></td></tr></tbody></table>';
-            }
-            rHtml += '<div style="text-align:right;font-size:10px;color:' + rZC.color + ';font-weight:700;margin:4px 0;">Subtotal ' + rZC.label + ': ' + rZD.total + ' uds';
-            if (d.showEntradas) rHtml += ' | +' + rZD.entradas + ' ent.';
-            if (d.showSalidas) rHtml += ' | -' + rZD.salidas + ' sal.';
-            rHtml += '</div>';
-        }
-        rHtml += '<div style="text-align:right;font-size:11px;color:#1e40af;font-weight:900;margin:6px 0 10px;padding:4px 8px;background:#e0e7ff;border-radius:6px;">Total ' + escapeHtml(rLoc.name) + ': ' + rLTQ + ' uds';
-        if (d.showEntradas) rHtml += ' | +' + rLTE + ' entradas';
-        if (d.showSalidas) rHtml += ' | -' + rLTS + ' salidas';
-        rHtml += '</div>';
     }
 
     // Movimientos
@@ -14948,13 +14718,10 @@ function syncLocationsToServer() {
     var url = getServerUrl();
     if (!url) return;
     try {
-        fetch(url + '/api/locations', {
+        fetch(url + '/api/sync/locations', {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ locations: getLocations() })
-        }).then(function(r) {
-            if (r.ok) console.log('[SYNC] Locations pushed to /api/locations OK');
-            else console.warn('[SYNC] Locations push failed:', r.status);
         }).catch(function(err) { console.error('[SYNC] Location sync error:', err); });
     } catch(e) {}
 }
@@ -19887,6 +19654,102 @@ function descargarInventoryFlow() {
     });
 }
 
+/* ===== CATALOG PRODUCT CONTROL ===== */
+function openCatalogControl() {
+    openModal('catalogControlModal');
+    document.getElementById('ctrlSearchInput').value = '';
+    var statsEl = document.getElementById('ctrlStats');
+    var progressEl = document.getElementById('ctrlProgress');
+    var pctEl = document.getElementById('ctrlPctText');
+    statsEl.innerHTML = '<div style="text-align:center;padding:16px 8px;"><div style="font-size:11px;color:var(--text3);">Cargando...</div></div>';
+    progressEl.innerHTML = '';
+    pctEl.textContent = '';
+    document.getElementById('ctrlListContainer').innerHTML = '';
+
+    var serverUrl = getServerUrl();
+    var localProducts = getProducts();
+
+    fetch(serverUrl + '/api/catalogs?_t=' + Date.now(), { method: 'GET', headers: { 'Content-Type': 'application/json' } })
+    .then(function(r) { return r.json(); })
+    .then(function(cats) {
+        if (!Array.isArray(cats)) cats = [];
+        var inCatalogIds = {};
+        for (var ci = 0; ci < cats.length; ci++) {
+            var prods = [];
+            try { prods = (typeof cats[ci].products === 'string') ? JSON.parse(cats[ci].products) : (cats[ci].products || []); } catch(e) {}
+            for (var pi = 0; pi < prods.length; pi++) {
+                if (prods[pi].id) inCatalogIds[prods[pi].id] = true;
+            }
+        }
+
+        var total = localProducts.length;
+        var inCat = 0;
+        for (var i = 0; i < localProducts.length; i++) {
+            if (inCatalogIds[localProducts[i].id]) inCat++;
+        }
+        var outCat = total - inCat;
+        var pct = total > 0 ? Math.round(inCat / total * 100) : 0;
+
+        statsEl.innerHTML =
+            '<div style="text-align:center;padding:16px 8px;border-right:1px solid var(--border);"><div style="font-size:28px;font-weight:700;color:var(--primary);line-height:1;">' + total + '</div><div style="font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-top:6px;">Total Inventario</div></div>' +
+            '<div style="text-align:center;padding:16px 8px;border-right:1px solid var(--border);"><div style="font-size:28px;font-weight:700;color:var(--success);line-height:1;">' + inCat + '</div><div style="font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-top:6px;">En Catalogo</div></div>' +
+            '<div style="text-align:center;padding:16px 8px;"><div style="font-size:28px;font-weight:700;color:var(--danger);line-height:1;">' + outCat + '</div><div style="font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-top:6px;">Faltantes</div></div>';
+
+        progressEl.innerHTML = '<div style="height:100%;background:var(--success);border-radius:4px;transition:width .3s;width:' + pct + '%;"></div>';
+        pctEl.textContent = pct + '% completado';
+
+        window._ctrlData = { localProducts: localProducts, inCatalogIds: inCatalogIds };
+        renderCtrlList();
+    })
+    .catch(function(err) {
+        statsEl.innerHTML = '<div style="text-align:center;padding:20px;color:var(--danger);font-size:13px;">Error al cargar datos</div>';
+    });
+}
+
+function renderCtrlList() {
+    var container = document.getElementById('ctrlListContainer');
+    var q = (document.getElementById('ctrlSearchInput').value || '').toLowerCase().trim();
+    var data = window._ctrlData;
+    if (!data) return;
+
+    var prods = data.localProducts;
+    if (q) {
+        prods = prods.filter(function(p) {
+            return (p.name + ' ' + (p.brand || '') + ' ' + (p.category || '')).toLowerCase().indexOf(q) >= 0;
+        });
+    }
+
+    prods = prods.slice().sort(function(a, b) {
+        var aIn = data.inCatalogIds[a.id] ? 1 : 0;
+        var bIn = data.inCatalogIds[b.id] ? 1 : 0;
+        return aIn - bIn;
+    });
+
+    if (prods.length === 0) {
+        container.innerHTML = '<div style="text-align:center;padding:30px;color:var(--text3);font-size:13px;">No se encontraron productos</div>';
+        return;
+    }
+
+    var html = '';
+    for (var i = 0; i < prods.length; i++) {
+        var p = prods[i];
+        var isIn = data.inCatalogIds[p.id];
+        var imgSrc = _getProductImage(p);
+        html += '<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);">';
+        html += '<div style="width:40px;height:40px;border-radius:8px;background:var(--bg2);overflow:hidden;flex-shrink:0;display:flex;align-items:center;justify-content:center;">';
+        if (imgSrc) html += '<img src="' + imgSrc + '" style="width:100%;height:100%;object-fit:contain;padding:2px;" draggable="false">';
+        else html += '<span style="font-size:18px;opacity:0.3;">📦</span>';
+        html += '</div>';
+        html += '<div style="flex:1;min-width:0;">';
+        html += '<div style="font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(p.name || '') + '</div>';
+        html += '<div style="font-size:11px;color:var(--text3);">' + escapeHtml(p.brand || '') + (p.category ? ' · ' + escapeHtml(p.category) : '') + '</div>';
+        html += '</div>';
+        html += '<span style="font-size:10px;font-weight:700;padding:4px 10px;border-radius:6px;white-space:nowrap;flex-shrink:0;' + (isIn ? 'background:#e8f5e9;color:#2e7d32;' : 'background:#ffebee;color:#c62828;') + '">' + (isIn ? 'En catalogo' : 'Faltante') + '</span>';
+        html += '</div>';
+    }
+    container.innerHTML = html;
+}
+
 /*
    ELECTRONIC CATALOGS MODULE
    ==================================================================== */
@@ -19900,310 +19763,6 @@ function _getCatalogBaseUrl() {
 
 function _getCatalogShortLink(slug) {
     return getServerUrl() + '/c/' + slug;
-}
-
-// --- Helper: Open URL in external browser (Capacitor Browser / system) ---
-function _openInBrowser(url) {
-    if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Browser) {
-        window.Capacitor.Plugins.Browser.open({ url: url });
-        return true;
-    }
-    if (window.cordova && window.cordova.InAppBrowser) {
-        window.cordova.InAppBrowser.open(url, '_blank', 'location=yes,toolbar=yes');
-        return true;
-    }
-    window.open(url, '_system', '_blank');
-    return true;
-}
-
-// --- OPEN CLIENT CATALOG (general listing - in-app overlay) ---
-function openClientCatalog() {
-    var serverUrl = getServerUrl();
-    // State for client catalog filters
-    var _ccCats = [];       // all catalog data
-    var _ccCategory = 'Todos';
-    var _ccBrand = '';
-    var _ccSearch = '';
-    var _ccSort = 'name';  // name, price-asc, price-desc, discount
-    var _ccOverlay = null;
-
-    // Build overlay structure
-    _ccOverlay = document.createElement('div');
-    _ccOverlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:var(--bg);z-index:99999;display:flex;flex-direction:column;';
-    _ccOverlay.innerHTML =
-        '<div style="display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid var(--border);background:var(--bg2);flex-shrink:0;">' +
-            '<span style="font-size:24px;">🌐</span>' +
-            '<div style="flex:1;min-width:0;">' +
-                '<div style="font-size:17px;font-weight:800;color:var(--text);">Catálogo para Clientes</div>' +
-                '<div style="font-size:11px;color:var(--text3);" id="ccStats">Cargando...</div>' +
-            '</div>' +
-            '<button id="clientCatClose" style="padding:8px 14px;background:#e53935;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;flex-shrink:0;">✕ Cerrar</button>' +
-        '</div>' +
-        '<div style="padding:10px 16px 6px;flex-shrink:0;border-bottom:1px solid var(--border);background:var(--bg2);">' +
-            '<div style="position:relative;margin-bottom:8px;">' +
-                '<span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:14px;color:var(--text3);">🔍</span>' +
-                '<input id="ccSearchInput" type="text" placeholder="Buscar producto, marca, categoría..." style="width:100%;padding:10px 12px 10px 36px;border-radius:10px;border:1.5px solid var(--border);background:var(--bg);color:var(--text);font-size:13px;outline:none;box-sizing:border-box;" onfocus="this.style.borderColor=\'var(--primary)\'" onblur="this.style.borderColor=\'var(--border)\'">' +
-            '</div>' +
-            '<div id="ccCategoryTabs" style="display:flex;gap:6px;overflow-x:auto;padding-bottom:6px;-webkit-overflow-scrolling:touch;"></div>' +
-            '<div id="ccBrandTabs" style="display:none;margin-top:6px;"></div>' +
-            '<div id="ccSortRow" style="display:flex;align-items:center;justify-content:space-between;margin-top:6px;">' +
-                '<div id="ccResultCount" style="font-size:11px;color:var(--text3);"></div>' +
-                '<select id="ccSortSelect" style="padding:5px 8px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text2);font-size:11px;cursor:pointer;">' +
-                    '<option value="name">Nombre A-Z</option>' +
-                    '<option value="price-asc">Precio: menor a mayor</option>' +
-                    '<option value="price-desc">Precio: mayor a menor</option>' +
-                    '<option value="discount">Mayor descuento</option>' +
-                '</select>' +
-            '</div>' +
-        '</div>' +
-        '<div id="ccBody" style="flex:1;overflow-y:auto;padding:12px 16px;"><div style="text-align:center;padding:60px 20px;color:var(--text3);">Cargando catálogo...</div></div>';
-    document.body.appendChild(_ccOverlay);
-    document.getElementById('clientCatClose').onclick = function() { document.body.removeChild(_ccOverlay); };
-
-    // Search input handler
-    var searchInput = document.getElementById('ccSearchInput');
-    var searchTimer = null;
-    searchInput.addEventListener('input', function() {
-        clearTimeout(searchTimer);
-        searchTimer = setTimeout(function() { _ccSearch = searchInput.value.toLowerCase().trim(); _renderCC(); }, 200);
-    });
-    // Sort handler
-    document.getElementById('ccSortSelect').addEventListener('change', function() { _ccSort = this.value; _renderCC(); });
-
-    // --- Helper: get unique categories from data ---
-    function _ccGetCategories() {
-        var set = {};
-        for (var i = 0; i < _ccCats.length; i++) {
-            var p0 = _ccGetP0(_ccCats[i]);
-            if (p0.category) set[p0.category] = true;
-        }
-        return Object.keys(set);
-    }
-    // --- Helper: get brands for active category ---
-    function _ccGetBrands() {
-        var brands = {};
-        for (var i = 0; i < _ccCats.length; i++) {
-            var p0 = _ccGetP0(_ccCats[i]);
-            if ((_ccCategory === 'Todos' || p0.category === _ccCategory) && p0.brand) brands[p0.brand] = true;
-        }
-        return Object.keys(brands);
-    }
-    // --- Helper: get first product ---
-    function _ccGetP0(c) {
-        var prods = [];
-        try { prods = (typeof c.products === 'string') ? JSON.parse(c.products) : (c.products || []); } catch(e) {}
-        return prods[0] || {};
-    }
-    // --- Helper: get specs array ---
-    function _ccGetSpecs(p) {
-        if (!p) return [];
-        var specs = p.specs || p.specifications;
-        if (!specs) return [];
-        try {
-            var obj = (typeof specs === 'string') ? JSON.parse(specs) : specs;
-            if (!obj || typeof obj !== 'object') return [];
-            var parts = [], keys = Object.keys(obj);
-            for (var i = 0; i < keys.length; i++) { var v = (obj[keys[i]] || '').trim(); if (v) parts.push(v); }
-            return parts;
-        } catch(e) { return []; }
-    }
-
-    // --- Render category tabs ---
-    function _renderCCCategoryTabs() {
-        var container = document.getElementById('ccCategoryTabs');
-        if (!container) return;
-        var cats = ['Todos'].concat(_ccGetCategories());
-        var h = '';
-        for (var j = 0; j < cats.length; j++) {
-            var cn = cats[j];
-            var isActive = (cn === _ccCategory);
-            var icon = (cn === 'Todos') ? '📋' : _getCatIcon(cn);
-            var safeCat = cn.replace(/'/g, "\\'");
-            h += '<button data-cc-cat="' + escapeHtml(cn) + '" style="flex-shrink:0;padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;border:1.5px solid ' + (isActive ? 'var(--primary)' : 'var(--border)') + ';background:' + (isActive ? 'var(--primary)' : 'var(--bg)') + ';color:' + (isActive ? '#fff' : 'var(--text2)') + ';cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:4px;transition:all .15s;">' + icon + ' ' + escapeHtml(cn) + '</button>';
-        }
-        container.innerHTML = h;
-        // Attach click handlers
-        var btns = container.querySelectorAll('[data-cc-cat]');
-        for (var b = 0; b < btns.length; b++) {
-            btns[b].addEventListener('click', function() {
-                _ccCategory = this.getAttribute('data-cc-cat');
-                _ccBrand = '';
-                _renderCC();
-            });
-        }
-    }
-    // --- Render brand tabs ---
-    function _renderCCBrandTabs() {
-        var container = document.getElementById('ccBrandTabs');
-        if (!container) return;
-        if (_ccCategory === 'Todos') { container.style.display = 'none'; return; }
-        var brands = _ccGetBrands();
-        if (brands.length <= 1) { container.style.display = 'none'; _ccBrand = ''; return; }
-        container.style.display = 'block';
-        var h = '<div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;-webkit-overflow-scrolling:touch;">';
-        var isAllActive = !_ccBrand;
-        h += '<button data-cc-brand="" style="flex-shrink:0;padding:5px 12px;border-radius:16px;font-size:11px;font-weight:600;border:1px solid ' + (isAllActive ? 'var(--primary)' : 'var(--border)') + ';background:' + (isAllActive ? 'var(--primary)' : 'var(--bg)') + ';color:' + (isAllActive ? '#fff' : 'var(--text2)') + ';cursor:pointer;white-space:nowrap;">Todos</button>';
-        for (var j = 0; j < brands.length; j++) {
-            var bn = brands[j];
-            var isBActive = (bn === _ccBrand);
-            h += '<button data-cc-brand="' + escapeHtml(bn) + '" style="flex-shrink:0;padding:5px 12px;border-radius:16px;font-size:11px;font-weight:600;border:1px solid ' + (isBActive ? 'var(--primary)' : 'var(--border)') + ';background:' + (isBActive ? 'var(--primary)' : 'var(--bg)') + ';color:' + (isBActive ? '#fff' : 'var(--text2)') + ';cursor:pointer;white-space:nowrap;">' + escapeHtml(bn) + '</button>';
-        }
-        h += '</div>';
-        container.innerHTML = h;
-        var btns = container.querySelectorAll('[data-cc-brand]');
-        for (var b = 0; b < btns.length; b++) {
-            btns[b].addEventListener('click', function() {
-                _ccBrand = this.getAttribute('data-cc-brand');
-                _renderCC();
-            });
-        }
-    }
-
-    // --- Main render ---
-    function _renderCC() {
-        if (!_ccCats.length) return;
-        _renderCCCategoryTabs();
-        _renderCCBrandTabs();
-        // Filter
-        var filtered = [];
-        for (var i = 0; i < _ccCats.length; i++) {
-            var c = _ccCats[i];
-            var p0 = _ccGetP0(c);
-            if (_ccCategory !== 'Todos' && p0.category !== _ccCategory) continue;
-            if (_ccBrand && p0.brand !== _ccBrand) continue;
-            if (_ccSearch) {
-                var hay = (p0.name || '').toLowerCase().indexOf(_ccSearch) >= 0 ||
-                          (c.name || '').toLowerCase().indexOf(_ccSearch) >= 0 ||
-                          (p0.brand || '').toLowerCase().indexOf(_ccSearch) >= 0 ||
-                          (p0.category || '').toLowerCase().indexOf(_ccSearch) >= 0;
-                if (!hay) continue;
-            }
-            var price = parseFloat(p0.salePrice) || 0;
-            var costPrice = parseFloat(p0.costPrice) || 0;
-            var discount = 0;
-            if (costPrice > 0 && price > 0 && price < costPrice) discount = Math.round((1 - price / costPrice) * 100);
-            filtered.push({ cat: c, p0: p0, price: price, costPrice: costPrice, discount: discount });
-        }
-        // Sort
-        if (_ccSort === 'name') filtered.sort(function(a, b) { return (a.p0.name || '').localeCompare(b.p0.name || ''); });
-        else if (_ccSort === 'price-asc') filtered.sort(function(a, b) { return a.price - b.price; });
-        else if (_ccSort === 'price-desc') filtered.sort(function(a, b) { return b.price - a.price; });
-        else if (_ccSort === 'discount') filtered.sort(function(a, b) { return b.discount - a.discount; });
-        // Update stats
-        var statsEl = document.getElementById('ccStats');
-        if (statsEl) statsEl.textContent = _ccCats.length + ' productos en catálogo';
-        var countEl = document.getElementById('ccResultCount');
-        if (countEl) countEl.textContent = filtered.length + ' resultado' + (filtered.length !== 1 ? 's' : '');
-        var body = document.getElementById('ccBody');
-        if (!body) return;
-        if (filtered.length === 0) {
-            body.innerHTML = '<div style="text-align:center;padding:60px 20px;color:var(--text3);"><div style="font-size:48px;margin-bottom:12px;">🔍</div><div style="font-size:15px;font-weight:700;">Sin resultados</div><div style="font-size:12px;margin-top:4px;">Intenta con otro filtro o búsqueda.</div></div>';
-            return;
-        }
-        var html = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">';
-        for (var fi = 0; fi < filtered.length; fi++) {
-            var item = filtered[fi];
-            var c = item.cat;
-            var p0 = item.p0;
-            var price = item.price;
-            var costPrice = item.costPrice;
-            var discount = item.discount;
-            var specsArr = _ccGetSpecs(p0);
-            var thumbSrc = '';
-            if (c._thumbEmbedded && c._thumbEmbedded.data) { thumbSrc = 'data:' + (c._thumbEmbedded.type || 'image/jpeg') + ';base64,' + c._thumbEmbedded.data; }
-            var safeSlug = escapeHtml(c.slug).replace(/'/g, "\\'");
-            html += '<div onclick="showCatalogDetail(\'' + safeSlug + '\')" data-cc-slug="' + escapeHtml(c.slug) + '" style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;overflow:hidden;cursor:pointer;transition:transform .15s;" onmousedown="this.style.transform=\'scale(0.97)\'" onmouseup="this.style.transform=\'\'" ontouchstart="this.style.transform=\'scale(0.97)\'" ontouchend="this.style.transform=\'\'">';
-            // Image
-            html += '<div style="position:relative;width:100%;aspect-ratio:1/1;background:var(--bg);display:flex;align-items:center;justify-content:center;overflow:hidden;">';
-            if (discount > 0) html += '<div style="position:absolute;top:6px;left:6px;background:#e53935;color:#fff;font-size:9px;font-weight:700;padding:2px 7px;border-radius:10px;z-index:2;">-' + discount + '%</div>';
-            html += '<img class="cc-thumb" src="' + (thumbSrc ? thumbSrc : '') + '" style="width:82%;height:82%;object-fit:contain;' + (thumbSrc ? '' : 'display:none;') + '" draggable="false">';
-            html += '<span class="cc-ph" style="font-size:36px;opacity:0.2;' + (thumbSrc ? 'display:none;' : '') + '">📦</span>';
-            html += '</div>';
-            // Info
-            html += '<div style="padding:8px 10px 10px;">';
-            // Brand + category chip
-            if (p0.brand || p0.category) {
-                html += '<div style="font-size:9px;color:var(--text3);margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">';
-                if (p0.brand) html += escapeHtml(p0.brand);
-                if (p0.brand && p0.category) html += ' · ';
-                if (p0.category) html += escapeHtml(p0.category);
-                html += '</div>';
-            }
-            // Name
-            html += '<div style="font-size:11px;font-weight:700;color:var(--text);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.3;min-height:29px;margin-bottom:4px;">' + escapeHtml(p0.name || c.name) + '</div>';
-            // Price
-            if (price > 0) {
-                html += '<div style="margin-bottom:4px;">';
-                if (costPrice > 0 && costPrice !== price) html += '<span style="font-size:9px;color:var(--text3);text-decoration:line-through;margin-right:3px;">$' + fmtDec(costPrice) + '</span>';
-                html += '<span style="font-size:15px;font-weight:800;color:var(--primary);">$' + fmtDec(price) + '</span></div>';
-            }
-            // Specs (up to 2)
-            if (specsArr.length > 0) {
-                html += '<div style="font-size:9px;color:var(--text3);line-height:1.4;overflow:hidden;max-height:26px;">';
-                var showS = specsArr.slice(0, 2);
-                for (var si = 0; si < showS.length; si++) {
-                    html += '<div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">• ' + escapeHtml(showS[si]) + '</div>';
-                }
-                if (specsArr.length > 2) html += '<div style="color:var(--primary);font-weight:600;">+' + (specsArr.length - 2) + ' más</div>';
-                html += '</div>';
-            }
-            html += '</div></div>';
-        }
-        html += '</div>';
-        body.innerHTML = html;
-        // Load thumbnails via native bridge
-        for (var ti = 0; ti < filtered.length; ti++) {
-            var tc = filtered[ti].cat;
-            if (tc._thumbEmbedded && tc._thumbEmbedded.data) continue;
-            var fetchId = tc._thumbId || '';
-            if (!fetchId || fetchId === 'embedded') {
-                var tp0 = _ccGetP0(tc);
-                fetchId = (tp0.imageIds || [])[0] || '';
-            }
-            if (fetchId && fetchId !== 'embedded') {
-                (function(slug, imgId) {
-                    _serverFetch('GET', '/api/catalog-upload?id=' + encodeURIComponent(imgId), null, function(text, err2) {
-                        if (!err2 && text) {
-                            try {
-                                var res = JSON.parse(text);
-                                if (res.data) {
-                                    var el = body.querySelector('[data-cc-slug="' + slug + '"] .cc-thumb');
-                                    var ph = body.querySelector('[data-cc-slug="' + slug + '"] .cc-ph');
-                                    if (el) { el.src = 'data:' + (res.imageType || 'image/jpeg') + ';base64,' + res.data; el.style.display = 'block'; }
-                                    if (ph) ph.style.display = 'none';
-                                }
-                            } catch(e) {}
-                        }
-                    });
-                })(tc.slug, fetchId);
-            }
-        }
-    }
-
-    // Fetch data via native bridge (bypasses CORS in WebView)
-    _serverFetch('GET', '/api/catalogs?_t=' + Date.now(), null, function(responseText, err) {
-        if (err || !responseText) {
-            var body = document.getElementById('ccBody');
-            if (body) body.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text3);">Error al cargar. Verifica tu conexión.</div>';
-            return;
-        }
-        var cats;
-        try { cats = JSON.parse(responseText); } catch(e) { cats = []; }
-        if (!Array.isArray(cats)) cats = [];
-        _ccCats = cats;
-        if (cats.length === 0) {
-            var body = document.getElementById('ccBody');
-            if (body) body.innerHTML = '<div style="text-align:center;padding:60px 20px;color:var(--text3);"><div style="font-size:48px;margin-bottom:12px;">📭</div><div style="font-size:16px;font-weight:700;">Sin productos</div><div style="font-size:13px;margin-top:4px;">Agrega productos al catálogo primero.</div></div>';
-            return;
-        }
-        _renderCC();
-    });
-}
-
-// --- OPEN CATALOG DETAIL (per-product public page) ---
-function openCatalogDetail(slug) {
-    var url = _getCatalogShortLink(slug);
-    _openInBrowser(url);
 }
 
 function _getProductImageFromData(p) {
@@ -20251,201 +19810,10 @@ function _serverFetch(method, path, body, callback) {
     .catch(function(err) { if (callback) callback(null, err); });
 }
 
-var _catalogActiveCategory = 'Todos';
-var _catalogActiveBrand = '';
-
-function _buildCategoryTabs(cats) {
-    var tabContainer = document.getElementById('catalogCategoryTabs');
-    if (!tabContainer) return;
-    var catSet = {};
-    for (var i = 0; i < cats.length; i++) {
-        var prods = [];
-        try { prods = (typeof cats[i].products === 'string') ? JSON.parse(cats[i].products) : (cats[i].products || []); } catch(e) {}
-        var p0 = prods[0] || {};
-        if (p0.category) catSet[p0.category] = true;
-    }
-    var catNames = Object.keys(catSet);
-    var allCats = ['Todos'].concat(catNames);
-    var html = '';
-    for (var j = 0; j < allCats.length; j++) {
-        var cn = allCats[j];
-        var isActive = (cn === _catalogActiveCategory);
-        var icon = (cn === 'Todos') ? '📋' : _getCatIcon(cn);
-        html += '<button onclick="_catalogActiveCategory=\'' + cn.replace(/'/g, "\\'") + '\';_catalogActiveBrand=\'\';renderCatalogsList()" style="flex-shrink:0;padding:7px 14px;border-radius:20px;font-size:12px;font-weight:600;border:1.5px solid ' + (isActive ? 'var(--primary)' : 'var(--border)') + ';background:' + (isActive ? 'var(--primary)' : 'var(--bg2)') + ';color:' + (isActive ? '#fff' : 'var(--text2)') + ';cursor:pointer;white-space:nowrap;transition:all .2s;display:flex;align-items:center;gap:4px;">' + icon + escapeHtml(cn) + '</button>';
-    }
-    tabContainer.innerHTML = html;
-}
-
-function _buildSubcategoryList(cats) {
-    var subContainer = document.getElementById('catalogSubcategoryList');
-    if (!subContainer) return;
-    if (!_catalogActiveCategory || _catalogActiveCategory === 'Todos') {
-        subContainer.style.display = 'none';
-        return;
-    }
-    var brands = {};
-    for (var i = 0; i < cats.length; i++) {
-        var prods = [];
-        try { prods = (typeof cats[i].products === 'string') ? JSON.parse(cats[i].products) : (cats[i].products || []); } catch(e) {}
-        var p0 = prods[0] || {};
-        if (p0.category === _catalogActiveCategory && p0.brand) brands[p0.brand] = true;
-    }
-    var brandNames = Object.keys(brands);
-    if (brandNames.length <= 1) {
-        subContainer.style.display = 'none';
-        _catalogActiveBrand = '';
-        return;
-    }
-    subContainer.style.display = 'block';
-    var html = '<div style="display:flex;gap:6px;flex-wrap:wrap;">';
-    html += '<button onclick="_catalogActiveBrand=\'\';renderCatalogsList()" style="padding:5px 12px;border-radius:16px;font-size:11px;font-weight:600;border:1px solid ' + (!_catalogActiveBrand ? 'var(--primary)' : 'var(--border)') + ';background:' + (!_catalogActiveBrand ? 'var(--primary)' : 'var(--bg)') + ';color:' + (!_catalogActiveBrand ? '#fff' : 'var(--text2)') + ';cursor:pointer;">Todos</button>';
-    for (var j = 0; j < brandNames.length; j++) {
-        var bn = brandNames[j];
-        var isBActive = (bn === _catalogActiveBrand);
-        html += '<button onclick="_catalogActiveBrand=\'' + bn.replace(/'/g, "\\'") + '\';renderCatalogsList()" style="padding:5px 12px;border-radius:16px;font-size:11px;font-weight:600;border:1px solid ' + (isBActive ? 'var(--primary)' : 'var(--border)') + ';background:' + (isBActive ? 'var(--primary)' : 'var(--bg)') + ';color:' + (isBActive ? '#fff' : 'var(--text2)') + ';cursor:pointer;">' + escapeHtml(bn) + '</button>';
-    }
-    html += '</div>';
-    subContainer.innerHTML = html;
-}
-
-function _getSpecsArray(p) {
-    if (!p) return [];
-    var specs = p.specs || p.specifications;
-    if (!specs) return [];
-    try {
-        var obj = (typeof specs === 'string') ? JSON.parse(specs) : specs;
-        if (!obj || typeof obj !== 'object') return [];
-        var parts = [];
-        var keys = Object.keys(obj);
-        for (var i = 0; i < keys.length; i++) {
-            var v = (obj[keys[i]] || '').trim();
-            if (v) parts.push(v);
-        }
-        return parts;
-    } catch(e) { return []; }
-}
-
-
-// --- CATEGORY SVG ICONS (Electrolux line-art style) ---
-
-
-// --- SHOW CATALOG DETAIL (bottom sheet) ---
-function showCatalogDetail(slug) {
-  var serverUrl = getServerUrl();
-  var overlay = document.getElementById('catDetailOverlay');
-  var img = document.getElementById('catDetailImg');
-  var body = document.getElementById('catDetailBody');
-  if (!overlay) return;
-  img.style.display = 'block';
-  img.src = '';
-  body.innerHTML = '<div style="text-align:center;padding:30px;color:var(--text3);">Cargando...</div>';
-  overlay.classList.add('show');
-  document.body.style.overflow = 'hidden';
-
-  _serverFetch('GET', '/api/catalogs?_t=' + Date.now(), null, function(responseText, err) {
-    if (err || !responseText) {
-      body.innerHTML = '<div style="text-align:center;padding:30px;color:var(--text3);">Error al cargar</div>';
-      return;
-    }
-    var cats;
-    try { cats = JSON.parse(responseText); } catch(e) { cats = []; }
-    if (!Array.isArray(cats)) return;
-    var found = null;
-    for (var i = 0; i < cats.length; i++) {
-      if (cats[i].slug === slug) { found = cats[i]; break; }
-    }
-    if (!found) {
-      body.innerHTML = '<div style="text-align:center;padding:30px;color:var(--text3);">Producto no encontrado</div>';
-      return;
-    }
-    var prods = [];
-    try { prods = (typeof found.products === 'string') ? JSON.parse(found.products) : (found.products || []); } catch(e) {}
-    var p0 = prods[0] || {};
-    var price = parseFloat(p0.salePrice) || 0;
-    var costPrice = parseFloat(p0.costPrice) || 0;
-    var discount = 0;
-    if (costPrice > 0 && price > 0 && price < costPrice) { discount = Math.round((1 - price / costPrice) * 100); }
-
-    // Load image
-    var thumbSrc = '';
-    if (found._thumbEmbedded && found._thumbEmbedded.data) {
-      thumbSrc = 'data:' + (found._thumbEmbedded.type || 'image/jpeg') + ';base64,' + found._thumbEmbedded.data;
-      img.src = thumbSrc;
-    } else {
-      var fetchId = found._thumbId || '';
-      if (!fetchId || fetchId === 'embedded') {
-        var timgIds = p0.imageIds || [];
-        fetchId = timgIds[0] || '';
-      }
-      if (fetchId && fetchId !== 'embedded') {
-        _serverFetch('GET', '/api/catalog-upload?id=' + encodeURIComponent(fetchId), null, function(text, err2) {
-          if (!err2 && text) {
-            try {
-              var res = JSON.parse(text);
-              if (res.data) { img.src = 'data:' + (res.imageType || 'image/jpeg') + ';base64,' + res.data; }
-            } catch(e) {}
-          }
-        });
-      }
-    }
-
-    // Build specs
-    var specsArr = _getSpecsArray(p0);
-    var waPhone = localStorage.getItem('inv_phone') || '';
-    var waText = 'Hola, estoy interesado en ' + (p0.name || found.name) + (price > 0 ? ' ($' + fmtDec(price) + ')' : '');
-    var waLink = 'https://wa.me/' + waPhone.replace(/[^0-9]/g, '') + '?text=' + encodeURIComponent(waText);
-    var catLink = _getCatalogShortLink(slug);
-
-    var h = '';
-    h += '<div class="cat-detail-name">' + escapeHtml(p0.name || found.name) + '</div>';
-    if (p0.brand) h += '<div class="cat-detail-brand">' + escapeHtml(p0.brand) + (p0.category ? ' · ' + escapeHtml(p0.category) : '') + '</div>';
-
-    // Price row
-    if (price > 0) {
-      h += '<div class="cat-detail-price-row">';
-      if (costPrice > 0 && costPrice !== price) {
-        h += '<span class="cat-detail-price-old">$' + fmtDec(costPrice) + '</span>';
-      }
-      h += '<span class="cat-detail-price">$' + fmtDec(price) + '</span>';
-      if (discount > 0) h += '<span class="cat-detail-discount">-' + discount + '%</span>';
-      h += '</div>';
-    }
-
-    // Specs table
-    if (specsArr.length > 0) {
-      h += '<div class="cat-detail-specs">';
-      if (p0.category) h += '<div class="cat-spec-row"><span class="cat-spec-label">Categoría</span><span class="cat-spec-value">' + escapeHtml(p0.category) + '</span></div>';
-      if (p0.brand) h += '<div class="cat-spec-row"><span class="cat-spec-label">Marca</span><span class="cat-spec-value">' + escapeHtml(p0.brand) + '</span></div>';
-      for (var si = 0; si < specsArr.length; si++) {
-        h += '<div class="cat-spec-row"><span class="cat-spec-label">Spec ' + (si+1) + '</span><span class="cat-spec-value">' + escapeHtml(specsArr[si]) + '</span></div>';
-      }
-      h += '</div>';
-    }
-
-    // WhatsApp button
-    if (waPhone) {
-      h += '<a class="cat-detail-wa" href="' + waLink + '" target="_blank">📱 Pedir por WhatsApp</a>';
-    }
-
-    // Open in browser button
-    h += '<button class="cat-detail-open" onclick="closeCatalogDetail();openCatalogDetail(\'' + slug.replace(/'/g, "\\'") + '\')">🌐 Ver en Navegador</button>';
-
-    // Close button
-    h += '<button class="cat-detail-close" onclick="closeCatalogDetail()">Cerrar</button>';
-
-    body.innerHTML = h;
-  });
-}
-
-function closeCatalogDetail() {
-  var overlay = document.getElementById('catDetailOverlay');
-  if (overlay) overlay.classList.remove('show');
-  document.body.style.overflow = '';
-}
-
 function renderCatalogsList() {
     var container = document.getElementById('catalogsListContainer');
     if (!container) return;
+    var baseUrl = _getCatalogBaseUrl();
     var serverUrl = getServerUrl();
     var searchEl = document.getElementById('ecatalogSearch');
     var search = searchEl ? searchEl.value.toLowerCase().trim() : '';
@@ -20453,50 +19821,25 @@ function renderCatalogsList() {
     .then(function(r) { return r.json(); })
     .then(function(cats) {
         if (!Array.isArray(cats)) cats = [];
-        // Build category tabs and subcategory list
-        _buildCategoryTabs(cats);
-        _buildSubcategoryList(cats);
-        // Filter by category, brand, and search
-        var filtered = [];
-        for (var fi = 0; fi < cats.length; fi++) {
-            var c = cats[fi];
-            var prods = [];
-            try { prods = (typeof c.products === 'string') ? JSON.parse(c.products) : (c.products || []); } catch (e) {}
-            var p0 = prods[0] || {};
-            // Category filter
-            if (_catalogActiveCategory && _catalogActiveCategory !== 'Todos') {
-                if (p0.category !== _catalogActiveCategory) continue;
-            }
-            // Brand filter
-            if (_catalogActiveBrand) {
-                if (p0.brand !== _catalogActiveBrand) continue;
-            }
-            // Search filter
-            if (search) {
+        // Filter by search
+        if (search) {
+            var filtered = [];
+            for (var fi = 0; fi < cats.length; fi++) {
+                var c = cats[fi];
+                var prods = [];
+                try { prods = (typeof c.products === 'string') ? JSON.parse(c.products) : (c.products || []); } catch (e) {}
+                var p0 = prods[0] || {};
                 var hay = (c.name || '').toLowerCase().indexOf(search) >= 0 ||
                           (c.slug || '').toLowerCase().indexOf(search) >= 0 ||
                           (p0.name || '').toLowerCase().indexOf(search) >= 0 ||
                           (p0.brand || '').toLowerCase().indexOf(search) >= 0 ||
                           (p0.category || '').toLowerCase().indexOf(search) >= 0;
-                if (!hay) continue;
+                if (hay) filtered.push(c);
             }
-            filtered.push(c);
-        }
-        cats = filtered;
-        // Stats bar
-        var statsBar = document.getElementById('catalogStatsBar');
-        if (statsBar) {
-            var totalImgs = 0;
-            for (var si = 0; si < cats.length; si++) {
-                var sp = [];
-                try { sp = (typeof cats[si].products === 'string') ? JSON.parse(cats[si].products) : (cats[si].products || []); } catch(e) {}
-                var sp0 = sp[0] || {};
-                totalImgs += (sp0.imageIds || []).length;
-            }
-            statsBar.innerHTML = '<span><strong>' + cats.length + '</strong> productos en catálogo</span><span><strong>' + totalImgs + '</strong> imágenes totales</span>';
+            cats = filtered;
         }
         if (cats.length === 0) {
-            container.innerHTML = '<div style="text-align:center;padding:40px 20px;color:var(--text3);column-span:all;"><div style="font-size:48px;margin-bottom:12px;">📖</div><div style="font-size:14px;font-weight:600;margin-bottom:4px;">' + (search ? 'Sin resultados' : 'Catálogo vacío') + '</div><div style="font-size:12px;">' + (search ? 'No se encontraron productos.' : 'Agrega productos para compartir con tus clientes.') + '</div></div>';
+            container.innerHTML = '<div style="text-align:center;padding:40px 20px;color:var(--text3);"><div style="font-size:48px;margin-bottom:12px;">📖</div><div style="font-size:14px;font-weight:600;margin-bottom:4px;">' + (search ? 'Sin resultados' : 'Catálogo vacío') + '</div><div style="font-size:12px;">' + (search ? 'No se encontraron productos.' : 'Agrega productos para compartir con tus clientes.') + '</div></div>';
             return;
         }
         var html = '';
@@ -20507,75 +19850,49 @@ function renderCatalogsList() {
             var p0 = prods[0] || {};
             var link = _getCatalogShortLink(c.slug);
             var price = parseFloat(p0.salePrice) || 0;
-            var costPrice = parseFloat(p0.costPrice) || 0;
-            // Discount
-            var discount = 0;
-            if (costPrice > 0 && price > 0 && price < costPrice) {
-                discount = Math.round((1 - price / costPrice) * 100);
-            }
-            // Specs
-            var specsArr = _getSpecsArray(p0);
-            // Thumbnail
+            // Get thumbnail: check embedded fallback first, then use _thumbId for individual fetch
             var thumbSrc = '';
             if (c._thumbEmbedded && c._thumbEmbedded.data) {
                 thumbSrc = 'data:' + (c._thumbEmbedded.type || 'image/jpeg') + ';base64,' + c._thumbEmbedded.data;
             }
-            var safeSlug = escapeHtml(c.slug).replace(/'/g, "\\'");
-            var safeName = escapeHtml(p0.name || c.name).replace(/'/g, "\\'");
-            // Card (Electrolux style)
-            html += '<div style="break-inside:avoid;background:var(--bg2);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:10px;" data-cat-slug="' + escapeHtml(c.slug) + '">';
-            // Image area (clickable -> opens catalog detail)
-            html += '<div onclick="showCatalogDetail(\'' + safeSlug + '\')" style="position:relative;width:100%;aspect-ratio:1/1;background:var(--bg);display:flex;align-items:center;justify-content:center;cursor:pointer;overflow:hidden;">';
-            if (discount > 0) {
-                html += '<div style="position:absolute;top:8px;left:8px;background:#e53935;color:#fff;font-size:10px;font-weight:700;padding:3px 8px;border-radius:12px;z-index:2;">-' + discount + '%</div>';
-            }
-            html += '<img class="cat-thumb-img" src="' + (thumbSrc ? thumbSrc : '') + '" style="width:85%;height:85%;object-fit:contain;' + (thumbSrc ? '' : 'display:none;') + '" draggable="false">';
-            html += '<span class="cat-thumb-ph" style="font-size:40px;opacity:0.2;' + (thumbSrc ? 'display:none;' : '') + '">📦</span>';
+            var thumbId = c._thumbId || '';
+            html += '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:8px;display:flex;gap:12px;align-items:center;" data-cat-slug="' + escapeHtml(c.slug) + '">';
+            // Thumbnail
+            html += '<div style="width:56px;height:56px;border-radius:10px;overflow:hidden;flex-shrink:0;background:var(--bg);display:flex;align-items:center;justify-content:center;">';
+            html += '<img class="cat-thumb-img" src="' + (thumbSrc ? thumbSrc : '') + '" style="width:100%;height:100%;object-fit:cover;' + (thumbSrc ? 'display:block;' : 'display:none;') + '" draggable="false">';
+            html += '<span class="cat-thumb-ph" style="font-size:24px;opacity:0.3;' + (thumbSrc ? 'display:none;' : '') + '">📦</span>';
             html += '</div>';
-            // Card body
-            html += '<div style="padding:10px;">';
-            // Product name (2-line clamp)
-            html += '<div style="font-size:12px;font-weight:700;color:var(--text);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.3;min-height:31px;margin-bottom:6px;">' + escapeHtml(p0.name || c.name) + '</div>';
-            // Price
-            if (price > 0) {
-                html += '<div style="margin-bottom:6px;">';
-                if (costPrice > 0 && costPrice !== price) {
-                    html += '<span style="font-size:10px;color:var(--text3);text-decoration:line-through;margin-right:4px;">$' + fmtDec(costPrice) + '</span>';
-                }
-                html += '<span style="font-size:16px;font-weight:800;color:var(--primary);">$' + fmtDec(price) + '</span>';
-                html += '</div>';
-            }
-            // Specs (up to 3, then +N más)
-            if (specsArr.length > 0) {
-                var showSpecs = specsArr.slice(0, 3);
-                html += '<div style="font-size:10px;color:var(--text2);margin-bottom:8px;line-height:1.4;">';
-                for (var si = 0; si < showSpecs.length; si++) {
-                    html += '<div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">• ' + escapeHtml(showSpecs[si]) + '</div>';
-                }
-                if (specsArr.length > 3) {
-                    html += '<div style="color:var(--primary);font-weight:600;">+' + (specsArr.length - 3) + ' más</div>';
-                }
-                html += '</div>';
-            }
-            // Ver Catálogo button
-            html += '<button onclick="event.stopPropagation();showCatalogDetail(\'' + safeSlug + '\')" style="width:100%;padding:8px;background:var(--primary);color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;margin-bottom:6px;">Ver Catálogo</button>';
-            // Action row
-            html += '<div style="display:flex;gap:4px;">';
-            html += '<button onclick="event.stopPropagation();shareCatalogImage(\'' + safeSlug + '\',\'' + c.id + '\')" style="flex:1;padding:6px;border:1px solid var(--border);border-radius:6px;background:var(--bg);font-size:11px;cursor:pointer;color:var(--text2);" title="Compartir">📱</button>';
-            html += '<button onclick="event.stopPropagation();copyCatalogLink(\'' + safeSlug + '\')" style="flex:1;padding:6px;border:1px solid var(--border);border-radius:6px;background:var(--bg);font-size:11px;cursor:pointer;color:var(--text2);" title="Copiar enlace">📋</button>';
-            html += '<button onclick="event.stopPropagation();openEcatalogEditor(\'' + c.id + '\')" style="flex:1;padding:6px;border:1px solid var(--border);border-radius:6px;background:var(--bg);font-size:11px;cursor:pointer;color:var(--text2);" title="Editar">✏️</button>';
-            html += '<button onclick="event.stopPropagation();deleteCatalog(\'' + c.id + '\',\'' + safeName + '\')" style="flex:1;padding:6px;border:1px solid var(--border);border-radius:6px;background:var(--bg);font-size:11px;cursor:pointer;color:var(--danger);" title="Eliminar">🗑️</button>';
+            // Info
+            html += '<div style="flex:1;min-width:0;">';
+            html += '<div style="font-size:14px;font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(p0.name || c.name) + '</div>';
+            html += '<div style="font-size:11px;color:var(--text3);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">🔗 ' + escapeHtml(c.slug);
+            if (p0.brand) html += ' · ' + escapeHtml(p0.brand);
+            if (p0.category) html += ' · ' + escapeHtml(p0.category);
+            if (price > 0) html += ' · $' + fmtDec(price);
             html += '</div>';
-            html += '</div>'; // end card body
-            html += '</div>'; // end card
+            // Link preview
+            html += '<div style="font-size:10px;color:var(--primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:2px;opacity:0.8;">' + escapeHtml(link) + '</div>';
+            html += '</div>';
+            // Actions
+            html += '<div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0;">';
+            html += '<button class="btn btn-xs btn-primary" onclick="shareCatalogImage(\'' + escapeHtml(c.slug).replace(/'/g, "\\'") + '\',\'' + c.id + '\')" style="font-size:10px;padding:6px 8px;" title="Compartir imagen con QR">📱</button>';
+            html += '<button class="btn btn-xs btn-outline" onclick="copyCatalogLink(\'' + escapeHtml(c.slug).replace(/'/g, "\\'") + '\')" style="font-size:10px;padding:6px 8px;" title="Copiar enlace">📋</button>';
+            html += '<button class="btn btn-xs btn-outline" onclick="openEcatalogEditor(\'' + c.id + '\')" style="font-size:10px;padding:6px 8px;">✏️</button>';
+            html += '<button class="btn btn-xs btn-outline" onclick="deleteCatalog(\'' + c.id + '\',\'' + escapeHtml(p0.name || c.name).replace(/'/g, "\\'") + '\')" style="font-size:10px;padding:6px 8px;color:var(--danger);">🗑️</button>';
+            html += '</div>';
+            html += '</div>';
         }
         container.innerHTML = html;
 
-        // Load thumbnails via native bridge
+        // Load thumbnails client-side: fetch each catalog's first image individually
         for (var ti = 0; ti < cats.length; ti++) {
             var tc = cats[ti];
+            // Skip if already shown via _thumbEmbedded (old format)
             if (tc._thumbEmbedded && tc._thumbEmbedded.data) continue;
+
+            // Use _thumbId from server (preferred)
             var fetchId = tc._thumbId || '';
+            // Fallback: get first imageId from product
             if (!fetchId || fetchId === 'embedded') {
                 var tprods = [];
                 try { tprods = (typeof tc.products === 'string') ? JSON.parse(tc.products) : (tc.products || []); } catch (e) {}
@@ -20583,44 +19900,28 @@ function renderCatalogsList() {
                 var timgIds = tp0.imageIds || [];
                 fetchId = timgIds[0] || '';
             }
+
             if (fetchId && fetchId !== 'embedded') {
                 (function(slug, imgId) {
-                    // Try direct binary image URL first (faster, no JSON/base64 overhead)
-                    var directUrl = getServerUrl() + '/api/catalog-image/' + encodeURIComponent(imgId);
-                    var testImg = new Image();
-                    testImg.onload = function() {
-                        var el = container.querySelector('[data-cat-slug="' + slug + '"] .cat-thumb-img');
-                        var ph = container.querySelector('[data-cat-slug="' + slug + '"] .cat-thumb-ph');
-                        if (el) { el.src = directUrl; el.style.display = 'block'; }
-                        if (ph) ph.style.display = 'none';
-                    };
-                    testImg.onerror = function() {
-                        // Fallback: use _serverFetch for JSON-based catalog-upload endpoint
-                        _serverFetch('GET', '/api/catalog-upload?id=' + encodeURIComponent(imgId), null, function(text, err2) {
-                            if (!err2 && text) {
-                                try {
-                                    var res = JSON.parse(text);
-                                    if (res.data) {
-                                        var el = container.querySelector('[data-cat-slug="' + slug + '"] .cat-thumb-img');
-                                        var ph = container.querySelector('[data-cat-slug="' + slug + '"] .cat-thumb-ph');
-                                        if (el) { el.src = 'data:' + (res.imageType || 'image/jpeg') + ';base64,' + res.data; el.style.display = 'block'; }
-                                        if (ph) ph.style.display = 'none';
-                                    }
-                                } catch(e) {}
-                            }
-                        });
-                    };
-                    testImg.src = directUrl;
+                    fetch(getServerUrl() + '/api/catalog-upload?id=' + encodeURIComponent(imgId))
+                    .then(function(r) { return r.json(); })
+                    .then(function(res) {
+                        if (res.data) {
+                            var el = container.querySelector('[data-cat-slug="' + slug + '"] .cat-thumb-img');
+                            var ph = container.querySelector('[data-cat-slug="' + slug + '"] .cat-thumb-ph');
+                            if (el) { el.src = 'data:' + (res.imageType || 'image/jpeg') + ';base64,' + res.data; el.style.display = 'block'; }
+                            if (ph) ph.style.display = 'none';
+                        }
+                    }).catch(function() {});
                 })(tc.slug, fetchId);
             }
         }
     })
     .catch(function(err) {
         console.error('[CATALOGS] Error loading:', err);
-        container.innerHTML = '<div style="text-align:center;padding:40px 20px;color:var(--text3);column-span:all;"><div style="font-size:48px;margin-bottom:12px;">📖</div><div style="font-size:14px;font-weight:600;margin-bottom:4px;">Error al cargar</div><div style="font-size:12px;">Verifica tu conexión e intenta de nuevo.</div></div>';
+        container.innerHTML = '<div style="text-align:center;padding:40px 20px;color:var(--text3);"><div style="font-size:48px;margin-bottom:12px;">📖</div><div style="font-size:14px;font-weight:600;margin-bottom:4px;">Error al cargar</div><div style="font-size:12px;">Verifica tu conexión e intenta de nuevo.</div></div>';
     });
 }
-
 
 function copyCatalogLink(slug) {
     var link = _getCatalogShortLink(slug);
@@ -21014,28 +20315,20 @@ function _finishShareCard(ctx, W, H, product, link, storeInfo, canvas) {
 
     // === KISSU-STYLE PROFESSIONAL CARD ===
     var H2 = 1150;
-    var imgAreaH = 540;
-    var textStartY = imgAreaH + 30; // 570
+    // Do NOT clear the canvas here — it was already set up in _generateShareCard
+    // and the product image was drawn by _loadAndDrawSingle.
+    // Clearing would erase the image.
 
-    // Only clear the TEXT area below the image — preserve the product image
+    // Only clear the TEXT area below the image (y=570 to bottom)
     ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, textStartY, W, H2 - textStartY);
+    ctx.fillRect(0, 570, W, H2 - 570);
 
-    // Draw a clean separator line above text area
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, imgAreaH + 10, W, 20);
-
-    // Re-draw rounded border around image area (image was already drawn by _loadAndDrawSingle)
-    var imgArea = { x: 30, y: 30, w: W - 60, h: imgAreaH };
-    _drawRoundedRectBorder(ctx, imgArea.x, imgArea.y, imgArea.w, imgArea.h, 16, '#e0e0e0');
-
-    var textY = textStartY;
+    var textY = 570;
 
     // --- Status Badges Row ---
     var badges = [];
     if (product.sku && product.sku.length > 0) badges.push({ text: product.sku.toUpperCase(), bg: '#f0f0f0', fg: '#666' });
-    if (stock > 5) badges.push({ text: 'DISPONIBLE', bg: '#e8f5e9', fg: '#2e7d32' });
-    else if (stock > 0) badges.push({ text: '\u00d9LTIMAS UNIDADES', bg: '#fff3e0', fg: '#e65100' });
+    if (stock > 0) badges.push({ text: 'DISPONIBLE', bg: '#e8f5e9', fg: '#2e7d32' });
     else badges.push({ text: 'AGOTADO', bg: '#ffebee', fg: '#c62828' });
 
     var badgeX = 30;
@@ -21997,23 +21290,6 @@ function _drawRoundedRect(ctx, x, y, w, h, r, fill) {
     ctx.fill();
 }
 
-function _drawRoundedRectBorder(ctx, x, y, w, h, r, strokeColor) {
-    ctx.beginPath();
-    ctx.moveTo(x + r, y);
-    ctx.lineTo(x + w - r, y);
-    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-    ctx.lineTo(x + w, y + h - r);
-    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-    ctx.lineTo(x + r, y + h);
-    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-    ctx.lineTo(x, y + r);
-    ctx.quadraticCurveTo(x, y, x + r, y);
-    ctx.closePath();
-    ctx.strokeStyle = strokeColor;
-    ctx.lineWidth = 1;
-    ctx.stroke();
-}
-
 function _clipRoundedRect(ctx, x, y, w, h, r) {
     ctx.beginPath();
     ctx.moveTo(x + r, y);
@@ -22641,6 +21917,7 @@ function _finalizeCatalogSave(p, slug, btn, imageIds) {
     var catalogProduct = {
         id: p.id, name: p.name || '', brand: p.brand || '', category: p.category || '',
         color: p.color || '', salePrice: parseFloat(p.salePrice) || 0, costPrice: parseFloat(p.costPrice) || 0,
+        stock: parseInt(p.stock) || 0,
         description: desc, specifications: p.specifications || null,
         imageIds: imageIds, specs: _getSpecsStr(p.specifications)
     };
@@ -22685,7 +21962,7 @@ function checkPublicCatalog() {
     if (!slug) return false;
     // Redirect to the catalog viewer
     var normalized = slug.toLowerCase().replace(/\s+/g, '-');
-    window.location.replace('/c/' + encodeURIComponent(normalized));
+    window.location.replace('/ver.html?c=' + encodeURIComponent(normalized));
     return true;
 }
 
@@ -22814,15 +22091,6 @@ checkPublicCatalog();
 <!-- Global chip dropdown (at body level to avoid clipping) -->
 <div id="chipDropdownOverlay"></div>
 
-<!-- CATALOG PRODUCT DETAIL BOTTOM SHEET -->
-<div class="cat-detail-overlay" id="catDetailOverlay" onclick="if(event.target===this)closeCatalogDetail()">
-  <div class="cat-detail-sheet" id="catDetailSheet">
-    <div class="cat-detail-handle"></div>
-    <img class="cat-detail-img" id="catDetailImg" src="" onerror="this.style.display='none'">
-    <div class="cat-detail-body" id="catDetailBody"></div>
-  </div>
-</div>
-
 </body>
 </html>
-<!-- NV103 production -->
+<!-- NV59 production -->

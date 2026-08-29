@@ -369,7 +369,9 @@ export default async function CatalogPage({ params }: Props) {
         .catpg-name{font-size:22px;font-weight:800;line-height:1.3;margin-bottom:4px;color:#111;}
         .catpg-brand{font-size:14px;color:#888;margin-bottom:6px;}
         /* Stock badge */
-        .catpg-stock-badge{display:inline-flex;align-items:center;gap:4px;background:#198754;color:#fff;font-size:11px;font-weight:700;padding:4px 10px;border-radius:4px;margin-bottom:8px;}
+        .catpg-stock-badge{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;padding:4px 10px;border-radius:4px;margin-bottom:8px;}
+        .catpg-stock-badge.avail{background:#198754;color:#fff;}
+        .catpg-stock-badge.out{background:#dc3545;color:#fff;}
         /* Store info line */
         .catpg-store-line{display:inline-flex;align-items:center;gap:4px;font-size:13px;color:#999;margin-bottom:6px;}
         /* Price */
@@ -435,9 +437,9 @@ export default async function CatalogPage({ params }: Props) {
           <div dangerouslySetInnerHTML={{ __html: storeInfoHtml }} />
 
           {/* Stock badge */}
-          <div className="catpg-stock-badge">
+          <div className={"catpg-stock-badge " + ((parseInt(p.stock) || 0) > 0 ? 'avail' : 'out')}>
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-            En stock
+            {(parseInt(p.stock) || 0) > 0 ? 'Disponible' : 'Agotado'}
           </div>
 
           {(p.brand || p.color) && (
@@ -468,8 +470,7 @@ export default async function CatalogPage({ params }: Props) {
         var slides,cur=0,dots,totalSlides,counter;
         var IMG_IDS=${imgIdsJson};
         (function(){
-          var bb=document.getElementById("catpgBackBtn");
-          if(bb){bb.addEventListener("click",function(e){e.preventDefault();if(window.history.length>1){window.history.back();}else{try{window.close();}catch(ex){}}});}
+          var bb=document.getElementById("catpgBackBtn");if(bb){bb.href='javascript:history.back()';bb.addEventListener('click',function(e){e.preventDefault();if(window.history.length>1){window.history.back();}else{window.location.href='/';}});}
           slides=document.querySelectorAll(".catpg-slide");
           dots=document.querySelectorAll(".catpg-dot");
           totalSlides=slides.length;
