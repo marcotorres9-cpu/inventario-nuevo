@@ -1088,7 +1088,7 @@
             <div>
                 <div class="header-name" id="storeHeaderName">Inventario Pro</div>
                 <div class="header-role" id="userRole">rol</div>
-                <div class="header-ver" id="headerVersion">v2.6.57 NV103</div>
+                <div class="header-ver" id="headerVersion">v2.6.58 NV104</div>
             </div>
         </div>
         <button class="btn-logout" onclick="toggleTheme()" style="background:none;border:none;font-size:20px;cursor:pointer;margin-right:8px;color:var(--text2);" title="Cambiar tema">🌓</button>
@@ -20640,7 +20640,7 @@ function shareCatalogImage(slug, catId) {
     var serverUrl = getServerUrl();
     var shortLink = _getCatalogShortLink(slug);
 
-    // Use fetch() for catalog metadata (small response, works via NativeBridge)
+    // Step 1: Fetch catalog metadata
     fetch(serverUrl + '/api/catalogs?_t=' + Date.now(), { method: 'GET', headers: { 'Content-Type': 'application/json' } })
     .then(function(r) { return r.json(); })
     .then(function(cats) {
@@ -20656,66 +20656,87 @@ function shareCatalogImage(slug, catId) {
         if (!p) { showToast('Sin producto', 'error'); return; }
         var mainIdx = parseInt(cat.mainImage) || 0;
 
-        // Store catalog data for fallback if canvas is tainted
+        // Store for potential fallback
         window._lastShareCatData = cat;
 
-        // Build image source: prefer direct binary URL (bypasses all base64/JSON/NativeBridge issues)
-        var imgSrc = '';
-
-        // SOURCE 1: _thumbEmbedded (old format catalogs with embedded thumbnail)
+        // Step 2: Determine image source
+        // PRIORITY 1: Embedded thumbnail data (fastest - already in metadata)
         if (cat._thumbEmbedded && cat._thumbEmbedded.data) {
-            imgSrc = 'data:' + (cat._thumbEmbedded.type || 'image/jpeg') + ';base64,' + cat._thumbEmbedded.data;
+            var dataUri = 'data:' + (cat._thumbEmbedded.type || 'image/jpeg') + ';base64,' + cat._thumbEmbedded.data;
+            _generateShareCard([dataUri], p, shortLink, cat.storeInfo);
+            return;
         }
 
-        // SOURCE 2: Direct image URL via /api/catalog-image/[id] — binary, no JSON, no base64 overhead
-        if (!imgSrc) {
-            var imgId = '';
-            // Use _thumbId from server (already resolved)
-            if (cat._thumbId && cat._thumbId !== 'embedded') {
-                imgId = cat._thumbId;
-            }
-            // Fallback: get from product imageIds
-            if (!imgId) {
-                var imgIds = p.imageIds || [];
-                var idx = mainIdx;
-                if (idx >= imgIds.length) idx = 0;
-                imgId = imgIds[idx] || '';
-            }
-            if (imgId) {
-                imgSrc = serverUrl + '/api/catalog-image/' + encodeURIComponent(imgId);
-            }
+        // PRIORITY 2: Fetch image as base64 from server (reliable in all contexts)
+        var imgId = '';
+        if (cat._thumbId && cat._thumbId !== 'embedded') {
+            imgId = cat._thumbId;
+        }
+        if (!imgId) {
+            var imgIds = p.imageIds || [];
+            var idx = mainIdx;
+            if (idx >= imgIds.length) idx = 0;
+            imgId = imgIds[idx] || '';
         }
 
-        // SOURCE 3: Try local IndexedDB as last resort
-        if (!imgSrc) {
-            var localProducts = getProducts();
-            var localProd = null;
-            for (var lp = 0; lp < localProducts.length; lp++) {
-                if (localProducts[lp].id === p.id) { localProd = localProducts[lp]; break; }
-            }
-            var localImgIds = (localProd && localProd.images) ? localProd.images : [];
-            var localIdx = mainIdx;
-            if (localIdx >= localImgIds.length) localIdx = 0;
-            if (localImgIds.length > 0 && localImgIds[localIdx] && typeof idbGetImage === 'function') {
-                idbGetImage(localImgIds[localIdx]).then(function(data) {
-                    if (data && data.length > 100) {
-                        _generateShareCard([data], p, shortLink, cat.storeInfo);
+        if (imgId) {
+            // Fetch image as base64 JSON — works reliably in WebView, Capacitor, and browser
+            _serverFetch('GET', '/api/catalog-upload?id=' + encodeURIComponent(imgId), null, function(text, err) {
+                if (!err && text) {
+                    try {
+                        var res = JSON.parse(text);
+                        if (res.data && res.data.length > 100) {
+                            var serverDataUri = 'data:' + (res.imageType || 'image/jpeg') + ';base64,' + res.data;
+                            _generateShareCard([serverDataUri], p, shortLink, cat.storeInfo);
+                            return;
+                        }
+                    } catch(e) {}
+                }
+                // PRIORITY 3: Try local IndexedDB
+                _tryLocalImage(p, mainIdx, function(localData) {
+                    if (localData) {
+                        _generateShareCard([localData], p, shortLink, cat.storeInfo);
                     } else {
                         _generateShareCard([''], p, shortLink, cat.storeInfo);
                     }
-                }).catch(function() {
-                    _generateShareCard([''], p, shortLink, cat.storeInfo);
                 });
-                return;
-            }
+            });
+        } else {
+            // No image ID at all — try local IndexedDB
+            _tryLocalImage(p, mainIdx, function(localData) {
+                if (localData) {
+                    _generateShareCard([localData], p, shortLink, cat.storeInfo);
+                } else {
+                    _generateShareCard([''], p, shortLink, cat.storeInfo);
+                }
+            });
         }
-
-        _generateShareCard([imgSrc], p, shortLink, cat.storeInfo);
     })
     .catch(function(err) {
         console.error('[shareCatalogImage] Error:', err);
         showToast('Error de conexión', 'error');
     });
+}
+
+// Helper: try to get image from local IndexedDB
+function _tryLocalImage(product, mainIdx, callback) {
+    var localProducts = getProducts();
+    var localProd = null;
+    for (var lp = 0; lp < localProducts.length; lp++) {
+        if (localProducts[lp].id === product.id) { localProd = localProducts[lp]; break; }
+    }
+    var localImgIds = (localProd && localProd.images) ? localProd.images : [];
+    var localIdx = mainIdx;
+    if (localIdx >= localImgIds.length) localIdx = 0;
+    if (localImgIds.length > 0 && localImgIds[localIdx] && typeof idbGetImage === 'function') {
+        idbGetImage(localImgIds[localIdx]).then(function(data) {
+            callback((data && data.length > 100) ? data : null);
+        }).catch(function() {
+            callback(null);
+        });
+    } else {
+        callback(null);
+    }
 }
 
 // Fetch image from server using XHR (bypasses native bridge to avoid base64 corruption)
@@ -22825,4 +22846,4 @@ checkPublicCatalog();
 
 </body>
 </html>
-<!-- NV103 production -->
+<!-- NV104 production -->
