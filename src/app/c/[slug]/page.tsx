@@ -12,33 +12,19 @@ export const viewport: Viewport = {
 
 type Props = { params: Promise<{ slug: string }> };
 
-async function resolveImageIds(imageIds: string[]): Promise<Record<string, {type: string; data: string}>> {
-  const map: Record<string, {type: string; data: string}> = {};
-  if (!imageIds || imageIds.length === 0) return map;
+async function checkImageIdsExist(imageIds: string[]): Promise<string[]> {
+  if (!imageIds || imageIds.length === 0) return [];
   try { await query(`CREATE TABLE IF NOT EXISTS "CatalogImage" (id TEXT PRIMARY KEY,"catalogId" TEXT DEFAULT '',"imageType" TEXT DEFAULT 'image/jpeg',data TEXT NOT NULL,"createdAt" TIMESTAMPTZ DEFAULT NOW())`); } catch{}
-  for (let i = 0; i < imageIds.length; i += 20) {
-    const batch = imageIds.slice(i, i + 20);
+  const existing: string[] = [];
+  for (let i = 0; i < imageIds.length; i += 50) {
+    const batch = imageIds.slice(i, i + 50);
     const ph = batch.map((_, idx) => `$${idx + 1}`).join(',');
     try {
-      const rows = await query(`SELECT id,"imageType",data FROM "CatalogImage" WHERE id IN (${ph})`, batch);
-      for (const r of rows as any[]) { map[r.id] = { type: r.imageType, data: r.data }; }
+      const rows = await query(`SELECT id FROM "CatalogImage" WHERE id IN (${ph})`, batch);
+      for (const r of rows as any[]) { existing.push(r.id); }
     } catch {}
   }
-  return map;
-}
-
-function getImages(p: any, imgMap: Record<string, {type: string; data: string}>): { src: string }[] {
-  if (p.imageIds && p.imageIds.length > 0) {
-    return p.imageIds.map((id: string) => {
-      const img = imgMap[id];
-      return img ? { src: `data:${img.type};base64,${img.data}` } : { src: '' };
-    }).filter((i: any) => i.src);
-  }
-  return (p.images || []).map((img: any) => {
-    if (img.data) return { src: `data:${img.type || 'image/jpeg'};base64,${img.data}` };
-    if (img.url) return { src: img.url };
-    return { src: '' };
-  }).filter((i: any) => i.src);
+  return existing;
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -144,23 +130,18 @@ export default async function CatalogPage({ params }: Props) {
   const showDescription = catDS.description !== false;
   const showActions = catDS.actions !== false;
 
-  // Resolve images: use imageIds from DB, or images from API fallback
-  let allImgs: { src: string }[] = [];
+  // Resolve images: collect valid IDs, load via API on client (keeps HTML small)
+  let validImageIds: string[] = [];
   if (p.imageIds && p.imageIds.length > 0) {
-    const imgMap = await resolveImageIds(p.imageIds);
-    allImgs = getImages(p, imgMap);
+    validImageIds = await checkImageIdsExist(p.imageIds);
   } else if (p.images && p.images.length > 0) {
-    allImgs = p.images.map((img: any) => {
-      if (img.data) return { src: `data:${img.type || 'image/jpeg'};base64,${img.data}` };
-      if (img.url) return { src: img.url };
-      return { src: '' };
-    }).filter((i: any) => i.src);
+    validImageIds = (p.images || []).map((img: any) => img.url).filter((u: any) => u);
   }
 
   // Reorder: main image first
-  if (mainImage > 0 && mainImage < allImgs.length) {
-    const main = allImgs.splice(mainImage, 1)[0];
-    allImgs.unshift(main);
+  if (mainImage > 0 && mainImage < validImageIds.length) {
+    const main = validImageIds.splice(mainImage, 1)[0];
+    validImageIds.unshift(main);
   }
 
   let specObj: Record<string, string> = {};
@@ -218,15 +199,16 @@ export default async function CatalogPage({ params }: Props) {
 
   const esc = (s: string) => s ? s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') : '';
 
-  const imgCount = allImgs.length;
-  const slidesHtml = allImgs.length > 0
-    ? allImgs.map((img, i) =>
-        `<div class="catpg-slide${i === 0 ? ' catpg-active' : ''}"><img src="${esc(img.src)}" alt="${esc(p.name)}" loading="lazy" /></div>`
+  const imgCount = validImageIds.length;
+  const imgIdsJson = JSON.stringify(validImageIds);
+  const slidesHtml = imgCount > 0
+    ? validImageIds.map((id, i) =>
+        `<div class="catpg-slide${i === 0 ? ' catpg-active' : ''}" data-img-id="${esc(id)}"><div class="catpg-img-loading">📷</div></div>`
       ).join('')
     : '<div class="catpg-slide catpg-active"><div class="catpg-no-img">📷</div></div>';
 
   const dotsHtml = imgCount > 1
-    ? `<div class="catpg-dots">${allImgs.map((_, i) =>
+    ? `<div class="catpg-dots">${validImageIds.map((_, i) =>
         `<span class="catpg-dot${i === 0 ? ' catpg-dot-active' : ''}" data-idx="${i}"></span>`
       ).join('')}</div>`
     : '';
@@ -235,10 +217,9 @@ export default async function CatalogPage({ params }: Props) {
     ? `<div class="catpg-img-counter" id="catpgCounter">1 / ${imgCount}</div>`
     : '';
 
-  // Thumbnails HTML
   const thumbsHtml = imgCount > 1
-    ? `<div class="catpg-thumbs" id="catpgThumbs">${allImgs.map((img, i) =>
-        `<img class="catpg-thumb${i === 0 ? ' catpg-thumb-active' : ''}" data-idx="${i}" src="${esc(img.src)}" alt="" />`
+    ? `<div class="catpg-thumbs" id="catpgThumbs">${validImageIds.map((id, i) =>
+        `<img class="catpg-thumb${i === 0 ? ' catpg-thumb-active' : ''}" data-idx="${i}" data-img-id="${esc(id)}" src="" alt="" />`
       ).join('')}</div>`
     : '';
 
@@ -370,7 +351,7 @@ export default async function CatalogPage({ params }: Props) {
         .catpg-slide{position:absolute;top:0;left:0;width:100%;height:100%;display:none;align-items:center;justify-content:center;background:#fafafa;}
         .catpg-slide.catpg-active{display:flex;}
         .catpg-slide img{width:100%;height:100%;object-fit:contain;pointer-events:none;}
-        .catpg-no-img{font-size:72px;opacity:0.15;}
+        .catpg-no-img{font-size:72px;opacity:0.15;}        .catpg-img-loading{font-size:48px;opacity:0.2;animation:catpgPulse 1.5s infinite;}        @keyframes catpgPulse{0%,100%{opacity:0.15}50%{opacity:0.3}}
         .catpg-dots{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);display:flex;gap:8px;z-index:5;background:rgba(0,0,0,0.3);padding:6px 12px;border-radius:20px;}
         .catpg-dot{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,0.4);cursor:pointer;transition:all .2s;}
         .catpg-dot.catpg-dot-active{background:#fff;transform:scale(1.4);box-shadow:0 0 6px rgba(255,255,255,0.8);}
@@ -485,16 +466,30 @@ export default async function CatalogPage({ params }: Props) {
 
       <script dangerouslySetInnerHTML={{ __html: `
         var slides,cur=0,dots,totalSlides,counter;
+        var IMG_IDS=${imgIdsJson};
         (function(){
-          var bb=document.getElementById("catpgBackBtn");if(bb){if(document.referrer&&document.referrer.indexOf(location.host)>=0){bb.href='/go.html';}else{bb.href='javascript:history.back()';}}
+          var bb=document.getElementById("catpgBackBtn");
+          if(bb){bb.addEventListener("click",function(e){e.preventDefault();if(window.history.length>1){window.history.back();}else{try{window.close();}catch(ex){}}});}
           slides=document.querySelectorAll(".catpg-slide");
           dots=document.querySelectorAll(".catpg-dot");
           totalSlides=slides.length;
           counter=document.getElementById("catpgCounter");
 
-          // Go to slide n
+          function loadImg(imgId,idx){
+            fetch('/api/catalog-upload?id='+encodeURIComponent(imgId))
+            .then(function(r){return r.json();})
+            .then(function(res){
+              if(!res.data)return;
+              var src='data:'+(res.imageType||'image/jpeg')+';base64,'+res.data;
+              var slide=slides[idx];
+              if(slide){var loading=slide.querySelector('.catpg-img-loading');if(loading)loading.remove();var img=document.createElement('img');img.src=src;img.alt='producto';slide.appendChild(img);}
+              var thumb=document.querySelector('.catpg-thumb[data-img-id="'+imgId+'"]');
+              if(thumb){thumb.src=src;}
+            }).catch(function(){});
+          }
+          for(var li=0;li<IMG_IDS.length;li++){loadImg(IMG_IDS[li],li);}
+
           function go(n){
-            if(!slides.length)return;
             slides[cur].classList.remove("catpg-active");
             if(dots[cur])dots[cur].classList.remove("catpg-dot-active");
             cur=n;if(cur<0)cur=0;if(cur>=slides.length)cur=slides.length-1;
