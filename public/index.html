@@ -8,6 +8,24 @@
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
     <title>Inventario Pro</title>
+    <!-- Auto-update: check server version every 5 min, reload if newer -->
+    <script>
+    (function(){
+        var _curVer='NV105';
+        function _checkVer(){
+            try{
+                fetch(getServerUrl?getServerUrl():location.origin+'/api/version?_t='+Date.now())
+                .then(function(r){return r.json()})
+                .then(function(d){
+                    var sv=d.version||'';
+                    if(sv&&sv!==_curVer){console.log('[UPDATE] New version '+sv+', reloading...');location.reload();}
+                }).catch(function(){});
+            }catch(e){}
+        }
+        setTimeout(_checkVer,10000);
+        setInterval(_checkVer,300000);
+    })();
+    </script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" onerror="window._jspdfErr=true"></script>
     <script>
     // CAPACITOR: Hide splash screen once page loads
@@ -1088,7 +1106,7 @@
             <div>
                 <div class="header-name" id="storeHeaderName">Inventario Pro</div>
                 <div class="header-role" id="userRole">rol</div>
-                <div class="header-ver" id="headerVersion">v2.6.58 NV104</div>
+                <div class="header-ver" id="headerVersion">v2.6.58 NV105</div>
             </div>
         </div>
         <button class="btn-logout" onclick="toggleTheme()" style="background:none;border:none;font-size:20px;cursor:pointer;margin-right:8px;color:var(--text2);" title="Cambiar tema">🌓</button>
