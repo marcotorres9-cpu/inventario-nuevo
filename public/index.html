@@ -11,7 +11,7 @@
     <!-- Auto-update: check server version every 5 min, reload if newer -->
     <script>
     (function(){
-        var _curVer='NV109';
+        var _curVer='NV110';
         function _checkVer(){
             try{
                 fetch(getServerUrl?getServerUrl():location.origin+'/api/version?_t='+Date.now())
@@ -1106,7 +1106,7 @@
             <div>
                 <div class="header-name" id="storeHeaderName">Inventario Pro</div>
                 <div class="header-role" id="userRole">rol</div>
-                <div class="header-ver" id="headerVersion">v2.6.62 NV109</div>
+                <div class="header-ver" id="headerVersion">v2.6.63 NV110</div>
             </div>
         </div>
         <button class="btn-logout" onclick="toggleTheme()" style="background:none;border:none;font-size:20px;cursor:pointer;margin-right:8px;color:var(--text2);" title="Cambiar tema">🌓</button>
@@ -3728,7 +3728,7 @@ function logout() {
 // ====================================================================
 // CHANGELOG — Show latest updates to the user
 // ====================================================================
-var APP_VERSION = '2.6.62 NV109'
+var APP_VERSION = '2.6.63 NV110'
 var CHANGELOG_ENTRIES = [
     { ver: '2.4.0', date: '24 Abr 2026', items: [
         { icon: '📊', text: '<b>Capacidad por espacio:</b> Controla unidades mínimas y máximas para Exhibición, Local Pequeño, Local Grande desde el panel de Control del Local.' },
@@ -11105,12 +11105,15 @@ function renderCatalogSummaryPage() {
                 var cBg = r.pct === 100 ? '#00b89410' : (r.pct >= 80 ? '#00cec910' : (r.pct >= 50 ? '#f39c1210' : (r.pct > 0 ? '#e1705510' : '#636e7210')));
                 var circumference = 2 * 3.14159 * 18;
                 var dashOffset = circumference - (circumference * r.pct / 100);
-                h += '<div style="background:' + cBg + ';border:1px solid ' + cColor + '25;border-radius:12px;padding:12px;">';
+                var catEsc = r.name.replace(/'/g, "\\'");
+                h += '<div onclick="_goToCatCoverage(\'' + catEsc + '\')" style="background:' + cBg + ';border:1px solid ' + cColor + '25;border-radius:12px;padding:12px;cursor:pointer;transition:transform .12s ease,box-shadow .12s ease;active:scale(0.97;">';
                 h += '<div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">';
                 h += '<span style="font-size:20px;line-height:1;">' + r.icon + '</span>';
                 h += '<span style="font-size:12px;font-weight:700;color:var(--text);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(r.name) + '</span>';
                 if (r.pct === 100) {
                     h += '<span style="font-size:9px;background:#00b894;color:#fff;padding:2px 6px;border-radius:8px;font-weight:800;">COMPLETO</span>';
+                } else {
+                    h += '<span style="font-size:10px;color:' + cColor + ';font-weight:600;opacity:0.7;">IR ▶</span>';
                 }
                 h += '</div>';
                 h += '<div style="display:flex;align-items:center;gap:10px;">';
@@ -11125,14 +11128,12 @@ function renderCatalogSummaryPage() {
                 h += '</div>';
                 if (r.missing.length > 0) {
                     h += '<div style="margin-top:8px;padding-top:7px;border-top:1px dashed ' + cColor + '30;">';
-                    if (r.missing.length <= 3) {
-                        for (var mi = 0; mi < r.missing.length; mi++) {
-                            h += '<div style="font-size:10px;color:var(--text3);padding:1px 0;display:flex;align-items:center;gap:4px;"><span style="color:' + cColor + ';font-size:8px;">\u25CB</span>' + escapeHtml(r.missing[mi]) + '</div>';
-                        }
-                    } else {
-                        h += '<div style="font-size:10px;color:var(--text3);display:flex;align-items:center;gap:4px;"><span style="color:' + cColor + ';font-size:8px;">\u25CB</span>' + escapeHtml(r.missing[0]) + '</div>';
-                        h += '<div style="font-size:10px;color:var(--text3);display:flex;align-items:center;gap:4px;"><span style="color:' + cColor + ';font-size:8px;">\u25CB</span>' + escapeHtml(r.missing[1]) + '</div>';
-                        h += '<div style="font-size:10px;color:' + cColor + ';font-weight:600;">+ ' + (r.missing.length - 2) + ' mas por registrar</div>';
+                    var showCount = Math.min(r.missing.length, 5);
+                    for (var mi = 0; mi < showCount; mi++) {
+                        h += '<div style="font-size:10px;color:var(--text3);padding:1px 0;display:flex;align-items:center;gap:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"><span style="color:' + cColor + ';font-size:8px;flex-shrink:0;">\u25CB</span><span style="overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(r.missing[mi]) + '</span></div>';
+                    }
+                    if (r.missing.length > 5) {
+                        h += '<div style="font-size:10px;color:' + cColor + ';font-weight:600;margin-top:1px;">+ ' + (r.missing.length - 5) + ' mas...</div>';
                     }
                     h += '</div>';
                 }
@@ -20375,6 +20376,13 @@ function _serverFetch(method, path, body, callback) {
 var _catalogActiveCategory = 'Todos';
 var _catalogActiveBrand = '';
 
+// Navigate to catalogs tab with a specific category pre-selected
+function _goToCatCoverage(catName) {
+    _catalogActiveCategory = catName;
+    _catalogActiveBrand = '';
+    switchSection('catalogs');
+}
+
 function _buildCategoryTabs(cats) {
     var tabContainer = document.getElementById('catalogCategoryTabs');
     if (!tabContainer) return;
@@ -20636,11 +20644,12 @@ function renderCatalogsList() {
                 var cbg2 = cp2 === 100 ? '#00b89410' : (cp2 >= 80 ? '#00cec910' : (cp2 >= 50 ? '#f39c1210' : (cp2 > 0 ? '#e1705510' : '#636e7210')));
                 var circ2 = 2 * 3.14159 * 14;
                 var dashOff2 = circ2 - (circ2 * cp2 / 100);
-                ch += '<div style="background:' + cbg2 + ';border:1px solid ' + cc2 + '25;border-radius:10px;padding:10px;">';
+                ch += '<div class="_covCard" data-catname="' + escapeHtml(catKeys2[ck2]).replace(/"/g, '&quot;') + '" style="background:' + cbg2 + ';border:1px solid ' + cc2 + '25;border-radius:10px;padding:10px;cursor:pointer;transition:transform .12s ease;">';
                 ch += '<div style="display:flex;align-items:center;gap:5px;margin-bottom:6px;">';
                 ch += '<span style="font-size:16px;line-height:1;">' + _getCatIcon(catKeys2[ck2]) + '</span>';
                 ch += '<span style="font-size:11px;font-weight:700;color:var(--text);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(catKeys2[ck2]) + '</span>';
                 if (cp2 === 100) { ch += '<span style="font-size:8px;background:#00b894;color:#fff;padding:1px 5px;border-radius:6px;font-weight:800;">OK</span>'; }
+                else { ch += '<span style="font-size:9px;color:' + cc2 + ';font-weight:600;opacity:0.7;">IR ▶</span>'; }
                 ch += '</div>';
                 ch += '<div style="display:flex;align-items:center;gap:8px;">';
                 ch += '<svg width="36" height="36" style="flex-shrink:0;transform:rotate(-90deg);">';
@@ -20651,19 +20660,32 @@ function renderCatalogsList() {
                 ch += '<div style="font-size:16px;font-weight:900;color:' + cc2 + ';line-height:1;">' + cv2.inEcat + '<span style="font-size:11px;font-weight:500;color:var(--text3);">/' + cv2.total + '</span></div>';
                 ch += '<div style="font-size:9px;color:var(--text3);margin-top:1px;">registrados</div>';
                 ch += '</div></div>';
-                if (cv2.missing.length > 0 && cv2.missing.length <= 2) {
+                if (cv2.missing.length > 0) {
                     ch += '<div style="margin-top:6px;padding-top:5px;border-top:1px dashed ' + cc2 + '30;">';
-                    for (var mm = 0; mm < cv2.missing.length; mm++) {
+                    var showM2 = Math.min(cv2.missing.length, 4);
+                    for (var mm = 0; mm < showM2; mm++) {
                         ch += '<div style="font-size:9px;color:var(--text3);padding:1px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">\u25CB ' + escapeHtml(cv2.missing[mm]) + '</div>';
                     }
+                    if (cv2.missing.length > 4) {
+                        ch += '<div style="font-size:9px;color:' + cc2 + ';font-weight:600;">+ ' + (cv2.missing.length - 4) + ' mas...</div>';
+                    }
                     ch += '</div>';
-                } else if (cv2.missing.length > 2) {
-                    ch += '<div style="margin-top:6px;padding-top:5px;border-top:1px dashed ' + cc2 + '30;font-size:9px;color:' + cc2 + ';font-weight:600;">+ ' + cv2.missing.length + ' sin registrar</div>';
                 }
                 ch += '</div>';
             }
             ch += '</div>';
             covContainer.innerHTML = ch;
+            // Attach click handlers to coverage cards
+            var covCards = covContainer.querySelectorAll('._covCard');
+            for (var ci2 = 0; ci2 < covCards.length; ci2++) {
+                (function(card) {
+                    card.addEventListener('click', function() {
+                        _catalogActiveCategory = this.getAttribute('data-catname');
+                        _catalogActiveBrand = '';
+                        renderCatalogsList();
+                    });
+                })(covCards[ci2]);
+            }
         }
         if (cats.length === 0) {
             container.innerHTML = '<div style="text-align:center;padding:40px 20px;color:var(--text3);column-span:all;"><div style="font-size:48px;margin-bottom:12px;">📖</div><div style="font-size:14px;font-weight:600;margin-bottom:4px;">' + (search ? 'Sin resultados' : 'Catálogo vacío') + '</div><div style="font-size:12px;">' + (search ? 'No se encontraron productos.' : 'Agrega productos para compartir con tus clientes.') + '</div></div>';
