@@ -11,7 +11,7 @@
     <!-- Auto-update: check server version every 5 min, reload if newer -->
     <script>
     (function(){
-        var _curVer='NV107';
+        var _curVer='NV108';
         function _checkVer(){
             try{
                 fetch(getServerUrl?getServerUrl():location.origin+'/api/version?_t='+Date.now())
@@ -1106,7 +1106,7 @@
             <div>
                 <div class="header-name" id="storeHeaderName">Inventario Pro</div>
                 <div class="header-role" id="userRole">rol</div>
-                <div class="header-ver" id="headerVersion">v2.6.60 NV107</div>
+                <div class="header-ver" id="headerVersion">v2.6.61 NV108</div>
             </div>
         </div>
         <button class="btn-logout" onclick="toggleTheme()" style="background:none;border:none;font-size:20px;cursor:pointer;margin-right:8px;color:var(--text2);" title="Cambiar tema">🌓</button>
@@ -3727,7 +3727,7 @@ function logout() {
 // ====================================================================
 // CHANGELOG — Show latest updates to the user
 // ====================================================================
-var APP_VERSION = '2.6.60 NV107'
+var APP_VERSION = '2.6.61 NV108'
 var CHANGELOG_ENTRIES = [
     { ver: '2.4.0', date: '24 Abr 2026', items: [
         { icon: '📊', text: '<b>Capacidad por espacio:</b> Controla unidades mínimas y máximas para Exhibición, Local Pequeño, Local Grande desde el panel de Control del Local.' },
@@ -11047,32 +11047,80 @@ function renderCatalogSummaryPage() {
     // Search bar (overview)
     html += '<div class="search-bar"><input type="text" id="catOverviewSearch" class="search-input" placeholder="\uD83D\uDD0D Buscar producto..." value="' + escapeHtml(_catalogSearch) + '" oninput="_catalogSearch=this.value;renderCatalogSummaryPage();"></div>';
 
-    // Electronic catalog coverage badge
+    // Electronic catalog coverage by category — async
     html += '<div id="_ecatCoverageBadge" style="margin-bottom:10px;"></div>';
 
-    // Trigger async fetch of e-catalog count
     (function() {
         var serverUrl = getServerUrl();
+        var localProducts = getProducts();
+        var invCats = {};
+        for (var li = 0; li < localProducts.length; li++) {
+            var lc = localProducts[li].category || 'Sin categoria';
+            if (!invCats[lc]) invCats[lc] = [];
+            invCats[lc].push(localProducts[li]);
+        }
         fetch(serverUrl + '/api/catalogs?_t=' + Date.now(), { method: 'GET', headers: { 'Content-Type': 'application/json' } })
         .then(function(r) { return r.json(); })
         .then(function(ecats) {
             if (!Array.isArray(ecats)) ecats = [];
-            var ecatCount = ecats.length;
-            var totalProd = getProducts().length;
-            var pct = totalProd > 0 ? Math.round((ecatCount / totalProd) * 100) : 0;
-            var barColor = pct >= 80 ? '#00b894' : (pct >= 50 ? '#fdcb6e' : '#e17055');
-            var badge = document.getElementById('_ecatCoverageBadge');
-            if (badge) {
-                badge.innerHTML = '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px 14px;">' +
-                    '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">' +
-                        '<span style="font-size:11px;font-weight:700;color:var(--text2);">Cobertura del Catalogo Electronico</span>' +
-                        '<span style="font-size:12px;font-weight:800;color:' + barColor + ';">' + ecatCount + ' / ' + totalProd + ' (' + pct + '%)</span>' +
-                    '</div>' +
-                    '<div style="width:100%;height:8px;background:var(--bg);border-radius:4px;overflow:hidden;">' +
-                        '<div style="width:' + pct + '%;height:100%;background:' + barColor + ';border-radius:4px;transition:width .5s ease;"></div>' +
-                    '</div>' +
-                '</div>';
+            var ecatProdIds = {};
+            for (var ei = 0; ei < ecats.length; ei++) {
+                var ep = [];
+                try { ep = (typeof ecats[ei].products === 'string') ? JSON.parse(ecats[ei].products) : (ecats[ei].products || []); } catch(ex) {}
+                if (ep[0] && ep[0].id) ecatProdIds[ep[0].id] = true;
             }
+            var catKeys = Object.keys(invCats).sort();
+            var totalIn = 0, totalAll = 0;
+            var rows = [];
+            for (var ci = 0; ci < catKeys.length; ci++) {
+                var catName = catKeys[ci];
+                var catProds = invCats[catName];
+                var inEcat = 0;
+                var missing = [];
+                for (var pi = 0; pi < catProds.length; pi++) {
+                    if (ecatProdIds[catProds[pi].id]) { inEcat++; }
+                    else { missing.push(catProds[pi].name || 'Sin nombre'); }
+                }
+                totalIn += inEcat;
+                totalAll += catProds.length;
+                var pct = catProds.length > 0 ? Math.round((inEcat / catProds.length) * 100) : 0;
+                var icon = _getCatIcon(catName);
+                rows.push({ name: catName, icon: icon, total: catProds.length, inEcat: inEcat, missing: missing, pct: pct });
+            }
+            var totalPct = totalAll > 0 ? Math.round((totalIn / totalAll) * 100) : 0;
+            var h = '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:14px;overflow:hidden;">';
+            var totalColor = totalPct >= 80 ? '#00b894' : (totalPct >= 50 ? '#f39c12' : '#e17055');
+            h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">';
+            h += '<div style="display:flex;align-items:center;gap:8px;"><span style="font-size:15px;">📡</span><span style="font-size:13px;font-weight:800;color:var(--text);">Cobertura por Categoria</span></div>';
+            h += '<div style="display:flex;align-items:center;gap:6px;"><span style="font-size:18px;font-weight:900;color:' + totalColor + ';">' + totalPct + '%</span><span style="font-size:10px;color:var(--text3);">(' + totalIn + '/' + totalAll + ')</span></div>';
+            h += '</div>';
+            h += '<div style="width:100%;height:6px;background:var(--bg);border-radius:3px;overflow:hidden;margin-bottom:12px;"><div style="width:' + totalPct + '%;height:100%;background:' + totalColor + ';border-radius:3px;transition:width .5s ease;"></div></div>';
+            for (var ri = 0; ri < rows.length; ri++) {
+                var r = rows[ri];
+                var rowColor = r.pct >= 80 ? '#00b894' : (r.pct >= 50 ? '#f39c12' : (r.pct > 0 ? '#e17055' : '#636e72'));
+                h += '<div style="display:flex;align-items:center;gap:10px;padding:7px 0;' + (ri < rows.length - 1 ? 'border-bottom:1px solid var(--border);' : '') + '">';
+                h += '<div style="font-size:18px;width:24px;text-align:center;flex-shrink:0;">' + r.icon + '</div>';
+                h += '<div style="flex:1;min-width:0;">';
+                h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px;">';
+                h += '<span style="font-size:12px;font-weight:700;color:var(--text);">' + escapeHtml(r.name) + '</span>';
+                h += '<span style="font-size:11px;font-weight:800;color:' + rowColor + ';">' + r.inEcat + '/' + r.total + (r.pct === 100 ? ' \u2713' : '') + '</span>';
+                h += '</div>';
+                h += '<div style="width:100%;height:5px;background:var(--bg);border-radius:3px;overflow:hidden;"><div style="width:' + r.pct + '%;height:100%;background:' + rowColor + ';border-radius:3px;"></div></div>';
+                if (r.missing.length > 0 && r.missing.length <= 4) {
+                    h += '<div style="margin-top:3px;font-size:9px;color:var(--text3);line-height:1.4;">Faltan: ';
+                    for (var mi = 0; mi < r.missing.length; mi++) {
+                        if (mi > 0) h += ', ';
+                        h += escapeHtml(r.missing[mi]);
+                    }
+                    h += '</div>';
+                } else if (r.missing.length > 4) {
+                    h += '<div style="margin-top:3px;font-size:9px;color:var(--text3);">Faltan: ' + escapeHtml(r.missing[0]) + ', ' + escapeHtml(r.missing[1]) + ' y ' + (r.missing.length - 2) + ' m\u00E1s...</div>';
+                }
+                h += '</div></div>';
+            }
+            h += '</div>';
+            var badge = document.getElementById('_ecatCoverageBadge');
+            if (badge) badge.innerHTML = h;
         })
         .catch(function() {});
     })();
@@ -20535,7 +20583,7 @@ function renderCatalogsList() {
             filtered.push(c);
         }
         cats = filtered;
-        // Stats bar
+        // Stats bar with category breakdown
         var statsBar = document.getElementById('catalogStatsBar');
         if (statsBar) {
             var totalImgs = 0;
@@ -20545,14 +20593,32 @@ function renderCatalogsList() {
                 var sp0 = sp[0] || {};
                 totalImgs += (sp0.imageIds || []).length;
             }
-            statsBar.innerHTML = '<span><strong>' + cats.length + '</strong> en catálogo</span><span><strong>' + totalImgs + '</strong> imágenes</span>';
-        }
-        // Show coverage vs main inventory
-        var totalMainProducts = getProducts().length;
-        if (statsBar && totalMainProducts > 0) {
-            var pct = Math.round((cats.length / totalMainProducts) * 100);
-            var covColor = pct >= 80 ? '#00b894' : (pct >= 50 ? '#f39c12' : '#e17055');
-            statsBar.innerHTML += '<span style="color:' + covColor + ';font-weight:700;">' + cats.length + '/' + totalMainProducts + ' (' + pct + '%)</span>';
+            // Build e-catalog product ID set
+            var ecatIds = {};
+            for (var eci = 0; eci < cats.length; eci++) {
+                var ecp = [];
+                try { ecp = (typeof cats[eci].products === 'string') ? JSON.parse(cats[eci].products) : (cats[eci].products || []); } catch(e) {}
+                if (ecp[0] && ecp[0].id) ecatIds[ecp[0].id] = true;
+            }
+            // Compare with local inventory by category
+            var localProds = getProducts();
+            var invCats = {};
+            for (var li = 0; li < localProds.length; li++) {
+                var lcat = localProds[li].category || 'Sin categoria';
+                if (!invCats[lcat]) invCats[lcat] = { total: 0, inEcat: 0 };
+                invCats[lcat].total++;
+                if (ecatIds[localProds[li].id]) invCats[lcat].inEcat++;
+            }
+            // Build compact category pills
+            var catKeys = Object.keys(invCats).sort();
+            var catPills = '';
+            for (var ck = 0; ck < catKeys.length; ck++) {
+                var cv = invCats[catKeys[ck]];
+                var cp = cv.total > 0 ? Math.round((cv.inEcat / cv.total) * 100) : 0;
+                var cc = cp === 100 ? '#00b894' : (cp >= 50 ? '#f39c12' : '#e17055');
+                catPills += '<span style="display:inline-flex;align-items:center;gap:3px;background:' + cc + '18;color:' + cc + ';font-size:10px;font-weight:700;padding:3px 8px;border-radius:12px;">' + _getCatIcon(catKeys[ck]) + ' ' + cv.inEcat + '/' + cv.total + '</span>';
+            }
+            statsBar.innerHTML = '<span><strong>' + cats.length + '</strong> en catálogo</span><span style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end;flex:1;">' + catPills + '</span>';
         }
         if (cats.length === 0) {
             container.innerHTML = '<div style="text-align:center;padding:40px 20px;color:var(--text3);column-span:all;"><div style="font-size:48px;margin-bottom:12px;">📖</div><div style="font-size:14px;font-weight:600;margin-bottom:4px;">' + (search ? 'Sin resultados' : 'Catálogo vacío') + '</div><div style="font-size:12px;">' + (search ? 'No se encontraron productos.' : 'Agrega productos para compartir con tus clientes.') + '</div></div>';
@@ -22905,4 +22971,4 @@ checkPublicCatalog();
 
 </body>
 </html>
-<!-- NV107 production -->
+<!-- NV108 production -->
