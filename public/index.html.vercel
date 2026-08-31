@@ -11,7 +11,7 @@
     <!-- Auto-update: check server version every 5 min, reload if newer -->
     <script>
     (function(){
-        var _curVer='NV109';
+        var _curVer='NV105';
         function _checkVer(){
             try{
                 fetch(getServerUrl?getServerUrl():location.origin+'/api/version?_t='+Date.now())
@@ -1106,7 +1106,7 @@
             <div>
                 <div class="header-name" id="storeHeaderName">Inventario Pro</div>
                 <div class="header-role" id="userRole">rol</div>
-                <div class="header-ver" id="headerVersion">v2.6.62 NV109</div>
+                <div class="header-ver" id="headerVersion">v2.6.58 NV105</div>
             </div>
         </div>
         <button class="btn-logout" onclick="toggleTheme()" style="background:none;border:none;font-size:20px;cursor:pointer;margin-right:8px;color:var(--text2);" title="Cambiar tema">🌓</button>
@@ -1335,8 +1335,7 @@
             <div id="catalogCategoryTabs" style="display:flex;gap:8px;overflow-x:auto;padding:6px 0 10px;scrollbar-width:none;-ms-overflow-style:none;"></div>
             <div id="catalogSubcategoryList" style="display:none;margin-bottom:10px;"></div>
             <!-- Stats bar -->
-            <div id="catalogStatsBar" style="display:flex;gap:12px;padding:8px 12px;background:var(--bg2);border-radius:10px;margin-bottom:8px;font-size:12px;color:var(--text2);"></div>
-            <div id="_ecatCovCards" style="margin-bottom:10px;"></div>
+            <div id="catalogStatsBar" style="display:flex;gap:12px;padding:8px 12px;background:var(--bg2);border-radius:10px;margin-bottom:12px;font-size:12px;color:var(--text2);"></div>
             <div style="margin-bottom:12px;">
                 <input type="text" id="ecatalogSearch" placeholder="🔍 Buscar en catálogo..." oninput="renderCatalogsList()" style="width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:10px;background:var(--bg2);color:var(--text);font-size:14px;box-sizing:border-box;">
             </div>
@@ -2680,7 +2679,7 @@ function neonQuery(query, params) {
 function neonInit() {
     if (_neonReadyPromise) return _neonReadyPromise;
     _neonReadyPromise = Promise.all([
-        neonQuery('CREATE TABLE IF NOT EXISTS store_config (id TEXT PRIMARY KEY DEFAULT \'main\', name TEXT DEFAULT \'Zona Libre\', address TEXT DEFAULT \'\', phone TEXT DEFAULT \'\', email TEXT DEFAULT \'\', currency TEXT DEFAULT \'MXN\', footer TEXT DEFAULT \'\', footer_text TEXT DEFAULT \'\', logo TEXT DEFAULT \'\', categories TEXT DEFAULT \'[]\', brands TEXT DEFAULT \'[]\', colors TEXT DEFAULT \'[]\', category_specs TEXT DEFAULT \'{}\', updated_at TIMESTAMPTZ DEFAULT NOW())'),
+        neonQuery('CREATE TABLE IF NOT EXISTS store_config (id TEXT PRIMARY KEY DEFAULT \'main\', name TEXT DEFAULT \'Mi Tienda\', address TEXT DEFAULT \'\', phone TEXT DEFAULT \'\', email TEXT DEFAULT \'\', currency TEXT DEFAULT \'MXN\', footer TEXT DEFAULT \'\', footer_text TEXT DEFAULT \'\', logo TEXT DEFAULT \'\', categories TEXT DEFAULT \'[]\', brands TEXT DEFAULT \'[]\', colors TEXT DEFAULT \'[]\', category_specs TEXT DEFAULT \'{}\', updated_at TIMESTAMPTZ DEFAULT NOW())'),
         neonQuery('CREATE TABLE IF NOT EXISTS products (id TEXT PRIMARY KEY, name TEXT NOT NULL DEFAULT \'\', sku TEXT DEFAULT \'\', barcode TEXT DEFAULT \'\', category TEXT DEFAULT \'\', brand TEXT DEFAULT \'\', color TEXT DEFAULT \'\', cost_price REAL DEFAULT 0, sale_price REAL DEFAULT 0, price REAL DEFAULT 0, stock INTEGER DEFAULT 0, min_stock INTEGER DEFAULT 5, description TEXT DEFAULT \'\', created_at TIMESTAMPTZ DEFAULT NOW(), updated_at TIMESTAMPTZ DEFAULT NOW())'),
         neonQuery('CREATE TABLE IF NOT EXISTS quotations (id TEXT PRIMARY KEY, client_name TEXT DEFAULT \'\', client_phone TEXT DEFAULT \'\', client_email TEXT DEFAULT \'\', items TEXT DEFAULT \'[]\', subtotal REAL DEFAULT 0, tax REAL DEFAULT 0, discount REAL DEFAULT 0, total REAL DEFAULT 0, status TEXT DEFAULT \'pendiente\', notes TEXT DEFAULT \'\', created_at TIMESTAMPTZ DEFAULT NOW(), updated_at TIMESTAMPTZ DEFAULT NOW())'),
         neonQuery('CREATE TABLE IF NOT EXISTS users_sync (id TEXT PRIMARY KEY, name TEXT DEFAULT \'\', email TEXT UNIQUE DEFAULT \'\', role TEXT DEFAULT \'vendedor\', store_name TEXT DEFAULT \'\', created_at TIMESTAMPTZ DEFAULT NOW(), updated_at TIMESTAMPTZ DEFAULT NOW())')
@@ -2720,7 +2719,7 @@ function syncFetchHandler(urlStr, opts) {
             try { b = JSON.parse(opts.body || '{}'); } catch(e) { b = {}; }
             return neonQuery(
                 'INSERT INTO store_config (id,name,address,phone,email,currency,footer,footer_text,logo,categories,brands,colors,category_specs,updated_at) VALUES (\'main\',$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,NOW()) ON CONFLICT (id) DO UPDATE SET name=$1,address=$2,phone=$3,email=$4,currency=$5,footer=$6,footer_text=$7,logo=$8,categories=$9,brands=$10,colors=$11,category_specs=$12,updated_at=NOW()',
-                [b.name||'Zona Libre', b.address||'', b.phone||'', b.email||'', b.currency||'MXN', b.footer||'', b.footerText||b.footer_text||'', b.logo||null, b.categories||'[]', b.brands||'[]', b.colors||'[]', b.categorySpecs||b.category_specs||'{}']
+                [b.name||'Mi Tienda', b.address||'', b.phone||'', b.email||'', b.currency||'MXN', b.footer||'', b.footerText||b.footer_text||'', b.logo||null, b.categories||'[]', b.brands||'[]', b.colors||'[]', b.categorySpecs||b.category_specs||'{}']
             ).then(function() { return _mockResp({success:true}); }).catch(function(e) { console.error('[NEON] store PUT error:', e); return _mockResp({error:e.message}); });
         } else {
             return neonQuery("SELECT * FROM store_config WHERE id='main'").then(function(res) {
@@ -3728,7 +3727,7 @@ function logout() {
 // ====================================================================
 // CHANGELOG — Show latest updates to the user
 // ====================================================================
-var APP_VERSION = '2.6.62 NV109'
+var APP_VERSION = '2.6.56 NV102'
 var CHANGELOG_ENTRIES = [
     { ver: '2.4.0', date: '24 Abr 2026', items: [
         { icon: '📊', text: '<b>Capacidad por espacio:</b> Controla unidades mínimas y máximas para Exhibición, Local Pequeño, Local Grande desde el panel de Control del Local.' },
@@ -3906,7 +3905,7 @@ function populateAllSelects() {
             var cfg = getStoreConfig();
             neonQuery(
                 'INSERT INTO store_config (id,name,categories,brands,colors,updated_at) VALUES (\'main\',$1,$2,$3,$4,NOW()) ON CONFLICT (id) DO UPDATE SET categories=$2,brands=$3,colors=$4,updated_at=NOW()',
-                [cfg.storeName||'Zona Libre', JSON.stringify(categories), JSON.stringify(brands), JSON.stringify(colors)]
+                [cfg.storeName||'Mi Tienda', JSON.stringify(categories), JSON.stringify(brands), JSON.stringify(colors)]
             ).catch(function(){});
         }
     }
@@ -6561,7 +6560,7 @@ function viewQuotation(id) {
     // Compact header: store + client + date in one block
     var h = '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">';
     h += '<div style="flex:1;min-width:0;">';
-    h += '<div style="font-size:14px;font-weight:800;color:var(--text);">' + escapeHtml(cfg.storeName || 'Zona Libre') + '</div>';
+    h += '<div style="font-size:14px;font-weight:800;color:var(--text);">' + escapeHtml(cfg.storeName || 'Mi Tienda') + '</div>';
     if (q.clientName) h += '<div style="font-size:12px;color:var(--text2);margin-top:1px;">' + escapeHtml(q.clientName) + (q.customerPhone ? ' · 📞' + escapeHtml(q.customerPhone) : '') + '</div>';
     h += '<div style="font-size:10px;color:var(--text3);margin-top:1px;">' + formatDate(q.createdAt) + '</div>';
     h += '</div></div>';
@@ -11036,10 +11035,6 @@ function renderCatalogSummaryPage() {
     var avgPrice = allProducts.length > 0 ? Math.round(totalValue / allProducts.length) : 0;
     var globalMargin = totalValue > 0 ? Math.round(((totalValue - totalCost) / totalValue) * 100) : 0;
 
-    // Fetch electronic catalog count to show coverage
-    var _ecatCount = 0;
-    var _ecatCountEl = null;
-
     html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">' +
         '<h2 style="font-size:20px;font-weight:800;margin:0;">\uD83D\uDCCA Resumen del Catalogo</h2>' +
         '<button onclick="exportCatalogReport()" class="btn btn-primary btn-sm" style="font-size:12px;white-space:nowrap;">\uD83D\uDCC4 Descargar</button>' +
@@ -11047,104 +11042,6 @@ function renderCatalogSummaryPage() {
 
     // Search bar (overview)
     html += '<div class="search-bar"><input type="text" id="catOverviewSearch" class="search-input" placeholder="\uD83D\uDD0D Buscar producto..." value="' + escapeHtml(_catalogSearch) + '" oninput="_catalogSearch=this.value;renderCatalogSummaryPage();"></div>';
-
-
-
-    // Electronic catalog coverage — individual category cards (async)
-    html += '<div id="_ecatCoverageBadge" style="margin-bottom:12px;"></div>';
-
-    (function() {
-        var serverUrl = getServerUrl();
-        var localProducts = getProducts();
-        var invCats = {};
-        for (var li = 0; li < localProducts.length; li++) {
-            var lc = localProducts[li].category || 'Sin categoria';
-            if (!invCats[lc]) invCats[lc] = [];
-            invCats[lc].push(localProducts[li]);
-        }
-        fetch(serverUrl + '/api/catalogs?_t=' + Date.now(), { method: 'GET', headers: { 'Content-Type': 'application/json' } })
-        .then(function(r) { return r.json(); })
-        .then(function(ecats) {
-            if (!Array.isArray(ecats)) ecats = [];
-            var ecatProdIds = {};
-            for (var ei = 0; ei < ecats.length; ei++) {
-                var ep = [];
-                try { ep = (typeof ecats[ei].products === 'string') ? JSON.parse(ecats[ei].products) : (ecats[ei].products || []); } catch(ex) {}
-                if (ep[0] && ep[0].id) ecatProdIds[ep[0].id] = true;
-            }
-            var catKeys = Object.keys(invCats).sort();
-            var rows = [];
-            var totalIn = 0, totalAll = 0;
-            for (var ci = 0; ci < catKeys.length; ci++) {
-                var catName = catKeys[ci];
-                var catProds = invCats[catName];
-                var inEcat = 0;
-                var missing = [];
-                for (var pi = 0; pi < catProds.length; pi++) {
-                    if (ecatProdIds[catProds[pi].id]) { inEcat++; }
-                    else { missing.push(catProds[pi].name || 'Sin nombre'); }
-                }
-                totalIn += inEcat;
-                totalAll += catProds.length;
-                var pct = catProds.length > 0 ? Math.round((inEcat / catProds.length) * 100) : 0;
-                rows.push({ name: catName, icon: _getCatIcon(catName), total: catProds.length, inEcat: inEcat, missing: missing, pct: pct });
-            }
-            var totalPct = totalAll > 0 ? Math.round((totalIn / totalAll) * 100) : 0;
-            var totalColor = totalPct >= 80 ? '#00b894' : (totalPct >= 50 ? '#f39c12' : '#e17055');
-
-            var h = '';
-            h += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">';
-            h += '<span style="font-size:14px;font-weight:800;color:var(--text);">Cobertura del Catalogo Electronico</span>';
-            h += '<span style="margin-left:auto;font-size:13px;font-weight:900;color:' + totalColor + ';">' + totalPct + '%</span>';
-            h += '</div>';
-
-            h += '<div style="display:grid;grid-template-columns:repeat(2, 1fr);gap:8px;">';
-            for (var ri = 0; ri < rows.length; ri++) {
-                var r = rows[ri];
-                var cColor = r.pct === 100 ? '#00b894' : (r.pct >= 80 ? '#00cec9' : (r.pct >= 50 ? '#f39c12' : (r.pct > 0 ? '#e17055' : '#636e72')));
-                var cBg = r.pct === 100 ? '#00b89410' : (r.pct >= 80 ? '#00cec910' : (r.pct >= 50 ? '#f39c1210' : (r.pct > 0 ? '#e1705510' : '#636e7210')));
-                var circumference = 2 * 3.14159 * 18;
-                var dashOffset = circumference - (circumference * r.pct / 100);
-                h += '<div style="background:' + cBg + ';border:1px solid ' + cColor + '25;border-radius:12px;padding:12px;">';
-                h += '<div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">';
-                h += '<span style="font-size:20px;line-height:1;">' + r.icon + '</span>';
-                h += '<span style="font-size:12px;font-weight:700;color:var(--text);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(r.name) + '</span>';
-                if (r.pct === 100) {
-                    h += '<span style="font-size:9px;background:#00b894;color:#fff;padding:2px 6px;border-radius:8px;font-weight:800;">COMPLETO</span>';
-                }
-                h += '</div>';
-                h += '<div style="display:flex;align-items:center;gap:10px;">';
-                h += '<svg width="48" height="48" style="flex-shrink:0;transform:rotate(-90deg);">';
-                h += '<circle cx="24" cy="24" r="18" fill="none" stroke="var(--border)" stroke-width="3.5"/>';
-                h += '<circle cx="24" cy="24" r="18" fill="none" stroke="' + cColor + '" stroke-width="3.5" stroke-linecap="round" stroke-dasharray="' + circumference + '" stroke-dashoffset="' + dashOffset + '" style="transition:stroke-dashoffset .8s ease;"/>';
-                h += '</svg>';
-                h += '<div>';
-                h += '<div style="font-size:20px;font-weight:900;color:' + cColor + ';line-height:1;">' + r.inEcat + '<span style="font-size:13px;font-weight:500;color:var(--text3);">/' + r.total + '</span></div>';
-                h += '<div style="font-size:10px;color:var(--text3);margin-top:2px;">registrados</div>';
-                h += '</div>';
-                h += '</div>';
-                if (r.missing.length > 0) {
-                    h += '<div style="margin-top:8px;padding-top:7px;border-top:1px dashed ' + cColor + '30;">';
-                    if (r.missing.length <= 3) {
-                        for (var mi = 0; mi < r.missing.length; mi++) {
-                            h += '<div style="font-size:10px;color:var(--text3);padding:1px 0;display:flex;align-items:center;gap:4px;"><span style="color:' + cColor + ';font-size:8px;">\u25CB</span>' + escapeHtml(r.missing[mi]) + '</div>';
-                        }
-                    } else {
-                        h += '<div style="font-size:10px;color:var(--text3);display:flex;align-items:center;gap:4px;"><span style="color:' + cColor + ';font-size:8px;">\u25CB</span>' + escapeHtml(r.missing[0]) + '</div>';
-                        h += '<div style="font-size:10px;color:var(--text3);display:flex;align-items:center;gap:4px;"><span style="color:' + cColor + ';font-size:8px;">\u25CB</span>' + escapeHtml(r.missing[1]) + '</div>';
-                        h += '<div style="font-size:10px;color:' + cColor + ';font-weight:600;">+ ' + (r.missing.length - 2) + ' mas por registrar</div>';
-                    }
-                    h += '</div>';
-                }
-                h += '</div>';
-            }
-            h += '</div>';
-
-            var badge = document.getElementById('_ecatCoverageBadge');
-            if (badge) badge.innerHTML = h;
-        })
-        .catch(function() {});
-    })();
 
     // Compact filter bar (overview) — same style as "Agregar Productos"
     var ovBrand = _catalogDrillFilters.brand;
@@ -15240,7 +15137,7 @@ function pushToServer() {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-            name: storeCfg.storeName || 'Zona Libre',
+            name: storeCfg.storeName || 'Mi Tienda',
             address: storeCfg.address || '',
             phone: storeCfg.phone || '',
             email: storeCfg.email || '',
@@ -15732,7 +15629,7 @@ function processOfflineQueue() {
                         method: 'PUT',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
-                            name: cfg.storeName || 'Zona Libre', address: cfg.address || '', phone: cfg.phone || '',
+                            name: cfg.storeName || 'Mi Tienda', address: cfg.address || '', phone: cfg.phone || '',
                             email: cfg.email || '', currency: cfg.currency || 'MXN', footer: cfg.footerText || '',
                             logo: cfg.logo || null, categories: JSON.stringify(getCategories()),
                             brands: JSON.stringify(getBrands()), colors: JSON.stringify(getColors()),
@@ -15825,7 +15722,7 @@ function doSyncToServer(url, reason) {
     if (reason === 'store' || reason === 'specs') {
         var storeCfg = getStoreConfig();
         var storePayload = {
-            name: storeCfg.storeName || 'Zona Libre', address: storeCfg.address || '', phone: storeCfg.phone || '',
+            name: storeCfg.storeName || 'Mi Tienda', address: storeCfg.address || '', phone: storeCfg.phone || '',
             email: storeCfg.email || '', currency: storeCfg.currency || 'USD', footer: storeCfg.footerText || '',
             logo: storeCfg.logo || null,
             categories: JSON.stringify(getCategories()),
@@ -16359,7 +16256,7 @@ function buildQuotationText(id) {
     if (!q) return '';
 
     var cfg = getStoreConfig();
-    var storeName = cfg.storeName || 'Zona Libre';
+    var storeName = cfg.storeName || 'Mi Tienda';
     var storePhone = cfg.phone || '';
     var storeAddr = cfg.address || '';
 
@@ -16581,7 +16478,7 @@ function shareQuotationQR(id) {
     var header = document.createElement('div');
     header.style.cssText = 'background:linear-gradient(135deg,#10b981,#059669);padding:20px;text-align:center;';
     header.innerHTML = '<div style="font-size:28px;margin-bottom:4px;">&#128722;</div>' +
-        '<div style="color:#fff;font-size:18px;font-weight:800;">' + (cfg.storeName || 'Zona Libre') + '</div>' +
+        '<div style="color:#fff;font-size:18px;font-weight:800;">' + (cfg.storeName || 'Mi Tienda') + '</div>' +
         '<div style="color:rgba(255,255,255,0.85);font-size:12px;margin-top:2px;">Cotización ' + (q.number || '') + '</div>';
 
     // QR Code area — using SVG (100% reliable in all WebViews, no canvas issues)
@@ -16733,7 +16630,7 @@ function showPdfOverlay(q, id) {
 
     // Store header
     bodyHtml += '<div style="text-align:center;padding:20px 0 12px;border-bottom:3px solid #22c55e;">';
-    bodyHtml += '<div style="font-size:22px;font-weight:800;color:#22c55e;">' + escapeHtml(cfg.storeName || 'Zona Libre') + '</div>';
+    bodyHtml += '<div style="font-size:22px;font-weight:800;color:#22c55e;">' + escapeHtml(cfg.storeName || 'Mi Tienda') + '</div>';
     bodyHtml += '<div style="font-size:12px;color:#6b7280;margin-top:4px;">';
     if (cfg.address) bodyHtml += escapeHtml(cfg.address);
     if (cfg.phone) bodyHtml += (cfg.address ? ' | ' : '') + 'Tel: ' + escapeHtml(cfg.phone);
@@ -16929,7 +16826,7 @@ function _drawRoundRect(ctx, x, y, w, h, r) {
 function generateQuotationCardCanvas(q, logoImg) {
     var cfg = getStoreConfig();
     var isDual = q.isDualMode && q.itemsB && q.itemsB.length > 0;
-    var storeName = cfg.storeName || 'Zona Libre';
+    var storeName = cfg.storeName || 'Mi Tienda';
     var storeAddr = cfg.address || '';
     var storePhone = cfg.phone || '';
     var storeEmail = cfg.email || '';
@@ -17274,7 +17171,7 @@ function generatePdfBlob(q) {
 
     var cfg = getStoreConfig();
     var isDual = q.isDualMode && q.itemsB && q.itemsB.length > 0;
-    var storeName = cfg.storeName || 'Zona Libre';
+    var storeName = cfg.storeName || 'Mi Tienda';
     var storeAddr = cfg.address || '';
     var storePhone = cfg.phone || '';
     var storeEmail = cfg.email || '';
@@ -18189,7 +18086,7 @@ function generateQuotationHtmlDocument(q) {
     var customerPhone = q.customerPhone || '';
     var customerEmail = q.customerEmail || '';
     var total = q.total || 0;
-    var storeName = cfg.storeName || 'Zona Libre';
+    var storeName = cfg.storeName || 'Mi Tienda';
     var storeAddr = cfg.address || '';
     var storePhone = cfg.phone || '';
     var storeEmail = cfg.email || '';
@@ -18321,7 +18218,7 @@ function generateQuotationHtmlDocument(q) {
     var cfg = getStoreConfig();
     if (!cfg || Object.keys(cfg).length === 0) {
         saveStoreConfig({
-            storeName: 'Zona Libre',
+            storeName: 'Mi Tienda',
             address: '',
             phone: '',
             email: '',
@@ -20604,66 +20501,17 @@ function renderCatalogsList() {
             filtered.push(c);
         }
         cats = filtered;
-        // Stats bar — simple count
+        // Stats bar
         var statsBar = document.getElementById('catalogStatsBar');
         if (statsBar) {
-            statsBar.innerHTML = '<span><strong>' + cats.length + '</strong> en catálogo</span>';
-        }
-        // Per-category coverage cards below statsBar
-        var covContainer = document.getElementById('_ecatCovCards');
-        if (covContainer) {
-            var ecatIds = {};
-            for (var eci2 = 0; eci2 < cats.length; eci2++) {
-                var ecp2 = [];
-                try { ecp2 = (typeof cats[eci2].products === 'string') ? JSON.parse(cats[eci2].products) : (cats[eci2].products || []); } catch(e) {}
-                if (ecp2[0] && ecp2[0].id) ecatIds[ecp2[0].id] = true;
+            var totalImgs = 0;
+            for (var si = 0; si < cats.length; si++) {
+                var sp = [];
+                try { sp = (typeof cats[si].products === 'string') ? JSON.parse(cats[si].products) : (cats[si].products || []); } catch(e) {}
+                var sp0 = sp[0] || {};
+                totalImgs += (sp0.imageIds || []).length;
             }
-            var localProds = getProducts();
-            var invCats2 = {};
-            for (var li2 = 0; li2 < localProds.length; li2++) {
-                var lcat2 = localProds[li2].category || 'Sin categoria';
-                if (!invCats2[lcat2]) invCats2[lcat2] = { total: 0, inEcat: 0, missing: [] };
-                invCats2[lcat2].total++;
-                if (ecatIds[localProds[li2].id]) { invCats2[lcat2].inEcat++; }
-                else { invCats2[lcat2].missing.push(localProds[li2].name || 'Sin nombre'); }
-            }
-            var catKeys2 = Object.keys(invCats2).sort();
-            var ch = '<div style="display:grid;grid-template-columns:repeat(2, 1fr);gap:6px;">';
-            for (var ck2 = 0; ck2 < catKeys2.length; ck2++) {
-                var cv2 = invCats2[catKeys2[ck2]];
-                var cp2 = cv2.total > 0 ? Math.round((cv2.inEcat / cv2.total) * 100) : 0;
-                var cc2 = cp2 === 100 ? '#00b894' : (cp2 >= 80 ? '#00cec9' : (cp2 >= 50 ? '#f39c12' : (cp2 > 0 ? '#e17055' : '#636e72')));
-                var cbg2 = cp2 === 100 ? '#00b89410' : (cp2 >= 80 ? '#00cec910' : (cp2 >= 50 ? '#f39c1210' : (cp2 > 0 ? '#e1705510' : '#636e7210')));
-                var circ2 = 2 * 3.14159 * 14;
-                var dashOff2 = circ2 - (circ2 * cp2 / 100);
-                ch += '<div style="background:' + cbg2 + ';border:1px solid ' + cc2 + '25;border-radius:10px;padding:10px;">';
-                ch += '<div style="display:flex;align-items:center;gap:5px;margin-bottom:6px;">';
-                ch += '<span style="font-size:16px;line-height:1;">' + _getCatIcon(catKeys2[ck2]) + '</span>';
-                ch += '<span style="font-size:11px;font-weight:700;color:var(--text);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(catKeys2[ck2]) + '</span>';
-                if (cp2 === 100) { ch += '<span style="font-size:8px;background:#00b894;color:#fff;padding:1px 5px;border-radius:6px;font-weight:800;">OK</span>'; }
-                ch += '</div>';
-                ch += '<div style="display:flex;align-items:center;gap:8px;">';
-                ch += '<svg width="36" height="36" style="flex-shrink:0;transform:rotate(-90deg);">';
-                ch += '<circle cx="18" cy="18" r="14" fill="none" stroke="var(--border)" stroke-width="3"/>';
-                ch += '<circle cx="18" cy="18" r="14" fill="none" stroke="' + cc2 + '" stroke-width="3" stroke-linecap="round" stroke-dasharray="' + circ2 + '" stroke-dashoffset="' + dashOff2 + '" style="transition:stroke-dashoffset .8s ease;"/>';
-                ch += '</svg>';
-                ch += '<div>';
-                ch += '<div style="font-size:16px;font-weight:900;color:' + cc2 + ';line-height:1;">' + cv2.inEcat + '<span style="font-size:11px;font-weight:500;color:var(--text3);">/' + cv2.total + '</span></div>';
-                ch += '<div style="font-size:9px;color:var(--text3);margin-top:1px;">registrados</div>';
-                ch += '</div></div>';
-                if (cv2.missing.length > 0 && cv2.missing.length <= 2) {
-                    ch += '<div style="margin-top:6px;padding-top:5px;border-top:1px dashed ' + cc2 + '30;">';
-                    for (var mm = 0; mm < cv2.missing.length; mm++) {
-                        ch += '<div style="font-size:9px;color:var(--text3);padding:1px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">\u25CB ' + escapeHtml(cv2.missing[mm]) + '</div>';
-                    }
-                    ch += '</div>';
-                } else if (cv2.missing.length > 2) {
-                    ch += '<div style="margin-top:6px;padding-top:5px;border-top:1px dashed ' + cc2 + '30;font-size:9px;color:' + cc2 + ';font-weight:600;">+ ' + cv2.missing.length + ' sin registrar</div>';
-                }
-                ch += '</div>';
-            }
-            ch += '</div>';
-            covContainer.innerHTML = ch;
+            statsBar.innerHTML = '<span><strong>' + cats.length + '</strong> productos en catálogo</span><span><strong>' + totalImgs + '</strong> imágenes totales</span>';
         }
         if (cats.length === 0) {
             container.innerHTML = '<div style="text-align:center;padding:40px 20px;color:var(--text3);column-span:all;"><div style="font-size:48px;margin-bottom:12px;">📖</div><div style="font-size:14px;font-weight:600;margin-bottom:4px;">' + (search ? 'Sin resultados' : 'Catálogo vacío') + '</div><div style="font-size:12px;">' + (search ? 'No se encontraron productos.' : 'Agrega productos para compartir con tus clientes.') + '</div></div>';
@@ -23016,4 +22864,4 @@ checkPublicCatalog();
 
 </body>
 </html>
-<!-- NV108 production -->
+<!-- NV104 production -->
