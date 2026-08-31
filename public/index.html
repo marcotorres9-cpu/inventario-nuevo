@@ -11,7 +11,7 @@
     <!-- Auto-update: check server version every 5 min, reload if newer -->
     <script>
     (function(){
-        var _curVer='NV105';
+        var _curVer='NV106';
         function _checkVer(){
             try{
                 fetch(getServerUrl?getServerUrl():location.origin+'/api/version?_t='+Date.now())
@@ -1106,7 +1106,7 @@
             <div>
                 <div class="header-name" id="storeHeaderName">Inventario Pro</div>
                 <div class="header-role" id="userRole">rol</div>
-                <div class="header-ver" id="headerVersion">v2.6.58 NV105</div>
+                <div class="header-ver" id="headerVersion">v2.6.59 NV106</div>
             </div>
         </div>
         <button class="btn-logout" onclick="toggleTheme()" style="background:none;border:none;font-size:20px;cursor:pointer;margin-right:8px;color:var(--text2);" title="Cambiar tema">🌓</button>
@@ -2679,7 +2679,7 @@ function neonQuery(query, params) {
 function neonInit() {
     if (_neonReadyPromise) return _neonReadyPromise;
     _neonReadyPromise = Promise.all([
-        neonQuery('CREATE TABLE IF NOT EXISTS store_config (id TEXT PRIMARY KEY DEFAULT \'main\', name TEXT DEFAULT \'Mi Tienda\', address TEXT DEFAULT \'\', phone TEXT DEFAULT \'\', email TEXT DEFAULT \'\', currency TEXT DEFAULT \'MXN\', footer TEXT DEFAULT \'\', footer_text TEXT DEFAULT \'\', logo TEXT DEFAULT \'\', categories TEXT DEFAULT \'[]\', brands TEXT DEFAULT \'[]\', colors TEXT DEFAULT \'[]\', category_specs TEXT DEFAULT \'{}\', updated_at TIMESTAMPTZ DEFAULT NOW())'),
+        neonQuery('CREATE TABLE IF NOT EXISTS store_config (id TEXT PRIMARY KEY DEFAULT \'main\', name TEXT DEFAULT \'Zona Libre\', address TEXT DEFAULT \'\', phone TEXT DEFAULT \'\', email TEXT DEFAULT \'\', currency TEXT DEFAULT \'MXN\', footer TEXT DEFAULT \'\', footer_text TEXT DEFAULT \'\', logo TEXT DEFAULT \'\', categories TEXT DEFAULT \'[]\', brands TEXT DEFAULT \'[]\', colors TEXT DEFAULT \'[]\', category_specs TEXT DEFAULT \'{}\', updated_at TIMESTAMPTZ DEFAULT NOW())'),
         neonQuery('CREATE TABLE IF NOT EXISTS products (id TEXT PRIMARY KEY, name TEXT NOT NULL DEFAULT \'\', sku TEXT DEFAULT \'\', barcode TEXT DEFAULT \'\', category TEXT DEFAULT \'\', brand TEXT DEFAULT \'\', color TEXT DEFAULT \'\', cost_price REAL DEFAULT 0, sale_price REAL DEFAULT 0, price REAL DEFAULT 0, stock INTEGER DEFAULT 0, min_stock INTEGER DEFAULT 5, description TEXT DEFAULT \'\', created_at TIMESTAMPTZ DEFAULT NOW(), updated_at TIMESTAMPTZ DEFAULT NOW())'),
         neonQuery('CREATE TABLE IF NOT EXISTS quotations (id TEXT PRIMARY KEY, client_name TEXT DEFAULT \'\', client_phone TEXT DEFAULT \'\', client_email TEXT DEFAULT \'\', items TEXT DEFAULT \'[]\', subtotal REAL DEFAULT 0, tax REAL DEFAULT 0, discount REAL DEFAULT 0, total REAL DEFAULT 0, status TEXT DEFAULT \'pendiente\', notes TEXT DEFAULT \'\', created_at TIMESTAMPTZ DEFAULT NOW(), updated_at TIMESTAMPTZ DEFAULT NOW())'),
         neonQuery('CREATE TABLE IF NOT EXISTS users_sync (id TEXT PRIMARY KEY, name TEXT DEFAULT \'\', email TEXT UNIQUE DEFAULT \'\', role TEXT DEFAULT \'vendedor\', store_name TEXT DEFAULT \'\', created_at TIMESTAMPTZ DEFAULT NOW(), updated_at TIMESTAMPTZ DEFAULT NOW())')
@@ -2719,7 +2719,7 @@ function syncFetchHandler(urlStr, opts) {
             try { b = JSON.parse(opts.body || '{}'); } catch(e) { b = {}; }
             return neonQuery(
                 'INSERT INTO store_config (id,name,address,phone,email,currency,footer,footer_text,logo,categories,brands,colors,category_specs,updated_at) VALUES (\'main\',$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,NOW()) ON CONFLICT (id) DO UPDATE SET name=$1,address=$2,phone=$3,email=$4,currency=$5,footer=$6,footer_text=$7,logo=$8,categories=$9,brands=$10,colors=$11,category_specs=$12,updated_at=NOW()',
-                [b.name||'Mi Tienda', b.address||'', b.phone||'', b.email||'', b.currency||'MXN', b.footer||'', b.footerText||b.footer_text||'', b.logo||null, b.categories||'[]', b.brands||'[]', b.colors||'[]', b.categorySpecs||b.category_specs||'{}']
+                [b.name||'Zona Libre', b.address||'', b.phone||'', b.email||'', b.currency||'MXN', b.footer||'', b.footerText||b.footer_text||'', b.logo||null, b.categories||'[]', b.brands||'[]', b.colors||'[]', b.categorySpecs||b.category_specs||'{}']
             ).then(function() { return _mockResp({success:true}); }).catch(function(e) { console.error('[NEON] store PUT error:', e); return _mockResp({error:e.message}); });
         } else {
             return neonQuery("SELECT * FROM store_config WHERE id='main'").then(function(res) {
@@ -3727,7 +3727,7 @@ function logout() {
 // ====================================================================
 // CHANGELOG — Show latest updates to the user
 // ====================================================================
-var APP_VERSION = '2.6.56 NV102'
+var APP_VERSION = '2.6.59 NV106'
 var CHANGELOG_ENTRIES = [
     { ver: '2.4.0', date: '24 Abr 2026', items: [
         { icon: '📊', text: '<b>Capacidad por espacio:</b> Controla unidades mínimas y máximas para Exhibición, Local Pequeño, Local Grande desde el panel de Control del Local.' },
@@ -3905,7 +3905,7 @@ function populateAllSelects() {
             var cfg = getStoreConfig();
             neonQuery(
                 'INSERT INTO store_config (id,name,categories,brands,colors,updated_at) VALUES (\'main\',$1,$2,$3,$4,NOW()) ON CONFLICT (id) DO UPDATE SET categories=$2,brands=$3,colors=$4,updated_at=NOW()',
-                [cfg.storeName||'Mi Tienda', JSON.stringify(categories), JSON.stringify(brands), JSON.stringify(colors)]
+                [cfg.storeName||'Zona Libre', JSON.stringify(categories), JSON.stringify(brands), JSON.stringify(colors)]
             ).catch(function(){});
         }
     }
@@ -6560,7 +6560,7 @@ function viewQuotation(id) {
     // Compact header: store + client + date in one block
     var h = '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">';
     h += '<div style="flex:1;min-width:0;">';
-    h += '<div style="font-size:14px;font-weight:800;color:var(--text);">' + escapeHtml(cfg.storeName || 'Mi Tienda') + '</div>';
+    h += '<div style="font-size:14px;font-weight:800;color:var(--text);">' + escapeHtml(cfg.storeName || 'Zona Libre') + '</div>';
     if (q.clientName) h += '<div style="font-size:12px;color:var(--text2);margin-top:1px;">' + escapeHtml(q.clientName) + (q.customerPhone ? ' · 📞' + escapeHtml(q.customerPhone) : '') + '</div>';
     h += '<div style="font-size:10px;color:var(--text3);margin-top:1px;">' + formatDate(q.createdAt) + '</div>';
     h += '</div></div>';
@@ -15137,7 +15137,7 @@ function pushToServer() {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-            name: storeCfg.storeName || 'Mi Tienda',
+            name: storeCfg.storeName || 'Zona Libre',
             address: storeCfg.address || '',
             phone: storeCfg.phone || '',
             email: storeCfg.email || '',
@@ -15629,7 +15629,7 @@ function processOfflineQueue() {
                         method: 'PUT',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
-                            name: cfg.storeName || 'Mi Tienda', address: cfg.address || '', phone: cfg.phone || '',
+                            name: cfg.storeName || 'Zona Libre', address: cfg.address || '', phone: cfg.phone || '',
                             email: cfg.email || '', currency: cfg.currency || 'MXN', footer: cfg.footerText || '',
                             logo: cfg.logo || null, categories: JSON.stringify(getCategories()),
                             brands: JSON.stringify(getBrands()), colors: JSON.stringify(getColors()),
@@ -15722,7 +15722,7 @@ function doSyncToServer(url, reason) {
     if (reason === 'store' || reason === 'specs') {
         var storeCfg = getStoreConfig();
         var storePayload = {
-            name: storeCfg.storeName || 'Mi Tienda', address: storeCfg.address || '', phone: storeCfg.phone || '',
+            name: storeCfg.storeName || 'Zona Libre', address: storeCfg.address || '', phone: storeCfg.phone || '',
             email: storeCfg.email || '', currency: storeCfg.currency || 'USD', footer: storeCfg.footerText || '',
             logo: storeCfg.logo || null,
             categories: JSON.stringify(getCategories()),
@@ -16256,7 +16256,7 @@ function buildQuotationText(id) {
     if (!q) return '';
 
     var cfg = getStoreConfig();
-    var storeName = cfg.storeName || 'Mi Tienda';
+    var storeName = cfg.storeName || 'Zona Libre';
     var storePhone = cfg.phone || '';
     var storeAddr = cfg.address || '';
 
@@ -16478,7 +16478,7 @@ function shareQuotationQR(id) {
     var header = document.createElement('div');
     header.style.cssText = 'background:linear-gradient(135deg,#10b981,#059669);padding:20px;text-align:center;';
     header.innerHTML = '<div style="font-size:28px;margin-bottom:4px;">&#128722;</div>' +
-        '<div style="color:#fff;font-size:18px;font-weight:800;">' + (cfg.storeName || 'Mi Tienda') + '</div>' +
+        '<div style="color:#fff;font-size:18px;font-weight:800;">' + (cfg.storeName || 'Zona Libre') + '</div>' +
         '<div style="color:rgba(255,255,255,0.85);font-size:12px;margin-top:2px;">Cotización ' + (q.number || '') + '</div>';
 
     // QR Code area — using SVG (100% reliable in all WebViews, no canvas issues)
@@ -16630,7 +16630,7 @@ function showPdfOverlay(q, id) {
 
     // Store header
     bodyHtml += '<div style="text-align:center;padding:20px 0 12px;border-bottom:3px solid #22c55e;">';
-    bodyHtml += '<div style="font-size:22px;font-weight:800;color:#22c55e;">' + escapeHtml(cfg.storeName || 'Mi Tienda') + '</div>';
+    bodyHtml += '<div style="font-size:22px;font-weight:800;color:#22c55e;">' + escapeHtml(cfg.storeName || 'Zona Libre') + '</div>';
     bodyHtml += '<div style="font-size:12px;color:#6b7280;margin-top:4px;">';
     if (cfg.address) bodyHtml += escapeHtml(cfg.address);
     if (cfg.phone) bodyHtml += (cfg.address ? ' | ' : '') + 'Tel: ' + escapeHtml(cfg.phone);
@@ -16826,7 +16826,7 @@ function _drawRoundRect(ctx, x, y, w, h, r) {
 function generateQuotationCardCanvas(q, logoImg) {
     var cfg = getStoreConfig();
     var isDual = q.isDualMode && q.itemsB && q.itemsB.length > 0;
-    var storeName = cfg.storeName || 'Mi Tienda';
+    var storeName = cfg.storeName || 'Zona Libre';
     var storeAddr = cfg.address || '';
     var storePhone = cfg.phone || '';
     var storeEmail = cfg.email || '';
@@ -17171,7 +17171,7 @@ function generatePdfBlob(q) {
 
     var cfg = getStoreConfig();
     var isDual = q.isDualMode && q.itemsB && q.itemsB.length > 0;
-    var storeName = cfg.storeName || 'Mi Tienda';
+    var storeName = cfg.storeName || 'Zona Libre';
     var storeAddr = cfg.address || '';
     var storePhone = cfg.phone || '';
     var storeEmail = cfg.email || '';
@@ -18086,7 +18086,7 @@ function generateQuotationHtmlDocument(q) {
     var customerPhone = q.customerPhone || '';
     var customerEmail = q.customerEmail || '';
     var total = q.total || 0;
-    var storeName = cfg.storeName || 'Mi Tienda';
+    var storeName = cfg.storeName || 'Zona Libre';
     var storeAddr = cfg.address || '';
     var storePhone = cfg.phone || '';
     var storeEmail = cfg.email || '';
@@ -18218,7 +18218,7 @@ function generateQuotationHtmlDocument(q) {
     var cfg = getStoreConfig();
     if (!cfg || Object.keys(cfg).length === 0) {
         saveStoreConfig({
-            storeName: 'Mi Tienda',
+            storeName: 'Zona Libre',
             address: '',
             phone: '',
             email: '',
@@ -22864,4 +22864,4 @@ checkPublicCatalog();
 
 </body>
 </html>
-<!-- NV104 production -->
+<!-- NV106 production -->
