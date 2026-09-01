@@ -11,7 +11,7 @@
     <!-- Auto-update: check server version every 5 min, reload if newer -->
     <script>
     (function(){
-        var _curVer='NV112';
+        var _curVer='NV113';
         function _checkVer(){
             try{
                 fetch(getServerUrl?getServerUrl():location.origin+'/api/version?_t='+Date.now())
@@ -1106,7 +1106,7 @@
             <div>
                 <div class="header-name" id="storeHeaderName">Inventario Pro</div>
                 <div class="header-role" id="userRole">rol</div>
-                <div class="header-ver" id="headerVersion">v2.6.65 NV112</div>
+                <div class="header-ver" id="headerVersion">v2.6.66 NV113</div>
             </div>
         </div>
         <button class="btn-logout" onclick="toggleTheme()" style="background:none;border:none;font-size:20px;cursor:pointer;margin-right:8px;color:var(--text2);" title="Cambiar tema">🌓</button>
@@ -3728,7 +3728,7 @@ function logout() {
 // ====================================================================
 // CHANGELOG — Show latest updates to the user
 // ====================================================================
-var APP_VERSION = '2.6.65 NV112'
+var APP_VERSION = '2.6.66 NV113'
 var CHANGELOG_ENTRIES = [
     { ver: '2.4.0', date: '24 Abr 2026', items: [
         { icon: '📊', text: '<b>Capacidad por espacio:</b> Controla unidades mínimas y máximas para Exhibición, Local Pequeño, Local Grande desde el panel de Control del Local.' },
@@ -12755,7 +12755,7 @@ function generateLocalesTVReport(isReduced) {
     }
 
     // Zone-level aggregation
-    var zoneNames = ['derecha','izquierda','lateral','centro','general'];
+    var zoneNames = ['derecha','izquierda','lateral','centro','fondo','general'];
     var zoneData = {};
     for (var zni = 0; zni < zoneNames.length; zni++) {
         zoneData[zoneNames[zni]] = { total: 0, entradas: 0, salidas: 0, spaces: {}, models: 0, faltantes: 0, target: 0 };
@@ -13111,7 +13111,7 @@ function generateLocalesTVReport(isReduced) {
         '<div id="tvReportTabBar" style="display:flex;background:var(--bg2);border-bottom:1px solid var(--border);overflow-x:auto;flex-shrink:0;">' +
             _buildTVTabBtn('zona', '\uD83C\uDFF7\uFE0F Zonas', true) +
             _buildTVTabBtn('global', '\uD83D\uDCCA Global', false) +
-            (isReduced ? '' : _buildTVTabBtn('detalle', '\uD83D\uDCCB Detalle', false)) +
+            _buildTVTabBtn('detalle', '\uD83D\uDCCB Detalle', false) +
             (showMovimientos ? _buildTVTabBtn('movs', '\uD83D\uDD04 Movs.', false) : '') +
         '</div>' +
         '<div style="padding:8px 12px;flex-shrink:0;background:var(--bg2);border-bottom:1px solid var(--border);">' +
@@ -13425,7 +13425,7 @@ function _renderTVDetalleTab(d, search) {
                 locZoneAgg[lzZone].salidas += lzFlow.salidas;
             }
         }
-        var zoneNames = ['derecha','izquierda','lateral','centro','general'];
+        var zoneNames = ['derecha','izquierda','lateral','centro','fondo','general'];
         var locHasZones = false;
         for (var lzni = 0; lzni < zoneNames.length; lzni++) {
             if (locZoneAgg[zoneNames[lzni]] && locZoneAgg[zoneNames[lzni]].total > 0) { locHasZones = true; break; }
@@ -13669,7 +13669,7 @@ function applyTVZoneChanges() {
 function _recalcZoneData(d, newZA) {
     d.zoneAssignments = newZA;
     // Reset zone data
-    var zoneNames = ['derecha','izquierda','lateral','centro','general'];
+    var zoneNames = ['derecha','izquierda','lateral','centro','fondo','general'];
     for (var zni = 0; zni < zoneNames.length; zni++) {
         d.zoneData[zoneNames[zni]] = { total:0, entradas:0, salidas:0, spaces:{}, models:0, faltantes:0, target:0 };
     }
