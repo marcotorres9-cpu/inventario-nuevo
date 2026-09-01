@@ -11,7 +11,7 @@
     <!-- Auto-update: check server version every 5 min, reload if newer -->
     <script>
     (function(){
-        var _curVer='NV110';
+        var _curVer='NV111';
         function _checkVer(){
             try{
                 fetch(getServerUrl?getServerUrl():location.origin+'/api/version?_t='+Date.now())
@@ -1106,7 +1106,7 @@
             <div>
                 <div class="header-name" id="storeHeaderName">Inventario Pro</div>
                 <div class="header-role" id="userRole">rol</div>
-                <div class="header-ver" id="headerVersion">v2.6.63 NV110</div>
+                <div class="header-ver" id="headerVersion">v2.6.64 NV111</div>
             </div>
         </div>
         <button class="btn-logout" onclick="toggleTheme()" style="background:none;border:none;font-size:20px;cursor:pointer;margin-right:8px;color:var(--text2);" title="Cambiar tema">🌓</button>
@@ -3728,7 +3728,7 @@ function logout() {
 // ====================================================================
 // CHANGELOG — Show latest updates to the user
 // ====================================================================
-var APP_VERSION = '2.6.63 NV110'
+var APP_VERSION = '2.6.64 NV111'
 var CHANGELOG_ENTRIES = [
     { ver: '2.4.0', date: '24 Abr 2026', items: [
         { icon: '📊', text: '<b>Capacidad por espacio:</b> Controla unidades mínimas y máximas para Exhibición, Local Pequeño, Local Grande desde el panel de Control del Local.' },
@@ -11106,7 +11106,7 @@ function renderCatalogSummaryPage() {
                 var circumference = 2 * 3.14159 * 18;
                 var dashOffset = circumference - (circumference * r.pct / 100);
                 var catEsc = r.name.replace(/'/g, "\\'");
-                h += '<div onclick="_goToCatCoverage(\'' + catEsc + '\')" style="background:' + cBg + ';border:1px solid ' + cColor + '25;border-radius:12px;padding:12px;cursor:pointer;transition:transform .12s ease,box-shadow .12s ease;active:scale(0.97;">';
+                h += '<div onclick="_goToCatCoverage(\'' + catEsc + '\')" style="background:' + cBg + ';border:1px solid ' + cColor + '25;border-radius:12px;padding:12px;cursor:pointer;transition:transform .12s ease,box-shadow .12s ease;box-shadow:0 2px 8px rgba(0,0,0,0.06);">';
                 h += '<div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">';
                 h += '<span style="font-size:20px;line-height:1;">' + r.icon + '</span>';
                 h += '<span style="font-size:12px;font-weight:700;color:var(--text);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(r.name) + '</span>';
@@ -11128,12 +11128,12 @@ function renderCatalogSummaryPage() {
                 h += '</div>';
                 if (r.missing.length > 0) {
                     h += '<div style="margin-top:8px;padding-top:7px;border-top:1px dashed ' + cColor + '30;">';
-                    var showCount = Math.min(r.missing.length, 5);
+                    var showCount = Math.min(r.missing.length, 2);
                     for (var mi = 0; mi < showCount; mi++) {
                         h += '<div style="font-size:10px;color:var(--text3);padding:1px 0;display:flex;align-items:center;gap:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"><span style="color:' + cColor + ';font-size:8px;flex-shrink:0;">\u25CB</span><span style="overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(r.missing[mi]) + '</span></div>';
                     }
                     if (r.missing.length > 5) {
-                        h += '<div style="font-size:10px;color:' + cColor + ';font-weight:600;margin-top:1px;">+ ' + (r.missing.length - 5) + ' mas...</div>';
+                        h += '<div style="font-size:10px;color:' + cColor + ';font-weight:600;margin-top:1px;">+ ' + (r.missing.length - 2) + ' mas...</div>';
                     }
                     h += '</div>';
                 }
@@ -20611,6 +20611,7 @@ function renderCatalogsList() {
             }
             filtered.push(c);
         }
+        var allCats = cats;
         cats = filtered;
         // Stats bar — simple count
         var statsBar = document.getElementById('catalogStatsBar');
@@ -20621,10 +20622,10 @@ function renderCatalogsList() {
         var covContainer = document.getElementById('_ecatCovCards');
         if (covContainer) {
             var ecatIds = {};
-            for (var eci2 = 0; eci2 < cats.length; eci2++) {
-                var ecp2 = [];
-                try { ecp2 = (typeof cats[eci2].products === 'string') ? JSON.parse(cats[eci2].products) : (cats[eci2].products || []); } catch(e) {}
-                if (ecp2[0] && ecp2[0].id) ecatIds[ecp2[0].id] = true;
+            for (var eciA = 0; eciA < allCats.length; eciA++) {
+                var epA = [];
+                try { epA = (typeof allCats[eciA].products === 'string') ? JSON.parse(allCats[eciA].products) : (allCats[eciA].products || []); } catch(e) {}
+                if (epA[0] && epA[0].id) ecatIds[epA[0].id] = true;
             }
             var localProds = getProducts();
             var invCats2 = {};
@@ -20662,12 +20663,12 @@ function renderCatalogsList() {
                 ch += '</div></div>';
                 if (cv2.missing.length > 0) {
                     ch += '<div style="margin-top:6px;padding-top:5px;border-top:1px dashed ' + cc2 + '30;">';
-                    var showM2 = Math.min(cv2.missing.length, 4);
+                    var showM2 = Math.min(cv2.missing.length, 2);
                     for (var mm = 0; mm < showM2; mm++) {
                         ch += '<div style="font-size:9px;color:var(--text3);padding:1px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">\u25CB ' + escapeHtml(cv2.missing[mm]) + '</div>';
                     }
                     if (cv2.missing.length > 4) {
-                        ch += '<div style="font-size:9px;color:' + cc2 + ';font-weight:600;">+ ' + (cv2.missing.length - 4) + ' mas...</div>';
+                        ch += '<div style="font-size:9px;color:' + cc2 + ';font-weight:600;">+ ' + (cv2.missing.length - 2) + ' mas...</div>';
                     }
                     ch += '</div>';
                 }
