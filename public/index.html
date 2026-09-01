@@ -8625,7 +8625,10 @@ function renderLocSpaceView(loc) {
     toolbarHtml += '<button class="btn btn-primary btn-sm" onclick="openSpaceProductModal(\'' + loc.id + '\',' + currentIdx + ')" style="font-size:12px;">📥 Agregar Producto</button>';
     toolbarHtml += '<button class="btn btn-outline btn-sm" onclick="openInitialInventoryModal(\'' + loc.id + '\',' + currentIdx + ')" style="font-size:12px;">📋 Inv. Inicial</button>';
     toolbarHtml += '<button class="btn btn-outline btn-sm" onclick="openInventoryControl(\'' + loc.id + '\')" style="font-size:12px;">📊 Control</button>';
-    toolbarHtml += '<button class="btn btn-outline btn-sm" onclick="toggleGroupSelectMode()" style="font-size:12px;' + (_groupSelectMode ? 'background:var(--primary);color:#fff;border-color:var(--primary);' : '') + ';">☑️ Seleccionar Grupo</button>';
+    toolbarHtml += '<button class="btn btn-outline btn-sm" onclick="toggleGroupSelectMode()" style="font-size:12px;' + (_groupSelectMode ? 'background:var(--primary);color:#fff;border-color:var(--primary);' : '') + ';">☑️ Seleccionar</button>';
+    if (products.length > 0) {
+        toolbarHtml += '<button class="btn btn-outline btn-sm" onclick="clearSpaceProducts(\'' + loc.id + '\',' + currentIdx + ')" style="font-size:12px;color:var(--danger);border-color:var(--danger);">🗑️ Vaciar Espacio</button>';
+    }
     if (_groupSelectMode) {
         toolbarHtml += '<button class="btn btn-outline btn-sm" onclick="selectAllProducts()" style="font-size:12px;">☑️ Todo</button>';
         toolbarHtml += '<button class="btn btn-outline btn-sm" onclick="deselectAllProducts()" style="font-size:12px;">✖️ Ninguno</button>';
@@ -8634,6 +8637,7 @@ function renderLocSpaceView(loc) {
         toolbarHtml += '<div style="margin-left:auto;display:flex;gap:4px;">';
         toolbarHtml += '<button class="btn btn-primary btn-sm" onclick="openBatchIngress()" style="font-size:12px;">📥 Cargar (' + selectedCount + ')</button>';
         toolbarHtml += '<button class="btn btn-outline btn-sm" onclick="openBatchSell()" style="font-size:12px;color:#ff4757;border-color:#ff4757;">📤 Descargar (' + selectedCount + ')</button>';
+        toolbarHtml += '<button class="btn btn-outline btn-sm" onclick="deleteSelectedProducts()" style="font-size:12px;color:var(--danger);border-color:var(--danger);">🗑️ Eliminar (' + selectedCount + ')</button>';
         toolbarHtml += '</div>';
     }
     toolbarHtml += '</div>';
@@ -14647,6 +14651,70 @@ function resetAllLocalesInventory() {
             syncLocationsToServer();
             renderLocations();
             showToast('Inventario limpiado correctamente. Listo para cargar desde 0.', 'success');
+        }
+    );
+}
+
+// ===== CLEAR SPACE PRODUCTS (remove all products from a space) =====
+function clearSpaceProducts(locId, spaceIdx) {
+    var locs = getLocations();
+    var loc = null;
+    var locIdx = -1;
+    for (var i = 0; i < locs.length; i++) {
+        if (locs[i].id === locId) { loc = locs[i]; locIdx = i; break; }
+    }
+    if (!loc || !loc.spaces || !loc.spaces[spaceIdx]) return;
+    var space = loc.spaces[spaceIdx];
+    var prods = space.products || [];
+    if (prods.length === 0) { showToast('Este espacio ya está vacío', 'info'); return; }
+    showConfirm(
+        '¿Vaciar ' + (space.name || 'Espacio') + '?',
+        'Se eliminarán los ' + prods.length + ' producto(s) de este espacio. Esta acción no se puede deshacer.',
+        '🗑️ Vaciar',
+        function() {
+            locs[locIdx].spaces[spaceIdx].products = [];
+            locs[locIdx].updatedAt = new Date().toISOString();
+            saveLocations(locs);
+            syncLocationsToServer();
+            _groupSelected = {};
+            _groupSelectMode = false;
+            renderLocSpaceView(locs[locIdx]);
+            showToast('Espacio vaciado correctamente', 'success');
+        }
+    );
+}
+
+// ===== DELETE SELECTED PRODUCTS =====
+function deleteSelectedProducts() {
+    var selected = Object.keys(_groupSelected);
+    if (selected.length === 0) { showToast('No hay productos seleccionados', 'info'); return; }
+    var locs = getLocations();
+    var loc = null;
+    var locIdx = -1;
+    for (var i = 0; i < locs.length; i++) {
+        if (locs[i].id === _locCurrentLocId) { loc = locs[i]; locIdx = i; break; }
+    }
+    if (!loc || !loc.spaces || !loc.spaces[_locCurrentSpace]) return;
+    showConfirm(
+        '¿Eliminar ' + selected.length + ' producto(s)?',
+        'Se eliminarán los productos seleccionados del espacio. Esta acción no se puede deshacer.',
+        '🗑️ Eliminar',
+        function() {
+            var prods = locs[locIdx].spaces[_locCurrentSpace].products || [];
+            var indices = selected.map(function(s) { return parseInt(s); }).sort(function(a, b) { return b - a; });
+            for (var i = 0; i < indices.length; i++) {
+                if (indices[i] >= 0 && indices[i] < prods.length) {
+                    prods.splice(indices[i], 1);
+                }
+            }
+            locs[locIdx].spaces[_locCurrentSpace].products = prods;
+            locs[locIdx].updatedAt = new Date().toISOString();
+            saveLocations(locs);
+            syncLocationsToServer();
+            _groupSelected = {};
+            _groupSelectMode = false;
+            renderLocSpaceView(locs[locIdx]);
+            showToast(selected.length + ' producto(s) eliminado(s)', 'success');
         }
     );
 }
