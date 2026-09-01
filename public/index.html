@@ -11,7 +11,7 @@
     <!-- Auto-update: check server version every 5 min, reload if newer -->
     <script>
     (function(){
-        var _curVer='NV111';
+        var _curVer='NV112';
         function _checkVer(){
             try{
                 fetch(getServerUrl?getServerUrl():location.origin+'/api/version?_t='+Date.now())
@@ -1106,7 +1106,7 @@
             <div>
                 <div class="header-name" id="storeHeaderName">Inventario Pro</div>
                 <div class="header-role" id="userRole">rol</div>
-                <div class="header-ver" id="headerVersion">v2.6.64 NV111</div>
+                <div class="header-ver" id="headerVersion">v2.6.65 NV112</div>
             </div>
         </div>
         <button class="btn-logout" onclick="toggleTheme()" style="background:none;border:none;font-size:20px;cursor:pointer;margin-right:8px;color:var(--text2);" title="Cambiar tema">🌓</button>
@@ -3728,7 +3728,7 @@ function logout() {
 // ====================================================================
 // CHANGELOG — Show latest updates to the user
 // ====================================================================
-var APP_VERSION = '2.6.64 NV111'
+var APP_VERSION = '2.6.65 NV112'
 var CHANGELOG_ENTRIES = [
     { ver: '2.4.0', date: '24 Abr 2026', items: [
         { icon: '📊', text: '<b>Capacidad por espacio:</b> Controla unidades mínimas y máximas para Exhibición, Local Pequeño, Local Grande desde el panel de Control del Local.' },
@@ -20728,7 +20728,11 @@ function renderCatalogsList() {
             // Card body
             html += '<div style="padding:10px;">';
             // Product name (2-line clamp)
-            html += '<div style="font-size:12px;font-weight:700;color:var(--text);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.3;min-height:31px;margin-bottom:6px;">' + escapeHtml(p0.name || c.name) + '</div>';
+            html += '<div style="font-size:12px;font-weight:700;color:var(--text);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.3;min-height:31px;margin-bottom:2px;">' + escapeHtml(p0.name || c.name) + '</div>';
+            // Brand
+            if (p0.brand) {
+                html += '<div style="font-size:10px;color:var(--text3);font-weight:500;margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(p0.brand) + '</div>';
+            }
             // Price
             if (price > 0) {
                 html += '<div style="margin-bottom:6px;">';
