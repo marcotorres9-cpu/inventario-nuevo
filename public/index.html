@@ -11,7 +11,7 @@
     <!-- Auto-update: check server version every 5 min, reload if newer -->
     <script>
     (function(){
-        var _curVer='NV115';
+        var _curVer='NV116';
         function _checkVer(){
             try{
                 fetch(getServerUrl?getServerUrl():location.origin+'/api/version?_t='+Date.now())
@@ -1520,18 +1520,18 @@
 <!-- MODAL: ELECTRONIC CATALOG EDITOR                               -->
 <!-- ============================================================ -->
 <div class="modal-overlay" id="catalogEditorModal">
-    <div class="modal-content" style="max-width:500px;">
+    <div class="modal-content" style="max-width:500px;max-height:90vh;">
         <div class="modal-handle"></div>
         <div class="modal-header">
             <div class="modal-title" id="catalogEditorTitle">📖 Agregar al Catálogo</div>
             <button class="modal-close" onclick="closeModal('catalogEditorModal')">&times;</button>
         </div>
-        <div style="padding:0 16px 20px;overflow-y:auto;max-height:75vh;">
+        <div style="padding:0 16px 20px;overflow-y:auto;flex:1;-webkit-overflow-scrolling:touch;">
             <!-- Step 1: Select product -->
             <div id="ecatStep1">
                 <label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:6px;">Seleccionar Producto</label>
                 <input type="text" id="ecatProductSearch" placeholder="🔍 Buscar por nombre, marca, categoría..." oninput="filterEcatProducts(this.value)" style="width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:10px;background:var(--bg2);color:var(--text);font-size:14px;box-sizing:border-box;">
-                <div id="ecatProductList" style="max-height:300px;overflow-y:auto;border:1px solid var(--border);border-radius:10px;margin-top:8px;"></div>
+                <div id="ecatProductList" style="max-height:60vh;overflow-y:auto;border:1px solid var(--border);border-radius:10px;margin-top:8px;-webkit-overflow-scrolling:touch;touch-action:pan-y;"></div>
             </div>
             <!-- Step 2: Set identifier + images -->
             <div id="ecatStep2" style="display:none;">
@@ -2357,13 +2357,74 @@ function migrateImagesToIDB() {
             p.images = newIds;
             changed = true;
         }
+        // Migrate imageIds → images (from old sync code that used wrong field)
+        if (p.imageIds && Array.isArray(p.imageIds) && p.imageIds.length > 0) {
+            if (!p.images || !Array.isArray(p.images)) p.images = [];
+            for (var mi = 0; mi < p.imageIds.length; mi++) {
+                if (p.imageIds[mi] && p.images.indexOf(p.imageIds[mi]) === -1) {
+                    p.images.push(p.imageIds[mi]);
+                }
+            }
+            delete p.imageIds;
+            changed = true;
+        }
     }
     if (changed && savePromises.length > 0) {
         Promise.all(savePromises).then(function() {
             saveProducts(products);
             console.log('[IDB] Migrated ' + savePromises.length + ' images to IndexedDB');
         });
+    } else if (changed) {
+        saveProducts(products);
+        console.log('[IDB] Migrated imageIds → images');
     }
+}
+
+// Download any server image IDs in product.images that are missing from IndexedDB
+// Runs in background at startup — non-blocking, fires and forgets
+function _downloadMissingServerImages() {
+    var products = getProducts();
+    var serverIdPattern = /^img_\d+_[a-z0-9]+$/;
+    var idsToFetch = [];
+    for (var i = 0; i < products.length; i++) {
+        var imgIds = products[i].images || [];
+        for (var j = 0; j < imgIds.length; j++) {
+            var id = imgIds[j];
+            // Only check IDs that look like server-generated IDs (img_timestamp_random)
+            if (id && serverIdPattern.test(id)) {
+                idsToFetch.push(id);
+            }
+        }
+    }
+    if (idsToFetch.length === 0) return;
+    // Check each one against IndexedDB, download missing ones
+    var checkIdx = 0;
+    function checkNext() {
+        if (checkIdx >= idsToFetch.length) return;
+        (function(imgId) {
+            idbGetImage(imgId).then(function(data) {
+                if (data) { checkIdx++; checkNext(); return; } // already in IDB
+                // Not in IDB — try to download from server
+                if (typeof _serverFetch !== 'function' || typeof getServerUrl !== 'function') { checkIdx++; checkNext(); return; }
+                _serverFetch('GET', '/api/catalog-upload?id=' + encodeURIComponent(imgId), null, function(text, err) {
+                    if (!err && text) {
+                        try {
+                            var res = JSON.parse(text);
+                            if (res.data) {
+                                var fullData = 'data:' + (res.imageType || 'image/jpeg') + ';base64,' + res.data;
+                                idbSaveImage(imgId, fullData).then(function() {
+                                    console.log('[IMG-SYNC] Downloaded missing server image: ' + imgId);
+                                }).catch(function(){});
+                            }
+                        } catch(e) {}
+                    }
+                    checkIdx++; checkNext();
+                });
+            }).catch(function() { checkIdx++; checkNext(); });
+        })(idsToFetch[checkIdx]);
+    }
+    // Delay start to avoid slowing down initial render
+    setTimeout(checkNext, 5000);
 }
 
 // ===== Store Config (localStorage — text only) =====
@@ -3533,6 +3594,9 @@ function enterApp(user) {
 
     // Migrate old base64 images to IndexedDB (one-time, then render)
     migrateImagesToIDB();
+
+    // Download any server image IDs missing from IndexedDB (background, non-blocking)
+    _downloadMissingServerImages();
 
     renderProductList();
     populateProductFilterDropdowns();
@@ -4823,12 +4887,19 @@ function renderProductList() {
                     e.stopPropagation();
                     openImageLightboxByIds(allIds, 0);
                 });
-                // Load image from IndexedDB
+                // Load image from IndexedDB, with server fallback
                 idbGetImage(firstImgId).then(function(data) {
                     if (thumb && data) {
                         thumb.innerHTML = '<img src="' + data + '" style="width:100%;height:100%;object-fit:cover;pointer-events:none;" draggable="false">';
                     } else if (thumb) {
-                        thumb.style.display = 'none';
+                        // Fallback: try loading from server CatalogImage API
+                        var srvUrl = (typeof getServerUrl === 'function' ? getServerUrl() : '') + '/api/catalog-image/' + encodeURIComponent(firstImgId);
+                        var fallbackImg = new Image();
+                        fallbackImg.onload = function() {
+                            if (thumb) thumb.innerHTML = '<img src="' + srvUrl + '" style="width:100%;height:100%;object-fit:cover;pointer-events:none;" draggable="false">';
+                        };
+                        fallbackImg.onerror = function() { thumb.style.display = 'none'; };
+                        fallbackImg.src = srvUrl;
                     }
                 });
             })(p.id, validIds[0], validIds);
@@ -7469,7 +7540,7 @@ function renderProductImagePreviews() {
     }
     area.innerHTML = html;
 
-    // Load each image from IndexedDB
+    // Load each image from IndexedDB, with server fallback
     for (var j = 0; j < imgIds.length; j++) {
         (function(idx, imgId) {
             idbGetImage(imgId).then(function(data) {
@@ -7477,6 +7548,16 @@ function renderProductImagePreviews() {
                 if (thumb && data) {
                     thumb.innerHTML = '<img src="' + data + '" style="width:100%;height:100%;object-fit:cover;pointer-events:none;">' +
                         thumb.querySelector('button').outerHTML.replace('button', 'button type="button"');
+                } else if (thumb) {
+                    // Fallback: try loading from server
+                    var srvUrl = (typeof getServerUrl === 'function' ? getServerUrl() : '') + '/api/catalog-image/' + encodeURIComponent(imgId);
+                    var fbImg = new Image();
+                    fbImg.onload = function() {
+                        var t2 = document.getElementById('prevThumb' + idx);
+                        if (t2) t2.innerHTML = '<img src="' + srvUrl + '" style="width:100%;height:100%;object-fit:cover;pointer-events:none;">' +
+                            (t2.querySelector('button') ? t2.querySelector('button').outerHTML : '');
+                    };
+                    fbImg.src = srvUrl;
                 }
             });
         })(j, imgIds[j]);
@@ -7757,16 +7838,18 @@ function loadLightboxImage(idx) {
 
     idbGetImage(imgId).then(function(data) {
         if (!container) return;
-        if (!data) { container.innerHTML = '<div style="color:rgba(255,255,255,0.5);font-size:16px;">Imagen no encontrada</div>'; return; }
-
-        lightboxResetZoom();
-        container.innerHTML = '<img id="lightboxImg" src="' + data + '" style="max-width:100%;max-height:100%;object-fit:contain;border-radius:4px;user-select:none;-webkit-user-drag:none;transform-origin:center center;transition:opacity 0.3s ease,transform 0.3s cubic-bezier(0.16,1,0.3,1);opacity:0;" draggable="false">';
-        // Fade in
-        var img = document.getElementById('lightboxImg');
-        if (img) {
-            requestAnimationFrame(function() {
-                img.style.opacity = '1';
-            });
+        if (data) {
+            lightboxResetZoom();
+            container.innerHTML = '<img id="lightboxImg" src="' + data + '" style="max-width:100%;max-height:100%;object-fit:contain;border-radius:4px;user-select:none;-webkit-user-drag:none;transform-origin:center center;transition:opacity 0.3s ease,transform 0.3s cubic-bezier(0.16,1,0.3,1);opacity:0;" draggable="false">';
+            var img = document.getElementById('lightboxImg');
+            if (img) { requestAnimationFrame(function() { img.style.opacity = '1'; }); }
+        } else {
+            // Fallback: try loading from server
+            var srvUrl = (typeof getServerUrl === 'function' ? getServerUrl() : '') + '/api/catalog-image/' + encodeURIComponent(imgId);
+            lightboxResetZoom();
+            container.innerHTML = '<img id="lightboxImg" src="' + srvUrl + '" style="max-width:100%;max-height:100%;object-fit:contain;border-radius:4px;user-select:none;-webkit-user-drag:none;transform-origin:center center;transition:opacity 0.3s ease,transform 0.3s cubic-bezier(0.16,1,0.3,1);opacity:0;" draggable="false" onerror="this.parentElement.innerHTML=\'<div style=color:rgba(255,255,255,0.5);font-size:16px;>Imagen no encontrada</div>\'">';
+            var img = document.getElementById('lightboxImg');
+            if (img) { requestAnimationFrame(function() { img.style.opacity = '1'; }); }
         }
     });
 }
@@ -11024,7 +11107,11 @@ function renderCatalogSummaryPage() {
                         if (thumb && data) {
                             thumb.innerHTML = '<img src="' + data + '" style="width:100%;height:100%;object-fit:cover;pointer-events:none;" draggable="false">';
                         } else if (thumb) {
-                            thumb.style.display = 'none';
+                            var srvUrl = (typeof getServerUrl === 'function' ? getServerUrl() : '') + '/api/catalog-image/' + encodeURIComponent(firstId);
+                            var fbImg = new Image();
+                            fbImg.onload = function() { if (thumb) thumb.innerHTML = '<img src="' + srvUrl + '" style="width:100%;height:100%;object-fit:cover;pointer-events:none;" draggable="false">'; };
+                            fbImg.onerror = function() { thumb.style.display = 'none'; };
+                            fbImg.src = srvUrl;
                         }
                     });
                 })(dti, dValidIds[0], dValidIds);
@@ -22603,7 +22690,7 @@ function _renderEcatProductList(products, filter) {
         } else if (isEditing) {
             badge = '<span style="font-size:9px;background:var(--primary);color:#fff;padding:2px 7px;border-radius:6px;font-weight:600;flex-shrink:0;">Editando</span>';
         }
-        html += '<div onclick="selectEcatProduct(\'' + p.id + '\')" style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid var(--border);cursor:pointer;-webkit-tap-highlight-color:transparent;transition:background 0.15s;' + rowBg + '" onmouseover="if(!this.style.pointerEvents||this.style.pointerEvents!==\'none\')this.style.background=\'var(--bg)\'" onmouseout="this.style.background=\'transparent\'">' +
+        html += '<div onclick="selectEcatProduct(\'' + p.id + '\')" data-pid="' + p.id + '" style="display:flex;align-items:center;gap:10px;padding:12px;border-bottom:1px solid var(--border);cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation;transition:background 0.15s;min-height:48px;' + rowBg + '" onmouseover="if(!this.style.pointerEvents||this.style.pointerEvents!==\'none\')this.style.background=\'var(--bg)\'" onmouseout="this.style.background=\'transparent\'">' +
             imgHtml +
             '<div style="flex:1;min-width:0;">' +
                 '<div style="display:flex;align-items:center;gap:6px;overflow:hidden;">' +
@@ -22941,7 +23028,7 @@ function _doSaveWithImages(p, slug, btn, imagesToUpload, existingServerIds) {
                 var res = JSON.parse(text || '{}');
                 if (res.id) {
                     uploadedIds.push(res.id);
-                    _ecatUploadedImages[idx].serverId = res.id;
+                    img.serverId = res.id;
                 }
             } catch (e) {}
             idx++;
@@ -23000,6 +23087,7 @@ function _finalizeCatalogSave(p, slug, btn, imageIds) {
 
 // Sync e-catalog images back to the product in general catalog
 // Saves each image to IndexedDB under its server ID, then adds the server ID to product.images
+// Also tries downloading from server if local data not found
 function _syncEcatImagesToProduct(product, ecatImageIds, ecatImagesData) {
     if (!product || !product.id) return;
     if (!ecatImageIds || ecatImageIds.length === 0) return;
@@ -23014,35 +23102,47 @@ function _syncEcatImagesToProduct(product, ecatImageIds, ecatImagesData) {
                 if (!existingSet[ecatImageIds[n]]) newIds.push(ecatImageIds[n]);
             }
             if (newIds.length > 0) {
-                var savePromises = [];
-                for (var si = 0; si < newIds.length; si++) {
-                    var srvId = newIds[si];
-                    var imgData = null;
-                    if (ecatImagesData) {
-                        for (var di = 0; di < ecatImagesData.length; di++) {
-                            if (ecatImagesData[di].serverId === srvId && ecatImagesData[di].data) {
-                                imgData = 'data:' + (ecatImagesData[di].type || 'image/jpeg') + ';base64,' + ecatImagesData[di].data;
-                                break;
-                            }
-                        }
-                    }
-                    if (!imgData) {
-                        for (var ei = 0; ei < _ecatUploadedImages.length; ei++) {
-                            if (_ecatUploadedImages[ei].serverId === srvId && _ecatUploadedImages[ei].data) {
-                                imgData = 'data:' + (_ecatUploadedImages[ei].type || 'image/jpeg') + ';base64,' + _ecatUploadedImages[ei].data;
-                                break;
-                            }
-                        }
-                    }
-                    if (imgData) {
-                        (function(id, data) {
-                            savePromises.push(idbSaveImage(id, data).catch(function(){}));
-                        })(srvId, imgData);
-                    }
-                }
+                // Add IDs to product.images immediately
                 for (var ni = 0; ni < newIds.length; ni++) existingIds.push(newIds[ni]);
                 products[i].images = existingIds;
                 saveProducts(products);
+                // Now try to save image data to IndexedDB for each new ID
+                for (var si = 0; si < newIds.length; si++) {
+                    (function(srvId) {
+                        // First: try to find image data in ecatImagesData or _ecatUploadedImages
+                        var imgData = null;
+                        var searchArrays = [ecatImagesData, _ecatUploadedImages];
+                        for (var ai = 0; ai < searchArrays.length && !imgData; ai++) {
+                            var arr = searchArrays[ai];
+                            if (!arr) continue;
+                            for (var di = 0; di < arr.length; di++) {
+                                if (arr[di].serverId === srvId && arr[di].data) {
+                                    imgData = 'data:' + (arr[di].type || 'image/jpeg') + ';base64,' + arr[di].data;
+                                    break;
+                                }
+                            }
+                        }
+                        if (imgData) {
+                            // Save to IndexedDB locally
+                            idbSaveImage(srvId, imgData).catch(function(){});
+                        } else {
+                            // Fallback: download from server and save to IndexedDB
+                            idbGetImage(srvId).then(function(existing) {
+                                if (existing) return; // already in IDB
+                                _serverFetch('GET', '/api/catalog-upload?id=' + encodeURIComponent(srvId), null, function(text, err) {
+                                    if (err || !text) return;
+                                    try {
+                                        var res = JSON.parse(text);
+                                        if (res.data) {
+                                            var fullData = 'data:' + (res.imageType || 'image/jpeg') + ';base64,' + res.data;
+                                            idbSaveImage(srvId, fullData).catch(function(){});
+                                        }
+                                    } catch(e) {}
+                                });
+                            }).catch(function(){});
+                        }
+                    })(newIds[si]);
+                }
             }
             break;
         }
