@@ -22989,7 +22989,7 @@ function _finalizeCatalogSave(p, slug, btn, imageIds) {
                     }
                 }
                 // Auto-sync: also save these images to the product in general catalog
-                _syncEcatImagesToProduct(p, imageIds);
+                _syncEcatImagesToProduct(p, imageIds, _ecatUploadedImages);
             }
             showToast('Producto en catálogo', 'success');
             closeModal('catalogEditorModal');
@@ -22999,29 +22999,51 @@ function _finalizeCatalogSave(p, slug, btn, imageIds) {
 }
 
 // Sync e-catalog images back to the product in general catalog
-function _syncEcatImagesToProduct(product, ecatImageIds) {
+// Saves each image to IndexedDB under its server ID, then adds the server ID to product.images
+function _syncEcatImagesToProduct(product, ecatImageIds, ecatImagesData) {
     if (!product || !product.id) return;
     if (!ecatImageIds || ecatImageIds.length === 0) return;
     var products = getProducts();
-    var found = false;
     for (var i = 0; i < products.length; i++) {
         if (products[i].id === product.id) {
-            // Merge image IDs: add any e-catalog IDs not already in product
-            var existingIds = products[i].imageIds || [];
+            var existingIds = products[i].images || [];
             var existingSet = {};
             for (var e = 0; e < existingIds.length; e++) existingSet[existingIds[e]] = true;
-            var changed = false;
+            var newIds = [];
             for (var n = 0; n < ecatImageIds.length; n++) {
-                if (!existingSet[ecatImageIds[n]]) {
-                    existingIds.push(ecatImageIds[n]);
-                    changed = true;
-                }
+                if (!existingSet[ecatImageIds[n]]) newIds.push(ecatImageIds[n]);
             }
-            if (changed) {
-                products[i].imageIds = existingIds;
+            if (newIds.length > 0) {
+                var savePromises = [];
+                for (var si = 0; si < newIds.length; si++) {
+                    var srvId = newIds[si];
+                    var imgData = null;
+                    if (ecatImagesData) {
+                        for (var di = 0; di < ecatImagesData.length; di++) {
+                            if (ecatImagesData[di].serverId === srvId && ecatImagesData[di].data) {
+                                imgData = 'data:' + (ecatImagesData[di].type || 'image/jpeg') + ';base64,' + ecatImagesData[di].data;
+                                break;
+                            }
+                        }
+                    }
+                    if (!imgData) {
+                        for (var ei = 0; ei < _ecatUploadedImages.length; ei++) {
+                            if (_ecatUploadedImages[ei].serverId === srvId && _ecatUploadedImages[ei].data) {
+                                imgData = 'data:' + (_ecatUploadedImages[ei].type || 'image/jpeg') + ';base64,' + _ecatUploadedImages[ei].data;
+                                break;
+                            }
+                        }
+                    }
+                    if (imgData) {
+                        (function(id, data) {
+                            savePromises.push(idbSaveImage(id, data).catch(function(){}));
+                        })(srvId, imgData);
+                    }
+                }
+                for (var ni = 0; ni < newIds.length; ni++) existingIds.push(newIds[ni]);
+                products[i].images = existingIds;
                 saveProducts(products);
             }
-            found = true;
             break;
         }
     }
@@ -23030,61 +23052,43 @@ function _syncEcatImagesToProduct(product, ecatImageIds) {
 // ===== SYNC ALL CATALOG IMAGES (both directions) =====
 function syncAllCatalogImages() {
     showToast('Sincronizando fotos...', 'info');
-    var serverUrl = getServerUrl();
     var localProducts = getProducts();
-
-    // Build local product lookup by ID
     var localMap = {};
     for (var li = 0; li < localProducts.length; li++) {
         if (localProducts[li].id) localMap[localProducts[li].id] = localProducts[li];
     }
-
-    // Fetch all e-catalogs from server
     _serverFetch('GET', '/api/catalogs?_t=' + Date.now(), null, function(responseText, err) {
         if (err || !responseText) { showToast('Error al conectar', 'error'); return; }
         var ecatList = [];
         try { ecatList = JSON.parse(responseText); } catch(e) {}
         if (!Array.isArray(ecatList)) ecatList = [];
-
-        var ecatToSync = []; // catalogs that need product images synced to them
-        var prodToSync = 0;  // products that need e-catalog images synced to them
-        var updatedProducts = localProducts.slice(); // working copy
-
-        // Pass 1: For each e-catalog, sync its images to the product (e-catalog → product)
+        var ecatToSync = [];
+        var prodToSync = 0;
+        var updatedProducts = localProducts.slice();
+        // Pass 1: e-catalog → product (download images from server, save to IndexedDB)
+        var imagesToDownload = [];
         for (var ei = 0; ei < ecatList.length; ei++) {
             var cat = ecatList[ei];
             var prods = [];
             try { prods = (typeof cat.products === 'string') ? JSON.parse(cat.products) : (cat.products || []); } catch(e) {}
             var p0 = prods[0] || {};
             if (!p0.id) continue;
-            var ecatImgIds = p0.imageIds || p0.imageIds || [];
+            var ecatImgIds = p0.imageIds || [];
             if (ecatImgIds.length === 0) continue;
-
-            var localProd = null;
             var localIdx = -1;
             for (var pi = 0; pi < updatedProducts.length; pi++) {
-                if (updatedProducts[pi].id === p0.id) { localProd = updatedProducts[pi]; localIdx = pi; break; }
+                if (updatedProducts[pi].id === p0.id) { localIdx = pi; break; }
             }
-            if (!localProd) continue;
-
-            // Merge e-catalog image IDs into product
-            var existingIds = localProd.imageIds || [];
+            if (localIdx === -1) continue;
+            var existingImgIds = updatedProducts[localIdx].images || [];
             var existingSet = {};
-            for (var es = 0; es < existingIds.length; es++) existingSet[existingIds[es]] = true;
-            var changed = false;
+            for (var es = 0; es < existingImgIds.length; es++) existingSet[existingImgIds[es]] = true;
             for (var ni = 0; ni < ecatImgIds.length; ni++) {
-                if (!existingSet[ecatImgIds[ni]]) {
-                    existingIds.push(ecatImgIds[ni]);
-                    changed = true;
-                }
-            }
-            if (changed) {
-                updatedProducts[localIdx].imageIds = existingIds;
-                prodToSync++;
+                if (!existingSet[ecatImgIds[ni]]) imagesToDownload.push({serverId: ecatImgIds[ni], productId: p0.id});
             }
         }
-
-        // Pass 2: For each product with images not in e-catalog, update the e-catalog (product → e-catalog)
+        // Pass 2: product → e-catalog (upload images from IndexedDB to server)
+        var imagesToUpload = [];
         for (var ci = 0; ci < ecatList.length; ci++) {
             var cat2 = ecatList[ci];
             var prods2 = [];
@@ -23094,59 +23098,84 @@ function syncAllCatalogImages() {
             var ecatImgs = p2.imageIds || [];
             var ecatSet = {};
             for (var es2 = 0; es2 < ecatImgs.length; es2++) ecatSet[ecatImgs[es2]] = true;
-
-            // Find matching product in updated list
             var matchProd = null;
             for (var mp = 0; mp < updatedProducts.length; mp++) {
                 if (updatedProducts[mp].id === p2.id) { matchProd = updatedProducts[mp]; break; }
             }
             if (!matchProd) continue;
-            var prodImgIds = matchProd.imageIds || [];
-            var newIds = [];
+            var prodImgIds = matchProd.images || [];
             for (var mi = 0; mi < prodImgIds.length; mi++) {
-                if (!ecatSet[prodImgIds[mi]]) newIds.push(prodImgIds[mi]);
-            }
-            if (newIds.length > 0) {
-                // Product has images the e-catalog doesn't — update the e-catalog
-                var mergedIds = ecatImgs.concat(newIds);
-                p2.imageIds = mergedIds;
-                var updateBody = {
-                    id: cat2.id,
-                    slug: cat2.slug,
-                    name: cat2.name || cat2.slug,
-                    description: cat2.description || '',
-                    products: [p2],
-                    storeInfo: cat2.storeInfo || {},
-                    mainImage: cat2.mainImage || 0
-                };
-                ecatToSync.push(updateBody);
+                if (!ecatSet[prodImgIds[mi]]) imagesToUpload.push({catalogIdx: ci, productId: p2.id, idbKey: prodImgIds[mi]});
             }
         }
-
-        // Save updated products
-        if (prodToSync > 0) {
-            saveProducts(updatedProducts);
-        }
-
-        // Sync product images to e-catalogs (batch)
-        var syncIdx = 0;
-        function syncNextEcat() {
-            if (syncIdx >= ecatToSync.length) {
-                var total = prodToSync + ecatToSync.length;
-                if (total === 0) {
-                    showToast('✅ Todo sincronizado — no hay fotos nuevas', 'success');
-                } else {
-                    showToast('✅ ' + total + ' producto(s) sincronizado(s)', 'success');
-                }
-                renderCatalogsList();
-                return;
-            }
-            _serverFetch('POST', '/api/catalogs', ecatToSync[syncIdx], function(t, e) {
-                syncIdx++;
-                syncNextEcat();
+        var downloadIdx = 0;
+        function downloadNext() {
+            if (downloadIdx >= imagesToDownload.length) { uploadMissingImages(); return; }
+            var item = imagesToDownload[downloadIdx];
+            _serverFetch('GET', '/api/catalog-upload?id=' + encodeURIComponent(item.serverId), null, function(text, dlErr) {
+                var imgData = null;
+                if (!dlErr && text) { try { var res = JSON.parse(text); if (res.data) imgData = 'data:' + (res.imageType || 'image/jpeg') + ';base64,' + res.data; } catch(e) {} }
+                if (imgData) {
+                    idbSaveImage(item.serverId, imgData).then(function() {
+                        var prods = getProducts();
+                        for (var pi = 0; pi < prods.length; pi++) {
+                            if (prods[pi].id === item.productId) {
+                                var ids = prods[pi].images || [];
+                                var found = false;
+                                for (var fi = 0; fi < ids.length; fi++) { if (ids[fi] === item.serverId) { found = true; break; } }
+                                if (!found) { ids.push(item.serverId); prods[pi].images = ids; saveProducts(prods); }
+                                break;
+                            }
+                        }
+                        prodToSync++; downloadIdx++; downloadNext();
+                    }).catch(function() { downloadIdx++; downloadNext(); });
+                } else { downloadIdx++; downloadNext(); }
             });
         }
-        syncNextEcat();
+        var uploadIdx = 0;
+        var uploadedServerIds = {};
+        function uploadMissingImages() {
+            if (uploadIdx >= imagesToUpload.length) { finalizeEcatSync(); return; }
+            var item = imagesToUpload[uploadIdx];
+            idbGetImage(item.idbKey).then(function(data) {
+                if (!data) { uploadIdx++; uploadMissingImages(); return; }
+                var m = data.match(/^data:(image\/\w+);base64,(.*)$/);
+                if (!m) { uploadIdx++; uploadMissingImages(); return; }
+                _serverFetch('POST', '/api/catalog-upload', { catalogId: ecatList[item.catalogIdx].id || '', imageType: m[1] || 'image/jpeg', data: m[2] }, function(text, upErr) {
+                    var srvId = null;
+                    try { var r = JSON.parse(text || '{}'); if (r.id) srvId = r.id; } catch(e) {}
+                    if (srvId) { if (!uploadedServerIds[item.catalogIdx]) uploadedServerIds[item.catalogIdx] = []; uploadedServerIds[item.catalogIdx].push(srvId); }
+                    uploadIdx++; uploadMissingImages();
+                });
+            }).catch(function() { uploadIdx++; uploadMissingImages(); });
+        }
+        function finalizeEcatSync() {
+            var catIdxes = Object.keys(uploadedServerIds);
+            for (var ki = 0; ki < catIdxes.length; ki++) {
+                var cIdx = parseInt(catIdxes[ki]);
+                var newIds = uploadedServerIds[cIdx];
+                var cat3 = ecatList[cIdx];
+                var prods3 = [];
+                try { prods3 = (typeof cat3.products === 'string') ? JSON.parse(cat3.products) : (cat3.products || []); } catch(e) {}
+                var p3 = prods3[0] || {};
+                if (!p3.id) continue;
+                p3.imageIds = (p3.imageIds || []).concat(newIds);
+                ecatToSync.push({ id: cat3.id, slug: cat3.slug, name: cat3.name || cat3.slug, description: cat3.description || '', products: [p3], storeInfo: cat3.storeInfo || {}, mainImage: cat3.mainImage || 0 });
+            }
+            var syncIdx = 0;
+            function syncNextEcat() {
+                if (syncIdx >= ecatToSync.length) {
+                    var total = prodToSync + ecatToSync.length;
+                    showToast(total === 0 ? '✅ Todo sincronizado — no hay fotos nuevas' : '✅ ' + total + ' producto(s) sincronizado(s)', 'success');
+                    renderCatalogsList();
+                    return;
+                }
+                _serverFetch('POST', '/api/catalogs', ecatToSync[syncIdx], function() { syncIdx++; syncNextEcat(); });
+            }
+            syncNextEcat();
+        }
+        if (imagesToDownload.length > 0 || imagesToUpload.length > 0) { downloadNext(); }
+        else { showToast('✅ Todo sincronizado — no hay fotos nuevas', 'success'); }
     });
 }
 
