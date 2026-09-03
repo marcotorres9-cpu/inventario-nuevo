@@ -11,7 +11,7 @@
     <!-- Auto-update: check server version every 5 min, reload if newer -->
     <script>
     (function(){
-        var _curVer='NV114';
+        var _curVer='NV115';
         function _checkVer(){
             try{
                 fetch(getServerUrl?getServerUrl():location.origin+'/api/version?_t='+Date.now())
@@ -1106,7 +1106,7 @@
             <div>
                 <div class="header-name" id="storeHeaderName">Inventario Pro</div>
                 <div class="header-role" id="userRole">rol</div>
-                <div class="header-ver" id="headerVersion">v2.6.67 NV114</div>
+                <div class="header-ver" id="headerVersion">v2.6.68 NV115</div>
             </div>
         </div>
         <button class="btn-logout" onclick="toggleTheme()" style="background:none;border:none;font-size:20px;cursor:pointer;margin-right:8px;color:var(--text2);" title="Cambiar tema">🌓</button>
@@ -1327,6 +1327,7 @@
                     <div style="font-size:12px;color:var(--text3);margin-top:2px;">Comparte productos con enlace corto</div>
                 </div>
                 <div style="display:flex;gap:8px;">
+                    <button class="btn btn-outline btn-sm" onclick="syncAllCatalogImages()" style="font-size:12px;">🔄 Sincronizar Fotos</button>
                     <button class="btn btn-outline btn-sm" onclick="openClientCatalog()" style="font-size:12px;background:linear-gradient(135deg,#1a73e8,#4fc3f7);color:#fff;border:none;">🌐 Clientes</button>
                     <button class="btn btn-primary btn-sm" onclick="openEcatalogEditor()">+ Agregar</button>
                 </div>
@@ -3728,7 +3729,7 @@ function logout() {
 // ====================================================================
 // CHANGELOG — Show latest updates to the user
 // ====================================================================
-var APP_VERSION = '2.6.67 NV114'
+var APP_VERSION = '2.6.68 NV115'
 var CHANGELOG_ENTRIES = [
     { ver: '2.4.0', date: '24 Abr 2026', items: [
         { icon: '📊', text: '<b>Capacidad por espacio:</b> Controla unidades mínimas y máximas para Exhibición, Local Pequeño, Local Grande desde el panel de Control del Local.' },
@@ -22987,11 +22988,165 @@ function _finalizeCatalogSave(p, slug, btn, imageIds) {
                         }
                     }
                 }
+                // Auto-sync: also save these images to the product in general catalog
+                _syncEcatImagesToProduct(p, imageIds);
             }
             showToast('Producto en catálogo', 'success');
             closeModal('catalogEditorModal');
             renderCatalogsList();
         } catch (e) { showToast('Error al guardar', 'error'); }
+    });
+}
+
+// Sync e-catalog images back to the product in general catalog
+function _syncEcatImagesToProduct(product, ecatImageIds) {
+    if (!product || !product.id) return;
+    if (!ecatImageIds || ecatImageIds.length === 0) return;
+    var products = getProducts();
+    var found = false;
+    for (var i = 0; i < products.length; i++) {
+        if (products[i].id === product.id) {
+            // Merge image IDs: add any e-catalog IDs not already in product
+            var existingIds = products[i].imageIds || [];
+            var existingSet = {};
+            for (var e = 0; e < existingIds.length; e++) existingSet[existingIds[e]] = true;
+            var changed = false;
+            for (var n = 0; n < ecatImageIds.length; n++) {
+                if (!existingSet[ecatImageIds[n]]) {
+                    existingIds.push(ecatImageIds[n]);
+                    changed = true;
+                }
+            }
+            if (changed) {
+                products[i].imageIds = existingIds;
+                saveProducts(products);
+            }
+            found = true;
+            break;
+        }
+    }
+}
+
+// ===== SYNC ALL CATALOG IMAGES (both directions) =====
+function syncAllCatalogImages() {
+    showToast('Sincronizando fotos...', 'info');
+    var serverUrl = getServerUrl();
+    var localProducts = getProducts();
+
+    // Build local product lookup by ID
+    var localMap = {};
+    for (var li = 0; li < localProducts.length; li++) {
+        if (localProducts[li].id) localMap[localProducts[li].id] = localProducts[li];
+    }
+
+    // Fetch all e-catalogs from server
+    _serverFetch('GET', '/api/catalogs?_t=' + Date.now(), null, function(responseText, err) {
+        if (err || !responseText) { showToast('Error al conectar', 'error'); return; }
+        var ecatList = [];
+        try { ecatList = JSON.parse(responseText); } catch(e) {}
+        if (!Array.isArray(ecatList)) ecatList = [];
+
+        var ecatToSync = []; // catalogs that need product images synced to them
+        var prodToSync = 0;  // products that need e-catalog images synced to them
+        var updatedProducts = localProducts.slice(); // working copy
+
+        // Pass 1: For each e-catalog, sync its images to the product (e-catalog → product)
+        for (var ei = 0; ei < ecatList.length; ei++) {
+            var cat = ecatList[ei];
+            var prods = [];
+            try { prods = (typeof cat.products === 'string') ? JSON.parse(cat.products) : (cat.products || []); } catch(e) {}
+            var p0 = prods[0] || {};
+            if (!p0.id) continue;
+            var ecatImgIds = p0.imageIds || p0.imageIds || [];
+            if (ecatImgIds.length === 0) continue;
+
+            var localProd = null;
+            var localIdx = -1;
+            for (var pi = 0; pi < updatedProducts.length; pi++) {
+                if (updatedProducts[pi].id === p0.id) { localProd = updatedProducts[pi]; localIdx = pi; break; }
+            }
+            if (!localProd) continue;
+
+            // Merge e-catalog image IDs into product
+            var existingIds = localProd.imageIds || [];
+            var existingSet = {};
+            for (var es = 0; es < existingIds.length; es++) existingSet[existingIds[es]] = true;
+            var changed = false;
+            for (var ni = 0; ni < ecatImgIds.length; ni++) {
+                if (!existingSet[ecatImgIds[ni]]) {
+                    existingIds.push(ecatImgIds[ni]);
+                    changed = true;
+                }
+            }
+            if (changed) {
+                updatedProducts[localIdx].imageIds = existingIds;
+                prodToSync++;
+            }
+        }
+
+        // Pass 2: For each product with images not in e-catalog, update the e-catalog (product → e-catalog)
+        for (var ci = 0; ci < ecatList.length; ci++) {
+            var cat2 = ecatList[ci];
+            var prods2 = [];
+            try { prods2 = (typeof cat2.products === 'string') ? JSON.parse(cat2.products) : (cat2.products || []); } catch(e) {}
+            var p2 = prods2[0] || {};
+            if (!p2.id) continue;
+            var ecatImgs = p2.imageIds || [];
+            var ecatSet = {};
+            for (var es2 = 0; es2 < ecatImgs.length; es2++) ecatSet[ecatImgs[es2]] = true;
+
+            // Find matching product in updated list
+            var matchProd = null;
+            for (var mp = 0; mp < updatedProducts.length; mp++) {
+                if (updatedProducts[mp].id === p2.id) { matchProd = updatedProducts[mp]; break; }
+            }
+            if (!matchProd) continue;
+            var prodImgIds = matchProd.imageIds || [];
+            var newIds = [];
+            for (var mi = 0; mi < prodImgIds.length; mi++) {
+                if (!ecatSet[prodImgIds[mi]]) newIds.push(prodImgIds[mi]);
+            }
+            if (newIds.length > 0) {
+                // Product has images the e-catalog doesn't — update the e-catalog
+                var mergedIds = ecatImgs.concat(newIds);
+                p2.imageIds = mergedIds;
+                var updateBody = {
+                    id: cat2.id,
+                    slug: cat2.slug,
+                    name: cat2.name || cat2.slug,
+                    description: cat2.description || '',
+                    products: [p2],
+                    storeInfo: cat2.storeInfo || {},
+                    mainImage: cat2.mainImage || 0
+                };
+                ecatToSync.push(updateBody);
+            }
+        }
+
+        // Save updated products
+        if (prodToSync > 0) {
+            saveProducts(updatedProducts);
+        }
+
+        // Sync product images to e-catalogs (batch)
+        var syncIdx = 0;
+        function syncNextEcat() {
+            if (syncIdx >= ecatToSync.length) {
+                var total = prodToSync + ecatToSync.length;
+                if (total === 0) {
+                    showToast('✅ Todo sincronizado — no hay fotos nuevas', 'success');
+                } else {
+                    showToast('✅ ' + total + ' producto(s) sincronizado(s)', 'success');
+                }
+                renderCatalogsList();
+                return;
+            }
+            _serverFetch('POST', '/api/catalogs', ecatToSync[syncIdx], function(t, e) {
+                syncIdx++;
+                syncNextEcat();
+            });
+        }
+        syncNextEcat();
     });
 }
 
