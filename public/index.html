@@ -14,16 +14,22 @@
         var _curVer='NV116';
         function _checkVer(){
             try{
-                fetch(getServerUrl?getServerUrl():location.origin+'/api/version?_t='+Date.now())
+                fetch(getServerUrl?getServerUrl():location.origin+'/api/version?_t='+Date.now(),{cache:'no-store'})
                 .then(function(r){return r.json()})
                 .then(function(d){
                     var sv=d.version||'';
-                    if(sv&&sv!==_curVer){console.log('[UPDATE] New version '+sv+', reloading...');location.reload();}
+                    if(sv&&sv!==_curVer){
+                        console.log('[UPDATE] New version '+sv+', force-reloading...');
+                        // Force bypass cache by adding timestamp to URL
+                        var base=location.href.split('?')[0].split('#')[0];
+                        location.replace(base+'?_v='+sv+'&_t='+Date.now());
+                    }
                 }).catch(function(){});
             }catch(e){}
         }
-        setTimeout(_checkVer,10000);
-        setInterval(_checkVer,300000);
+        // Check immediately after 3s, then every 2 min
+        setTimeout(_checkVer,3000);
+        setInterval(_checkVer,120000);
     })();
     </script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" onerror="window._jspdfErr=true"></script>
