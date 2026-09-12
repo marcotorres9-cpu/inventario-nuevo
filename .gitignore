@@ -5,3 +5,4 @@ tool-results/
 keystore.jks
 *.apk
 tsconfig.tsbuildinfo
+.env*

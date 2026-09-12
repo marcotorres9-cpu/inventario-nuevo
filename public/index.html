@@ -7497,6 +7497,37 @@ function compressImage(file, maxW, maxH, quality) {
     });
 }
 
+// ===== UPLOAD SIZE GUARD =====
+// Vercel serverless limit: 4.5MB request body. If base64 is too big, downscale
+// iteratively until it fits. Prevents silent HTTP 413 upload failures.
+function ensureUploadSize(dataUrl, maxBytes, cb) {
+    if (!dataUrl || dataUrl.length <= maxBytes) { cb(dataUrl); return; }
+    var attempt = 0;
+    function reduce(dUrl) {
+        attempt++;
+        var img = new Image();
+        img.onload = function() {
+            var ratio = Math.sqrt(maxBytes / dUrl.length) * 0.85;
+            var scale = Math.max(0.3, Math.min(0.8, ratio));
+            var w = Math.max(200, Math.round(img.width * scale));
+            var h = Math.max(200, Math.round(img.height * scale));
+            var q = Math.max(0.45, 0.78 - attempt * 0.08);
+            var canvas = document.createElement('canvas');
+            canvas.width = w; canvas.height = h;
+            var ctx = canvas.getContext('2d');
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
+            ctx.drawImage(img, 0, 0, w, h);
+            var out = canvas.toDataURL('image/jpeg', q);
+            if (out.length <= maxBytes || attempt >= 4 || (w <= 220 && h <= 220) || out.length >= dUrl.length) { cb(out); return; }
+            reduce(out);
+        };
+        img.onerror = function() { cb(dUrl); };
+        img.src = dUrl;
+    }
+    reduce(dataUrl);
+}
+
 // ===== MULTI-IMAGE PRODUCT UPLOAD (IndexedDB) =====
 // _pendingProductImages: array of { id: string, data: string (base64) } or just IDs already in IDB
 function uploadProductImages(input) {
@@ -7508,7 +7539,7 @@ function uploadProductImages(input) {
     var total = files.length;
     for (var fi = 0; fi < total; fi++) {
         (function(file) {
-            compressImage(file, 4096, 4096, 0.9).then(function(base64) {
+            compressImage(file, 1600, 1600, 0.82).then(function(base64) {
                 // Save to IndexedDB immediately
                 var imgId = generateImageId();
                 idbSaveImage(imgId, base64).then(function() {
@@ -23021,24 +23052,36 @@ function _doSaveWithImages(p, slug, btn, imagesToUpload, existingServerIds) {
     btn.textContent = '⏳ Subiendo foto 1/' + imagesToUpload.length + '...';
     var uploadedIds = existingServerIds.slice();
     var idx = 0;
+    var failedUploads = 0;
 
     function uploadNext() {
         if (idx >= imagesToUpload.length) {
+            if (failedUploads > 0) {
+                showToast('⚠️ ' + failedUploads + ' foto(s) no se pudieron subir al servidor', 'error');
+            }
             _finalizeCatalogSave(p, slug, btn, uploadedIds);
             return;
         }
         var img = imagesToUpload[idx];
         btn.textContent = '⏳ Subiendo foto ' + (idx + 1) + '/' + imagesToUpload.length + '...';
-        _serverFetch('POST', '/api/catalog-upload', { catalogId: _catalogEditId || '', imageType: img.type || 'image/jpeg', data: img.data }, function(text, err) {
-            try {
-                var res = JSON.parse(text || '{}');
-                if (res.id) {
-                    uploadedIds.push(res.id);
-                    img.serverId = res.id;
-                }
-            } catch (e) {}
-            idx++;
-            uploadNext();
+        var fullDataUrl = 'data:' + (img.type || 'image/jpeg') + ';base64,' + img.data;
+        ensureUploadSize(fullDataUrl, 3500000, function(finalDataUrl) {
+            var mm = finalDataUrl.match(/^data:([^;]+);base64,(.*)$/);
+            var fType = mm ? mm[1] : (img.type || 'image/jpeg');
+            var fData = mm ? mm[2] : img.data;
+            _serverFetch('POST', '/api/catalog-upload', { catalogId: _catalogEditId || '', imageType: fType, data: fData }, function(text, err) {
+                try {
+                    var res = JSON.parse(text || '{}');
+                    if (res.id) {
+                        uploadedIds.push(res.id);
+                        img.serverId = res.id;
+                    } else {
+                        failedUploads++;
+                    }
+                } catch (e) { failedUploads++; }
+                idx++;
+                uploadNext();
+            });
         });
     }
     uploadNext();
@@ -23247,11 +23290,16 @@ function syncAllCatalogImages() {
                 if (!data) { uploadIdx++; uploadMissingImages(); return; }
                 var m = data.match(/^data:(image\/\w+);base64,(.*)$/);
                 if (!m) { uploadIdx++; uploadMissingImages(); return; }
-                _serverFetch('POST', '/api/catalog-upload', { catalogId: ecatList[item.catalogIdx].id || '', imageType: m[1] || 'image/jpeg', data: m[2] }, function(text, upErr) {
-                    var srvId = null;
-                    try { var r = JSON.parse(text || '{}'); if (r.id) srvId = r.id; } catch(e) {}
-                    if (srvId) { if (!uploadedServerIds[item.catalogIdx]) uploadedServerIds[item.catalogIdx] = []; uploadedServerIds[item.catalogIdx].push(srvId); }
-                    uploadIdx++; uploadMissingImages();
+                ensureUploadSize(data, 3500000, function(finalDataUrl) {
+                    var fm = finalDataUrl.match(/^data:(image\/[\w.+]+);base64,(.*)$/);
+                    var fType = fm ? fm[1] : (m[1] || 'image/jpeg');
+                    var fData = fm ? fm[2] : m[2];
+                    _serverFetch('POST', '/api/catalog-upload', { catalogId: ecatList[item.catalogIdx].id || '', imageType: fType, data: fData }, function(text, upErr) {
+                        var srvId = null;
+                        try { var r = JSON.parse(text || '{}'); if (r.id) srvId = r.id; } catch(e) {}
+                        if (srvId) { if (!uploadedServerIds[item.catalogIdx]) uploadedServerIds[item.catalogIdx] = []; uploadedServerIds[item.catalogIdx].push(srvId); }
+                        uploadIdx++; uploadMissingImages();
+                    });
                 });
             }).catch(function() { uploadIdx++; uploadMissingImages(); });
         }
