@@ -8,6 +8,38 @@
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
     <title>Inventario Pro</title>
+    <!-- v121 HYBRID LIVE RELOAD -->
+    <script>
+    (function(){
+        try {
+            var _isCap = !!(window.Capacitor && (
+                window.Capacitor.isNative === true ||
+                (typeof window.Capacitor.isNative === 'function' && window.Capacitor.isNative()) ||
+                (typeof window.Capacitor.getPlatform === 'function' && window.Capacitor.getPlatform() === 'android')
+            ));
+            if (!_isCap) return;
+        } catch(e) { return; }
+        if (sessionStorage.getItem('_hybridChecked') === '1') return;
+        var _curHost = window.location.hostname || '';
+        if (_curHost.indexOf('vercel.app') >= 0) { sessionStorage.setItem('_hybridChecked', '1'); return; }
+        sessionStorage.setItem('_hybridChecked', '1');
+        document.documentElement.style.background = '#0A2540';
+        var _sp = document.createElement('div');
+        _sp.style.cssText = 'position:fixed;inset:0;background:linear-gradient(135deg,#0A2540,#1E3A5F);display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;font-family:-apple-system,BlinkMacSystemFont,sans-serif;z-index:99999;';
+        _sp.innerHTML = '<div style="font-size:24px;font-weight:800;margin-bottom:14px;">Inventario Pro</div><div style="font-size:13px;opacity:0.8;margin-bottom:24px;">Cargando última versión...</div><div style="width:44px;height:44px;border:3px solid rgba(255,255,255,0.2);border-top-color:#22C55E;border-radius:50%;animation:_hs 0.8s linear infinite;"></div><style>@keyframes _hs{to{transform:rotate(360deg)}}</style>';
+        document.body = document.body || document.createElement('body');
+        document.body.appendChild(_sp);
+        var _done = false;
+        function _redir() { if (_done) return; _done = true; window.location.replace('https://inventario-nuevo-v2.vercel.app/index.html'); }
+        function _stay() { if (_done) return; _done = true; var s = document.querySelector('div[style*="position:fixed"]'); if (s) s.remove(); document.documentElement.style.background = ''; }
+        var _to = setTimeout(_stay, 4000);
+        try {
+            fetch('https://inventario-nuevo-v2.vercel.app/api/version?_t=' + Date.now(), { method: 'GET', cache: 'no-store' })
+            .then(function(r) { clearTimeout(_to); if (r.ok) _redir(); else _stay(); })
+            .catch(function(e) { clearTimeout(_to); _stay(); });
+        } catch(e) { clearTimeout(_to); _stay(); }
+    })();
+    </script>
     <!-- Auto-update: check server version every 5 min, reload if newer -->
     <script>
     (function(){
