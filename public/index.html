@@ -8,36 +8,101 @@
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
     <title>Inventario Pro</title>
-    <!-- v121 HYBRID LIVE RELOAD -->
+    <!-- v121 HYBRID LIVE RELOAD: redirect to Vercel if online, else stay local -->
     <script>
     (function(){
+        // Only redirect in Capacitor native (Android APK), not web
         try {
             var _isCap = !!(window.Capacitor && (
                 window.Capacitor.isNative === true ||
                 (typeof window.Capacitor.isNative === 'function' && window.Capacitor.isNative()) ||
                 (typeof window.Capacitor.getPlatform === 'function' && window.Capacitor.getPlatform() === 'android')
             ));
-            if (!_isCap) return;
+            if (!_isCap) { console.log('[HYBRID] Not native, staying local'); return; }
         } catch(e) { return; }
-        if (sessionStorage.getItem('_hybridChecked') === '1') return;
+
+        // Avoid double-redirect
+        if (sessionStorage.getItem('_hybridChecked') === '1') {
+            console.log('[HYBRID] Already checked this session, staying local');
+            return;
+        }
+
+        // Avoid infinite loop when running on Vercel itself
         var _curHost = window.location.hostname || '';
-        if (_curHost.indexOf('vercel.app') >= 0) { sessionStorage.setItem('_hybridChecked', '1'); return; }
+        if (_curHost.indexOf('vercel.app') >= 0 || _curHost.indexOf('inventario-nuevo') >= 0) {
+            sessionStorage.setItem('_hybridChecked', '1');
+            return;
+        }
+
         sessionStorage.setItem('_hybridChecked', '1');
+
+        // Show loading splash while we check
         document.documentElement.style.background = '#0A2540';
-        var _sp = document.createElement('div');
-        _sp.style.cssText = 'position:fixed;inset:0;background:linear-gradient(135deg,#0A2540,#1E3A5F);display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;font-family:-apple-system,BlinkMacSystemFont,sans-serif;z-index:99999;';
-        _sp.innerHTML = '<div style="font-size:24px;font-weight:800;margin-bottom:14px;">Inventario Pro</div><div style="font-size:13px;opacity:0.8;margin-bottom:24px;">Cargando última versión...</div><div style="width:44px;height:44px;border:3px solid rgba(255,255,255,0.2);border-top-color:#22C55E;border-radius:50%;animation:_hs 0.8s linear infinite;"></div><style>@keyframes _hs{to{transform:rotate(360deg)}}</style>';
+        var _splash = document.createElement('div');
+        _splash.id = '_hybridSplash';
+        _splash.style.cssText = 'position:fixed;inset:0;background:linear-gradient(135deg,#0A2540,#1E3A5F);display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;z-index:99999;';
+        _splash.innerHTML = '<div style="font-size:24px;font-weight:800;margin-bottom:14px;">Inventario Pro</div>' +
+            '<div style="font-size:13px;opacity:0.8;margin-bottom:24px;">Cargando última versión...</div>' +
+            '<div style="width:44px;height:44px;border:3px solid rgba(255,255,255,0.2);border-top-color:#22C55E;border-radius:50%;animation:_hspin 0.8s linear infinite;"></div>' +
+            '<style>@keyframes _hspin{to{transform:rotate(360deg)}}</style>';
         document.body = document.body || document.createElement('body');
-        document.body.appendChild(_sp);
+        document.body.appendChild(_splash);
+
+        var _vercelUrl = 'https://inventario-nuevo-v2.vercel.app/index.html';
+        var _timeout = 4000; // 4s timeout
         var _done = false;
-        function _redir() { if (_done) return; _done = true; window.location.replace('https://inventario-nuevo-v2.vercel.app/index.html'); }
-        function _stay() { if (_done) return; _done = true; var s = document.querySelector('div[style*="position:fixed"]'); if (s) s.remove(); document.documentElement.style.background = ''; }
-        var _to = setTimeout(_stay, 4000);
+
+        function _redirect() {
+            if (_done) return;
+            _done = true;
+            console.log('[HYBRID] Online — redirecting to Vercel for latest version');
+            try { window.location.replace(_vercelUrl); } catch(e) { window.location.href = _vercelUrl; }
+        }
+
+        function _stayLocal() {
+            if (_done) return;
+            _done = true;
+            console.log('[HYBRID] Offline — using local assets (cached version)');
+            var sp = document.getElementById('_hybridSplash');
+            if (sp) sp.remove();
+            document.documentElement.style.background = '';
+        }
+
+        // Try to fetch version from Vercel (with timeout)
+        var _to = setTimeout(_stayLocal, _timeout);
         try {
-            fetch('https://inventario-nuevo-v2.vercel.app/api/version?_t=' + Date.now(), { method: 'GET', cache: 'no-store' })
-            .then(function(r) { clearTimeout(_to); if (r.ok) _redir(); else _stay(); })
-            .catch(function(e) { clearTimeout(_to); _stay(); });
-        } catch(e) { clearTimeout(_to); _stay(); }
+            fetch('https://inventario-nuevo-v2.vercel.app/api/version?_t=' + Date.now(), {
+                method: 'GET',
+                cache: 'no-store'
+            }).then(function(r) {
+                clearTimeout(_to);
+                if (r.ok) {
+                    _redirect();
+                } else {
+                    _stayLocal();
+                }
+            }).catch(function(e) {
+                clearTimeout(_to);
+                console.log('[HYBRID] Fetch failed, staying local:', e.message);
+                _stayLocal();
+            });
+        } catch(e) {
+            clearTimeout(_to);
+            _stayLocal();
+        }
+    })();
+    </script>
+    <script>
+    (function(){
+        setTimeout(function(){
+            var ls = document.getElementById('loginScreen');
+            var rs = document.getElementById('registerScreen');
+            var ma = document.getElementById('mainApp');
+            if ((!ls || ls.style.display === 'none') && (!rs || rs.style.display === 'none') && (!ma || ma.style.display === 'none')) {
+                if (ls) ls.style.display = 'flex';
+                document.body && (document.body.style.background = '#09090b');
+            }
+        }, 3000);
     })();
     </script>
     <!-- Auto-update: check server version every 5 min, reload if newer -->
@@ -429,30 +494,45 @@
         /* ================================================================
            HEADER
            ================================================================ */
+        /* ELECTROLUX HEADER v120 */
         .header {
             position: sticky; top: 0; z-index: 100;
-            background: var(--bg2);
+            background: linear-gradient(135deg, #0A2540 0%, #1E3A5F 100%);
             backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
-            border-bottom: 1px solid var(--border);
+            border-bottom: 1px solid rgba(255,255,255,0.08);
             padding: 12px 16px; display: flex;
             justify-content: space-between; align-items: center;
             padding-top: calc(env(safe-area-inset-top, 0px) + 12px);
+            box-shadow: 0 2px 10px rgba(10,37,64,0.15);
         }
         .header-user { display: flex; align-items: center; gap: 10px; }
         .avatar {
             width: 40px; height: 40px; border-radius: 12px;
-            background: linear-gradient(135deg, var(--primary), var(--primary-dim));
+            background: linear-gradient(135deg, #22C55E, #15803D);
             color: #fff; display: flex; align-items: center; justify-content: center;
             font-weight: 700; font-size: 16px;
+            box-shadow: 0 2px 6px rgba(34,197,94,0.3);
         }
-        .header-name { font-weight: 600; font-size: 14px; color: var(--text); }
-        .header-role { font-size: 11px; color: var(--text2); }
-        .header-ver { font-size: 9px; color: var(--text3); font-weight: 500; margin-top: 1px; }
+        .header-name { font-weight: 700; font-size: 15px; color: #fff; letter-spacing: 0.3px; }
+        .header-role {
+            font-size: 11px; color: rgba(255,255,255,0.8);
+            text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;
+        }
+        .header-ver {
+            font-size: 10px; color: #22C55E; font-weight: 700; margin-top: 2px;
+            background: rgba(34,197,94,0.15);
+            padding: 1px 6px; border-radius: 4px;
+            display: inline-block;
+        }
         .btn-logout {
-            padding: 7px 14px; font-size: 12px; color: var(--danger);
-            background: var(--danger-bg); border: none; cursor: pointer;
-            border-radius: 8px; font-weight: 600;
+            padding: 7px 14px; font-size: 12px; color: #fff;
+            background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.2);
+            cursor: pointer; border-radius: 8px; font-weight: 600;
+            backdrop-filter: blur(6px);
+            transition: background 0.15s, transform 0.15s;
         }
+        .btn-logout:active { transform: scale(0.96); background: rgba(255,255,255,0.2); }
+        .btn-logout:hover { background: rgba(255,255,255,0.2); }
 
         /* ================================================================
            CONNECTION BAR
@@ -1034,6 +1114,212 @@
 .cat-detail-close{margin-top:10px;width:100%;padding:13px;background:var(--bg2);color:var(--text2);border:1px solid var(--border);border-radius:12px;font-size:14px;font-weight:600;cursor:pointer}
 .cat-detail-open{margin-top:8px;width:100%;padding:13px;background:var(--primary);color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px}
 
+
+        /* ====== ELECTROLUX DESIGN v118 — Digital Catalogs ====== */
+        .elx-cat-header {
+            background: linear-gradient(135deg, #0A2540 0%, #1E3A5F 100%);
+            color: #fff; padding: 18px 16px; border-radius: 14px; margin-bottom: 14px;
+            position: relative; overflow: hidden; box-shadow: 0 4px 14px rgba(10,37,64,0.18);
+        }
+        .elx-cat-header::before {
+            content: ''; position: absolute; top: -50%; right: -20%;
+            width: 200px; height: 200px;
+            background: radial-gradient(ellipse, rgba(34,197,94,0.25), transparent 60%);
+            pointer-events: none;
+        }
+        .elx-cat-header h2 { font-size: 19px; font-weight: 700; margin: 0 0 4px; text-shadow: 0 2px 6px rgba(0,0,0,0.3); position: relative; }
+        .elx-cat-header-sub { font-size: 12px; opacity: 0.9; position: relative; }
+        .elx-cat-header-actions { display: flex; gap: 6px; margin-top: 10px; position: relative; flex-wrap: wrap; }
+        .elx-cat-btn {
+            background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.25); color: #fff;
+            padding: 7px 13px; border-radius: 8px; font-size: 11px; font-weight: 600; cursor: pointer;
+            backdrop-filter: blur(6px); transition: background 0.15s, transform 0.15s;
+        }
+        .elx-cat-btn:active { transform: scale(0.96); background: rgba(255,255,255,0.25); }
+        .elx-cat-btn-primary { background: #22C55E; border-color: #22C55E; color: #fff; }
+        .elx-cat-btn-blue { background: #1a73e8; border-color: #1a73e8; color: #fff; }
+        .elx-cat-section-title {
+            font-size: 14px; font-weight: 700; color: #0A2540; text-align: center;
+            letter-spacing: 2px; text-transform: uppercase; margin: 18px 0 12px;
+        }
+        .elx-cat-section-title::before, .elx-cat-section-title::after {
+            content: ''; display: inline-block; width: 22px; height: 2px; background: #0A2540;
+            vertical-align: middle; margin: 0 8px; opacity: 0.3;
+        }
+        .elx-cat-search {
+            background: #fff; border: 1px solid #E5E7EB; border-radius: 12px; padding: 0 14px;
+            height: 44px; font-size: 14px; width: 100%; box-sizing: border-box; outline: none; transition: border-color 0.2s;
+        }
+        .elx-cat-search:focus { border-color: #0A2540; }
+        .elx-cat-card {
+            break-inside: avoid; background: #fff; border: 1px solid #E5E7EB; border-radius: 14px;
+            overflow: hidden; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(10,37,64,0.06);
+            transition: transform 0.15s, box-shadow 0.15s;
+        }
+        .elx-cat-card:active { transform: scale(0.98); box-shadow: 0 4px 12px rgba(10,37,64,0.10); }
+        .elx-cat-card-img {
+            position: relative; width: 100%; aspect-ratio: 4/3; background: #F5F7FA;
+            display: flex; align-items: center; justify-content: center; cursor: pointer; overflow: hidden;
+            border-bottom: 1px solid #E5E7EB;
+        }
+        .elx-cat-card-img img { width: 85%; height: 85%; object-fit: contain; }
+        .elx-cat-card-ph { font-size: 40px; opacity: 0.25; }
+        .elx-cat-badge-disc {
+            position: absolute; top: 8px; left: 8px; background: #EF4444; color: #fff;
+            font-size: 10px; font-weight: 700; padding: 3px 9px; border-radius: 12px; z-index: 2;
+            box-shadow: 0 2px 6px rgba(239,68,68,0.4);
+        }
+        .elx-cat-badge-new {
+            position: absolute; top: 8px; right: 8px; background: #22C55E; color: #fff;
+            font-size: 9px; font-weight: 700; padding: 2px 8px; border-radius: 4px; z-index: 2;
+            letter-spacing: 0.5px; text-transform: uppercase;
+        }
+        .elx-cat-card-body { padding: 12px 14px; }
+        .elx-cat-card-name {
+            font-size: 13px; font-weight: 700; color: #0F172A; display: -webkit-box;
+            -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+            line-height: 1.3; min-height: 33px; margin-bottom: 3px;
+        }
+        .elx-cat-card-brand {
+            font-size: 11px; color: #94A3B8; font-weight: 600; margin-bottom: 6px;
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+            text-transform: uppercase; letter-spacing: 0.5px;
+        }
+        .elx-cat-card-prices { margin-bottom: 8px; }
+        .elx-cat-card-price-old { font-size: 11px; color: #94A3B8; text-decoration: line-through; margin-right: 6px; }
+        .elx-cat-card-price { font-size: 17px; font-weight: 800; color: #0A2540; }
+        .elx-cat-card-specs { font-size: 10px; color: #475569; margin-bottom: 10px; line-height: 1.5; }
+        .elx-cat-card-specs div { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .elx-cat-card-specs div::before { content: '• '; color: #22C55E; font-weight: 700; }
+        .elx-cat-card-actions { display: flex; gap: 6px; margin-top: 8px; }
+        .elx-cat-card-btn-main {
+            width: 100%; padding: 9px; background: #0A2540; color: #fff; border: none;
+            border-radius: 8px; font-size: 11px; font-weight: 700; cursor: pointer;
+            text-transform: uppercase; letter-spacing: 0.5px; transition: background 0.15s, transform 0.15s;
+        }
+        .elx-cat-card-btn-main:active { transform: scale(0.96); background: #061827; }
+        .elx-cat-card-btn-ico {
+            width: 36px; height: 32px; border: 1px solid #E5E7EB; border-radius: 6px;
+            background: #fff; font-size: 12px; cursor: pointer;
+            display: flex; align-items: center; justify-content: center; transition: background 0.15s;
+        }
+        .elx-cat-card-btn-ico:active { background: #F5F7FA; }
+        .elx-cat-card-btn-ico.danger { color: #EF4444; }
+        .elx-cat-stats {
+            display: flex; gap: 12px; padding: 10px 14px; background: #F5F7FA; border-radius: 10px;
+            margin-bottom: 10px; font-size: 12px; color: #475569; font-weight: 600; flex-wrap: wrap;
+        }
+        .elx-cat-stats strong { color: #0A2540; font-weight: 700; }
+
+        /* ====== ELECTROLUX DESIGN v119 — Main Catalog (Inventory) ====== */
+        .elx-inv-hero {
+            margin: 0 0 16px; border-radius: 14px; overflow: hidden;
+            background: linear-gradient(135deg, #0A2540 0%, #1E3A5F 100%);
+            position: relative; aspect-ratio: 16/8; box-shadow: 0 4px 14px rgba(10,37,64,0.18);
+        }
+        .elx-inv-hero-bg {
+            position: absolute; inset: 0;
+            background: linear-gradient(180deg, rgba(10,37,64,0.2) 0%, rgba(10,37,64,0.75) 100%),
+                        radial-gradient(ellipse at top right, rgba(34,197,94,0.25), transparent 60%);
+        }
+        .elx-inv-hero-content {
+            position: relative; padding: 14px 16px; height: 100%;
+            display: flex; flex-direction: column; justify-content: flex-end; color: #fff;
+        }
+        .elx-inv-hero-tag {
+            background: #22C55E; color: #fff; font-size: 10px; font-weight: 700;
+            padding: 3px 9px; border-radius: 10px; letter-spacing: 1px; text-transform: uppercase;
+            align-self: flex-start; margin-bottom: 6px;
+        }
+        .elx-inv-hero-title {
+            font-size: 18px; font-weight: 700; line-height: 1.2; margin-bottom: 4px;
+            text-shadow: 0 2px 6px rgba(0,0,0,0.3);
+        }
+        .elx-inv-hero-sub { font-size: 11px; opacity: 0.9; margin-bottom: 10px; }
+        .elx-inv-hero-stats { display: flex; gap: 10px; position: relative; flex-wrap: wrap; }
+        .elx-inv-hero-stat {
+            background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.25);
+            padding: 5px 10px; border-radius: 8px; font-size: 10px; font-weight: 600; backdrop-filter: blur(6px);
+        }
+        .elx-inv-hero-stat strong { color: #22C55E; font-size: 13px; display: block; line-height: 1; }
+        .elx-inv-section-title {
+            font-size: 13px; font-weight: 700; color: #0A2540; text-align: center;
+            letter-spacing: 2px; text-transform: uppercase; margin: 16px 0 10px;
+        }
+        .elx-inv-section-title::before, .elx-inv-section-title::after {
+            content: ''; display: inline-block; width: 22px; height: 2px; background: #0A2540;
+            vertical-align: middle; margin: 0 8px; opacity: 0.3;
+        }
+        .elx-inv-categories {
+            display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 16px;
+        }
+        .elx-inv-cat {
+            background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+            padding: 10px 4px 6px; display: flex; flex-direction: column; align-items: center;
+            gap: 3px; cursor: pointer; text-align: center; transition: transform 0.15s, border-color 0.15s;
+        }
+        .elx-inv-cat:active { transform: scale(0.95); border-color: #0A2540; }
+        .elx-inv-cat-icon {
+            width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; font-size: 22px;
+        }
+        .elx-inv-cat-name {
+            font-size: 9px; font-weight: 600; color: var(--text); line-height: 1.15;
+            min-height: 22px; display: flex; align-items: center;
+        }
+        .elx-inv-cat-count { font-size: 9px; color: var(--text3); background: var(--bg3); padding: 1px 5px; border-radius: 6px; margin-top: 2px; }
+        .elx-inv-search-bar {
+            background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+            padding: 0 14px; display: flex; align-items: center; height: 44px; margin-bottom: 10px;
+            transition: border-color 0.2s;
+        }
+        .elx-inv-search-bar:focus-within { border-color: #0A2540; }
+        .elx-inv-search-bar input {
+            flex: 1; border: none; background: transparent; font-size: 14px; outline: none;
+            font-family: inherit; color: var(--text);
+        }
+        .elx-inv-search-bar input::placeholder { color: var(--text3); }
+
+        /* Better product cards */
+        .product-card {
+            background: var(--card) !important; border: 1px solid var(--border) !important;
+            border-radius: 14px !important; overflow: hidden; position: relative;
+            transition: transform 0.15s, box-shadow 0.15s !important;
+            box-shadow: 0 1px 3px rgba(10,37,64,0.06) !important;
+        }
+        .product-card:active { transform: scale(0.97) !important; box-shadow: 0 4px 12px rgba(10,37,64,0.10) !important; }
+        .product-thumb { background: #F5F7FA !important; border-radius: 0 !important; border-bottom: 1px solid var(--border) !important; }
+        .badge-out {
+            background: #EF4444 !important; color: #fff !important; font-weight: 700;
+            padding: 3px 8px !important; border-radius: 4px !important; font-size: 10px !important;
+            letter-spacing: 0.5px; box-shadow: 0 2px 6px rgba(239,68,68,0.4);
+        }
+        .badge-low {
+            background: rgba(245,158,11,0.15) !important; color: #d97706 !important; font-weight: 700;
+            padding: 3px 8px !important; border-radius: 4px !important; font-size: 10px !important;
+        }
+        .badge-stock {
+            background: rgba(34,197,94,0.15) !important; color: #15803D !important; font-weight: 700;
+            padding: 3px 8px !important; border-radius: 4px !important; font-size: 10px !important;
+        }
+        .filter-chip {
+            background: var(--card) !important; border: 1px solid var(--border) !important; color: var(--text2) !important;
+            padding: 6px 12px !important; border-radius: 18px !important; font-size: 11px !important;
+            font-weight: 600 !important; cursor: pointer; transition: all 0.15s !important;
+        }
+        .filter-chip:active { transform: scale(0.95); }
+        .filter-chip.active { background: #0A2540 !important; color: #fff !important; border-color: #0A2540 !important; }
+        .btn-primary {
+            background: #0A2540 !important; color: #fff !important; border: none !important;
+            border-radius: 10px !important; padding: 10px 18px !important; font-weight: 700 !important;
+            font-size: 13px !important; cursor: pointer; transition: transform 0.15s, background 0.15s !important;
+        }
+        .btn-primary:active { transform: scale(0.97); background: #061827 !important; }
+        .btn-outline {
+            background: var(--card) !important; border: 1px solid var(--border) !important; color: var(--text) !important;
+            border-radius: 10px !important; padding: 8px 14px !important; font-weight: 600 !important;
+            font-size: 12px !important; cursor: pointer; transition: transform 0.15s, border-color 0.15s !important;
+        }
+        .btn-outline:active { transform: scale(0.97); border-color: #0A2540 !important; }
 </style>
 </head>
 <body>
@@ -1144,7 +1430,7 @@
             <div>
                 <div class="header-name" id="storeHeaderName">Inventario Pro</div>
                 <div class="header-role" id="userRole">rol</div>
-                <div class="header-ver" id="headerVersion">v2.6.68 NV115</div>
+                <div class="header-ver" id="headerVersion">v2.6.68 NV116</div>
             </div>
         </div>
         <button class="btn-logout" onclick="toggleTheme()" style="background:none;border:none;font-size:20px;cursor:pointer;margin-right:8px;color:var(--text2);" title="Cambiar tema">🌓</button>
@@ -1242,8 +1528,26 @@
 
             <!-- CATALOG VIEW (default) -->
             <div id="giCatalogMain">
-                <div class="search-bar">
-                    <input type="text" id="searchInput" class="search-input" placeholder="🔍 Buscar producto..." oninput="renderProductList()">
+                <!-- ELECTROLUX HERO BANNER v119 -->
+                <div class="elx-inv-hero" id="elxInvHeroBanner">
+                    <div class="elx-inv-hero-bg"></div>
+                    <div class="elx-inv-hero-content">
+                        <span class="elx-inv-hero-tag">⚡ Inventario</span>
+                        <h2 class="elx-inv-hero-title">Zona Libre Electrodomésticos</h2>
+                        <p class="elx-inv-hero-sub">Ipiales — Nariño · 0963384810</p>
+                        <div class="elx-inv-hero-stats" id="elxInvHeroStats"></div>
+                    </div>
+                </div>
+
+                <!-- CATEGORIES GRID -->
+                <h3 class="elx-inv-section-title">Categorías</h3>
+                <div class="elx-inv-categories" id="elxInvCategoriesGrid"></div>
+
+                <h3 class="elx-inv-section-title">Productos</h3>
+
+                <div class="elx-inv-search-bar">
+                    <span style="font-size:16px;margin-right:8px;">🔍</span>
+                    <input type="text" id="searchInput" placeholder="Buscar producto, marca, código..." oninput="renderProductList()">
                 </div>
                 <!-- Cascading filter bar -->
                 <div id="productFilterBar" style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;">
@@ -1359,27 +1663,25 @@
     <!-- ===== CATALOGS SECTION ===== -->
     <div id="catalogsSection" class="section">
         <div class="main">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-                <div>
-                    <h2 style="font-size:22px;font-weight:800;">📖 Catálogo Electrónico</h2>
-                    <div style="font-size:12px;color:var(--text3);margin-top:2px;">Comparte productos con enlace corto</div>
-                </div>
-                <div style="display:flex;gap:8px;">
-                    <button class="btn btn-outline btn-sm" onclick="syncAllCatalogImages()" style="font-size:12px;">🔄 Sincronizar Fotos</button>
-                    <button class="btn btn-outline btn-sm" onclick="openClientCatalog()" style="font-size:12px;background:linear-gradient(135deg,#1a73e8,#4fc3f7);color:#fff;border:none;">🌐 Clientes</button>
-                    <button class="btn btn-primary btn-sm" onclick="openEcatalogEditor()">+ Agregar</button>
+            <div class="elx-cat-header">
+                <h2>📖 Catálogo Electrónico</h2>
+                <div class="elx-cat-header-sub">Comparte productos con tus clientes vía enlace corto y QR</div>
+                <div class="elx-cat-header-actions">
+                    <button class="elx-cat-btn elx-cat-btn-primary" onclick="openEcatalogEditor()">+ Agregar</button>
+                    <button class="elx-cat-btn elx-cat-btn-blue" onclick="openClientCatalog()">🌐 Vista Clientes</button>
+                    <button class="elx-cat-btn" onclick="syncAllCatalogImages()">🔄 Sincronizar Fotos</button>
                 </div>
             </div>
-            <!-- Category tabs -->
             <div id="catalogCategoryTabs" style="display:flex;gap:8px;overflow-x:auto;padding:6px 0 10px;scrollbar-width:none;-ms-overflow-style:none;"></div>
             <div id="catalogSubcategoryList" style="display:none;margin-bottom:10px;"></div>
-            <!-- Stats bar -->
-            <div id="catalogStatsBar" style="display:flex;gap:12px;padding:8px 12px;background:var(--bg2);border-radius:10px;margin-bottom:8px;font-size:12px;color:var(--text2);"></div>
+            <div id="catalogStatsBar" class="elx-cat-stats" style="display:flex;"></div>
             <div id="_ecatCovCards" style="margin-bottom:10px;"></div>
-            <div style="margin-bottom:12px;">
-                <input type="text" id="ecatalogSearch" placeholder="🔍 Buscar en catálogo..." oninput="renderCatalogsList()" style="width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:10px;background:var(--bg2);color:var(--text);font-size:14px;box-sizing:border-box;">
+            <h3 class="elx-cat-section-title">Buscar</h3>
+            <div style="margin-bottom:14px;">
+                <input type="text" id="ecatalogSearch" placeholder="🔍 Buscar producto, marca, categoría..." oninput="renderCatalogsList()" class="elx-cat-search">
             </div>
-            <div id="catalogsListContainer" style="columns:2;column-gap:10px;"></div>
+            <h3 class="elx-cat-section-title">Nuestros Catálogos</h3>
+            <div id="catalogsListContainer" style="columns:2;column-gap:12px;"></div>
         </div>
     </div>
 
@@ -2737,21 +3039,33 @@ function setCurrentUser(u) {
 })();
 function _isLocalApp() {
     try {
+        if (typeof window !== 'undefined' && window.Capacitor && (
+            window.Capacitor.isNative === true ||
+            (typeof window.Capacitor.isNative === 'function' && window.Capacitor.isNative()) ||
+            (typeof window.Capacitor.getPlatform === 'function' && window.Capacitor.getPlatform() === 'android')
+        )) { return false; }
+    } catch(e) {}
+    try {
         var o = window.location.origin;
         return o.indexOf('localhost') >= 0 || o === 'null' || o.indexOf('192.168') >= 0;
     } catch(e) { return false; }
 }
 function getServerUrl() {
+    var fallback = 'https://inventario-nuevo-v2.vercel.app';
+    try {
+        var _isCapNative = !!(typeof window !== 'undefined' && window.Capacitor && (
+            window.Capacitor.isNative === true ||
+            (typeof window.Capacitor.isNative === 'function' && window.Capacitor.isNative()) ||
+            (typeof window.Capacitor.getPlatform === 'function' && window.Capacitor.getPlatform() === 'android')
+        ));
+        if (_isCapNative) { localStorage.setItem('inv_serverUrl', fallback); return fallback; }
+    } catch(e) {}
     if (typeof window !== 'undefined' && window.location && window.location.origin) {
         var origin = window.location.origin;
-        if (origin.indexOf('http') === 0 && origin.indexOf('localhost') < 0) {
-            localStorage.setItem('inv_serverUrl', origin);
-            return origin;
-        }
+        var isLocal = origin.indexOf('localhost') >= 0 || origin.indexOf('127.0.0.1') >= 0 || origin.indexOf('inventario.app.local') >= 0 || origin === 'null' || origin.indexOf('file://') === 0;
+        if (origin.indexOf('http') === 0 && !isLocal) { localStorage.setItem('inv_serverUrl', origin); return origin; }
     }
-    var fallback = 'https://inventario-nuevo-v2.vercel.app';
-    localStorage.setItem('inv_serverUrl', fallback);
-    return fallback;
+    localStorage.setItem('inv_serverUrl', fallback); return fallback;
 }
 // Auth uses the SAME server as data — all routes in one deployment
 function getAuthUrl() {
@@ -3806,9 +4120,103 @@ function forcePullAndRefresh() {
             })
             .catch(function(e) { console.warn('[SYNC] Quotations pull failed:', e.message); })
             .then(function() {
-                // Final step: refresh UI after ALL data is pulled
-                refreshUI();
-            });
+                return fetch(url + '/api/locations?_t=' + Date.now(), { method: 'GET', headers: { 'Content-Type': 'application/json' } })
+                    .then(safeJson)
+                    .then(function(locData) {
+                        if (locData && locData.locations && Array.isArray(locData.locations)) {
+                            var localLocs = getLocations();
+                            var localMap = {};
+                            for (var i = 0; i < localLocs.length; i++) localMap[localLocs[i].id] = localLocs[i];
+                            var serverIds = {};
+                            var merged = [];
+                            for (var j = 0; j < locData.locations.length; j++) {
+                                var sl = locData.locations[j];
+                                if (!sl || !sl.id) continue;
+                                serverIds[sl.id] = true;
+                                var localTime = new Date((localMap[sl.id] && localMap[sl.id].updatedAt) || 0).getTime();
+                                var serverTime = new Date(sl.updatedAt || 0).getTime();
+                                if (!localMap[sl.id] || serverTime > localTime) merged.push(sl);
+                                else merged.push(localMap[sl.id]);
+                            }
+                            for (var ll = 0; ll < localLocs.length; ll++) {
+                                if (!serverIds[localLocs[ll].id]) merged.push(localLocs[ll]);
+                            }
+                            saveLocations(merged);
+                            try {
+                                var products = getProducts();
+                                var prodStockMap = {};
+                                for (var li = 0; li < merged.length; li++) {
+                                    var spaces = merged[li].spaces || [];
+                                    for (var si = 0; si < spaces.length; si++) {
+                                        var spaceProds = spaces[si].products || [];
+                                        for (var pi = 0; pi < spaceProds.length; pi++) {
+                                            var sp = spaceProds[pi];
+                                            var pid = sp.productId || '';
+                                            if (!pid) continue;
+                                            var qty = parseInt(sp.qty) || 0;
+                                            prodStockMap[pid] = (prodStockMap[pid] || 0) + qty;
+                                        }
+                                    }
+                                }
+                                var stockChanged = false;
+                                for (var ip = 0; ip < products.length; ip++) {
+                                    var newStock = prodStockMap[products[ip].id] || 0;
+                                    if (products[ip].stock !== newStock && newStock > 0) {
+                                        products[ip].stock = newStock; stockChanged = true;
+                                    }
+                                }
+                                if (stockChanged) saveProducts(products);
+                            } catch(eStock) {}
+                        }
+                    })
+                    .catch(function(e) { console.warn('[SYNC] Locations fetch error (ignored):', e.message); });
+            })
+            .then(function() {
+                return fetch(url + '/api/catalogs?_t=' + Date.now(), { method: 'GET', headers: { 'Content-Type': 'application/json' } })
+                    .then(safeJson)
+                    .then(function(catsData) {
+                        if (Array.isArray(catsData) && catsData.length > 0) {
+                            var products = getProducts();
+                            var changed = false;
+                            var nameToImgIds = {};
+                            for (var ci = 0; ci < catsData.length; ci++) {
+                                var cat = catsData[ci];
+                                var catProds = cat.products || [];
+                                if (typeof catProds === 'string') { try { catProds = JSON.parse(catProds); } catch(e) { catProds = []; } }
+                                for (var pi = 0; pi < catProds.length; pi++) {
+                                    var cp = catProds[pi];
+                                    if (!cp || !cp.name) continue;
+                                    var cpImgs = cp.imageIds || [];
+                                    if (cpImgs.length > 0 && !nameToImgIds[cp.name]) nameToImgIds[cp.name] = cpImgs;
+                                }
+                            }
+                            for (var i = 0; i < products.length; i++) {
+                                var p = products[i];
+                                var hasImages = p.images && p.images.length > 0;
+                                var catImgs = nameToImgIds[p.name];
+                                if (!hasImages && catImgs && catImgs.length > 0) { p.images = catImgs; changed = true; }
+                                if (catImgs && typeof p.mainImage !== 'number') {
+                                    for (var ci2 = 0; ci2 < catsData.length; ci2++) {
+                                        var cat2 = catsData[ci2];
+                                        var catProds2 = cat2.products || [];
+                                        if (typeof catProds2 === 'string') { try { catProds2 = JSON.parse(catProds2); } catch(e) { catProds2 = []; } }
+                                        for (var pi2 = 0; pi2 < catProds2.length; pi2++) {
+                                            var cp2 = catProds2[pi2];
+                                            if (cp2 && cp2.name === p.name) {
+                                                if (typeof cat2.mainImage === 'number') { p.mainImage = cat2.mainImage; changed = true; }
+                                                break;
+                                            }
+                                        }
+                                        if (typeof p.mainImage === 'number') break;
+                                    }
+                                }
+                            }
+                            if (changed) saveProducts(products);
+                        }
+                    })
+                    .catch(function(e) { console.warn('[SYNC] Catalogs cross-sync error (ignored):', e.message); });
+            })
+            .then(function() { refreshUI(); });
         });
     })
     .catch(function(err) {
@@ -3831,7 +4239,7 @@ function logout() {
 // ====================================================================
 // CHANGELOG — Show latest updates to the user
 // ====================================================================
-var APP_VERSION = '2.6.68 NV115'
+var APP_VERSION = '2.6.68 NV116'
 var CHANGELOG_ENTRIES = [
     { ver: '2.4.0', date: '24 Abr 2026', items: [
         { icon: '📊', text: '<b>Capacidad por espacio:</b> Controla unidades mínimas y máximas para Exhibición, Local Pequeño, Local Grande desde el panel de Control del Local.' },
@@ -4502,7 +4910,7 @@ function openEditProduct(id) {
     renderProductSpecFields(product.category || '', product.specifications);
 
     // Load product images
-    loadProductImagesUI(product.images || product.image || '');
+    loadProductImagesUI(product.images || product.image || '', product.mainImage || 0);
 
     openModal('productModal');
 }
@@ -4556,6 +4964,8 @@ function saveProduct(e) {
                 var newImages = getProductImagesToSave(products[i].images || []);
                 products[i].images = newImages;
                 products[i].image = '';
+                products[i].mainImage = (typeof window._pendingProductMainImage === 'number') ? window._pendingProductMainImage : 0;
+                if (products[i].mainImage >= newImages.length) products[i].mainImage = 0;
                 break;
             }
         }
@@ -4583,6 +4993,7 @@ function saveProduct(e) {
             space: space,
             image: '',
             images: getProductImagesToSave([]),
+            mainImage: (typeof window._pendingProductMainImage === 'number') ? window._pendingProductMainImage : 0,
             createdAt: now,
             updatedAt: now
         };
@@ -4917,21 +5328,20 @@ function renderProductList() {
             if (pImgIds[vi] && pImgIds[vi].indexOf('data:') !== 0) validIds.push(pImgIds[vi]);
         }
         if (validIds.length > 0) {
-            (function(productId, firstImgId, allIds) {
+            (function(productId, firstImgId, allIds, mainIdx) {
                 var thumb = document.getElementById('thumb_' + productId);
                 if (!thumb) return;
-                // Attach click/touch listener
+                var _mainIdx = (typeof mainIdx === 'number' && mainIdx >= 0 && mainIdx < allIds.length) ? mainIdx : 0;
+                var _firstImgId = allIds[_mainIdx] || firstImgId;
                 thumb.addEventListener('click', function(e) {
                     e.stopPropagation();
-                    openImageLightboxByIds(allIds, 0);
+                    openImageLightboxByIds(allIds, _mainIdx);
                 });
-                // Load image from IndexedDB, with server fallback
-                idbGetImage(firstImgId).then(function(data) {
+                idbGetImage(_firstImgId).then(function(data) {
                     if (thumb && data) {
                         thumb.innerHTML = '<img src="' + data + '" style="width:100%;height:100%;object-fit:cover;pointer-events:none;" draggable="false">';
                     } else if (thumb) {
-                        // Fallback: try loading from server CatalogImage API
-                        var srvUrl = (typeof getServerUrl === 'function' ? getServerUrl() : '') + '/api/catalog-image/' + encodeURIComponent(firstImgId);
+                        var srvUrl = (typeof getServerUrl === 'function' ? getServerUrl() : '') + '/api/catalog-image/' + encodeURIComponent(_firstImgId);
                         var fallbackImg = new Image();
                         fallbackImg.onload = function() {
                             if (thumb) thumb.innerHTML = '<img src="' + srvUrl + '" style="width:100%;height:100%;object-fit:cover;pointer-events:none;" draggable="false">';
@@ -4940,7 +5350,7 @@ function renderProductList() {
                         fallbackImg.src = srvUrl;
                     }
                 });
-            })(p.id, validIds[0], validIds);
+            })(p.id, validIds[0], validIds, p.mainImage);
         }
     }
 }
@@ -7599,38 +8009,59 @@ function renderProductImagePreviews() {
         return;
     }
 
-    // Show loading placeholders then load images async
+    if (typeof window._pendingProductMainImage !== 'number' || window._pendingProductMainImage >= imgIds.length) {
+        window._pendingProductMainImage = 0;
+    }
+    var mainIdx = window._pendingProductMainImage;
+
     var html = '';
     for (var i = 0; i < imgIds.length; i++) {
-        html += '<div id="prevThumb' + i + '" style="position:relative;width:64px;height:64px;border-radius:10px;overflow:hidden;border:2px solid var(--border);flex-shrink:0;cursor:pointer;background:var(--bg2);" onclick="openImageLightboxByProduct()">' +
+        var isMain = (i === mainIdx);
+        var border = isMain ? '2px solid var(--primary)' : '2px solid var(--border)';
+        var shadow = isMain ? 'box-shadow:0 0 0 2px var(--primary-bg);' : '';
+        html += '<div id="prevThumb' + i + '" style="position:relative;width:64px;height:64px;border-radius:10px;overflow:hidden;border:' + border + ';flex-shrink:0;cursor:pointer;background:var(--bg2);' + shadow + '" onclick="openImageLightboxByProduct()">' +
             '<div style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:20px;">⏳</div>' +
+            '<button type="button" onclick="event.stopPropagation();setProductMainImage(' + i + ')" title="Elegir como imagen principal" style="position:absolute;top:-4px;left:-4px;width:22px;height:22px;border-radius:50%;background:' + (isMain ? 'var(--primary)' : 'rgba(0,0,0,0.5)') + ';color:' + (isMain ? '#fff' : 'rgba(255,255,255,0.7)') + ';border:none;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;padding:0;box-shadow:0 1px 3px rgba(0,0,0,0.3);">' + (isMain ? '⭐' : '☆') + '</button>' +
             '<button type="button" onclick="event.stopPropagation();removeProductImageAt(' + i + ')" style="position:absolute;top:-4px;right:-4px;width:20px;height:20px;border-radius:50%;background:var(--danger);color:#fff;border:none;font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;padding:0;box-shadow:0 1px 3px rgba(0,0,0,0.3);">✕</button>' +
             '</div>';
     }
     area.innerHTML = html;
 
-    // Load each image from IndexedDB, with server fallback
     for (var j = 0; j < imgIds.length; j++) {
         (function(idx, imgId) {
             idbGetImage(imgId).then(function(data) {
                 var thumb = document.getElementById('prevThumb' + idx);
                 if (thumb && data) {
-                    thumb.innerHTML = '<img src="' + data + '" style="width:100%;height:100%;object-fit:cover;pointer-events:none;">' +
-                        thumb.querySelector('button').outerHTML.replace('button', 'button type="button"');
+                    var starBtn = thumb.querySelector('button[title]');
+                    var removeBtn = thumb.querySelector('button:not([title])');
+                    thumb.innerHTML = '<img src="' + data + '" style="width:100%;height:100%;object-fit:cover;pointer-events:none;">';
+                    if (starBtn) thumb.appendChild(starBtn);
+                    if (removeBtn) thumb.appendChild(removeBtn);
                 } else if (thumb) {
-                    // Fallback: try loading from server
                     var srvUrl = (typeof getServerUrl === 'function' ? getServerUrl() : '') + '/api/catalog-image/' + encodeURIComponent(imgId);
                     var fbImg = new Image();
                     fbImg.onload = function() {
                         var t2 = document.getElementById('prevThumb' + idx);
-                        if (t2) t2.innerHTML = '<img src="' + srvUrl + '" style="width:100%;height:100%;object-fit:cover;pointer-events:none;">' +
-                            (t2.querySelector('button') ? t2.querySelector('button').outerHTML : '');
+                        if (t2) {
+                            var starBtn2 = t2.querySelector('button[title]');
+                            var removeBtn2 = t2.querySelector('button:not([title])');
+                            t2.innerHTML = '<img src="' + srvUrl + '" style="width:100%;height:100%;object-fit:cover;pointer-events:none;">';
+                            if (starBtn2) t2.appendChild(starBtn2);
+                            if (removeBtn2) t2.appendChild(removeBtn2);
+                        }
                     };
                     fbImg.src = srvUrl;
                 }
             });
         })(j, imgIds[j]);
     }
+}
+
+function setProductMainImage(index) {
+    if (!window._pendingProductImages || index < 0 || index >= window._pendingProductImages.length) return;
+    window._pendingProductMainImage = index;
+    renderProductImagePreviews();
+    showToast('Imagen principal seleccionada ⭐', 'success');
 }
 
 function removeProductImageAt(index) {
@@ -7650,7 +8081,7 @@ function removeAllProductImages() {
     renderProductImagePreviews();
 }
 
-function loadProductImagesUI(images) {
+function loadProductImagesUI(images, mainImageIdx) {
     window._pendingProductImages = undefined;
     if (images && images.length > 0) {
         window._pendingProductImages = images.slice();
@@ -7659,6 +8090,7 @@ function loadProductImagesUI(images) {
     } else {
         window._pendingProductImages = [];
     }
+    window._pendingProductMainImage = (typeof mainImageIdx === 'number' && mainImageIdx >= 0 && mainImageIdx < window._pendingProductImages.length) ? mainImageIdx : 0;
     renderProductImagePreviews();
 }
 
@@ -11755,7 +12187,11 @@ function generateCatalogReport(preFiltered, preSelCats, preSelBrands, isReduced)
         document.querySelectorAll('#reportFilterCats input:checked').forEach(function(cb) { selCats.push(cb.value); });
         selBrands = [];
         document.querySelectorAll('#reportFilterBrands input:checked').forEach(function(cb) { selBrands.push(cb.value); });
-        isReduced = document.getElementById('reportTypeReduced').className.indexOf('btn-outline') === -1;
+        var _isSimple = document.getElementById('reportTypeSimple') && document.getElementById('reportTypeSimple').className.indexOf('btn-outline') === -1;
+            var _isSimple = document.getElementById('reportTypeSimple') && document.getElementById('reportTypeSimple').className.indexOf('btn-outline') === -1;
+            isReduced = document.getElementById('reportTypeReduced').className.indexOf('btn-outline') === -1;
+            if (_isSimple) { generateSimplePrintableReport(products, selCats, selBrands); return; }
+            if (_isSimple) { generateSimplePrintableReport(products, selCats, selBrands); return; }
         var sortRadio = document.querySelector('input[name="reportSort"]:checked');
         sortVal = sortRadio ? sortRadio.value : '';
     }
@@ -20971,56 +21407,55 @@ function renderCatalogsList() {
             }
             var safeSlug = escapeHtml(c.slug).replace(/'/g, "\\'");
             var safeName = escapeHtml(p0.name || c.name).replace(/'/g, "\\'");
-            // Card (Electrolux style)
-            html += '<div style="break-inside:avoid;background:var(--bg2);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:10px;" data-cat-slug="' + escapeHtml(c.slug) + '">';
-            // Image area (clickable -> opens catalog detail)
-            html += '<div onclick="showCatalogDetail(\'' + safeSlug + '\')" style="position:relative;width:100%;aspect-ratio:1/1;background:var(--bg);display:flex;align-items:center;justify-content:center;cursor:pointer;overflow:hidden;">';
+            // ELECTROLUX v118 card
+            html += '<div class="elx-cat-card" data-cat-slug="' + escapeHtml(c.slug) + '">';
+            html += '<div class="elx-cat-card-img" onclick="showCatalogDetail(\'' + safeSlug + '\')">';
             if (discount > 0) {
-                html += '<div style="position:absolute;top:8px;left:8px;background:#e53935;color:#fff;font-size:10px;font-weight:700;padding:3px 8px;border-radius:12px;z-index:2;">-' + discount + '%</div>';
+                html += '<div class="elx-cat-badge-disc">-' + discount + '%</div>';
             }
-            html += '<img class="cat-thumb-img" src="' + (thumbSrc ? thumbSrc : '') + '" style="width:85%;height:85%;object-fit:contain;' + (thumbSrc ? '' : 'display:none;') + '" draggable="false">';
-            html += '<span class="cat-thumb-ph" style="font-size:40px;opacity:0.2;' + (thumbSrc ? 'display:none;' : '') + '">📦</span>';
-            html += '</div>';
-            // Card body
-            html += '<div style="padding:10px;">';
-            // Product name (2-line clamp)
-            html += '<div style="font-size:12px;font-weight:700;color:var(--text);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.3;min-height:31px;margin-bottom:2px;">' + escapeHtml(p0.name || c.name) + '</div>';
-            // Brand
-            if (p0.brand) {
-                html += '<div style="font-size:10px;color:var(--text3);font-weight:500;margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(p0.brand) + '</div>';
-            }
-            // Price
-            if (price > 0) {
-                html += '<div style="margin-bottom:6px;">';
-                if (costPrice > 0 && costPrice !== price) {
-                    html += '<span style="font-size:10px;color:var(--text3);text-decoration:line-through;margin-right:4px;">$' + fmtDec(costPrice) + '</span>';
+            try {
+                var _created = new Date(c.createdAt || 0).getTime();
+                var _now = Date.now();
+                if (_created > 0 && (_now - _created) < 7 * 24 * 60 * 60 * 1000) {
+                    html += '<div class="elx-cat-badge-new">Nuevo</div>';
                 }
-                html += '<span style="font-size:16px;font-weight:800;color:var(--primary);">$' + fmtDec(price) + '</span>';
+            } catch(eNew) {}
+            html += '<img class="cat-thumb-img" src="' + (thumbSrc ? thumbSrc : '') + '" style="' + (thumbSrc ? '' : 'display:none;') + '" draggable="false">';
+            html += '<span class="cat-thumb-ph" style="' + (thumbSrc ? 'display:none;' : '') + '">📦</span>';
+            html += '</div>';
+            html += '<div class="elx-cat-card-body">';
+            html += '<div class="elx-cat-card-name">' + escapeHtml(p0.name || c.name) + '</div>';
+            if (p0.brand) {
+                html += '<div class="elx-cat-card-brand">' + escapeHtml(p0.brand) + '</div>';
+            }
+            if (price > 0) {
+                html += '<div class="elx-cat-card-prices">';
+                if (costPrice > 0 && costPrice !== price) {
+                    html += '<span class="elx-cat-card-price-old">$' + fmtDec(costPrice) + '</span>';
+                }
+                html += '<span class="elx-cat-card-price">$' + fmtDec(price) + '</span>';
                 html += '</div>';
             }
-            // Specs (up to 3, then +N más)
             if (specsArr.length > 0) {
                 var showSpecs = specsArr.slice(0, 3);
-                html += '<div style="font-size:10px;color:var(--text2);margin-bottom:8px;line-height:1.4;">';
+                html += '<div class="elx-cat-card-specs">';
                 for (var si = 0; si < showSpecs.length; si++) {
-                    html += '<div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">• ' + escapeHtml(showSpecs[si]) + '</div>';
+                    html += '<div>' + escapeHtml(showSpecs[si]) + '</div>';
                 }
                 if (specsArr.length > 3) {
-                    html += '<div style="color:var(--primary);font-weight:600;">+' + (specsArr.length - 3) + ' más</div>';
+                    html += '<div style="color:#22C55E;font-weight:600;">+' + (specsArr.length - 3) + ' más</div>';
                 }
                 html += '</div>';
             }
-            // Ver Catálogo button
-            html += '<button onclick="event.stopPropagation();showCatalogDetail(\'' + safeSlug + '\')" style="width:100%;padding:8px;background:var(--primary);color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;margin-bottom:6px;">Ver Catálogo</button>';
-            // Action row
-            html += '<div style="display:flex;gap:4px;">';
-            html += '<button onclick="event.stopPropagation();shareCatalogImage(\'' + safeSlug + '\',\'' + c.id + '\')" style="flex:1;padding:6px;border:1px solid var(--border);border-radius:6px;background:var(--bg);font-size:11px;cursor:pointer;color:var(--text2);" title="Compartir">📱</button>';
-            html += '<button onclick="event.stopPropagation();copyCatalogLink(\'' + safeSlug + '\')" style="flex:1;padding:6px;border:1px solid var(--border);border-radius:6px;background:var(--bg);font-size:11px;cursor:pointer;color:var(--text2);" title="Copiar enlace">📋</button>';
-            html += '<button onclick="event.stopPropagation();openEcatalogEditor(\'' + c.id + '\')" style="flex:1;padding:6px;border:1px solid var(--border);border-radius:6px;background:var(--bg);font-size:11px;cursor:pointer;color:var(--text2);" title="Editar">✏️</button>';
-            html += '<button onclick="event.stopPropagation();deleteCatalog(\'' + c.id + '\',\'' + safeName + '\')" style="flex:1;padding:6px;border:1px solid var(--border);border-radius:6px;background:var(--bg);font-size:11px;cursor:pointer;color:var(--danger);" title="Eliminar">🗑️</button>';
+            html += '<button onclick="event.stopPropagation();showCatalogDetail(\'' + safeSlug + '\')" class="elx-cat-card-btn-main">Ver Catálogo</button>';
+            html += '<div class="elx-cat-card-actions">';
+            html += '<button onclick="event.stopPropagation();shareCatalogImage(\'' + safeSlug + '\',\'' + c.id + '\')" class="elx-cat-card-btn-ico" title="Compartir">📱</button>';
+            html += '<button onclick="event.stopPropagation();copyCatalogLink(\'' + safeSlug + '\')" class="elx-cat-card-btn-ico" title="Copiar enlace">📋</button>';
+            html += '<button onclick="event.stopPropagation();openEcatalogEditor(\'' + c.id + '\')" class="elx-cat-card-btn-ico" title="Editar">✏️</button>';
+            html += '<button onclick="event.stopPropagation();deleteCatalog(\'' + c.id + '\',\'' + safeName + '\')" class="elx-cat-card-btn-ico danger" title="Eliminar">🗑️</button>';
             html += '</div>';
-            html += '</div>'; // end card body
-            html += '</div>'; // end card
+            html += '</div>';
+            html += '</div>';
         }
         container.innerHTML = html;
 
@@ -23495,6 +23930,377 @@ function renderPublicCatalog(cat) {
 
 // Check on page load
 checkPublicCatalog();
+
+
+// ============================================================
+// ELECTROLUX DESIGN v119 — Inventory catalog dynamic UI
+// ============================================================
+function _elxInvCatIcon(catName) {
+    var n = (catName || '').toLowerCase();
+    if (n.indexOf('refri') >= 0 || n.indexOf('congel') >= 0) return '❄️';
+    if (n.indexOf('cocin') >= 0 || n.indexOf('horn') >= 0) return '🔥';
+    if (n.indexOf('lav') >= 0 || n.indexOf('secad') >= 0) return '🌀';
+    if (n.indexOf('televis') >= 0 || n.indexOf('tv') >= 0 || n.indexOf('pantalla') >= 0) return '📺';
+    if (n.indexOf('aspir') >= 0) return '🧹';
+    if (n.indexOf('micro') >= 0) return '📡';
+    if (n.indexOf('clima') >= 0 || n.indexOf('acondic') >= 0 || n.indexOf('aire') >= 0) return '🌡️';
+    if (n.indexOf('audio') >= 0 || n.indexOf('sonido') >= 0) return '🔊';
+    if (n.indexOf('minibar') >= 0 || n.indexOf('bar') >= 0) return '🍷';
+    if (n.indexOf('encimer') >= 0) return '🔥';
+    if (n.indexOf('electrodom') >= 0) return '🏠';
+    return '📦';
+}
+
+function _renderElxInvCategories() {
+    var container = document.getElementById('elxInvCategoriesGrid');
+    if (!container) return;
+    var cats = (typeof getCategories === 'function') ? getCategories() : [];
+    var products = (typeof getProducts === 'function') ? getProducts() : [];
+    var counts = {};
+    for (var i = 0; i < products.length; i++) {
+        var c = products[i].category || 'Otros';
+        counts[c] = (counts[c] || 0) + 1;
+    }
+    var html = '';
+    html += '<div class="elx-inv-cat" onclick="clearProductFilters()">' +
+        '<div class="elx-inv-cat-icon">🏠</div>' +
+        '<div class="elx-inv-cat-name">Todos</div>' +
+        '<div class="elx-inv-cat-count">' + products.length + '</div>' +
+        '</div>';
+    var shown = 0;
+    for (var j = 0; j < cats.length && shown < 7; j++) {
+        var name = cats[j];
+        var count = counts[name] || 0;
+        if (count === 0) continue;
+        html += '<div class="elx-inv-cat" onclick="filterByCategoryInv(' + JSON.stringify(name) + ')">' +
+            '<div class="elx-inv-cat-icon">' + _elxInvCatIcon(name) + '</div>' +
+            '<div class="elx-inv-cat-name">' + name + '</div>' +
+            '<div class="elx-inv-cat-count">' + count + '</div>' +
+            '</div>';
+        shown++;
+    }
+    container.innerHTML = html;
+
+    var statsEl = document.getElementById('elxInvHeroStats');
+    if (statsEl) {
+        var totalStock = 0, lowStock = 0;
+        for (var k = 0; k < products.length; k++) {
+            var s = parseInt(products[k].stock) || 0;
+            totalStock += s;
+            var ms = parseInt(products[k].minStock) || 5;
+            if (s > 0 && s <= ms) lowStock++;
+        }
+        statsEl.innerHTML =
+            '<div class="elx-inv-hero-stat"><strong>' + products.length + '</strong>Productos</div>' +
+            '<div class="elx-inv-hero-stat"><strong>' + totalStock + '</strong>Stock total</div>' +
+            (lowStock > 0 ? '<div class="elx-inv-hero-stat" style="background:rgba(245,158,11,0.25);"><strong style="color:#fbbf24;">' + lowStock + '</strong>Stock bajo</div>' : '') +
+            '<div class="elx-inv-hero-stat"><strong style="color:#22C55E;">' + cats.length + '</strong>Categorías</div>';
+    }
+}
+
+function filterByCategoryInv(catName) {
+    if (typeof _filterChipState !== 'undefined') { _filterChipState.fcat = catName; }
+    var chip = document.getElementById('chipFilterCat');
+    if (chip) { chip.textContent = '📂 ' + catName; chip.classList.add('active'); }
+    if (typeof renderProductList === 'function') renderProductList();
+    var pl = document.getElementById('productList');
+    if (pl) pl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+(function(){
+    var _origRPL2 = window.renderProductList;
+    if (typeof _origRPL2 === 'function' && !window._elxInvPatched) {
+        window.renderProductList = function() {
+            _origRPL2.apply(this, arguments);
+            _renderElxInvCategories();
+        };
+        window._elxInvPatched = true;
+    }
+})();
+
+(function(){
+    function initInv() { _renderElxInvCategories(); }
+    if (document.readyState === 'complete' || document.readyState === 'interactive') {
+        setTimeout(initInv, 500);
+    } else {
+        document.addEventListener('DOMContentLoaded', function(){ setTimeout(initInv, 500); });
+    }
+})();
+
+
+// v120: helper for report type selector (3 options)
+window._setReportType = function(type) {
+    var full = document.getElementById('reportTypeFull');
+    var red = document.getElementById('reportTypeReduced');
+    var sim = document.getElementById('reportTypeSimple');
+    if (!full || !red || !sim) return;
+    full.className = 'btn btn-sm btn-outline';
+    red.className = 'btn btn-sm btn-outline';
+    sim.className = 'btn btn-sm btn-outline';
+    if (type === 'full') full.className = 'btn btn-sm';
+    else if (type === 'reduced') red.className = 'btn btn-sm';
+    else if (type === 'simple') sim.className = 'btn btn-sm';
+};
+
+
+// ============================================================
+// v120: Simple printable report (large font, for print/PDF)
+// ============================================================
+function generateSimplePrintableReport(products, selCats, selBrands) {
+    var today = new Date();
+    var dateStr = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
+    var timeStr = String(today.getHours()).padStart(2,'0') + ':' + String(today.getMinutes()).padStart(2,'0');
+
+    var catMap = {};
+    var grandTotal = 0, grandStock = 0;
+    for (var i = 0; i < products.length; i++) {
+        var p = products[i];
+        var cat = p.category || 'Sin categoria';
+        if (!catMap[cat]) catMap[cat] = [];
+        catMap[cat].push(p);
+        grandTotal += parseFloat(p.salePrice || p.price || 0);
+        grandStock += parseInt(p.stock || 0);
+    }
+    var catKeys = Object.keys(catMap).sort();
+
+    var rHtml = '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Resumen Simple - ' + (selCats.length === 1 ? selCats[0] : 'Catalogo') + '</title>' +
+        '<style>' +
+        '* { margin:0; padding:0; box-sizing:border-box; }' +
+        'body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding:32px; color:#0A2540; background:#fff; }' +
+        '.title { font-size:28px; font-weight:800; color:#0A2540; text-align:center; margin-bottom:6px; }' +
+        '.subtitle { font-size:16px; color:#475569; text-align:center; margin-bottom:8px; }' +
+        '.meta { font-size:14px; color:#64748B; text-align:center; margin-bottom:24px; }' +
+        '.summary { display:flex; gap:16px; margin-bottom:28px; justify-content:center; flex-wrap:wrap; }' +
+        '.summary-box { background:#F5F7FA; border:1px solid #E5E7EB; border-radius:12px; padding:14px 24px; text-align:center; min-width:140px; }' +
+        '.summary-box .num { font-size:24px; font-weight:800; color:#0A2540; line-height:1.1; }' +
+        '.summary-box .lbl { font-size:13px; color:#64748B; margin-top:4px; font-weight:600; }' +
+        '.cat-section { margin-bottom:28px; page-break-inside:avoid; }' +
+        '.cat-title { font-size:20px; font-weight:700; color:#0A2540; background:#F5F7FA; border-left:6px solid #22C55E; padding:10px 16px; margin-bottom:12px; border-radius:4px; }' +
+        'table { width:100%; border-collapse:collapse; font-size:14px; margin-bottom:14px; }' +
+        'th { background:#0A2540; color:#fff; padding:10px 8px; text-align:left; font-weight:700; font-size:13px; }' +
+        'th.center { text-align:center; }' +
+        'th.right { text-align:right; }' +
+        'td { padding:10px 8px; border-bottom:1px solid #E5E7EB; font-size:14px; }' +
+        'td.center { text-align:center; }' +
+        'td.right { text-align:right; }' +
+        'td.name { font-weight:600; color:#0F172A; }' +
+        'td.price { font-weight:700; color:#0A2540; }' +
+        'tr:nth-child(even) td { background:#FAFBFC; }' +
+        '.cat-subtotal { background:#F5F7FA !important; font-weight:700; }' +
+        '.cat-subtotal td { background:#F5F7FA !important; font-weight:700; color:#0A2540; border-top:2px solid #0A2540; }' +
+        '.grand-total { background:#0A2540 !important; color:#fff !important; }' +
+        '.grand-total td { background:#0A2540 !important; color:#fff !important; font-weight:800; font-size:16px; padding:14px 8px; }' +
+        '.footer { text-align:center; padding:18px; margin-top:30px; font-size:12px; color:#94A3B8; border-top:1px solid #E5E7EB; }' +
+        '@media print { body { padding:16px; } .no-print { display:none !important; } @page { size: portrait; margin: 1cm; } }' +
+        '</style></head><body>' +
+        '<div class="title">Zona Libre Electrodomésticos</div>' +
+        '<div class="subtitle">Inventario ' + (selCats.length === 1 ? '- ' + selCats[0] : (selCats.length > 1 ? '- ' + selCats.length + ' categorías' : 'Completo')) + '</div>' +
+        '<div class="meta">Fecha: ' + dateStr + ' — Hora: ' + timeStr + '</div>';
+
+    var totalProductos = products.length;
+    rHtml += '<div class="summary">' +
+        '<div class="summary-box"><div class="num">' + totalProductos + '</div><div class="lbl">Productos</div></div>' +
+        '<div class="summary-box"><div class="num">$' + fmtNum(grandTotal) + '</div><div class="lbl">Valor Total</div></div>' +
+        '<div class="summary-box"><div class="num">' + grandStock + '</div><div class="lbl">Stock Total</div></div>' +
+        '<div class="summary-box"><div class="num">' + catKeys.length + '</div><div class="lbl">Categorías</div></div>' +
+        '</div>';
+
+    for (var ci = 0; ci < catKeys.length; ci++) {
+        var catProds = catMap[catKeys[ci]];
+        var catTotal = 0, catStock = 0;
+        for (var cp = 0; cp < catProds.length; cp++) {
+            catTotal += parseFloat(catProds[cp].salePrice || catProds[cp].price || 0);
+            catStock += parseInt(catProds[cp].stock || 0);
+        }
+        rHtml += '<div class="cat-section">';
+        rHtml += '<div class="cat-title">' + escapeHtml(catKeys[ci]) + ' — ' + catProds.length + ' producto' + (catProds.length > 1 ? 's' : '') + '</div>';
+        rHtml += '<table><thead><tr><th>Producto</th><th>Marca</th><th class="center">Color</th><th class="right">Precio</th><th class="center">Stock</th></tr></thead><tbody>';
+        for (var pi = 0; pi < catProds.length; pi++) {
+            var pr = catProds[pi];
+            var prSale = parseFloat(pr.salePrice || pr.price || 0);
+            rHtml += '<tr>' +
+                '<td class="name">' + escapeHtml(pr.name || '') + '</td>' +
+                '<td>' + escapeHtml(pr.brand || '') + '</td>' +
+                '<td class="center">' + escapeHtml(pr.color || '') + '</td>' +
+                '<td class="right price">$' + fmtNum(prSale) + '</td>' +
+                '<td class="center">' + (parseInt(pr.stock) || 0) + '</td>' +
+                '</tr>';
+        }
+        rHtml += '<tr class="cat-subtotal"><td colspan="3">Subtotal ' + escapeHtml(catKeys[ci]) + '</td><td class="right">$' + fmtNum(catTotal) + '</td><td class="center">' + catStock + '</td></tr>';
+        rHtml += '</tbody></table>';
+        rHtml += '</div>';
+    }
+
+    rHtml += '<table><thead><tr><th colspan="3">TOTAL GENERAL</th><th class="right">Valor Total</th><th class="center">Stock</th></tr></thead><tbody>';
+    rHtml += '<tr class="grand-total"><td colspan="3">' + totalProductos + ' productos en ' + catKeys.length + ' categorías</td><td class="right">$' + fmtNum(grandTotal) + '</td><td class="center">' + grandStock + '</td></tr>';
+    rHtml += '</tbody></table>';
+
+    rHtml += '<div class="footer">Documento generado el ' + dateStr + ' a las ' + timeStr + ' — Inventario Pro v2.6.68 NV116</div>';
+    rHtml += '</body></html>';
+
+    window._catalogReportHtml = rHtml;
+
+    var viewHtml = '<div style="position:fixed;inset:0;z-index:9999;background:var(--bg);display:flex;flex-direction:column;">' +
+        '<div style="display:flex;align-items:center;padding:10px 12px;background:#0A2540;color:#fff;border-bottom:1px solid rgba(255,255,255,0.1);gap:8px;flex-shrink:0;">' +
+            '<button onclick="closeCatalogReport()" style="font-size:20px;background:none;border:none;color:#fff;cursor:pointer;padding:2px 6px;line-height:1;">\u2715</button>' +
+            '<span style="font-weight:700;font-size:14px;color:#fff;">Resumen Simple Imprimible</span>' +
+            '<div style="margin-left:auto;display:flex;gap:6px;">' +
+                '<button onclick="imprimirCatalogo()" class="btn btn-sm" style="font-size:12px;background:#22C55E;color:#fff;border:none;padding:8px 14px;font-weight:700;border-radius:8px;">\uD83D\uDDA8\uFE0F Imprimir</button>' +
+                '<button onclick="descargarCatalogo()" class="btn btn-sm" style="font-size:12px;background:#fff;color:#0A2540;border:none;padding:8px 14px;font-weight:700;border-radius:8px;">\uD83D\uDCE5 Descargar PDF</button>' +
+            '</div>' +
+        '</div>' +
+        '<div style="flex:1;overflow-y:auto;padding:0;" id="catalogReportBody">' +
+            '<div style="background:#fff;">' + rHtml + '</div>' +
+        '</div>' +
+    '</div>';
+    var ve = document.createElement('div');
+    ve.id = 'catalogReportView';
+    ve.innerHTML = viewHtml;
+    document.body.appendChild(ve);
+    document.body.style.overflow = 'hidden';
+    showToast('Resumen simple generado - listo para imprimir', 'success');
+}
+
+
+// v120: helper for report type selector (3 options)
+window._setReportType = function(type) {
+    var full = document.getElementById('reportTypeFull');
+    var red = document.getElementById('reportTypeReduced');
+    var sim = document.getElementById('reportTypeSimple');
+    if (!full || !red || !sim) return;
+    full.className = 'btn btn-sm btn-outline';
+    red.className = 'btn btn-sm btn-outline';
+    sim.className = 'btn btn-sm btn-outline';
+    if (type === 'full') full.className = 'btn btn-sm';
+    else if (type === 'reduced') red.className = 'btn btn-sm';
+    else if (type === 'simple') sim.className = 'btn btn-sm';
+};
+
+
+// ============================================================
+// v120: Simple printable report (large font, for print/PDF)
+// ============================================================
+function generateSimplePrintableReport(products, selCats, selBrands) {
+    var today = new Date();
+    var dateStr = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
+    var timeStr = String(today.getHours()).padStart(2,'0') + ':' + String(today.getMinutes()).padStart(2,'0');
+
+    // Group by category
+    var catMap = {};
+    var grandTotal = 0;
+    var grandStock = 0;
+    for (var i = 0; i < products.length; i++) {
+        var p = products[i];
+        var cat = p.category || 'Sin categoria';
+        if (!catMap[cat]) catMap[cat] = [];
+        catMap[cat].push(p);
+        grandTotal += parseFloat(p.salePrice || p.price || 0);
+        grandStock += parseInt(p.stock || 0);
+    }
+    var catKeys = Object.keys(catMap).sort();
+
+    // Build SIMPLE printable HTML - large font, no excessive detail
+    var rHtml = '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Resumen Simple - ' + (selCats.length === 1 ? selCats[0] : 'Catalogo') + '</title>' +
+        '<style>' +
+        '* { margin:0; padding:0; box-sizing:border-box; }' +
+        'body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding:32px; color:#0A2540; background:#fff; }' +
+        '.title { font-size:28px; font-weight:800; color:#0A2540; text-align:center; margin-bottom:6px; }' +
+        '.subtitle { font-size:16px; color:#475569; text-align:center; margin-bottom:8px; }' +
+        '.meta { font-size:14px; color:#64748B; text-align:center; margin-bottom:24px; }' +
+        '.summary { display:flex; gap:16px; margin-bottom:28px; justify-content:center; flex-wrap:wrap; }' +
+        '.summary-box { background:#F5F7FA; border:1px solid #E5E7EB; border-radius:12px; padding:14px 24px; text-align:center; min-width:140px; }' +
+        '.summary-box .num { font-size:24px; font-weight:800; color:#0A2540; line-height:1.1; }' +
+        '.summary-box .lbl { font-size:13px; color:#64748B; margin-top:4px; font-weight:600; }' +
+        '.cat-section { margin-bottom:28px; page-break-inside:avoid; }' +
+        '.cat-title { font-size:20px; font-weight:700; color:#0A2540; background:#F5F7FA; border-left:6px solid #22C55E; padding:10px 16px; margin-bottom:12px; border-radius:4px; }' +
+        'table { width:100%; border-collapse:collapse; font-size:14px; margin-bottom:14px; }' +
+        'th { background:#0A2540; color:#fff; padding:10px 8px; text-align:left; font-weight:700; font-size:13px; }' +
+        'th.center { text-align:center; }' +
+        'th.right { text-align:right; }' +
+        'td { padding:10px 8px; border-bottom:1px solid #E5E7EB; font-size:14px; }' +
+        'td.center { text-align:center; }' +
+        'td.right { text-align:right; }' +
+        'td.name { font-weight:600; color:#0F172A; }' +
+        'td.price { font-weight:700; color:#0A2540; }' +
+        'tr:nth-child(even) td { background:#FAFBFC; }' +
+        '.cat-subtotal { background:#F5F7FA !important; font-weight:700; }' +
+        '.cat-subtotal td { background:#F5F7FA !important; font-weight:700; color:#0A2540; border-top:2px solid #0A2540; }' +
+        '.grand-total { background:#0A2540 !important; color:#fff !important; }' +
+        '.grand-total td { background:#0A2540 !important; color:#fff !important; font-weight:800; font-size:16px; padding:14px 8px; }' +
+        '.footer { text-align:center; padding:18px; margin-top:30px; font-size:12px; color:#94A3B8; border-top:1px solid #E5E7EB; }' +
+        '@media print { body { padding:16px; } .no-print { display:none !important; } @page { size: portrait; margin: 1cm; } }' +
+        '</style></head><body>' +
+        '<div class="title">Zona Libre Electrodomésticos</div>' +
+        '<div class="subtitle">Inventario ' + (selCats.length === 1 ? '- ' + selCats[0] : (selCats.length > 1 ? '- ' + selCats.length + ' categorías' : 'Completo')) + '</div>' +
+        '<div class="meta">Fecha: ' + dateStr + ' — Hora: ' + timeStr + '</div>';
+
+    // Summary boxes
+    var totalProductos = products.length;
+    rHtml += '<div class="summary">' +
+        '<div class="summary-box"><div class="num">' + totalProductos + '</div><div class="lbl">Productos</div></div>' +
+        '<div class="summary-box"><div class="num">$' + fmtNum(grandTotal) + '</div><div class="lbl">Valor Total</div></div>' +
+        '<div class="summary-box"><div class="num">' + grandStock + '</div><div class="lbl">Stock Total</div></div>' +
+        '<div class="summary-box"><div class="num">' + catKeys.length + '</div><div class="lbl">Categorías</div></div>' +
+        '</div>';
+
+    // One table per category, with simple columns: Producto | Marca | Precio | Stock
+    for (var ci = 0; ci < catKeys.length; ci++) {
+        var catProds = catMap[catKeys[ci]];
+        var catTotal = 0, catStock = 0;
+        for (var cp = 0; cp < catProds.length; cp++) {
+            catTotal += parseFloat(catProds[cp].salePrice || catProds[cp].price || 0);
+            catStock += parseInt(catProds[cp].stock || 0);
+        }
+        rHtml += '<div class="cat-section">';
+        rHtml += '<div class="cat-title">' + escapeHtml(catKeys[ci]) + ' — ' + catProds.length + ' producto' + (catProds.length > 1 ? 's' : '') + '</div>';
+        rHtml += '<table><thead><tr><th>Producto</th><th>Marca</th><th class="center">Color</th><th class="right">Precio</th><th class="center">Stock</th></tr></thead><tbody>';
+        for (var pi = 0; pi < catProds.length; pi++) {
+            var pr = catProds[pi];
+            var prSale = parseFloat(pr.salePrice || pr.price || 0);
+            rHtml += '<tr>' +
+                '<td class="name">' + escapeHtml(pr.name || '') + '</td>' +
+                '<td>' + escapeHtml(pr.brand || '') + '</td>' +
+                '<td class="center">' + escapeHtml(pr.color || '') + '</td>' +
+                '<td class="right price">$' + fmtNum(prSale) + '</td>' +
+                '<td class="center">' + (parseInt(pr.stock) || 0) + '</td>' +
+                '</tr>';
+        }
+        rHtml += '<tr class="cat-subtotal"><td colspan="3">Subtotal ' + escapeHtml(catKeys[ci]) + '</td><td class="right">$' + fmtNum(catTotal) + '</td><td class="center">' + catStock + '</td></tr>';
+        rHtml += '</tbody></table>';
+        rHtml += '</div>';
+    }
+
+    // Grand total
+    rHtml += '<table><thead><tr><th colspan="3">TOTAL GENERAL</th><th class="right">Valor Total</th><th class="center">Stock</th></tr></thead><tbody>';
+    rHtml += '<tr class="grand-total"><td colspan="3">' + totalProductos + ' productos en ' + catKeys.length + ' categorías</td><td class="right">$' + fmtNum(grandTotal) + '</td><td class="center">' + grandStock + '</td></tr>';
+    rHtml += '</tbody></table>';
+
+    rHtml += '<div class="footer">Documento generado el ' + dateStr + ' a las ' + timeStr + ' — Inventario Pro v2.6.68 NV116</div>';
+    rHtml += '</body></html>';
+
+    window._catalogReportHtml = rHtml;
+
+    // In-app view
+    var viewHtml = '<div style="position:fixed;inset:0;z-index:9999;background:var(--bg);display:flex;flex-direction:column;">' +
+        '<div style="display:flex;align-items:center;padding:10px 12px;background:#0A2540;color:#fff;border-bottom:1px solid rgba(255,255,255,0.1);gap:8px;flex-shrink:0;">' +
+            '<button onclick="closeCatalogReport()" style="font-size:20px;background:none;border:none;color:#fff;cursor:pointer;padding:2px 6px;line-height:1;">\u2715</button>' +
+            '<span style="font-weight:700;font-size:14px;color:#fff;">Resumen Simple Imprimible</span>' +
+            '<div style="margin-left:auto;display:flex;gap:6px;">' +
+                '<button onclick="imprimirCatalogo()" class="btn btn-sm" style="font-size:12px;background:#22C55E;color:#fff;border:none;padding:8px 14px;font-weight:700;border-radius:8px;">\uD83D\uDDA8\uFE0F Imprimir</button>' +
+                '<button onclick="descargarCatalogo()" class="btn btn-sm" style="font-size:12px;background:#fff;color:#0A2540;border:none;padding:8px 14px;font-weight:700;border-radius:8px;">\uD83D\uDCE5 Descargar PDF</button>' +
+            '</div>' +
+        '</div>' +
+        '<div style="flex:1;overflow-y:auto;padding:0;" id="catalogReportBody">' +
+            '<div style="background:#fff;">' + rHtml + '</div>' +
+        '</div>' +
+    '</div>';
+    var ve = document.createElement('div');
+    ve.id = 'catalogReportView';
+    ve.innerHTML = viewHtml;
+    document.body.appendChild(ve);
+    document.body.style.overflow = 'hidden';
+    showToast('Resumen simple generado - listo para imprimir', 'success');
+}
 
 </script>
 
