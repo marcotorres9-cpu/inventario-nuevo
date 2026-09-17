@@ -3,6 +3,5 @@ node_modules/
 tool-results/
 .vercel
 keystore.jks
-*.apk
 tsconfig.tsbuildinfo
 .env*
