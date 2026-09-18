@@ -12069,8 +12069,9 @@ function exportCatalogReport(skipFilter) {
         '<div style="display:flex;gap:6px;margin-bottom:12px;"><button class="btn btn-xs btn-outline" onclick="document.querySelectorAll(\'#reportFilterBrands input\').forEach(function(c){c.checked=true})" style="flex:1;font-size:10px;">\u2705 Todas</button><button class="btn btn-xs btn-outline" onclick="document.querySelectorAll(\'#reportFilterBrands input\').forEach(function(c){c.checked=false})" style="flex:1;font-size:10px;">\u274C Ninguna</button></div>' +
         '<div style="font-size:12px;font-weight:700;color:var(--text3);margin-bottom:6px;">\uD83D\uDCCB Tipo de Reporte</div>' +
         '<div style="display:flex;gap:6px;margin-bottom:14px;">' +
-            '<button class="btn btn-sm" id="reportTypeFull" style="flex:1;" onclick="document.getElementById(\'reportTypeFull\').className=\'btn btn-sm\';document.getElementById(\'reportTypeReduced\').className=\'btn btn-sm btn-outline\';">\uD83D\uDCCB Completo</button>' +
-            '<button class="btn btn-sm btn-outline" id="reportTypeReduced" style="flex:1;" onclick="document.getElementById(\'reportTypeReduced\').className=\'btn btn-sm\';document.getElementById(\'reportTypeFull\').className=\'btn btn-sm btn-outline\';">\uD83D\uDD0D Reducido</button>' +
+            '<button class="btn btn-sm" id="reportTypeFull" style="flex:1;" onclick="window._setReportType(\'full\');">\uD83D\uDCCB Completo</button>' +
+            '<button class="btn btn-sm btn-outline" id="reportTypeReduced" style="flex:1;" onclick="window._setReportType(\'reduced\');">\uD83D\uDD0D Reducido</button>' +
+            '<button class="btn btn-sm btn-outline" id="reportTypeSimple" style="flex:1;" onclick="window._setReportType(\'simple\');">\uD83D\uDDA8\uFE0F Simple Imprimible</button>' +
         '</div>' +
         '<div style="font-size:12px;font-weight:700;color:var(--text3);margin-bottom:6px;">\u2B06\uFE0F Ordenar por</div>' +
         '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:14px;" id="reportSortOptions">' +
@@ -12105,7 +12106,6 @@ function generateCatalogReport(preFiltered, preSelCats, preSelBrands, isReduced)
         selBrands = [];
         document.querySelectorAll('#reportFilterBrands input:checked').forEach(function(cb) { selBrands.push(cb.value); });
         var _isSimple = document.getElementById('reportTypeSimple') && document.getElementById('reportTypeSimple').className.indexOf('btn-outline') === -1;
-            var _isSimple = document.getElementById('reportTypeSimple') && document.getElementById('reportTypeSimple').className.indexOf('btn-outline') === -1;
             isReduced = document.getElementById('reportTypeReduced').className.indexOf('btn-outline') === -1;
             if (_isSimple) { generateSimplePrintableReport(products, selCats, selBrands); return; }
             if (_isSimple) { generateSimplePrintableReport(products, selCats, selBrands); return; }
