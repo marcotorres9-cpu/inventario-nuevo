@@ -1346,7 +1346,7 @@
             <div>
                 <div class="header-name" id="storeHeaderName">Inventario Pro</div>
                 <div class="header-role" id="userRole">rol</div>
-                <div class="header-ver" id="headerVersion">v2.6.68 NV116</div>
+                <div class="header-ver" id="headerVersion">v2.6.68 NV116</div><div style="font-size:8px;color:#fbbf24;background:rgba(251,191,36,0.15);padding:1px 5px;border-radius:3px;margin-top:2px;display:inline-block;font-weight:700;">v122-NATIVE</div>
             </div>
         </div>
         <button class="btn-logout" onclick="toggleTheme()" style="background:none;border:none;font-size:20px;cursor:pointer;margin-right:8px;color:var(--text2);" title="Cambiar tema">🌓</button>
@@ -16849,7 +16849,7 @@ function autoSyncFromServer() {
         .catch(function(err) {
             console.error('Auto-sync error:', err);
             updateSyncStatusUI(false);
-            showToast('Error sync: ' + (err && err.message ? err.message.substring(0, 80) : 'Error de conexion'), 'error');
+            console.warn('[SUPPRESSED] Error sync') : 'Error de conexion'), 'error');
         });
 }
 
@@ -24232,6 +24232,25 @@ function generateSimplePrintableReport(products, selCats, selBrands) {
   </div>
 </div>
 
+
+<script>
+console.log('%c[INVENTARIO PRO v122-NATIVE LOADED]', 'background:#0A2540;color:#22C55E;font-weight:bold;padding:4px 8px;border-radius:4px;');
+console.log('Has reportTypeSimple:', !!document.getElementById('reportTypeSimple'));
+console.log('Has _setReportType:', typeof _setReportType);
+(function(){
+    var _origECR = window.exportCatalogReport;
+    if (typeof _origECR === 'function') {
+        window.exportCatalogReport = function() {
+            console.log('[DEBUG] exportCatalogReport called');
+            _origECR.apply(this, arguments);
+            setTimeout(function() {
+                var rt = document.getElementById('reportTypeSimple');
+                console.log('%cModal check: ' + (rt ? '✅ reportTypeSimple FOUND' : '❌ reportTypeSimple MISSING'), 'color:' + (rt ? 'green' : 'red') + ';font-weight:bold;font-size:14px');
+            }, 100);
+        };
+    }
+})();
+</script>
 </body>
 </html>
 <!-- NV108 production -->
