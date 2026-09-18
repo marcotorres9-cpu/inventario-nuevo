@@ -16847,9 +16847,9 @@ function autoSyncFromServer() {
             syncOfflineUsers(url);
         })
         .catch(function(err) {
-            console.error('Auto-sync error:', err);
+            console.warn('[SYNC] Auto-sync error (suppressed):', err && err.message ? err.message : err);
             updateSyncStatusUI(false);
-            console.warn('[SUPPRESSED] Error sync') : 'Error de conexion'), 'error');
+            // PATCHED v123: completely suppress Error sync toast
         });
 }
 
