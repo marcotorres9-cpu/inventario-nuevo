@@ -12434,9 +12434,15 @@ function generateCatalogReport(preFiltered, preSelCats, preSelBrands, isReduced)
 }
 
 function closeCatalogReport() {
-    var overlay = document.getElementById('catalogReportOverlay');
-    if (overlay) overlay.remove();
-    window._catalogReportHtml = null;
+    // Close both overlay IDs (catalogReportOverlay for Complete/Reduced, catalogReportView for Simple)
+    var overlay1 = document.getElementById('catalogReportOverlay');
+    if (overlay1) overlay1.remove();
+    var overlay2 = document.getElementById('catalogReportView');
+    if (overlay2) overlay2.remove();
+    // Restore body scroll
+    document.body.style.overflow = '';
+    // Keep _catalogReportHtml so user can re-print if needed
+    // (only null it if explicitly closing without printing)
 }
 
 function printCatalogReport() {
