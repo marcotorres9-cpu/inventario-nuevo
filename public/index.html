@@ -11483,7 +11483,7 @@ function renderCatalogSummaryPage() {
                     }
                 }
 
-                html += '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:6px;display:flex;align-items:center;">' +
+                html += '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:6px;display:flex;align-items:center;cursor:pointer;" onclick="openEditProduct(\'' + pr.id + '\')">' +
                     prThumbHtml +
                     '<div style="flex:1;min-width:0;">' +
                         '<div style="font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(pr.name) + '</div>' +
@@ -11496,8 +11496,9 @@ function renderCatalogSummaryPage() {
                         renderSpecPills(pr, '#6c5ce7') +
                         (pr.description ? '<div style="font-size:10px;color:var(--text3);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(pr.description) + '</div>' : '') +
                     '</div>' +
-                    '<div style="text-align:right;flex-shrink:0;margin-left:10px;">' +
+                    '<div style="text-align:right;flex-shrink:0;margin-left:10px;display:flex;flex-direction:column;align-items:flex-end;gap:4px;">' +
                         '<div style="font-size:16px;font-weight:800;color:var(--primary);">$' + fmtNum(prCost) + '</div>' +
+                        '<button onclick="event.stopPropagation();openEditProduct(\'' + pr.id + '\')" style="background:#0A2540;color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap;">✏️ Editar</button>' +
                         (prPrice > 0 ? '<div style="font-size:9px;color:var(--text3);">venta: $' + fmtNum(prPrice) + ' (' + prMargin + '%)</div>' : '') +
                     '</div>' +
                 '</div>';
