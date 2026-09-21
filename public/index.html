@@ -18608,108 +18608,31 @@ function compartirCotizacion(id) { _generarPdfYAcceder(id, 'compartir'); }
 function imprimirCatalogo() {
     var html = window._catalogReportHtml;
     if (!html) { showToast('No hay reporte', 'error'); return; }
-    showToast('Preparando impresión...', 'info');
-    
-    // v128: Use srcdoc iframe (works in Android WebView, unlike blob URLs)
-    try {
-        var printFrame = document.createElement('iframe');
-        printFrame.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;opacity:0;pointer-events:none;';
-        printFrame.setAttribute('srcdoc', html);
-        document.body.appendChild(printFrame);
-        
-        printFrame.onload = function() {
-            try {
-                printFrame.contentWindow.focus();
-                printFrame.contentWindow.print();
-                showToast('Diálogo de impresión abierto', 'success');
-            } catch(e) {
-                console.warn('Print via iframe failed, trying window.print():', e);
-                // Fallback: call window.print() on main window
-                try {
-                    window.print();
-                    showToast('Diálogo de impresión abierto', 'success');
-                } catch(e2) {
-                    console.error('All print methods failed:', e2);
-                    showToast('No se pudo imprimir. Use Descargar PDF.', 'error');
-                }
-            }
-            // Clean up after delay
-            setTimeout(function() {
-                if (printFrame.parentNode) printFrame.parentNode.removeChild(printFrame);
-            }, 60000);
-        };
-        
-        // Timeout fallback if onload doesn't fire
-        setTimeout(function() {
-            if (printFrame.parentNode) {
-                try {
-                    printFrame.contentWindow.focus();
-                    printFrame.contentWindow.print();
-                } catch(e) {
-                    window.print();
-                }
-            }
-        }, 3000);
-        
-        return;
-    } catch(e) {
-        console.warn('Print setup failed:', e);
-    }
-    
-    // Last resort fallback: upload to server
+    showToast('Subiendo reporte para imprimir...', 'info');
     var today = new Date();
     var dateStr = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
     var fileName = 'Catalogo_' + dateStr + '.html';
     var blob = new Blob([html], { type: 'text/html;charset=utf-8' });
     _uploadFile(blob, fileName, 'text/html', function(fileUrl) {
-        imprimirArchivo(fileUrl, fileName, 'Reporte de Catalogo');
+        showToast('Abriendo en navegador para imprimir...', 'success');
+        // Open in system browser — WebView can't print natively
+        window.open(fileUrl, '_blank');
     });
 }
-
 function descargarCatalogo() {
     var html = window._catalogReportHtml;
     if (!html) { showToast('No hay reporte', 'error'); return; }
-    showToast('Preparando descarga...', 'info');
-    
-    // v128: Use data URL for download (works in WebView)
-    try {
-        var today = new Date();
-        var dateStr = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
-        var fileName = 'Catalogo_' + dateStr + '.html';
-        
-        // Create blob and use download attribute
-        var blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-        var blobUrl = URL.createObjectURL(blob);
-        
-        var a = document.createElement('a');
-        a.href = blobUrl;
-        a.download = fileName;
-        a.style.display = 'none';
-        document.body.appendChild(a);
-        a.click();
-        
-        setTimeout(function() {
-            if (a.parentNode) a.parentNode.removeChild(a);
-            URL.revokeObjectURL(blobUrl);
-        }, 10000);
-        
-        showToast('Descargando: ' + fileName, 'success');
-        return;
-    } catch(e) {
-        console.warn('Download failed:', e);
-    }
-    
-    // Fallback: upload to server
+    showToast('Subiendo reporte para descargar...', 'info');
     var today = new Date();
     var dateStr = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
     var fileName = 'Catalogo_' + dateStr + '.html';
     var blob = new Blob([html], { type: 'text/html;charset=utf-8' });
     _uploadFile(blob, fileName, 'text/html', function(fileUrl) {
-        descargarArchivo(fileUrl, fileName, 'Reporte de Catalogo');
+        showToast('Abriendo en navegador para descargar...', 'success');
+        // Open in system browser — user can save as PDF from there
+        window.open(fileUrl, '_blank');
     });
 }
-
-// NV35: Funciones para faltantes — usan codigo nativo
 function imprimirFaltantes() {
     var html = window._faltantesReportHtml;
     if (!html) { showToast('No hay reporte', 'error'); return; }
