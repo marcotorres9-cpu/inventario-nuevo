@@ -18610,54 +18610,57 @@ function imprimirCatalogo() {
     if (!html) { showToast('No hay reporte', 'error'); return; }
     showToast('Preparando impresión...', 'info');
     
-    // v126: Native APK — use blob URL + hidden iframe to print
-    if (_esAppNativa() || (typeof window.Capacitor !== 'undefined' && window.Capacitor.isNative)) {
-        try {
-            var blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-            var blobUrl = URL.createObjectURL(blob);
-            // Create hidden iframe and print
-            var iframe = document.createElement('iframe');
-            iframe.style.position = 'fixed';
-            iframe.style.right = '0';
-            iframe.style.bottom = '0';
-            iframe.style.width = '0';
-            iframe.style.height = '0';
-            iframe.style.border = '0';
-            iframe.src = blobUrl;
-            document.body.appendChild(iframe);
-            iframe.onload = function() {
+    // v128: Use srcdoc iframe (works in Android WebView, unlike blob URLs)
+    try {
+        var printFrame = document.createElement('iframe');
+        printFrame.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;opacity:0;pointer-events:none;';
+        printFrame.setAttribute('srcdoc', html);
+        document.body.appendChild(printFrame);
+        
+        printFrame.onload = function() {
+            try {
+                printFrame.contentWindow.focus();
+                printFrame.contentWindow.print();
+                showToast('Diálogo de impresión abierto', 'success');
+            } catch(e) {
+                console.warn('Print via iframe failed, trying window.print():', e);
+                // Fallback: call window.print() on main window
                 try {
-                    iframe.contentWindow.focus();
-                    iframe.contentWindow.print();
-                } catch(e) {
-                    console.warn('Print failed, opening in new window:', e);
-                    window.open(blobUrl, '_blank');
+                    window.print();
+                    showToast('Diálogo de impresión abierto', 'success');
+                } catch(e2) {
+                    console.error('All print methods failed:', e2);
+                    showToast('No se pudo imprimir. Use Descargar PDF.', 'error');
                 }
-                // Clean up after a delay
-                setTimeout(function() {
-                    document.body.removeChild(iframe);
-                    URL.revokeObjectURL(blobUrl);
-                }, 60000);
-            };
-            showToast('Diálogo de impresión abierto', 'success');
-            return;
-        } catch(e) {
-            console.warn('Native print failed:', e);
-            // Fall through to upload method
-        }
+            }
+            // Clean up after delay
+            setTimeout(function() {
+                if (printFrame.parentNode) printFrame.parentNode.removeChild(printFrame);
+            }, 60000);
+        };
+        
+        // Timeout fallback if onload doesn't fire
+        setTimeout(function() {
+            if (printFrame.parentNode) {
+                try {
+                    printFrame.contentWindow.focus();
+                    printFrame.contentWindow.print();
+                } catch(e) {
+                    window.print();
+                }
+            }
+        }, 3000);
+        
+        return;
+    } catch(e) {
+        console.warn('Print setup failed:', e);
     }
     
-    // Fallback: upload to server and open URL
+    // Last resort fallback: upload to server
     var today = new Date();
     var dateStr = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
     var fileName = 'Catalogo_' + dateStr + '.html';
     var blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-    if (_esAppNativa() && window.NativeBridge && window.NativeBridge.openBlob) {
-        _blobToBase64(blob, function(b64) {
-            if (b64) window.NativeBridge.openBlob(b64, fileName, 'text/html');
-        });
-        return;
-    }
     _uploadFile(blob, fileName, 'text/html', function(fileUrl) {
         imprimirArchivo(fileUrl, fileName, 'Reporte de Catalogo');
     });
@@ -18668,48 +18671,39 @@ function descargarCatalogo() {
     if (!html) { showToast('No hay reporte', 'error'); return; }
     showToast('Preparando descarga...', 'info');
     
-    // v126: Native APK — use blob URL + download link
-    if (_esAppNativa() || (typeof window.Capacitor !== 'undefined' && window.Capacitor.isNative)) {
-        try {
-            var blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-            var blobUrl = URL.createObjectURL(blob);
-            var today = new Date();
-            var dateStr = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
-            var fileName = 'Catalogo_' + dateStr + '.html';
-            
-            // Create download link
-            var a = document.createElement('a');
-            a.href = blobUrl;
-            a.download = fileName;
-            a.style.display = 'none';
-            document.body.appendChild(a);
-            a.click();
-            
-            // Clean up
-            setTimeout(function() {
-                document.body.removeChild(a);
-                URL.revokeObjectURL(blobUrl);
-            }, 10000);
-            
-            showToast('Archivo descargado: ' + fileName, 'success');
-            return;
-        } catch(e) {
-            console.warn('Native download failed:', e);
-            // Fall through to upload method
-        }
+    // v128: Use data URL for download (works in WebView)
+    try {
+        var today = new Date();
+        var dateStr = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
+        var fileName = 'Catalogo_' + dateStr + '.html';
+        
+        // Create blob and use download attribute
+        var blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+        var blobUrl = URL.createObjectURL(blob);
+        
+        var a = document.createElement('a');
+        a.href = blobUrl;
+        a.download = fileName;
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        
+        setTimeout(function() {
+            if (a.parentNode) a.parentNode.removeChild(a);
+            URL.revokeObjectURL(blobUrl);
+        }, 10000);
+        
+        showToast('Descargando: ' + fileName, 'success');
+        return;
+    } catch(e) {
+        console.warn('Download failed:', e);
     }
     
-    // Fallback: upload to server and open URL
+    // Fallback: upload to server
     var today = new Date();
     var dateStr = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
     var fileName = 'Catalogo_' + dateStr + '.html';
     var blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-    if (_esAppNativa() && window.NativeBridge && window.NativeBridge.saveBlobToDownloads) {
-        _blobToBase64(blob, function(b64) {
-            if (b64) window.NativeBridge.saveBlobToDownloads(b64, fileName, 'text/html');
-        });
-        return;
-    }
     _uploadFile(blob, fileName, 'text/html', function(fileUrl) {
         descargarArchivo(fileUrl, fileName, 'Reporte de Catalogo');
     });
