@@ -12110,10 +12110,10 @@ function generateCatalogReport(preFiltered, preSelCats, preSelBrands, isReduced)
         sortVal = sortRadio ? sortRadio.value : '';
     }
 
-    // Close filter overlay
-    var filterOv = document.getElementById('catalogReportFilterOverlay');
-    if (filterOv) filterOv.remove();
+    // PATCHED v130: Check for Simple Imprimible mode BEFORE closing modal (so button still exists)
+    var _isSimple = !preFiltered && document.getElementById('reportTypeSimple') && document.getElementById('reportTypeSimple').className.indexOf('btn-outline') === -1;
 
+    // Gather products (needed for Simple report too)
     var products;
     if (preFiltered) {
         products = preFiltered;
@@ -12129,15 +12129,19 @@ function generateCatalogReport(preFiltered, preSelCats, preSelBrands, isReduced)
             if (catOk && brandOk) products.push(p);
         }
     }
-    // PATCHED v125: Check for Simple Imprimible mode AFTER products is defined
-    var _isSimple = document.getElementById('reportTypeSimple') && document.getElementById('reportTypeSimple').className.indexOf('btn-outline') === -1;
-    if (!preFiltered && _isSimple) {
-        // Close filter overlay before generating simple report
-        var _filterOv = document.getElementById('catalogReportFilterOverlay');
+
+    // If Simple mode, generate Simple report and return (BEFORE closing modal is OK now since we already checked)
+    if (_isSimple) {
+            var _filterOv = document.getElementById('catalogReportFilterOverlay');
         if (_filterOv) _filterOv.remove();
         generateSimplePrintableReport(products, selCats, selBrands);
         return;
     }
+
+    // Close filter overlay (only for non-Simple reports)
+    var filterOv = document.getElementById('catalogReportFilterOverlay');
+    if (filterOv) filterOv.remove();
+
 
     // Apply sort
     if (sortVal) {
@@ -18611,11 +18615,10 @@ function imprimirCatalogo() {
     showToast('Subiendo reporte para imprimir...', 'info');
     var today = new Date();
     var dateStr = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
-    var fileName = 'Catalogo_' + dateStr + '.html';
+    var fileName = 'Reporte_' + dateStr + '.html';
     var blob = new Blob([html], { type: 'text/html;charset=utf-8' });
     _uploadFile(blob, fileName, 'text/html', function(fileUrl) {
         showToast('Abriendo en navegador para imprimir...', 'success');
-        // Open in system browser — WebView can't print natively
         window.open(fileUrl, '_blank');
     });
 }
@@ -18625,11 +18628,10 @@ function descargarCatalogo() {
     showToast('Subiendo reporte para descargar...', 'info');
     var today = new Date();
     var dateStr = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
-    var fileName = 'Catalogo_' + dateStr + '.html';
+    var fileName = 'Reporte_' + dateStr + '.html';
     var blob = new Blob([html], { type: 'text/html;charset=utf-8' });
     _uploadFile(blob, fileName, 'text/html', function(fileUrl) {
         showToast('Abriendo en navegador para descargar...', 'success');
-        // Open in system browser — user can save as PDF from there
         window.open(fileUrl, '_blank');
     });
 }
