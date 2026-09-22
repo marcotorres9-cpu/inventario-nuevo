@@ -23917,7 +23917,7 @@ function _renderElxInvCategories() {
         var name = cats[j];
         var count = counts[name] || 0;
         if (count === 0) continue;
-        html += '<div class="elx-inv-cat" onclick="filterByCategoryInv(' + JSON.stringify(name) + ')">' +
+        html += '<div class="elx-inv-cat" onclick="filterByCategoryInv(\'' + name.replace(/'/g, "\\'") + '\')">' +
             '<div class="elx-inv-cat-icon">' + _elxInvCatIcon(name) + '</div>' +
             '<div class="elx-inv-cat-name">' + name + '</div>' +
             '<div class="elx-inv-cat-count">' + count + '</div>' +
