@@ -1589,7 +1589,7 @@
                     <button class="elx-cat-btn" onclick="syncAllCatalogImages()">🔄 Sincronizar Fotos</button>
                 </div>
             </div>
-            <div id="catalogCategoryTabs" style="display:flex;gap:8px;overflow-x:auto;padding:6px 0 10px;scrollbar-width:none;-ms-overflow-style:none;"></div>
+            <div id="catalogCategoryTabs"></div>
             <div id="catalogSubcategoryList" style="display:none;margin-bottom:10px;"></div>
             <div id="catalogStatsBar" class="elx-cat-stats" style="display:flex;"></div>
             <div id="_ecatCovCards" style="margin-bottom:10px;"></div>
@@ -20999,22 +20999,47 @@ function _buildCategoryTabs(cats) {
     var tabContainer = document.getElementById('catalogCategoryTabs');
     if (!tabContainer) return;
     var catSet = {};
+    var catCounts = {};
     for (var i = 0; i < cats.length; i++) {
         var prods = [];
         try { prods = (typeof cats[i].products === 'string') ? JSON.parse(cats[i].products) : (cats[i].products || []); } catch(e) {}
         var p0 = prods[0] || {};
-        if (p0.category) catSet[p0.category] = true;
+        if (p0.category) {
+            catSet[p0.category] = true;
+            catCounts[p0.category] = (catCounts[p0.category] || 0) + 1;
+        }
     }
     var catNames = Object.keys(catSet);
-    var allCats = ['Todos'].concat(catNames);
-    var html = '';
-    for (var j = 0; j < allCats.length; j++) {
-        var cn = allCats[j];
+    
+    // Grid 4x2 with emoji icons (same style as inventory catalog)
+    var html = '<div class="elx-inv-categories" style="margin-bottom:14px;">';
+    
+    // "Todos" card
+    var allActive = (!_catalogActiveCategory || _catalogActiveCategory === 'Todos');
+    var totalCount = cats.length;
+    html += '<div class="elx-inv-cat" onclick="_catalogActiveCategory=\'Todos\';_catalogActiveBrand=\'\';renderCatalogsList()" style="' + (allActive ? 'border-color:#0A2540;box-shadow:0 0 0 2px rgba(10,37,64,0.1);' : '') + '">' +
+        '<div class="elx-inv-cat-icon">🏠</div>' +
+        '<div class="elx-inv-cat-name">Todos</div>' +
+        '<div class="elx-inv-cat-count">' + totalCount + '</div>' +
+        '</div>';
+    
+    // Category cards
+    for (var j = 0; j < catNames.length; j++) {
+        var cn = catNames[j];
         var isActive = (cn === _catalogActiveCategory);
-        var icon = (cn === 'Todos') ? '📋' : _getCatIcon(cn);
-        html += '<button onclick="_catalogActiveCategory=\'' + cn.replace(/'/g, "\\'") + '\';_catalogActiveBrand=\'\';renderCatalogsList()" style="flex-shrink:0;padding:7px 14px;border-radius:20px;font-size:12px;font-weight:600;border:1.5px solid ' + (isActive ? 'var(--primary)' : 'var(--border)') + ';background:' + (isActive ? 'var(--primary)' : 'var(--bg2)') + ';color:' + (isActive ? '#fff' : 'var(--text2)') + ';cursor:pointer;white-space:nowrap;transition:all .2s;display:flex;align-items:center;gap:4px;">' + icon + escapeHtml(cn) + '</button>';
+        var icon = _elxInvCatIcon(cn);
+        var count = catCounts[cn] || 0;
+        html += '<div class="elx-inv-cat" onclick="_catalogActiveCategory=\'' + cn.replace(/'/g, "\'") + '\';_catalogActiveBrand=\'\';renderCatalogsList()" style="' + (isActive ? 'border-color:#0A2540;box-shadow:0 0 0 2px rgba(10,37,64,0.1);' : '') + '">' +
+            '<div class="elx-inv-cat-icon">' + icon + '</div>' +
+            '<div class="elx-inv-cat-name">' + escapeHtml(cn) + '</div>' +
+            '<div class="elx-inv-cat-count">' + count + '</div>' +
+            '</div>';
     }
+    html += '</div>';
+    
     tabContainer.innerHTML = html;
+    tabContainer.style.display = 'block';
+    tabContainer.style.overflow = 'visible';
 }
 
 function _buildSubcategoryList(cats) {
