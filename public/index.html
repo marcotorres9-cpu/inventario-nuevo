@@ -24251,115 +24251,160 @@ function clearEcatFilters() {
 // v135: Cruce — which products from inventory are NOT in electronic catalog
 // ============================================================
 function showCatalogCruce() {
-    showToast('Generando cruce...', 'info');
-    
-    // Get inventory products from localStorage (already synced on login)
-    var invProducts = getProducts();
-    if (!invProducts || invProducts.length === 0) {
-        showToast('No hay productos en inventario. Sincroniza primero.', 'error');
-        return;
-    }
-    
-    // Fetch catalogs from server using _serverFetch
-    if (typeof _serverFetch !== 'function') {
-        showToast('Error de conexion', 'error');
-        return;
-    }
-    _serverFetch('GET', '/api/catalogs?_t=' + Date.now(), null, function(catText, catErr) {
-        if (catErr || !catText) {
-            // Fallback: try regular fetch
-            fetch(getServerUrl() + '/api/catalogs?_t=' + Date.now())
-            .then(function(r) { return r.json(); })
-            .then(function(cats) { _renderCruceResults(invProducts, cats); })
-            .catch(function(e) { showToast('Error: ' + e.message, 'error'); });
+    try {
+        showToast('Generando cruce...', 'info');
+        
+        // Get inventory products from localStorage (already synced)
+        var invProducts = getProducts();
+        if (!invProducts || invProducts.length === 0) {
+            showToast('No hay productos. Sincroniza primero.', 'error');
             return;
         }
-        var cats = [];
-        try { cats = JSON.parse(catText); } catch(e) {}
-        _renderCruceResults(invProducts, cats);
-    });
-}
-
-function _renderCruceResults(invProducts, cats) {
-    if (!Array.isArray(invProducts)) invProducts = [];
-    if (!Array.isArray(cats)) cats = [];
-    
-    var catNames = {};
-    for (var ci = 0; ci < cats.length; ci++) {
-        var prods = [];
-        try { prods = typeof cats[ci].products === 'string' ? JSON.parse(cats[ci].products) : (cats[ci].products || []); } catch(e) {}
-        for (var pi = 0; pi < prods.length; pi++) {
-            catNames[(prods[pi].name || '').toLowerCase().trim()] = true;
-        }
-    }
-    
-    var missing = [];
-    var present = [];
-    for (var i = 0; i < invProducts.length; i++) {
-        var pname = (invProducts[i].name || '').toLowerCase().trim();
-        if (catNames[pname]) { present.push(invProducts[i]); }
-        else { missing.push(invProducts[i]); }
-    }
-    
-    missing.sort(function(a, b) {
-        var ca = (a.category || '').toLowerCase();
-        var cb = (b.category || '').toLowerCase();
-        if (ca !== cb) return ca.localeCompare(cb);
-        return (a.name || '').localeCompare(b.name || '');
-    });
-    
-    var html = '<div style="padding:16px;">';
-    html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">';
-    html += '<h2 style="font-size:18px;font-weight:800;color:#0A2540;">Cruce: Inventario vs Catalogo</h2>';
-    html += '<button onclick="closeCruceModal()" style="font-size:20px;background:none;border:none;color:var(--danger);cursor:pointer;">X</button>';
-    html += '</div>';
-    
-    html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:18px;">';
-    html += '<div style="background:#F5F7FA;border-radius:10px;padding:12px;text-align:center;"><div style="font-size:24px;font-weight:800;color:#0A2540;">' + invProducts.length + '</div><div style="font-size:11px;color:#64748B;">En Inventario</div></div>';
-    html += '<div style="background:rgba(34,197,94,0.1);border-radius:10px;padding:12px;text-align:center;"><div style="font-size:24px;font-weight:800;color:#15803D;">' + present.length + '</div><div style="font-size:11px;color:#64748B;">En Catalogo</div></div>';
-    html += '<div style="background:rgba(239,68,68,0.1);border-radius:10px;padding:12px;text-align:center;"><div style="font-size:24px;font-weight:800;color:#EF4444;">' + missing.length + '</div><div style="font-size:11px;color:#64748B;">Faltan subir</div></div>';
-    html += '</div>';
-    
-    if (missing.length === 0) {
-        html += '<div style="text-align:center;padding:40px 20px;color:var(--primary);font-size:16px;font-weight:700;">Todos los productos estan en el catalogo</div>';
-    } else {
-        html += '<div style="font-size:13px;font-weight:700;color:#EF4444;margin-bottom:10px;">Productos que faltan subir (' + missing.length + '):</div>';
-        html += '<div style="max-height:400px;overflow-y:auto;">';
         
-        var byCat = {};
-        for (var mi = 0; mi < missing.length; mi++) {
-            var cat = missing[mi].category || 'Sin categoria';
-            if (!byCat[cat]) byCat[cat] = [];
-            byCat[cat].push(missing[mi]);
-        }
-        var catKeys = Object.keys(byCat).sort();
+        // Get catalogs from localStorage if available, otherwise fetch
+        var cachedCats = null;
+        try { cachedCats = JSON.parse(localStorage.getItem('inv_catalogs_cache') || 'null'); } catch(e) {}
         
-        for (var ck = 0; ck < catKeys.length; ck++) {
-            var catProds = byCat[catKeys[ck]];
-            html += '<div style="font-size:13px;font-weight:700;color:#0A2540;background:#F5F7FA;padding:8px 12px;border-radius:8px;margin:10px 0 4px;border-left:4px solid #0A2540;">' + escapeHtml(catKeys[ck]) + ' (' + catProds.length + ')</div>';
-            for (var cp = 0; cp < catProds.length; cp++) {
-                var p = catProds[cp];
-                var safeId = String(p.id || '').replace(/'/g, "\\'");
-                html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-bottom:1px solid var(--border);">';
-                html += '<div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(p.name || '') + '</div>';
-                html += '<div style="font-size:10px;color:var(--text3);margin-top:2px;">' + escapeHtml(p.brand || '') + (p.color ? ' - ' + escapeHtml(p.color) : '') + (p.salePrice ? ' - $' + (p.salePrice || p.price || 0) : '') + '</div></div>';
-                html += '<button onclick="openEcatalogEditorWithProduct(\'' + safeId + '\')" style="background:#22C55E;color:#fff;border:none;border-radius:6px;padding:5px 12px;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap;margin-left:8px;">+ Subir</button>';
-                html += '</div>';
+        if (cachedCats && Array.isArray(cachedCats) && cachedCats.length > 0) {
+            _renderCruceResults(invProducts, cachedCats);
+            return;
+        }
+        
+        // Fetch catalogs with 5s timeout
+        var url = getServerUrl() + '/api/catalogs?_t=' + Date.now();
+        var done = false;
+        var to = setTimeout(function() {
+            if (!done) {
+                done = true;
+                // Use empty catalogs — all products are "missing"
+                _renderCruceResults(invProducts, []);
             }
+        }, 5000);
+        
+        fetch(url, { method: 'GET', cache: 'no-store' })
+        .then(function(r) { return r.json(); })
+        .then(function(cats) {
+            if (done) return;
+            done = true;
+            clearTimeout(to);
+            try { localStorage.setItem('inv_catalogs_cache', JSON.stringify(cats)); } catch(e) {}
+            _renderCruceResults(invProducts, cats);
+        })
+        .catch(function(e) {
+            if (done) return;
+            done = true;
+            clearTimeout(to);
+            _renderCruceResults(invProducts, []);
+        });
+    } catch(e) {
+        showToast('Error en cruce: ' + e.message, 'error');
+    }
+}
+function _renderCruceResults(invProducts, cats) {
+    try {
+        if (!Array.isArray(invProducts)) invProducts = [];
+        if (!Array.isArray(cats)) cats = [];
+        
+        var catNames = {};
+        for (var ci = 0; ci < cats.length; ci++) {
+            try {
+                var prods = typeof cats[ci].products === 'string' ? JSON.parse(cats[ci].products) : (cats[ci].products || []);
+                for (var pi = 0; pi < prods.length; pi++) {
+                    catNames[(prods[pi].name || '').toLowerCase().trim()] = true;
+                }
+            } catch(e) {}
+        }
+        
+        var missing = [];
+        var present = [];
+        for (var i = 0; i < invProducts.length; i++) {
+            var pname = (invProducts[i].name || '').toLowerCase().trim();
+            if (catNames[pname]) present.push(invProducts[i]);
+            else missing.push(invProducts[i]);
+        }
+        
+        missing.sort(function(a, b) {
+            var ca = (a.category || '').toLowerCase();
+            var cb = (b.category || '').toLowerCase();
+            if (ca !== cb) return ca.localeCompare(cb);
+            return (a.name || '').localeCompare(b.name || '');
+        });
+        
+        // Build simple HTML — no inline onclick with quotes, use data attributes
+        var html = '';
+        html += '<div style="padding:16px;">';
+        html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">';
+        html += '<h2 style="font-size:18px;font-weight:800;color:#0A2540;">Cruce de Inventario</h2>';
+        html += '<button id="cruceCloseBtn" style="font-size:20px;background:none;border:none;color:var(--danger);cursor:pointer;">X</button>';
+        html += '</div>';
+        
+        html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:18px;">';
+        html += '<div style="background:#F5F7FA;border-radius:10px;padding:12px;text-align:center;"><div style="font-size:24px;font-weight:800;color:#0A2540;">' + invProducts.length + '</div><div style="font-size:11px;color:#64748B;">En Inventario</div></div>';
+        html += '<div style="background:rgba(34,197,94,0.1);border-radius:10px;padding:12px;text-align:center;"><div style="font-size:24px;font-weight:800;color:#15803D;">' + present.length + '</div><div style="font-size:11px;color:#64748B;">En Catalogo</div></div>';
+        html += '<div style="background:rgba(239,68,68,0.1);border-radius:10px;padding:12px;text-align:center;"><div style="font-size:24px;font-weight:800;color:#EF4444;">' + missing.length + '</div><div style="font-size:11px;color:#64748B;">Faltan subir</div></div>';
+        html += '</div>';
+        
+        if (missing.length === 0) {
+            html += '<div style="text-align:center;padding:40px 20px;color:var(--primary);font-size:16px;font-weight:700;">Todos los productos estan en el catalogo</div>';
+        } else {
+            html += '<div style="font-size:13px;font-weight:700;color:#EF4444;margin-bottom:10px;">Faltan subir (' + missing.length + '):</div>';
+            html += '<div id="cruceListContainer" style="max-height:400px;overflow-y:auto;">';
+            
+            var byCat = {};
+            for (var mi = 0; mi < missing.length; mi++) {
+                var cat = missing[mi].category || 'Sin categoria';
+                if (!byCat[cat]) byCat[cat] = [];
+                byCat[cat].push(missing[mi]);
+            }
+            var catKeys = Object.keys(byCat).sort();
+            
+            for (var ck = 0; ck < catKeys.length; ck++) {
+                var catProds = byCat[catKeys[ck]];
+                html += '<div style="font-size:13px;font-weight:700;color:#0A2540;background:#F5F7FA;padding:8px 12px;border-radius:8px;margin:10px 0 4px;border-left:4px solid #0A2540;">' + escapeHtml(catKeys[ck]) + ' (' + catProds.length + ')</div>';
+                for (var cp = 0; cp < catProds.length; cp++) {
+                    var p = catProds[cp];
+                    var pInfo = escapeHtml(p.name || '');
+                    if (p.brand) pInfo += ' - ' + escapeHtml(p.brand);
+                    if (p.color) pInfo += ' - ' + escapeHtml(p.color);
+                    if (p.salePrice) pInfo += ' - $' + (p.salePrice || p.price || 0);
+                    html += '<div style="padding:8px 12px;border-bottom:1px solid var(--border);font-size:12px;color:var(--text);">' + pInfo + '</div>';
+                }
+            }
+            html += '</div>';
         }
         html += '</div>';
+        
+        // Create modal
+        var modal = document.createElement('div');
+        modal.id = 'cruceCatalogModal';
+        modal.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.6);display:flex;align-items:flex-end;justify-content:center;';
+        modal.innerHTML = '<div style="background:var(--bg);border-radius:16px 16px 0 0;width:100%;max-width:500px;max-height:85vh;overflow-y:auto;">' + html + '</div>';
+        
+        // Add close handlers AFTER adding to DOM
+        document.body.appendChild(modal);
+        
+        // Close button handler
+        var closeBtn = document.getElementById('cruceCloseBtn');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', function() {
+                modal.remove();
+                document.body.style.overflow = '';
+            });
+        }
+        
+        // Click outside to close
+        modal.addEventListener('click', function(e) {
+            if (e.target === modal) {
+                modal.remove();
+                document.body.style.overflow = '';
+            }
+        });
+        
+        showToast('Cruce: ' + missing.length + ' productos faltan', missing.length > 0 ? 'warning' : 'success');
+    } catch(e) {
+        showToast('Error renderizando cruce: ' + e.message, 'error');
+        console.error('Cruce render error:', e);
     }
-    html += '</div>';
-    
-    var modal = document.getElementById('cruceCatalogModal') || document.createElement('div');
-    modal.id = 'cruceCatalogModal';
-    modal.className = 'modal-overlay';
-    modal.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.6);display:flex;align-items:flex-end;justify-content:center;';
-    modal.innerHTML = '<div style="background:var(--bg);border-radius:16px 16px 0 0;width:100%;max-width:500px;max-height:85vh;overflow-y:auto;">' + html + '</div>';
-    modal.onclick = function(e) { if (e.target === modal) modal.remove(); };
-    document.body.appendChild(modal);
-    document.body.style.overflow = 'hidden';
-    showToast('Cruce: ' + missing.length + ' productos faltan subir', missing.length > 0 ? 'warning' : 'success');
 }
 function openEcatalogEditorWithProduct(productId) {
     closeModal('cruceCatalogModal');
