@@ -1586,6 +1586,7 @@
                 <div class="elx-cat-header-actions">
                     <button class="elx-cat-btn elx-cat-btn-primary" onclick="openEcatalogEditor()">+ Agregar</button>
                     <button class="elx-cat-btn elx-cat-btn-blue" onclick="openClientCatalog()">🌐 Vista Clientes</button>
+                    <button class="elx-cat-btn" onclick="showCatalogCruce()">🔍 Cruce</button>
                     <button class="elx-cat-btn" onclick="syncAllCatalogImages()">🔄 Sincronizar Fotos</button>
                 </div>
             </div>
@@ -1593,9 +1594,25 @@
             <div id="catalogSubcategoryList" style="display:none;margin-bottom:10px;"></div>
             <div id="catalogStatsBar" class="elx-cat-stats" style="display:flex;"></div>
             <div id="_ecatCovCards" style="margin-bottom:10px;"></div>
-            <h3 class="elx-cat-section-title">Buscar</h3>
-            <div style="margin-bottom:14px;">
+            <h3 class="elx-cat-section-title">Buscar y Filtrar</h3>
+            <div style="margin-bottom:10px;">
                 <input type="text" id="ecatalogSearch" placeholder="🔍 Buscar producto, marca, categoría..." oninput="renderCatalogsList()" class="elx-cat-search">
+            </div>
+            <!-- Filter chips for electronic catalog -->
+            <div id="ecatFilterBar" style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;">
+                <div class="filter-chip-wrap">
+                    <button class="filter-chip" id="ecatChipFilterCat" onclick="toggleEcatFilterDropdown('ecatcat')">📂 Categoría</button>
+                    <div class="filter-chip-dropdown" id="ddEcatCat"></div>
+                </div>
+                <div class="filter-chip-wrap">
+                    <button class="filter-chip" id="ecatChipFilterBrand" onclick="toggleEcatFilterDropdown('ecatbrand')">🏷️ Marca</button>
+                    <div class="filter-chip-dropdown" id="ddEcatBrand"></div>
+                </div>
+                <div class="filter-chip-wrap">
+                    <button class="filter-chip" id="ecatChipFilterColor" onclick="toggleEcatFilterDropdown('ecatcolor')">🎨 Color</button>
+                    <div class="filter-chip-dropdown" id="ddEcatColor"></div>
+                </div>
+                <button class="filter-chip" onclick="clearEcatFilters()" style="color:var(--danger);font-weight:700;">✕</button>
             </div>
             <h3 class="elx-cat-section-title">Nuestros Catálogos</h3>
             <div id="catalogsListContainer" style="columns:2;column-gap:12px;"></div>
@@ -24157,6 +24174,206 @@ console.log('Has _setReportType:', typeof _setReportType);
         };
     }
 })();
+
+// ============================================================
+// v135: Electronic catalog filter chips + Cruce
+// ============================================================
+var _ecatFilterState = { cat: '', brand: '', color: '' };
+
+function toggleEcatFilterDropdown(key) {
+    var overlay = document.getElementById('chipDropdownOverlay');
+    if (!overlay) return;
+    if (_openChipDropdown === key) {
+        overlay.classList.remove('open');
+        _openChipDropdown = null;
+        return;
+    }
+    var chipMap = { ecatcat: 'ecatChipFilterCat', ecatbrand: 'ecatChipFilterBrand', ecatcolor: 'ecatChipFilterColor' };
+    var btn = document.getElementById(chipMap[key]);
+    if (!btn) return;
+    
+    // Get catalogs to build filter options
+    fetch(getServerUrl() + '/api/catalogs?_t=' + Date.now(), { method: 'GET', headers: { 'Content-Type': 'application/json' } })
+    .then(function(r) { return r.json(); })
+    .then(function(cats) {
+        var options = {};
+        for (var i = 0; i < cats.length; i++) {
+            var prods = [];
+            try { prods = typeof cats[i].products === 'string' ? JSON.parse(cats[i].products) : (cats[i].products || []); } catch(e) {}
+            var p0 = prods[0] || {};
+            if (key === 'ecatcat' && p0.category) options[p0.category] = true;
+            if (key === 'ecatbrand' && p0.brand) options[p0.brand] = true;
+            if (key === 'ecatcolor' && p0.color) options[p0.color] = true;
+        }
+        var optNames = Object.keys(options).sort();
+        
+        var html = '<div style="padding:8px;max-height:200px;overflow-y:auto;">';
+        html += '<div onclick="_ecatFilterState.' + key.substring(4) + '=\'\';renderCatalogsList();_closeChipOverlay();" style="padding:8px 12px;cursor:pointer;font-size:12px;font-weight:600;color:var(--text2);border-bottom:1px solid var(--border);">✕ Todos</div>';
+        for (var j = 0; j < optNames.length; j++) {
+            html += '<div onclick="_ecatFilterState.' + key.substring(4) + '=\'' + optNames[j].replace(/'/g, "\\'") + '\';renderCatalogsList();_closeChipOverlay();" style="padding:8px 12px;cursor:pointer;font-size:12px;color:var(--text);">' + optNames[j] + '</div>';
+        }
+        html += '</div>';
+        overlay.innerHTML = html;
+        
+        var rect = btn.getBoundingClientRect();
+        var ddWidth = Math.min(200, window.innerWidth - 24);
+        var left = Math.max(12, Math.min(rect.left, window.innerWidth - ddWidth - 12));
+        var top = rect.bottom + 4;
+        overlay.style.left = left + 'px';
+        overlay.style.top = top + 'px';
+        overlay.style.width = ddWidth + 'px';
+        overlay.classList.add('open');
+        _openChipDropdown = key;
+    })
+    .catch(function(e) { console.warn('Ecat filter error:', e); });
+}
+
+function _closeChipOverlay() {
+    var overlay = document.getElementById('chipDropdownOverlay');
+    if (overlay) overlay.classList.remove('open');
+    _openChipDropdown = null;
+    // Update chip labels
+    var chipCat = document.getElementById('ecatChipFilterCat');
+    var chipBrand = document.getElementById('ecatChipFilterBrand');
+    var chipColor = document.getElementById('ecatChipFilterColor');
+    if (chipCat) { chipCat.textContent = _ecatFilterState.cat ? '📂 ' + _ecatFilterState.cat : '📂 Categoría'; chipCat.classList.toggle('active', !!_ecatFilterState.cat); }
+    if (chipBrand) { chipBrand.textContent = _ecatFilterState.brand ? '🏷️ ' + _ecatFilterState.brand : '🏷️ Marca'; chipBrand.classList.toggle('active', !!_ecatFilterState.brand); }
+    if (chipColor) { chipColor.textContent = _ecatFilterState.color ? '🎨 ' + _ecatFilterState.color : '🎨 Color'; chipColor.classList.toggle('active', !!_ecatFilterState.color); }
+}
+
+function clearEcatFilters() {
+    _ecatFilterState = { cat: '', brand: '', color: '' };
+    _closeChipOverlay();
+    renderCatalogsList();
+}
+
+// ============================================================
+// v135: Cruce — which products from inventory are NOT in electronic catalog
+// ============================================================
+function showCatalogCruce() {
+    showToast('Generando cruce...', 'info');
+    
+    // Get all inventory products
+    var invProducts = getProducts();
+    var invNames = {};
+    for (var i = 0; i < invProducts.length; i++) {
+        invNames[(invProducts[i].name || '').toLowerCase().trim()] = invProducts[i];
+    }
+    
+    // Get all electronic catalogs
+    fetch(getServerUrl() + '/api/catalogs?_t=' + Date.now(), { method: 'GET', headers: { 'Content-Type': 'application/json' } })
+    .then(function(r) { return r.json(); })
+    .then(function(cats) {
+        var catNames = {};
+        for (var ci = 0; ci < cats.length; ci++) {
+            var prods = [];
+            try { prods = typeof cats[ci].products === 'string' ? JSON.parse(cats[ci].products) : (cats[ci].products || []); } catch(e) {}
+            for (var pi = 0; pi < prods.length; pi++) {
+                catNames[(prods[pi].name || '').toLowerCase().trim()] = true;
+            }
+        }
+        
+        // Find missing products (in inventory but NOT in catalogs)
+        var missing = [];
+        var present = [];
+        for (var name in invNames) {
+            if (!catNames[name]) {
+                missing.push(invNames[name]);
+            } else {
+                present.push(invNames[name]);
+            }
+        }
+        
+        // Sort missing by category
+        missing.sort(function(a, b) { return (a.category || '').localeCompare(b.category || ''); });
+        
+        // Build cruce modal
+        var html = '<div style="padding:16px;">';
+        html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">';
+        html += '<h2 style="font-size:18px;font-weight:800;color:#0A2540;">🔍 Cruce: Inventario vs Catálogo Electrónico</h2>';
+        html += '<button onclick="closeModal('cruceCatalogModal')" style="font-size:20px;background:none;border:none;color:var(--danger);cursor:pointer;">✕</button>';
+        html += '</div>';
+        
+        // Summary
+        html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:18px;">';
+        html += '<div style="background:#F5F7FA;border-radius:10px;padding:12px;text-align:center;"><div style="font-size:24px;font-weight:800;color:#0A2540;">' + invProducts.length + '</div><div style="font-size:11px;color:#64748B;">En Inventario</div></div>';
+        html += '<div style="background:rgba(34,197,94,0.1);border-radius:10px;padding:12px;text-align:center;"><div style="font-size:24px;font-weight:800;color:#15803D;">' + present.length + '</div><div style="font-size:11px;color:#64748B;">En Catálogo Electrónico</div></div>';
+        html += '<div style="background:rgba(239,68,68,0.1);border-radius:10px;padding:12px;text-align:center;"><div style="font-size:24px;font-weight:800;color:#EF4444;">' + missing.length + '</div><div style="font-size:11px;color:#64748B;">Faltan subir</div></div>';
+        html += '</div>';
+        
+        if (missing.length === 0) {
+            html += '<div style="text-align:center;padding:40px 20px;color:var(--primary);font-size:16px;font-weight:700;">✅ Todos los productos del inventario están en el catálogo electrónico</div>';
+        } else {
+            html += '<div style="font-size:13px;font-weight:700;color:#EF4444;margin-bottom:10px;">📋 Productos que faltan subir al Catálogo Electrónico:</div>';
+            html += '<div style="max-height:400px;overflow-y:auto;">';
+            
+            // Group by category
+            var byCat = {};
+            for (var mi = 0; mi < missing.length; mi++) {
+                var cat = missing[mi].category || 'Sin categoria';
+                if (!byCat[cat]) byCat[cat] = [];
+                byCat[cat].push(missing[mi]);
+            }
+            var catKeys = Object.keys(byCat).sort();
+            
+            for (var ck = 0; ck < catKeys.length; ck++) {
+                html += '<div style="font-size:12px;font-weight:700;color:#0A2540;background:#F5F7FA;padding:6px 10px;border-radius:6px;margin:8px 0 4px;border-left:4px solid #0A2540;">' + catKeys[ck] + ' (' + byCat[catKeys[ck]].length + ')</div>';
+                for (var cp = 0; cp < byCat[catKeys[ck]].length; cp++) {
+                    var p = byCat[catKeys[ck]][cp];
+                    html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;border-bottom:1px solid var(--border);">';
+                    html += '<div><span style="font-size:13px;font-weight:600;color:var(--text);">' + escapeHtml(p.name) + '</span>';
+                    if (p.brand) html += ' <span style="font-size:11px;color:var(--text3);">' + escapeHtml(p.brand) + '</span>';
+                    html += '</div>';
+                    html += '<button onclick="openEcatalogEditorWithProduct(\'' + p.id + '\')" style="background:#22C55E;color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:10px;font-weight:700;cursor:pointer;">+ Subir</button>';
+                    html += '</div>';
+                }
+            }
+            html += '</div>';
+        }
+        
+        html += '</div>';
+        
+        // Show in modal
+        var modal = document.getElementById('cruceCatalogModal') || document.createElement('div');
+        modal.id = 'cruceCatalogModal';
+        modal.className = 'modal-overlay';
+        modal.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.6);display:flex;align-items:flex-end;justify-content:center;';
+        modal.innerHTML = '<div style="background:var(--bg);border-radius:16px 16px 0 0;width:100%;max-width:500px;max-height:85vh;overflow-y:auto;">' + html + '</div>';
+        modal.onclick = function(e) { if (e.target === modal) modal.remove(); };
+        document.body.appendChild(modal);
+        
+        showToast('Cruce: ' + missing.length + ' productos faltan subir', missing.length > 0 ? 'warning' : 'success');
+    })
+    .catch(function(e) {
+        showToast('Error al generar cruce: ' + e.message, 'error');
+    });
+}
+
+function openEcatalogEditorWithProduct(productId) {
+    closeModal('cruceCatalogModal');
+    // Find the product
+    var products = getProducts();
+    var product = null;
+    for (var i = 0; i < products.length; i++) {
+        if (products[i].id === productId) { product = products[i]; break; }
+    }
+    if (!product) { showToast('Producto no encontrado', 'error'); return; }
+    // Open the ecat editor pre-filled with this product
+    if (typeof openEcatalogEditor === 'function') {
+        openEcatalogEditor();
+        // Try to pre-select the product after a delay
+        setTimeout(function() {
+            var nameInput = document.getElementById('catEdName');
+            if (nameInput) nameInput.value = product.name;
+            var brandInput = document.getElementById('catEdBrand');
+            if (brandInput) brandInput.value = product.brand || '';
+            var priceInput = document.getElementById('catEdPrice');
+            if (priceInput) priceInput.value = product.salePrice || product.price || 0;
+            showToast('Producto cargado: ' + product.name, 'info');
+        }, 500);
+    }
+}
+
 </script>
 </body>
 </html>
