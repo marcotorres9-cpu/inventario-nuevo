@@ -24253,93 +24253,110 @@ function clearEcatFilters() {
 function showCatalogCruce() {
     showToast('Generando cruce...', 'info');
     var serverUrl = getServerUrl();
+    if (!serverUrl || typeof _serverFetch !== 'function') {
+        showToast('Sin conexion al servidor', 'error');
+        return;
+    }
     
-    Promise.all([
-        fetch(serverUrl + '/api/products?_t=' + Date.now()).then(function(r) { return r.json(); }),
-        fetch(serverUrl + '/api/catalogs?_t=' + Date.now()).then(function(r) { return r.json(); })
-    ]).then(function(results) {
-        var invProducts = results[0];
-        var cats = results[1];
+    // Fetch products using _serverFetch (works in APK WebView)
+    _serverFetch('GET', '/api/products?_t=' + Date.now(), null, function(prodText, prodErr) {
+        if (prodErr || !prodText) {
+            showToast('Error al obtener productos', 'error');
+            return;
+        }
+        var invProducts = [];
+        try { invProducts = JSON.parse(prodText); } catch(e) { showToast('Error parseando productos', 'error'); return; }
         if (!Array.isArray(invProducts)) invProducts = [];
-        if (!Array.isArray(cats)) cats = [];
         
-        var catNames = {};
-        for (var ci = 0; ci < cats.length; ci++) {
-            var prods = [];
-            try { prods = typeof cats[ci].products === 'string' ? JSON.parse(cats[ci].products) : (cats[ci].products || []); } catch(e) {}
-            for (var pi = 0; pi < prods.length; pi++) {
-                catNames[(prods[pi].name || '').toLowerCase().trim()] = true;
+        // Fetch catalogs using _serverFetch
+        _serverFetch('GET', '/api/catalogs?_t=' + Date.now(), null, function(catText, catErr) {
+            if (catErr || !catText) {
+                showToast('Error al obtener catalogos', 'error');
+                return;
             }
-        }
-        
-        var missing = [];
-        var present = [];
-        for (var i = 0; i < invProducts.length; i++) {
-            var pname = (invProducts[i].name || '').toLowerCase().trim();
-            if (catNames[pname]) { present.push(invProducts[i]); }
-            else { missing.push(invProducts[i]); }
-        }
-        
-        missing.sort(function(a, b) {
-            var ca = (a.category || '').toLowerCase();
-            var cb = (b.category || '').toLowerCase();
-            if (ca !== cb) return ca.localeCompare(cb);
-            return (a.name || '').localeCompare(b.name || '');
-        });
-        
-        var html = '<div style="padding:16px;">';
-        html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">';
-        html += '<h2 style="font-size:18px;font-weight:800;color:#0A2540;">Cruce: Inventario vs Catalogo Electronico</h2>';
-        html += '<button onclick="closeCruceModal()" style="font-size:20px;background:none;border:none;color:var(--danger);cursor:pointer;">X</button>';
-        html += '</div>';
-        
-        html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:18px;">';
-        html += '<div style="background:#F5F7FA;border-radius:10px;padding:12px;text-align:center;"><div style="font-size:24px;font-weight:800;color:#0A2540;">' + invProducts.length + '</div><div style="font-size:11px;color:#64748B;">En Inventario</div></div>';
-        html += '<div style="background:rgba(34,197,94,0.1);border-radius:10px;padding:12px;text-align:center;"><div style="font-size:24px;font-weight:800;color:#15803D;">' + present.length + '</div><div style="font-size:11px;color:#64748B;">En Catalogo</div></div>';
-        html += '<div style="background:rgba(239,68,68,0.1);border-radius:10px;padding:12px;text-align:center;"><div style="font-size:24px;font-weight:800;color:#EF4444;">' + missing.length + '</div><div style="font-size:11px;color:#64748B;">Faltan subir</div></div>';
-        html += '</div>';
-        
-        if (missing.length === 0) {
-            html += '<div style="text-align:center;padding:40px 20px;color:var(--primary);font-size:16px;font-weight:700;">Todos los productos estan en el catalogo electronico</div>';
-        } else {
-            html += '<div style="font-size:13px;font-weight:700;color:#EF4444;margin-bottom:10px;">Productos que faltan subir (' + missing.length + '):</div>';
-            html += '<div style="max-height:400px;overflow-y:auto;">';
+            var cats = [];
+            try { cats = JSON.parse(catText); } catch(e) {}
+            if (!Array.isArray(cats)) cats = [];
             
-            var byCat = {};
-            for (var mi = 0; mi < missing.length; mi++) {
-                var cat = missing[mi].category || 'Sin categoria';
-                if (!byCat[cat]) byCat[cat] = [];
-                byCat[cat].push(missing[mi]);
-            }
-            var catKeys = Object.keys(byCat).sort();
-            
-            for (var ck = 0; ck < catKeys.length; ck++) {
-                var catProds = byCat[catKeys[ck]];
-                html += '<div style="font-size:13px;font-weight:700;color:#0A2540;background:#F5F7FA;padding:8px 12px;border-radius:8px;margin:10px 0 4px;border-left:4px solid #0A2540;">' + escapeHtml(catKeys[ck]) + ' (' + catProds.length + ')</div>';
-                for (var cp = 0; cp < catProds.length; cp++) {
-                    var p = catProds[cp];
-                    var safeId = String(p.id || '').replace(/'/g, "\\'");
-                    html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-bottom:1px solid var(--border);">';
-                    html += '<div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(p.name || '') + '</div>';
-                    html += '<div style="font-size:10px;color:var(--text3);margin-top:2px;">' + escapeHtml(p.brand || '') + (p.color ? ' - ' + escapeHtml(p.color) : '') + (p.salePrice ? ' - $' + (p.salePrice || p.price || 0) : '') + '</div></div>';
-                    html += '<button onclick="openEcatalogEditorWithProduct(\'' + safeId + '\')" style="background:#22C55E;color:#fff;border:none;border-radius:6px;padding:5px 12px;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap;margin-left:8px;">+ Subir</button>';
-                    html += '</div>';
+            // Build set of catalog product names
+            var catNames = {};
+            for (var ci = 0; ci < cats.length; ci++) {
+                var prods = [];
+                try { prods = typeof cats[ci].products === 'string' ? JSON.parse(cats[ci].products) : (cats[ci].products || []); } catch(e) {}
+                for (var pi = 0; pi < prods.length; pi++) {
+                    catNames[(prods[pi].name || '').toLowerCase().trim()] = true;
                 }
             }
+            
+            // Find missing
+            var missing = [];
+            var present = [];
+            for (var i = 0; i < invProducts.length; i++) {
+                var pname = (invProducts[i].name || '').toLowerCase().trim();
+                if (catNames[pname]) { present.push(invProducts[i]); }
+                else { missing.push(invProducts[i]); }
+            }
+            
+            missing.sort(function(a, b) {
+                var ca = (a.category || '').toLowerCase();
+                var cb = (b.category || '').toLowerCase();
+                if (ca !== cb) return ca.localeCompare(cb);
+                return (a.name || '').localeCompare(b.name || '');
+            });
+            
+            // Build HTML
+            var html = '<div style="padding:16px;">';
+            html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">';
+            html += '<h2 style="font-size:18px;font-weight:800;color:#0A2540;">Cruce: Inventario vs Catalogo Electronico</h2>';
+            html += '<button onclick="closeCruceModal()" style="font-size:20px;background:none;border:none;color:var(--danger);cursor:pointer;">X</button>';
             html += '</div>';
-        }
-        html += '</div>';
-        
-        var modal = document.getElementById('cruceCatalogModal') || document.createElement('div');
-        modal.id = 'cruceCatalogModal';
-        modal.className = 'modal-overlay';
-        modal.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.6);display:flex;align-items:flex-end;justify-content:center;';
-        modal.innerHTML = '<div style="background:var(--bg);border-radius:16px 16px 0 0;width:100%;max-width:500px;max-height:85vh;overflow-y:auto;">' + html + '</div>';
-        modal.onclick = function(e) { if (e.target === modal) modal.remove(); };
-        document.body.appendChild(modal);
-        showToast('Cruce: ' + missing.length + ' productos faltan subir', missing.length > 0 ? 'warning' : 'success');
-    }).catch(function(e) {
-        showToast('Error al generar cruce: ' + (e.message || e), 'error');
+            
+            html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:18px;">';
+            html += '<div style="background:#F5F7FA;border-radius:10px;padding:12px;text-align:center;"><div style="font-size:24px;font-weight:800;color:#0A2540;">' + invProducts.length + '</div><div style="font-size:11px;color:#64748B;">En Inventario</div></div>';
+            html += '<div style="background:rgba(34,197,94,0.1);border-radius:10px;padding:12px;text-align:center;"><div style="font-size:24px;font-weight:800;color:#15803D;">' + present.length + '</div><div style="font-size:11px;color:#64748B;">En Catalogo</div></div>';
+            html += '<div style="background:rgba(239,68,68,0.1);border-radius:10px;padding:12px;text-align:center;"><div style="font-size:24px;font-weight:800;color:#EF4444;">' + missing.length + '</div><div style="font-size:11px;color:#64748B;">Faltan subir</div></div>';
+            html += '</div>';
+            
+            if (missing.length === 0) {
+                html += '<div style="text-align:center;padding:40px 20px;color:var(--primary);font-size:16px;font-weight:700;">Todos los productos estan en el catalogo electronico</div>';
+            } else {
+                html += '<div style="font-size:13px;font-weight:700;color:#EF4444;margin-bottom:10px;">Productos que faltan subir (' + missing.length + '):</div>';
+                html += '<div style="max-height:400px;overflow-y:auto;">';
+                
+                var byCat = {};
+                for (var mi = 0; mi < missing.length; mi++) {
+                    var cat = missing[mi].category || 'Sin categoria';
+                    if (!byCat[cat]) byCat[cat] = [];
+                    byCat[cat].push(missing[mi]);
+                }
+                var catKeys = Object.keys(byCat).sort();
+                
+                for (var ck = 0; ck < catKeys.length; ck++) {
+                    var catProds = byCat[catKeys[ck]];
+                    html += '<div style="font-size:13px;font-weight:700;color:#0A2540;background:#F5F7FA;padding:8px 12px;border-radius:8px;margin:10px 0 4px;border-left:4px solid #0A2540;">' + escapeHtml(catKeys[ck]) + ' (' + catProds.length + ')</div>';
+                    for (var cp = 0; cp < catProds.length; cp++) {
+                        var p = catProds[cp];
+                        var safeId = String(p.id || '').replace(/'/g, "\\'");
+                        html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-bottom:1px solid var(--border);">';
+                        html += '<div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(p.name || '') + '</div>';
+                        html += '<div style="font-size:10px;color:var(--text3);margin-top:2px;">' + escapeHtml(p.brand || '') + (p.color ? ' - ' + escapeHtml(p.color) : '') + (p.salePrice ? ' - $' + (p.salePrice || p.price || 0) : '') + '</div></div>';
+                        html += '<button onclick="openEcatalogEditorWithProduct(\'' + safeId + '\')" style="background:#22C55E;color:#fff;border:none;border-radius:6px;padding:5px 12px;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap;margin-left:8px;">+ Subir</button>';
+                        html += '</div>';
+                    }
+                }
+                html += '</div>';
+            }
+            html += '</div>';
+            
+            var modal = document.getElementById('cruceCatalogModal') || document.createElement('div');
+            modal.id = 'cruceCatalogModal';
+            modal.className = 'modal-overlay';
+            modal.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.6);display:flex;align-items:flex-end;justify-content:center;';
+            modal.innerHTML = '<div style="background:var(--bg);border-radius:16px 16px 0 0;width:100%;max-width:500px;max-height:85vh;overflow-y:auto;">' + html + '</div>';
+            modal.onclick = function(e) { if (e.target === modal) modal.remove(); };
+            document.body.appendChild(modal);
+            showToast('Cruce: ' + missing.length + ' productos faltan subir', missing.length > 0 ? 'warning' : 'success');
+        });
     });
 }
 function openEcatalogEditorWithProduct(productId) {
