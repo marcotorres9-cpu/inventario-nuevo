@@ -24291,7 +24291,7 @@ function showCatalogCruce() {
         var html = '<div style="padding:16px;">';
         html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">';
         html += '<h2 style="font-size:18px;font-weight:800;color:#0A2540;">🔍 Cruce: Inventario vs Catálogo Electrónico</h2>';
-        html += '<button onclick="closeModal(\\'cruceCatalogModal\\')" style="font-size:20px;background:none;border:none;color:var(--danger);cursor:pointer;">✕</button>';
+        html += "<button onclick=\"closeCruceModal()\" style=\"font-size:20px;background:none;border:none;color:var(--danger);cursor:pointer;\">✕</button>";
         html += '</div>';
         
         // Summary
@@ -24372,6 +24372,12 @@ function openEcatalogEditorWithProduct(productId) {
             showToast('Producto cargado: ' + product.name, 'info');
         }, 500);
     }
+}
+
+
+function closeCruceModal() {
+    var m = document.getElementById('cruceCatalogModal');
+    if (m) m.remove();
 }
 
 </script>
