@@ -24305,6 +24305,11 @@ function _renderCruceResults(invProducts, cats) {
         if (!Array.isArray(invProducts)) invProducts = [];
         if (!Array.isArray(cats)) cats = [];
         
+        // Store globally for search/filter
+        window._cruceMissing = [];
+        window._crucePresent = [];
+        window._cruceByCat = {};
+        
         var catNames = {};
         for (var ci = 0; ci < cats.length; ci++) {
             try {
@@ -24315,111 +24320,73 @@ function _renderCruceResults(invProducts, cats) {
             } catch(e) {}
         }
         
-        var missing = [];
-        var present = [];
         for (var i = 0; i < invProducts.length; i++) {
             var pname = (invProducts[i].name || '').toLowerCase().trim();
-            if (catNames[pname]) present.push(invProducts[i]);
-            else missing.push(invProducts[i]);
+            if (catNames[pname]) window._crucePresent.push(invProducts[i]);
+            else window._cruceMissing.push(invProducts[i]);
         }
         
-        missing.sort(function(a, b) {
+        window._cruceMissing.sort(function(a, b) {
             var ca = (a.category || '').toLowerCase();
             var cb = (b.category || '').toLowerCase();
             if (ca !== cb) return ca.localeCompare(cb);
             return (a.name || '').localeCompare(b.name || '');
         });
         
-        // Build improved HTML with Electrolux styling + Subir buttons
+        // Group by category
+        for (var mi = 0; mi < window._cruceMissing.length; mi++) {
+            var cat = window._cruceMissing[mi].category || 'Sin categoria';
+            if (!window._cruceByCat[cat]) window._cruceByCat[cat] = [];
+            window._cruceByCat[cat].push(window._cruceMissing[mi]);
+        }
+        
+        var catKeys = Object.keys(window._cruceByCat).sort();
+        var missingCount = window._cruceMissing.length;
+        
+        // Build HTML
         var html = '';
         html += '<div style="padding:0;">';
         
-        // Navy header bar
+        // Navy header
         html += '<div style="background:linear-gradient(135deg,#0A2540,#1E3A5F);color:#fff;padding:16px;border-radius:16px 16px 0 0;">';
         html += '<div style="display:flex;align-items:center;justify-content:space-between;">';
-        html += '<div>';
-        html += '<div style="font-size:18px;font-weight:800;">Cruce de Inventario</div>';
-        html += '<div style="font-size:11px;opacity:0.8;margin-top:2px;">Productos que faltan en el catalogo electronico</div>';
-        html += '</div>';
+        html += '<div><div style="font-size:18px;font-weight:800;">Cruce de Inventario</div>';
+        html += '<div style="font-size:11px;opacity:0.8;margin-top:2px;">Productos que faltan en el catalogo electronico</div></div>';
         html += '<button id="cruceCloseBtn" style="width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,0.15);color:#fff;border:none;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;">X</button>';
         html += '</div>';
         
-        // Summary cards (3 columns)
+        // Summary cards
         html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:14px;">';
-        html += '<div style="background:rgba(255,255,255,0.1);border-radius:10px;padding:10px;text-align:center;">';
-        html += '<div style="font-size:22px;font-weight:800;color:#fff;">' + invProducts.length + '</div>';
-        html += '<div style="font-size:9px;opacity:0.7;text-transform:uppercase;letter-spacing:0.5px;">En Inventario</div>';
-        html += '</div>';
-        html += '<div style="background:rgba(34,197,94,0.2);border-radius:10px;padding:10px;text-align:center;">';
-        html += '<div style="font-size:22px;font-weight:800;color:#22C55E;">' + present.length + '</div>';
-        html += '<div style="font-size:9px;opacity:0.7;text-transform:uppercase;letter-spacing:0.5px;">En Catalogo</div>';
-        html += '</div>';
-        html += '<div style="background:rgba(239,68,68,0.2);border-radius:10px;padding:10px;text-align:center;">';
-        html += '<div style="font-size:22px;font-weight:800;color:#EF4444;">' + missing.length + '</div>';
-        html += '<div style="font-size:9px;opacity:0.7;text-transform:uppercase;letter-spacing:0.5px;">Faltan Subir</div>';
-        html += '</div>';
+        html += '<div style="background:rgba(255,255,255,0.1);border-radius:10px;padding:10px;text-align:center;"><div style="font-size:22px;font-weight:800;color:#fff;">' + invProducts.length + '</div><div style="font-size:9px;opacity:0.7;text-transform:uppercase;">En Inventario</div></div>';
+        html += '<div style="background:rgba(34,197,94,0.2);border-radius:10px;padding:10px;text-align:center;"><div style="font-size:22px;font-weight:800;color:#22C55E;">' + window._crucePresent.length + '</div><div style="font-size:9px;opacity:0.7;text-transform:uppercase;">En Catalogo</div></div>';
+        html += '<div style="background:rgba(239,68,68,0.2);border-radius:10px;padding:10px;text-align:center;"><div style="font-size:22px;font-weight:800;color:#EF4444;">' + missingCount + '</div><div style="font-size:9px;opacity:0.7;text-transform:uppercase;">Faltan Subir</div></div>';
         html += '</div>';
         html += '</div>';
         
-        // Product list area
-        html += '<div style="padding:14px;max-height:60vh;overflow-y:auto;">';
+        // Content area with search + filters + list
+        html += '<div style="padding:14px;max-height:60vh;overflow-y:auto;" id="cruceContentArea">';
         
-        if (missing.length === 0) {
-            html += '<div style="text-align:center;padding:40px 20px;">';
-            html += '<div style="font-size:48px;margin-bottom:12px;">✅</div>';
-            html += '<div style="font-size:16px;font-weight:700;color:#22C55E;">Todos los productos estan en el catalogo</div>';
-            html += '</div>';
+        if (missingCount === 0) {
+            html += '<div style="text-align:center;padding:40px 20px;"><div style="font-size:48px;margin-bottom:12px;">✅</div><div style="font-size:16px;font-weight:700;color:#22C55E;">Todos los productos estan en el catalogo</div></div>';
         } else {
-            // Group by category
-            var byCat = {};
-            for (var mi = 0; mi < missing.length; mi++) {
-                var cat = missing[mi].category || 'Sin categoria';
-                if (!byCat[cat]) byCat[cat] = [];
-                byCat[cat].push(missing[mi]);
-            }
-            var catKeys = Object.keys(byCat).sort();
+            // Search bar
+            html += '<div style="position:relative;margin-bottom:12px;">';
+            html += '<input type="text" id="cruceSearchInput" placeholder="🔍 Buscar producto, marca..." style="width:100%;padding:10px 14px 10px 36px;border:1px solid var(--border);border-radius:10px;background:var(--bg2);color:var(--text);font-size:13px;box-sizing:border-box;outline:none;" oninput="_filterCruceList()">';
+            html += '<span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:14px;opacity:0.5;">🔍</span>';
+            html += '</div>';
             
-            // Subir all button
-            html += '<button id="cruceSubirAllBtn" style="width:100%;background:#22C55E;color:#fff;border:none;border-radius:10px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:14px;display:flex;align-items:center;justify-content:center;gap:6px;">';
-            html += 'Subir todos los ' + missing.length + ' productos al catalogo';
-            html += '</button>';
-            
+            // Category filter chips (scrollable)
+            html += '<div style="display:flex;gap:6px;margin-bottom:14px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none;" id="cruceCatFilters">';
+            html += '<button class="cruce-cat-chip" data-cat="" style="flex-shrink:0;padding:6px 14px;border-radius:20px;font-size:11px;font-weight:700;border:2px solid #0A2540;background:#0A2540;color:#fff;cursor:pointer;white-space:nowrap;">Todos (' + missingCount + ')</button>';
             for (var ck = 0; ck < catKeys.length; ck++) {
-                var catProds = byCat[catKeys[ck]];
-                var catIcon = _elxInvCatIcon(catKeys[ck]);
-                
-                // Category header
-                html += '<div style="background:#F5F7FA;border-left:4px solid #0A2540;border-radius:8px;padding:10px 14px;margin:12px 0 6px;display:flex;align-items:center;justify-content:space-between;">';
-                html += '<div style="display:flex;align-items:center;gap:8px;">';
-                html += '<span style="font-size:18px;">' + catIcon + '</span>';
-                html += '<span style="font-size:14px;font-weight:700;color:#0A2540;">' + escapeHtml(catKeys[ck]) + '</span>';
-                html += '</div>';
-                html += '<span style="background:#EF4444;color:#fff;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;">' + catProds.length + ' faltantes</span>';
-                html += '</div>';
-                
-                // Product cards
-                for (var cp = 0; cp < catProds.length; cp++) {
-                    var p = catProds[cp];
-                    var pPrice = parseFloat(p.salePrice || p.price || 0);
-                    
-                    html += '<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between;gap:8px;">';
-                    
-                    // Left: product info
-                    html += '<div style="flex:1;min-width:0;">';
-                    html += '<div style="font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(p.name || '') + '</div>';
-                    html += '<div style="display:flex;gap:6px;margin-top:3px;flex-wrap:wrap;">';
-                    if (p.brand) html += '<span style="font-size:9px;background:rgba(0,184,148,0.15);color:#00b894;padding:1px 6px;border-radius:4px;font-weight:600;">' + escapeHtml(p.brand) + '</span>';
-                    if (p.color) html += '<span style="font-size:9px;background:rgba(162,155,254,0.15);color:#a29bfe;padding:1px 6px;border-radius:4px;">' + escapeHtml(p.color) + '</span>';
-                    if (pPrice > 0) html += '<span style="font-size:9px;background:rgba(34,197,94,0.15);color:#15803D;padding:1px 6px;border-radius:4px;font-weight:700;">$' + pPrice + '</span>';
-                    html += '</div>';
-                    html += '</div>';
-                    
-                    // Right: Subir button (using data attribute, NOT inline onclick)
-                    html += '<button class="cruce-subir-btn" data-pid="' + escapeHtml(p.id || '') + '" data-pname="' + escapeHtml(p.name || '') + '" data-pbrand="' + escapeHtml(p.brand || '') + '" data-pprice="' + pPrice + '" data-pcolor="' + escapeHtml(p.color || '') + '" style="background:#0A2540;color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;">+ Subir</button>';
-                    
-                    html += '</div>';
-                }
+                var cnt = window._cruceByCat[catKeys[ck]].length;
+                var icon = _elxInvCatIcon(catKeys[ck]);
+                html += '<button class="cruce-cat-chip" data-cat="' + escapeHtml(catKeys[ck]) + '" style="flex-shrink:0;padding:6px 14px;border-radius:20px;font-size:11px;font-weight:600;border:1.5px solid var(--border);background:var(--card);color:var(--text2);cursor:pointer;white-space:nowrap;">' + icon + ' ' + escapeHtml(catKeys[ck]) + ' (' + cnt + ')</button>';
             }
+            html += '</div>';
+            
+            // Product list container (will be filtered by _filterCruceList)
+            html += '<div id="cruceListContainer"></div>';
         }
         
         html += '</div>';
@@ -24429,44 +24396,132 @@ function _renderCruceResults(invProducts, cats) {
         var modal = document.createElement('div');
         modal.id = 'cruceCatalogModal';
         modal.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.6);display:flex;align-items:flex-end;justify-content:center;';
-        modal.innerHTML = '<div style="background:var(--bg);border-radius:16px 16px 0 0;width:100%;max-width:500px;max-height:85vh;overflow-y:auto;box-shadow:0 -4px 20px rgba(0,0,0,0.3);">' + html + '</div>';
+        modal.innerHTML = '<div style="background:var(--bg);border-radius:16px 16px 0 0;width:100%;max-width:500px;max-height:85vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 -4px 20px rgba(0,0,0,0.3);">' + html + '</div>';
         
         document.body.appendChild(modal);
         document.body.style.overflow = 'hidden';
         
-        // Add event listeners AFTER DOM insertion
+        // Add event listeners
         var closeBtn = document.getElementById('cruceCloseBtn');
-        if (closeBtn) {
-            closeBtn.addEventListener('click', function() {
-                modal.remove();
-                document.body.style.overflow = '';
+        if (closeBtn) closeBtn.addEventListener('click', function() { modal.remove(); document.body.style.overflow = ''; });
+        modal.addEventListener('click', function(e) { if (e.target === modal) { modal.remove(); document.body.style.overflow = ''; } });
+        
+        // Category chip listeners
+        var chips = modal.querySelectorAll('.cruce-cat-chip');
+        for (var ch = 0; ch < chips.length; ch++) {
+            chips[ch].addEventListener('click', function(e) {
+                var cat = e.currentTarget.getAttribute('data-cat');
+                // Update chip styles
+                for (var c2 = 0; c2 < chips.length; c2++) {
+                    chips[c2].style.background = 'var(--card)';
+                    chips[c2].style.color = 'var(--text2)';
+                    chips[c2].style.border = '1.5px solid var(--border)';
+                    chips[c2].style.fontWeight = '600';
+                }
+                e.currentTarget.style.background = '#0A2540';
+                e.currentTarget.style.color = '#fff';
+                e.currentTarget.style.border = '2px solid #0A2540';
+                e.currentTarget.style.fontWeight = '700';
+                // Re-render list with filter
+                window._cruceActiveCat = cat;
+                _filterCruceList();
             });
         }
         
-        modal.addEventListener('click', function(e) {
-            if (e.target === modal) {
-                modal.remove();
-                document.body.style.overflow = '';
-            }
-        });
+        // Initial render
+        window._cruceActiveCat = '';
+        _filterCruceList();
         
-        // Add listeners to all Subir buttons
-        var subirBtns = modal.querySelectorAll('.cruce-subir-btn');
+        showToast('Cruce: ' + missingCount + ' productos faltan subir', missingCount > 0 ? 'warning' : 'success');
+    } catch(e) {
+        showToast('Error: ' + e.message, 'error');
+        console.error('Cruce render error:', e);
+    }
+}
+
+function _filterCruceList() {
+    try {
+        var container = document.getElementById('cruceListContainer');
+        if (!container) return;
+        
+        var search = '';
+        var searchEl = document.getElementById('cruceSearchInput');
+        if (searchEl) search = searchEl.value.toLowerCase().trim();
+        
+        var activeCat = window._cruceActiveCat || '';
+        var missing = window._cruceMissing || [];
+        var byCat = window._cruceByCat || {};
+        var catKeys = Object.keys(byCat).sort();
+        
+        var html = '';
+        var shown = 0;
+        
+        for (var ck = 0; ck < catKeys.length; ck++) {
+            var catName = catKeys[ck];
+            // Filter by active category
+            if (activeCat && activeCat !== catName) continue;
+            
+            var catProds = byCat[catName];
+            var filteredProds = [];
+            
+            for (var cp = 0; cp < catProds.length; cp++) {
+                var p = catProds[cp];
+                // Filter by search
+                if (search) {
+                    var haystack = ((p.name || '') + ' ' + (p.brand || '') + ' ' + (p.color || '') + ' ' + (p.category || '')).toLowerCase();
+                    if (haystack.indexOf(search) < 0) continue;
+                }
+                filteredProds.push(p);
+            }
+            
+            if (filteredProds.length === 0) continue;
+            shown += filteredProds.length;
+            
+            // Category header
+            var catIcon = _elxInvCatIcon(catName);
+            html += '<div style="background:#F5F7FA;border-left:4px solid #0A2540;border-radius:8px;padding:10px 14px;margin:12px 0 6px;display:flex;align-items:center;justify-content:space-between;">';
+            html += '<div style="display:flex;align-items:center;gap:8px;"><span style="font-size:18px;">' + catIcon + '</span><span style="font-size:14px;font-weight:700;color:#0A2540;">' + escapeHtml(catName) + '</span></div>';
+            html += '<span style="background:#EF4444;color:#fff;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;">' + filteredProds.length + '</span>';
+            html += '</div>';
+            
+            // Product cards
+            for (var fp = 0; fp < filteredProds.length; fp++) {
+                var pr = filteredProds[fp];
+                var prPrice = parseFloat(pr.salePrice || pr.price || 0);
+                
+                html += '<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between;gap:8px;">';
+                html += '<div style="flex:1;min-width:0;">';
+                html += '<div style="font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(pr.name || '') + '</div>';
+                html += '<div style="display:flex;gap:6px;margin-top:3px;flex-wrap:wrap;">';
+                if (pr.brand) html += '<span style="font-size:9px;background:rgba(0,184,148,0.15);color:#00b894;padding:1px 6px;border-radius:4px;font-weight:600;">' + escapeHtml(pr.brand) + '</span>';
+                if (pr.color) html += '<span style="font-size:9px;background:rgba(162,155,254,0.15);color:#a29bfe;padding:1px 6px;border-radius:4px;">' + escapeHtml(pr.color) + '</span>';
+                if (prPrice > 0) html += '<span style="font-size:9px;background:rgba(34,197,94,0.15);color:#15803D;padding:1px 6px;border-radius:4px;font-weight:700;">$' + prPrice + '</span>';
+                html += '</div></div>';
+                html += '<button class="cruce-subir-btn" data-pid="' + escapeHtml(pr.id || '') + '" data-pname="' + escapeHtml(pr.name || '') + '" data-pbrand="' + escapeHtml(pr.brand || '') + '" data-pprice="' + prPrice + '" data-pcolor="' + escapeHtml(pr.color || '') + '" style="background:#0A2540;color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;">+ Subir</button>';
+                html += '</div>';
+            }
+        }
+        
+        if (shown === 0) {
+            html = '<div style="text-align:center;padding:30px 20px;color:var(--text3);font-size:13px;">No se encontraron productos con esos filtros</div>';
+        }
+        
+        container.innerHTML = html;
+        
+        // Add listeners to Subir buttons
+        var subirBtns = container.querySelectorAll('.cruce-subir-btn');
         for (var sb = 0; sb < subirBtns.length; sb++) {
             subirBtns[sb].addEventListener('click', function(e) {
                 e.stopPropagation();
                 var btn = e.currentTarget;
-                var pid = btn.getAttribute('data-pid');
                 var pname = btn.getAttribute('data-pname');
                 var pbrand = btn.getAttribute('data-pbrand');
                 var pprice = btn.getAttribute('data-pprice');
                 var pcolor = btn.getAttribute('data-pcolor');
                 
-                // Close cruce modal
-                modal.remove();
-                document.body.style.overflow = '';
+                var modal = document.getElementById('cruceCatalogModal');
+                if (modal) { modal.remove(); document.body.style.overflow = ''; }
                 
-                // Open ecat editor pre-filled
                 if (typeof openEcatalogEditor === 'function') {
                     openEcatalogEditor();
                     setTimeout(function() {
@@ -24483,19 +24538,8 @@ function _renderCruceResults(invProducts, cats) {
                 }
             });
         }
-        
-        // Subir all button
-        var subirAllBtn = document.getElementById('cruceSubirAllBtn');
-        if (subirAllBtn) {
-            subirAllBtn.addEventListener('click', function() {
-                showToast('Para subir todos, abre cada producto y presiona + Subir', 'info', 4000);
-            });
-        }
-        
-        showToast('Cruce: ' + missing.length + ' productos faltan subir', missing.length > 0 ? 'warning' : 'success');
     } catch(e) {
-        showToast('Error: ' + e.message, 'error');
-        console.error('Cruce render error:', e);
+        console.error('Filter cruce error:', e);
     }
 }
 function openEcatalogEditorWithProduct(productId) {
