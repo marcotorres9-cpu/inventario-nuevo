@@ -24330,26 +24330,47 @@ function _renderCruceResults(invProducts, cats) {
             return (a.name || '').localeCompare(b.name || '');
         });
         
-        // Build simple HTML — no inline onclick with quotes, use data attributes
+        // Build improved HTML with Electrolux styling + Subir buttons
         var html = '';
-        html += '<div style="padding:16px;">';
-        html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">';
-        html += '<h2 style="font-size:18px;font-weight:800;color:#0A2540;">Cruce de Inventario</h2>';
-        html += '<button id="cruceCloseBtn" style="font-size:20px;background:none;border:none;color:var(--danger);cursor:pointer;">X</button>';
+        html += '<div style="padding:0;">';
+        
+        // Navy header bar
+        html += '<div style="background:linear-gradient(135deg,#0A2540,#1E3A5F);color:#fff;padding:16px;border-radius:16px 16px 0 0;">';
+        html += '<div style="display:flex;align-items:center;justify-content:space-between;">';
+        html += '<div>';
+        html += '<div style="font-size:18px;font-weight:800;">Cruce de Inventario</div>';
+        html += '<div style="font-size:11px;opacity:0.8;margin-top:2px;">Productos que faltan en el catalogo electronico</div>';
+        html += '</div>';
+        html += '<button id="cruceCloseBtn" style="width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,0.15);color:#fff;border:none;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;">X</button>';
         html += '</div>';
         
-        html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:18px;">';
-        html += '<div style="background:#F5F7FA;border-radius:10px;padding:12px;text-align:center;"><div style="font-size:24px;font-weight:800;color:#0A2540;">' + invProducts.length + '</div><div style="font-size:11px;color:#64748B;">En Inventario</div></div>';
-        html += '<div style="background:rgba(34,197,94,0.1);border-radius:10px;padding:12px;text-align:center;"><div style="font-size:24px;font-weight:800;color:#15803D;">' + present.length + '</div><div style="font-size:11px;color:#64748B;">En Catalogo</div></div>';
-        html += '<div style="background:rgba(239,68,68,0.1);border-radius:10px;padding:12px;text-align:center;"><div style="font-size:24px;font-weight:800;color:#EF4444;">' + missing.length + '</div><div style="font-size:11px;color:#64748B;">Faltan subir</div></div>';
+        // Summary cards (3 columns)
+        html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:14px;">';
+        html += '<div style="background:rgba(255,255,255,0.1);border-radius:10px;padding:10px;text-align:center;">';
+        html += '<div style="font-size:22px;font-weight:800;color:#fff;">' + invProducts.length + '</div>';
+        html += '<div style="font-size:9px;opacity:0.7;text-transform:uppercase;letter-spacing:0.5px;">En Inventario</div>';
         html += '</div>';
+        html += '<div style="background:rgba(34,197,94,0.2);border-radius:10px;padding:10px;text-align:center;">';
+        html += '<div style="font-size:22px;font-weight:800;color:#22C55E;">' + present.length + '</div>';
+        html += '<div style="font-size:9px;opacity:0.7;text-transform:uppercase;letter-spacing:0.5px;">En Catalogo</div>';
+        html += '</div>';
+        html += '<div style="background:rgba(239,68,68,0.2);border-radius:10px;padding:10px;text-align:center;">';
+        html += '<div style="font-size:22px;font-weight:800;color:#EF4444;">' + missing.length + '</div>';
+        html += '<div style="font-size:9px;opacity:0.7;text-transform:uppercase;letter-spacing:0.5px;">Faltan Subir</div>';
+        html += '</div>';
+        html += '</div>';
+        html += '</div>';
+        
+        // Product list area
+        html += '<div style="padding:14px;max-height:60vh;overflow-y:auto;">';
         
         if (missing.length === 0) {
-            html += '<div style="text-align:center;padding:40px 20px;color:var(--primary);font-size:16px;font-weight:700;">Todos los productos estan en el catalogo</div>';
+            html += '<div style="text-align:center;padding:40px 20px;">';
+            html += '<div style="font-size:48px;margin-bottom:12px;">✅</div>';
+            html += '<div style="font-size:16px;font-weight:700;color:#22C55E;">Todos los productos estan en el catalogo</div>';
+            html += '</div>';
         } else {
-            html += '<div style="font-size:13px;font-weight:700;color:#EF4444;margin-bottom:10px;">Faltan subir (' + missing.length + '):</div>';
-            html += '<div id="cruceListContainer" style="max-height:400px;overflow-y:auto;">';
-            
+            // Group by category
             var byCat = {};
             for (var mi = 0; mi < missing.length; mi++) {
                 var cat = missing[mi].category || 'Sin categoria';
@@ -24358,32 +24379,62 @@ function _renderCruceResults(invProducts, cats) {
             }
             var catKeys = Object.keys(byCat).sort();
             
+            // Subir all button
+            html += '<button id="cruceSubirAllBtn" style="width:100%;background:#22C55E;color:#fff;border:none;border-radius:10px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:14px;display:flex;align-items:center;justify-content:center;gap:6px;">';
+            html += 'Subir todos los ' + missing.length + ' productos al catalogo';
+            html += '</button>';
+            
             for (var ck = 0; ck < catKeys.length; ck++) {
                 var catProds = byCat[catKeys[ck]];
-                html += '<div style="font-size:13px;font-weight:700;color:#0A2540;background:#F5F7FA;padding:8px 12px;border-radius:8px;margin:10px 0 4px;border-left:4px solid #0A2540;">' + escapeHtml(catKeys[ck]) + ' (' + catProds.length + ')</div>';
+                var catIcon = _elxInvCatIcon(catKeys[ck]);
+                
+                // Category header
+                html += '<div style="background:#F5F7FA;border-left:4px solid #0A2540;border-radius:8px;padding:10px 14px;margin:12px 0 6px;display:flex;align-items:center;justify-content:space-between;">';
+                html += '<div style="display:flex;align-items:center;gap:8px;">';
+                html += '<span style="font-size:18px;">' + catIcon + '</span>';
+                html += '<span style="font-size:14px;font-weight:700;color:#0A2540;">' + escapeHtml(catKeys[ck]) + '</span>';
+                html += '</div>';
+                html += '<span style="background:#EF4444;color:#fff;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;">' + catProds.length + ' faltantes</span>';
+                html += '</div>';
+                
+                // Product cards
                 for (var cp = 0; cp < catProds.length; cp++) {
                     var p = catProds[cp];
-                    var pInfo = escapeHtml(p.name || '');
-                    if (p.brand) pInfo += ' - ' + escapeHtml(p.brand);
-                    if (p.color) pInfo += ' - ' + escapeHtml(p.color);
-                    if (p.salePrice) pInfo += ' - $' + (p.salePrice || p.price || 0);
-                    html += '<div style="padding:8px 12px;border-bottom:1px solid var(--border);font-size:12px;color:var(--text);">' + pInfo + '</div>';
+                    var pPrice = parseFloat(p.salePrice || p.price || 0);
+                    
+                    html += '<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between;gap:8px;">';
+                    
+                    // Left: product info
+                    html += '<div style="flex:1;min-width:0;">';
+                    html += '<div style="font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(p.name || '') + '</div>';
+                    html += '<div style="display:flex;gap:6px;margin-top:3px;flex-wrap:wrap;">';
+                    if (p.brand) html += '<span style="font-size:9px;background:rgba(0,184,148,0.15);color:#00b894;padding:1px 6px;border-radius:4px;font-weight:600;">' + escapeHtml(p.brand) + '</span>';
+                    if (p.color) html += '<span style="font-size:9px;background:rgba(162,155,254,0.15);color:#a29bfe;padding:1px 6px;border-radius:4px;">' + escapeHtml(p.color) + '</span>';
+                    if (pPrice > 0) html += '<span style="font-size:9px;background:rgba(34,197,94,0.15);color:#15803D;padding:1px 6px;border-radius:4px;font-weight:700;">$' + pPrice + '</span>';
+                    html += '</div>';
+                    html += '</div>';
+                    
+                    // Right: Subir button (using data attribute, NOT inline onclick)
+                    html += '<button class="cruce-subir-btn" data-pid="' + escapeHtml(p.id || '') + '" data-pname="' + escapeHtml(p.name || '') + '" data-pbrand="' + escapeHtml(p.brand || '') + '" data-pprice="' + pPrice + '" data-pcolor="' + escapeHtml(p.color || '') + '" style="background:#0A2540;color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;">+ Subir</button>';
+                    
+                    html += '</div>';
                 }
             }
-            html += '</div>';
         }
+        
+        html += '</div>';
         html += '</div>';
         
         // Create modal
         var modal = document.createElement('div');
         modal.id = 'cruceCatalogModal';
         modal.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.6);display:flex;align-items:flex-end;justify-content:center;';
-        modal.innerHTML = '<div style="background:var(--bg);border-radius:16px 16px 0 0;width:100%;max-width:500px;max-height:85vh;overflow-y:auto;">' + html + '</div>';
+        modal.innerHTML = '<div style="background:var(--bg);border-radius:16px 16px 0 0;width:100%;max-width:500px;max-height:85vh;overflow-y:auto;box-shadow:0 -4px 20px rgba(0,0,0,0.3);">' + html + '</div>';
         
-        // Add close handlers AFTER adding to DOM
         document.body.appendChild(modal);
+        document.body.style.overflow = 'hidden';
         
-        // Close button handler
+        // Add event listeners AFTER DOM insertion
         var closeBtn = document.getElementById('cruceCloseBtn');
         if (closeBtn) {
             closeBtn.addEventListener('click', function() {
@@ -24392,7 +24443,6 @@ function _renderCruceResults(invProducts, cats) {
             });
         }
         
-        // Click outside to close
         modal.addEventListener('click', function(e) {
             if (e.target === modal) {
                 modal.remove();
@@ -24400,9 +24450,51 @@ function _renderCruceResults(invProducts, cats) {
             }
         });
         
-        showToast('Cruce: ' + missing.length + ' productos faltan', missing.length > 0 ? 'warning' : 'success');
+        // Add listeners to all Subir buttons
+        var subirBtns = modal.querySelectorAll('.cruce-subir-btn');
+        for (var sb = 0; sb < subirBtns.length; sb++) {
+            subirBtns[sb].addEventListener('click', function(e) {
+                e.stopPropagation();
+                var btn = e.currentTarget;
+                var pid = btn.getAttribute('data-pid');
+                var pname = btn.getAttribute('data-pname');
+                var pbrand = btn.getAttribute('data-pbrand');
+                var pprice = btn.getAttribute('data-pprice');
+                var pcolor = btn.getAttribute('data-pcolor');
+                
+                // Close cruce modal
+                modal.remove();
+                document.body.style.overflow = '';
+                
+                // Open ecat editor pre-filled
+                if (typeof openEcatalogEditor === 'function') {
+                    openEcatalogEditor();
+                    setTimeout(function() {
+                        var nameInput = document.getElementById('catEdName');
+                        if (nameInput) nameInput.value = pname;
+                        var brandInput = document.getElementById('catEdBrand');
+                        if (brandInput) brandInput.value = pbrand;
+                        var priceInput = document.getElementById('catEdPrice');
+                        if (priceInput) priceInput.value = pprice;
+                        var colorInput = document.getElementById('catEdColor');
+                        if (colorInput) colorInput.value = pcolor;
+                        showToast('Producto cargado: ' + pname, 'info');
+                    }, 500);
+                }
+            });
+        }
+        
+        // Subir all button
+        var subirAllBtn = document.getElementById('cruceSubirAllBtn');
+        if (subirAllBtn) {
+            subirAllBtn.addEventListener('click', function() {
+                showToast('Para subir todos, abre cada producto y presiona + Subir', 'info', 4000);
+            });
+        }
+        
+        showToast('Cruce: ' + missing.length + ' productos faltan subir', missing.length > 0 ? 'warning' : 'success');
     } catch(e) {
-        showToast('Error renderizando cruce: ' + e.message, 'error');
+        showToast('Error: ' + e.message, 'error');
         console.error('Cruce render error:', e);
     }
 }
