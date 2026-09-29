@@ -25,7 +25,7 @@
     <!-- Auto-update: check server version, show visible banner with "Actualizar" button (no silent reload) -->
     <script>
     (function(){
-        var _curVer='NV118';
+        var _curVer='NV119';
         var _pendingVer='';
         var _autoTimer=null;
         var _shownVer='';
@@ -1189,7 +1189,7 @@
         .elx-inv-hero {
             margin: 0 0 16px; border-radius: 14px; overflow: hidden;
             background: linear-gradient(135deg, #0A2540 0%, #1E3A5F 100%);
-            position: relative; aspect-ratio: 16/8; box-shadow: 0 4px 14px rgba(10,37,64,0.18);
+            position: relative; min-height: 150px; box-shadow: 0 4px 14px rgba(10,37,64,0.18);
         }
         .elx-inv-hero-bg {
             position: absolute; inset: 0;
@@ -1197,13 +1197,13 @@
                         radial-gradient(ellipse at top right, rgba(34,197,94,0.25), transparent 60%);
         }
         .elx-inv-hero-content {
-            position: relative; padding: 14px 16px; height: 100%;
+            position: relative; padding: 16px; min-height: 100%;
             display: flex; flex-direction: column; justify-content: flex-end; color: #fff;
         }
         .elx-inv-hero-tag {
             background: #22C55E; color: #fff; font-size: 10px; font-weight: 700;
             padding: 3px 9px; border-radius: 10px; letter-spacing: 1px; text-transform: uppercase;
-            align-self: flex-start; margin-bottom: 6px;
+            align-self: flex-start; margin-bottom: 6px; flex-shrink: 0;
         }
         .elx-inv-hero-title {
             font-size: 18px; font-weight: 700; line-height: 1.2; margin-bottom: 4px;
@@ -1404,7 +1404,7 @@
             <div>
                 <div class="header-name" id="storeHeaderName">Inventario Pro</div>
                 <div class="header-role" id="userRole">rol</div>
-                <div class="header-ver" id="headerVersion">v2.6.70 NV118</div><div style="font-size:8px;color:#fbbf24;background:rgba(251,191,36,0.15);padding:1px 5px;border-radius:3px;margin-top:2px;display:inline-block;font-weight:700;">v122-NATIVE</div>
+                <div class="header-ver" id="headerVersion">v2.6.71 NV119</div><div style="font-size:8px;color:#fbbf24;background:rgba(251,191,36,0.15);padding:1px 5px;border-radius:3px;margin-top:2px;display:inline-block;font-weight:700;">v122-NATIVE</div>
             </div>
         </div>
         <button class="btn-logout" onclick="toggleTheme()" style="background:none;border:none;font-size:20px;cursor:pointer;margin-right:8px;color:var(--text2);" title="Cambiar tema">🌓</button>
@@ -4230,8 +4230,12 @@ function logout() {
 // ====================================================================
 // CHANGELOG — Show latest updates to the user
 // ====================================================================
-var APP_VERSION = '2.6.70 NV118'
+var APP_VERSION = '2.6.71 NV119'
 var CHANGELOG_ENTRIES = [
+    { ver: '2.6.71', date: '30 Sep 2026', items: [
+        { icon: '🆕', text: '<b>Sistema de avisos de actualización:</b> la app te avisa cuando hay una versión nueva con botón «Actualizar» — ya no se recarga sola.' },
+        { icon: '🛠️', text: '<b>Banner del catálogo corregido:</b> la etiqueta verde «Inventario» ya no se monta ni se corta; el banner crece según su contenido.' }
+    ]},
     { ver: '2.6.70', date: '30 Sep 2026', items: [
         { icon: '🛒', text: '<b>Catálogo electrónico corregido:</b> el estado «Agotado» ahora consulta el stock real en vivo — ya no aparecen productos agotados por error.' },
         { icon: '📏', text: '<b>Medidas en refrigeradores:</b> se extraen automáticamente de los detalles (alto × ancho × fondo), igual que en cocinas.' },
@@ -24209,7 +24213,7 @@ function generateSimplePrintableReport(products, selCats, selBrands) {
     rHtml += '<tr class="grand-total"><td colspan="3">' + totalProductos + ' productos en ' + catKeys.length + ' categorías</td><td class="right">$' + fmtNum(grandTotal) + '</td><td class="center">' + grandStock + '</td></tr>';
     rHtml += '</tbody></table>';
 
-    rHtml += '<div class="footer">Documento generado el ' + dateStr + ' a las ' + timeStr + ' — Inventario Pro v2.6.70 NV118</div>';
+    rHtml += '<div class="footer">Documento generado el ' + dateStr + ' a las ' + timeStr + ' — Inventario Pro v2.6.71 NV119</div>';
     rHtml += '</body></html>';
 
     window._catalogReportHtml = rHtml;
