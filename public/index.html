@@ -5183,6 +5183,24 @@ function renderProductList() {
     for (var j = 0; j < pageItems.length; j++) {
         var pr = pageItems[j];
         var stk = parseInt(pr.stock) || 0;
+        if (stk === 0) {
+            try {
+                var _locs = (typeof getLocations === 'function') ? getLocations() : [];
+                var _realStock = 0;
+                for (var _li = 0; _li < _locs.length; _li++) {
+                    var _spaces = _locs[_li].spaces || [];
+                    for (var _si = 0; _si < _spaces.length; _si++) {
+                        var _sp = _spaces[_si].products || [];
+                        for (var _pi = 0; _pi < _sp.length; _pi++) {
+                            if (_sp[_pi].productId === pr.id || _sp[_pi].name === pr.name) {
+                                _realStock += parseInt(_sp[_pi].qty) || 0;
+                            }
+                        }
+                    }
+                }
+                if (_realStock > 0) stk = _realStock;
+            } catch(eLoc) {}
+        }
         var minStk = parseInt(pr.minStock) || 5;
         var badgeClass = 'badge-stock';
         var badgeText = stk + ' uds';
