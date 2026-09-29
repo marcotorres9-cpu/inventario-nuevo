@@ -25,7 +25,7 @@
     <!-- Auto-update: check server version, show visible banner with "Actualizar" button (no silent reload) -->
     <script>
     (function(){
-        var _curVer='NV119';
+        var _curVer='NV120';
         var _pendingVer='';
         var _autoTimer=null;
         var _shownVer='';
@@ -100,6 +100,24 @@
                     try{ if(typeof showToast==='function') showToast('✓ App actualizada a '+_curVer,'success'); }catch(e){}
                 },1500);
             }
+        }catch(e){}
+        // Startup feedback: when the app starts running a version NEWER than the one the
+        // APK was built for (?v= in server.url) or newer than the last session (inv_lastVer),
+        // confirm the auto-update with a toast — shown once per version.
+        try{
+            var _apkV=0,_mv=(location.search||'').match(/[?&]v=(\d+)/);
+            if(_mv) _apkV=parseInt(_mv[1],10)||0;
+            var _curN=parseInt(String(_curVer).replace(/[^0-9]/g,''),10)||0;
+            var _prevS=''; try{ _prevS=localStorage.getItem('inv_lastVer')||''; }catch(e){}
+            var _seenT=''; try{ _seenT=localStorage.getItem('inv_updToastSeen')||''; }catch(e){}
+            var _hasVp=(location.search||'').indexOf('_v=')!==-1;
+            if(!_hasVp && _seenT!==_curVer && ((_apkV>0&&_apkV<_curN)||(_prevS&&_prevS!==_curVer))){
+                setTimeout(function(){
+                    try{ if(typeof showToast==='function') showToast('✓ App actualizada a '+_curVer,'success'); }catch(e){}
+                    try{ localStorage.setItem('inv_updToastSeen',_curVer); }catch(e){}
+                },2500);
+            }
+            try{ localStorage.setItem('inv_lastVer',_curVer); }catch(e){}
         }catch(e){}
     })();
     </script>
@@ -1404,7 +1422,7 @@
             <div>
                 <div class="header-name" id="storeHeaderName">Inventario Pro</div>
                 <div class="header-role" id="userRole">rol</div>
-                <div class="header-ver" id="headerVersion">v2.6.71 NV119</div><div style="font-size:8px;color:#fbbf24;background:rgba(251,191,36,0.15);padding:1px 5px;border-radius:3px;margin-top:2px;display:inline-block;font-weight:700;">v122-NATIVE</div>
+                <div class="header-ver" id="headerVersion">v2.6.72 NV120</div><div style="font-size:8px;color:#fbbf24;background:rgba(251,191,36,0.15);padding:1px 5px;border-radius:3px;margin-top:2px;display:inline-block;font-weight:700;">v122-NATIVE</div>
             </div>
         </div>
         <button class="btn-logout" onclick="toggleTheme()" style="background:none;border:none;font-size:20px;cursor:pointer;margin-right:8px;color:var(--text2);" title="Cambiar tema">🌓</button>
@@ -4230,8 +4248,12 @@ function logout() {
 // ====================================================================
 // CHANGELOG — Show latest updates to the user
 // ====================================================================
-var APP_VERSION = '2.6.71 NV119'
+var APP_VERSION = '2.6.72 NV120'
 var CHANGELOG_ENTRIES = [
+    { ver: '2.6.72', date: '30 Sep 2026', items: [
+        { icon: '📢', text: '<b>Confirmación de actualización:</b> al abrir la app verás «✓ App actualizada a NVxxx» cuando se haya recibido una versión nueva, junto con esta tarjeta de Novedades.' },
+        { icon: '💡', text: '<b>¿Cuándo aparece el aviso azul con «Actualizar»?</b> Si la app está abierta en el momento en que se publica una versión nueva — el aviso llega en menos de 2 minutos sin reiniciar nada.' }
+    ]},
     { ver: '2.6.71', date: '30 Sep 2026', items: [
         { icon: '🆕', text: '<b>Sistema de avisos de actualización:</b> la app te avisa cuando hay una versión nueva con botón «Actualizar» — ya no se recarga sola.' },
         { icon: '🛠️', text: '<b>Banner del catálogo corregido:</b> la etiqueta verde «Inventario» ya no se monta ni se corta; el banner crece según su contenido.' }
@@ -24213,7 +24235,7 @@ function generateSimplePrintableReport(products, selCats, selBrands) {
     rHtml += '<tr class="grand-total"><td colspan="3">' + totalProductos + ' productos en ' + catKeys.length + ' categorías</td><td class="right">$' + fmtNum(grandTotal) + '</td><td class="center">' + grandStock + '</td></tr>';
     rHtml += '</tbody></table>';
 
-    rHtml += '<div class="footer">Documento generado el ' + dateStr + ' a las ' + timeStr + ' — Inventario Pro v2.6.71 NV119</div>';
+    rHtml += '<div class="footer">Documento generado el ' + dateStr + ' a las ' + timeStr + ' — Inventario Pro v2.6.72 NV120</div>';
     rHtml += '</body></html>';
 
     window._catalogReportHtml = rHtml;
