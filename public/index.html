@@ -25,7 +25,7 @@
     <!-- Auto-update: check server version, show visible banner with "Actualizar" button (no silent reload) -->
     <script>
     (function(){
-        var _curVer='NV121';
+        var _curVer='NV122';
         var _pendingVer='';
         var _autoTimer=null;
         var _shownVer='';
@@ -1422,7 +1422,7 @@
             <div>
                 <div class="header-name" id="storeHeaderName">Inventario Pro</div>
                 <div class="header-role" id="userRole">rol</div>
-                <div class="header-ver" id="headerVersion">v2.6.73 NV121</div><div style="font-size:8px;color:#fbbf24;background:rgba(251,191,36,0.15);padding:1px 5px;border-radius:3px;margin-top:2px;display:inline-block;font-weight:700;">v122-NATIVE</div>
+                <div class="header-ver" id="headerVersion">v2.6.74 NV122</div><div style="font-size:8px;color:#fbbf24;background:rgba(251,191,36,0.15);padding:1px 5px;border-radius:3px;margin-top:2px;display:inline-block;font-weight:700;">v122-NATIVE</div>
             </div>
         </div>
         <button class="btn-logout" onclick="toggleTheme()" style="background:none;border:none;font-size:20px;cursor:pointer;margin-right:8px;color:var(--text2);" title="Cambiar tema">🌓</button>
@@ -1659,8 +1659,9 @@
                 <h2>📖 Catálogo Electrónico</h2>
                 <div class="elx-cat-header-sub">Comparte productos con tus clientes vía enlace corto y QR</div>
                 <div class="elx-cat-header-actions">
-                    <button class="elx-cat-btn elx-cat-btn-primary" onclick="openEcatalogEditor()">+ Agregar</button>
-                    <button class="elx-cat-btn elx-cat-btn-blue" onclick="openClientCatalog()">🌐 Vista Clientes</button>
+                    <button class="elx-cat-btn elx-cat-btn-primary" onclick="openCatalogShare('')">🔗 Compartir</button>
+                    <button class="elx-cat-btn elx-cat-btn-blue" onclick="openEcatalogEditor()">+ Agregar</button>
+                    <button class="elx-cat-btn" onclick="openClientCatalog()">🌐 Vista Clientes</button>
                     <button class="elx-cat-btn" onclick="showCatalogCruce()">🔍 Cruce</button>
                     <button class="elx-cat-btn" onclick="syncAllCatalogImages()">🔄 Sincronizar Fotos</button>
                 </div>
@@ -4248,8 +4249,13 @@ function logout() {
 // ====================================================================
 // CHANGELOG — Show latest updates to the user
 // ====================================================================
-var APP_VERSION = '2.6.73 NV121'
+var APP_VERSION = '2.6.74 NV122'
 var CHANGELOG_ENTRIES = [
+    { ver: '2.6.74', date: '30 Sep 2026', items: [
+        { icon: '🔗', text: '<b>Compartir con clientes:</b> nuevo botón «Compartir» en el Catálogo Electrónico — envía por WhatsApp, copia el enlace o comparte el código QR de cada producto o de todo tu catálogo.' },
+        { icon: '🌐', text: '<b>Catálogo público completo:</b> ahora tienes un enlace único con todos tus productos para el cliente, con buscador y filtros por categoría.' },
+        { icon: '🛠️', text: '<b>Medidas fijas mejoradas:</b> en el catálogo público ahora también funciona en equipos con navegador antiguo.' }
+    ]},
     { ver: '2.6.73', date: '30 Sep 2026', items: [
         { icon: '📏', text: '<b>Medidas siempre visibles:</b> en el catálogo público, las medidas del producto se fijan en la parte superior al hacer scroll — puedes leer toda la descripción sin perderlas de vista.' }
     ]},
@@ -21324,6 +21330,9 @@ function showCatalogDetail(slug) {
       h += '<a class="cat-detail-wa" href="' + waLink + '" target="_blank">📱 Pedir por WhatsApp</a>';
     }
 
+    // Share center button (Link / QR)
+    h += '<button class="cat-detail-open" style="background:#22C55E;" onclick="closeCatalogShare();openCatalogShare(\'' + slug.replace(/'/g, "\\'") + '\')">🔗 Compartir por Link o QR</button>';
+
     // Open in browser button
     h += '<button class="cat-detail-open" onclick="closeCatalogDetail();openCatalogDetail(\'' + slug.replace(/'/g, "\\'") + '\')">🌐 Ver en Navegador</button>';
 
@@ -21525,8 +21534,8 @@ function renderCatalogsList() {
             }
             html += '<button onclick="event.stopPropagation();showCatalogDetail(\'' + safeSlug + '\')" class="elx-cat-card-btn-main">Ver Catálogo</button>';
             html += '<div class="elx-cat-card-actions">';
-            html += '<button onclick="event.stopPropagation();shareCatalogImage(\'' + safeSlug + '\',\'' + c.id + '\')" class="elx-cat-card-btn-ico" title="Compartir">📱</button>';
-            html += '<button onclick="event.stopPropagation();copyCatalogLink(\'' + safeSlug + '\')" class="elx-cat-card-btn-ico" title="Copiar enlace">📋</button>';
+            html += '<button onclick="event.stopPropagation();openCatalogShare(\'' + safeSlug + '\')" class="elx-cat-card-btn-ico" title="Compartir Link / QR">🔗</button>';
+            html += '<button onclick="event.stopPropagation();shareCatalogImage(\'' + safeSlug + '\',\'' + c.id + '\')" class="elx-cat-card-btn-ico" title="Compartir tarjeta">📱</button>';
             html += '<button onclick="event.stopPropagation();openEcatalogEditor(\'' + c.id + '\')" class="elx-cat-card-btn-ico" title="Editar">✏️</button>';
             html += '<button onclick="event.stopPropagation();deleteCatalog(\'' + c.id + '\',\'' + safeName + '\')" class="elx-cat-card-btn-ico danger" title="Eliminar">🗑️</button>';
             html += '</div>';
@@ -21596,6 +21605,118 @@ function copyCatalogLink(slug) {
         document.execCommand('copy'); document.body.removeChild(ta);
         showToast('Enlace copiado!', 'success');
     }
+}
+
+// ====================================================================
+// SHARE CENTER — Link + QR + WhatsApp per catalog or full catalog
+// ====================================================================
+var _catShareState = { link: '', name: '' };
+
+function openCatalogShare(slug) {
+    var isFull = !slug;
+    var link = isFull ? (getServerUrl() + '/catalogo') : _getCatalogShortLink(slug);
+    _catShareState = { link: link, name: isFull ? 'Catálogo completo' : slug };
+    var overlay = document.getElementById('catShareOverlay');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'catShareOverlay';
+        overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.65);z-index:99999;display:none;align-items:center;justify-content:center;padding:20px;';
+        overlay.innerHTML = '' +
+        '<div style="background:var(--card,#fff);border-radius:18px;padding:20px;width:100%;max-width:360px;box-sizing:border-box;max-height:92vh;overflow-y:auto;">' +
+          '<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:4px;">' +
+            '<div style="font-size:17px;font-weight:800;color:var(--text,#111);" id="csTitle">Compartir</div>' +
+            '<button onclick="closeCatalogShare()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text3,#888);padding:2px 6px;">✕</button>' +
+          '</div>' +
+          '<div style="font-size:13px;color:var(--text2,#555);margin-bottom:12px;min-height:16px;" id="csName"></div>' +
+          '<div style="display:flex;gap:8px;margin-bottom:14px;">' +
+            '<input id="csLink" readonly onclick="this.select()" style="flex:1;min-width:0;padding:10px 12px;border-radius:10px;border:1.5px solid var(--border,#e0e3e8);background:var(--bg2,#f6f7f9);color:var(--text,#111);font-size:12px;outline:none;">' +
+            '<button onclick="_csCopyLink()" style="flex-shrink:0;padding:10px 14px;border:none;border-radius:10px;background:#0A2540;color:#fff;font-weight:700;font-size:12px;cursor:pointer;">📋</button>' +
+          '</div>' +
+          '<div style="display:flex;justify-content:center;margin-bottom:6px;"><canvas id="csQrCanvas" width="240" height="240" style="width:220px;height:220px;"></canvas></div>' +
+          '<div style="text-align:center;font-size:10px;color:var(--text3,#999);margin-bottom:14px;">Escanea con la cámara para abrir el enlace</div>' +
+          '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">' +
+            '<button onclick="_csWhatsApp()" style="padding:11px 8px;border:none;border-radius:10px;background:#25d366;color:#fff;font-weight:700;font-size:13px;cursor:pointer;">💬 WhatsApp</button>' +
+            '<button onclick="_csShare()" style="padding:11px 8px;border:none;border-radius:10px;background:#1a73e8;color:#fff;font-weight:700;font-size:13px;cursor:pointer;">📤 Compartir</button>' +
+            '<button onclick="_csShareQrImage()" style="grid-column:1/3;padding:11px 8px;border:1.5px solid var(--border,#e0e3e8);border-radius:10px;background:var(--bg2,#f0f2f5);color:var(--text,#111);font-weight:700;font-size:13px;cursor:pointer;">🖼️ Compartir imagen del QR</button>' +
+          '</div>' +
+        '</div>';
+        document.body.appendChild(overlay);
+        overlay.addEventListener('click', function(e){ if (e.target === overlay) closeCatalogShare(); });
+    }
+    overlay = document.getElementById('catShareOverlay');
+    document.getElementById('csTitle').textContent = isFull ? 'Compartir catálogo completo' : 'Compartir producto';
+    document.getElementById('csName').textContent = isFull ? 'Todos tus productos en un solo enlace' : '';
+    document.getElementById('csLink').value = link;
+    var canvas = document.getElementById('csQrCanvas');
+    canvas.width = 240; canvas.height = 240;
+    var ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, 240, 240);
+    try { _drawQR(ctx, link, 16, 16, 208); } catch (e) { console.error('QR draw:', e); }
+    overlay.style.display = 'flex';
+    if (!isFull) {
+        _serverFetch('GET', '/api/catalogs?_t=' + Date.now(), null, function(t, err) {
+            if (err || !t) return;
+            try {
+                var cats = JSON.parse(t);
+                for (var i = 0; i < cats.length; i++) {
+                    if (cats[i].slug === slug) {
+                        var prods = [];
+                        try { prods = typeof cats[i].products === 'string' ? JSON.parse(cats[i].products) : (cats[i].products || []); } catch (e) {}
+                        var p0 = prods[0] || {};
+                        _catShareState.name = p0.name || cats[i].name || slug;
+                        var el = document.getElementById('csName');
+                        if (el) el.textContent = _catShareState.name;
+                        break;
+                    }
+                }
+            } catch (e) {}
+        });
+    }
+}
+
+function closeCatalogShare() {
+    var o = document.getElementById('catShareOverlay');
+    if (o) o.style.display = 'none';
+}
+
+function _csCopyLink() {
+    var link = _catShareState.link;
+    if (navigator.clipboard) {
+        navigator.clipboard.writeText(link).then(function(){ showToast('Enlace copiado!', 'success'); });
+    } else {
+        var ta = document.createElement('textarea');
+        ta.value = link; document.body.appendChild(ta); ta.select();
+        document.execCommand('copy'); document.body.removeChild(ta);
+        showToast('Enlace copiado!', 'success');
+    }
+}
+
+function _csWhatsApp() {
+    var txt = 'Mira esto: ' + (_catShareState.name || '') + ' — ' + _catShareState.link;
+    if (_esAppNativa() && window.NativeBridge && window.NativeBridge.shareUrl) {
+        window.NativeBridge.shareUrl(_catShareState.link, _catShareState.name || 'Catalogo', txt);
+    } else {
+        _openInBrowser('https://wa.me/?text=' + encodeURIComponent(txt));
+    }
+}
+
+function _csShare() {
+    compartirUrl(_catShareState.link, _catShareState.name || 'Catalogo', 'Mira esto: ' + (_catShareState.name || '') + ' — ' + _catShareState.link);
+}
+
+function _csShareQrImage() {
+    var canvas = document.getElementById('csQrCanvas');
+    if (!canvas || !canvas.toBlob) { showToast('QR no disponible', 'error'); return; }
+    showToast('Generando imagen...', 'info');
+    try {
+        canvas.toBlob(function(blob) {
+            if (!blob) { showToast('No se pudo generar', 'error'); return; }
+            var fname = 'QR-' + String(_catShareState.name || 'catalogo').replace(/[^a-z0-9]/gi, '-').substring(0, 30) + '.png';
+            _uploadFile(blob, fname, 'image/png', function(u) {
+                compartirArchivo(u, fname, 'Escanea para abrir: ' + _catShareState.link);
+            });
+        }, 'image/png');
+    } catch (e) { showToast('No se pudo generar', 'error'); }
 }
 
 // --- SHARE CATALOG IMAGE WITH QR ---
@@ -24238,7 +24359,7 @@ function generateSimplePrintableReport(products, selCats, selBrands) {
     rHtml += '<tr class="grand-total"><td colspan="3">' + totalProductos + ' productos en ' + catKeys.length + ' categorías</td><td class="right">$' + fmtNum(grandTotal) + '</td><td class="center">' + grandStock + '</td></tr>';
     rHtml += '</tbody></table>';
 
-    rHtml += '<div class="footer">Documento generado el ' + dateStr + ' a las ' + timeStr + ' — Inventario Pro v2.6.73 NV121</div>';
+    rHtml += '<div class="footer">Documento generado el ' + dateStr + ' a las ' + timeStr + ' — Inventario Pro v2.6.74 NV122</div>';
     rHtml += '</body></html>';
 
     window._catalogReportHtml = rHtml;

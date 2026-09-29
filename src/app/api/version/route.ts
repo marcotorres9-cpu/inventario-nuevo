@@ -1,2 +1,2 @@
-import {NextResponse} from 'next/server'; export const dynamic='force-dynamic'; export async function GET(){return NextResponse.json({version:'NV121'},{headers:{'Cache-Control':'no-store','Pragma':'no-cache','Access-Control-Allow-Origin':'*'}});} export async function HEAD(){return new Response(null,{status:200,headers:{'Cache-Control':'no-store'}});}
+import {NextResponse} from 'next/server'; export const dynamic='force-dynamic'; export async function GET(){return NextResponse.json({version:'NV122'},{headers:{'Cache-Control':'no-store','Pragma':'no-cache','Access-Control-Allow-Origin':'*'}});} export async function HEAD(){return new Response(null,{status:200,headers:{'Cache-Control':'no-store'}});}
 // deploy trigger 6

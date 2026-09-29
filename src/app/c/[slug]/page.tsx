@@ -529,6 +529,48 @@ export default async function CatalogPage({ params }: Props) {
             };
             window.addEventListener("scroll",_mOnScroll,{passive:true});
             _mOnScroll();
+            /* Fallback for WebViews without position:sticky — emulate with fixed positioning */
+            var _stickyOK=false;
+            try{ _stickyOK=window.CSS&&CSS.supports&&(CSS.supports("position","sticky")||CSS.supports("position","-webkit-sticky")); }catch(e){}
+            if(!_stickyOK){
+              var _spacer=null,_fixed=false;
+              var _wrap=_ms.parentNode;
+              var _fix=function(){
+                var sr=_ms.getBoundingClientRect();
+                var pr=_wrap.getBoundingClientRect();
+                var shouldFix=_mSent.getBoundingClientRect().top<=0&&pr.bottom>80;
+                if(shouldFix&&!_fixed){
+                  _fixed=true;
+                  var _left=sr.left,_top=0,_w=sr.width,_h=sr.height;
+                  _spacer=document.createElement("div");
+                  _spacer.style.height=_h+"px";
+                  _wrap.insertBefore(_spacer,_ms);
+                  _ms.style.position="fixed";
+                  _ms.style.top=_top+"px";
+                  _ms.style.left=_left+"px";
+                  _ms.style.width=_w+"px";
+                  _ms.style.zIndex="50";
+                  _ms.style.background="#fff";
+                  _ms.style.boxShadow="0 4px 12px rgba(0,0,0,0.12)";
+                  _ms.style.paddingLeft="16px";
+                  _ms.style.paddingRight="16px";
+                  _ms.style.boxSizing="border-box";
+                  _ms.style.marginLeft="-16px";
+                  _ms.style.marginRight="-16px";
+                }else if(!shouldFix&&_fixed){
+                  _fixed=false;
+                  _ms.style.position="";_ms.style.top="";_ms.style.left="";_ms.style.width="";
+                  _ms.style.zIndex="";_ms.style.background="";_ms.style.boxShadow="";
+                  _ms.style.paddingLeft="";_ms.style.paddingRight="";
+                  _ms.style.boxSizing="";_ms.style.marginLeft="";_ms.style.marginRight="";
+                  if(_spacer&&_spacer.parentNode){_wrap.removeChild(_spacer);}
+                  _spacer=null;
+                }
+              };
+              window.addEventListener("scroll",_fix,{passive:true});
+              window.addEventListener("resize",_fix,{passive:true});
+              _fix();
+            }
           }
           slides=document.querySelectorAll(".catpg-slide");
           dots=document.querySelectorAll(".catpg-dot");
