@@ -22,28 +22,85 @@
         }, 3000);
     })();
     </script>
-    <!-- Auto-update: check server version every 5 min, reload if newer -->
+    <!-- Auto-update: check server version, show visible banner with "Actualizar" button (no silent reload) -->
     <script>
     (function(){
-        var _curVer='NV117';
+        var _curVer='NV118';
+        var _pendingVer='';
+        var _autoTimer=null;
+        var _shownVer='';
+        function _ensureBanner(){
+            var b=document.getElementById('updateBanner');
+            if(b) return b;
+            var host=document.getElementById('mainApp');
+            if(!host) return null;
+            b=document.createElement('div');
+            b.id='updateBanner';
+            b.style.cssText='display:none;align-items:center;gap:8px;padding:9px 14px;background:linear-gradient(135deg,#1e40af,#3b82f6);color:#fff;font-size:12.5px;font-weight:600;box-shadow:0 2px 8px rgba(30,64,175,0.35);';
+            b.innerHTML='<span style="flex:1;line-height:1.35;">🆕 Nueva versión <b id="updateNewVer"></b> disponible</span>'
+                +'<button id="updateApplyBtn" style="flex-shrink:0;padding:7px 14px;border:none;border-radius:8px;background:#fff;color:#1e40af;font-weight:800;font-size:12px;cursor:pointer;">Actualizar</button>'
+                +'<button id="updateDismissBtn" style="flex-shrink:0;padding:5px 9px;border:none;border-radius:6px;background:rgba(255,255,255,0.18);color:#fff;font-weight:700;font-size:12px;cursor:pointer;" title="Ahora no">✕</button>';
+            host.insertBefore(b,host.firstChild);
+            document.getElementById('updateApplyBtn').addEventListener('click',_applyUpdate);
+            document.getElementById('updateDismissBtn').addEventListener('click',_dismissUpdate);
+            return b;
+        }
+        function _applyUpdate(){
+            try{
+                var btn=document.getElementById('updateApplyBtn');
+                if(btn){ btn.textContent='Actualizando…'; btn.disabled=true; btn.style.opacity='0.85'; }
+                var bn=document.getElementById('updateBanner');
+                if(bn) bn.style.opacity='0.85';
+            }catch(e){}
+            var base=location.href.split('?')[0].split('#')[0];
+            location.replace(base+'?_v='+_pendingVer+'&_t='+Date.now());
+        }
+        function _dismissUpdate(){
+            try{ sessionStorage.setItem('inv_updateDismissed', _pendingVer); }catch(e){}
+            _hideBanner();
+            if(_autoTimer){ clearTimeout(_autoTimer); _autoTimer=null; }
+        }
+        function _hideBanner(){ var b=document.getElementById('updateBanner'); if(b) b.style.display='none'; }
+        function _showUpdate(sv){
+            if(_shownVer===sv && _pendingVer===sv) return; // already showing for this version
+            try{ var d=sessionStorage.getItem('inv_updateDismissed'); if(d===sv) return; }catch(e){}
+            _pendingVer=sv;
+            var b=_ensureBanner();
+            if(!b) return;
+            _shownVer=sv;
+            var nv=document.getElementById('updateNewVer'); if(nv) nv.textContent=sv;
+            b.style.display='flex';
+            console.log('[UPDATE] New version '+sv+' available — banner shown');
+            // Safety net: auto-apply after 10 min if the banner was never dismissed
+            if(!_autoTimer){
+                _autoTimer=setTimeout(function(){
+                    var still='';
+                    try{ still=sessionStorage.getItem('inv_updateDismissed'); }catch(e){}
+                    if(still!==_pendingVer){ _applyUpdate(); }
+                },600000);
+            }
+        }
         function _checkVer(){
             try{
                 fetch(getServerUrl?getServerUrl():location.origin+'/api/version?_t='+Date.now(),{cache:'no-store'})
                 .then(function(r){return r.json()})
                 .then(function(d){
                     var sv=d.version||'';
-                    if(sv&&sv!==_curVer){
-                        console.log('[UPDATE] New version '+sv+', force-reloading...');
-                        // Force bypass cache by adding timestamp to URL
-                        var base=location.href.split('?')[0].split('#')[0];
-                        location.replace(base+'?_v='+sv+'&_t='+Date.now());
-                    }
+                    if(sv&&sv!==_curVer){ _showUpdate(sv); }
                 }).catch(function(){});
             }catch(e){}
         }
         // Check immediately after 3s, then every 2 min
         setTimeout(_checkVer,3000);
         setInterval(_checkVer,120000);
+        // Post-update confirmation: if page was loaded with ?_v= (fresh update), show success toast
+        try{
+            if((location.search||'').indexOf('_v=')!==-1){
+                setTimeout(function(){
+                    try{ if(typeof showToast==='function') showToast('✓ App actualizada a '+_curVer,'success'); }catch(e){}
+                },1500);
+            }
+        }catch(e){}
     })();
     </script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" onerror="window._jspdfErr=true"></script>
@@ -1347,7 +1404,7 @@
             <div>
                 <div class="header-name" id="storeHeaderName">Inventario Pro</div>
                 <div class="header-role" id="userRole">rol</div>
-                <div class="header-ver" id="headerVersion">v2.6.69 NV117</div><div style="font-size:8px;color:#fbbf24;background:rgba(251,191,36,0.15);padding:1px 5px;border-radius:3px;margin-top:2px;display:inline-block;font-weight:700;">v122-NATIVE</div>
+                <div class="header-ver" id="headerVersion">v2.6.70 NV118</div><div style="font-size:8px;color:#fbbf24;background:rgba(251,191,36,0.15);padding:1px 5px;border-radius:3px;margin-top:2px;display:inline-block;font-weight:700;">v122-NATIVE</div>
             </div>
         </div>
         <button class="btn-logout" onclick="toggleTheme()" style="background:none;border:none;font-size:20px;cursor:pointer;margin-right:8px;color:var(--text2);" title="Cambiar tema">🌓</button>
@@ -4173,8 +4230,13 @@ function logout() {
 // ====================================================================
 // CHANGELOG — Show latest updates to the user
 // ====================================================================
-var APP_VERSION = '2.6.69 NV117'
+var APP_VERSION = '2.6.70 NV118'
 var CHANGELOG_ENTRIES = [
+    { ver: '2.6.70', date: '30 Sep 2026', items: [
+        { icon: '🛒', text: '<b>Catálogo electrónico corregido:</b> el estado «Agotado» ahora consulta el stock real en vivo — ya no aparecen productos agotados por error.' },
+        { icon: '📏', text: '<b>Medidas en refrigeradores:</b> se extraen automáticamente de los detalles (alto × ancho × fondo), igual que en cocinas.' },
+        { icon: '🆕', text: '<b>Aviso de actualizaciones:</b> cuando haya una versión nueva, la app mostrará un aviso con botón «Actualizar» en lugar de recargarse sola.' }
+    ]},
     { ver: '2.4.0', date: '24 Abr 2026', items: [
         { icon: '📊', text: '<b>Capacidad por espacio:</b> Controla unidades mínimas y máximas para Exhibición, Local Pequeño, Local Grande desde el panel de Control del Local.' },
         { icon: '📈', text: '<b>Alertas de capacidad:</b> Se muestran alertas cuando un espacio está por debajo del mínimo o sobre el máximo de unidades.' },
@@ -24147,7 +24209,7 @@ function generateSimplePrintableReport(products, selCats, selBrands) {
     rHtml += '<tr class="grand-total"><td colspan="3">' + totalProductos + ' productos en ' + catKeys.length + ' categorías</td><td class="right">$' + fmtNum(grandTotal) + '</td><td class="center">' + grandStock + '</td></tr>';
     rHtml += '</tbody></table>';
 
-    rHtml += '<div class="footer">Documento generado el ' + dateStr + ' a las ' + timeStr + ' — Inventario Pro v2.6.69 NV117</div>';
+    rHtml += '<div class="footer">Documento generado el ' + dateStr + ' a las ' + timeStr + ' — Inventario Pro v2.6.70 NV118</div>';
     rHtml += '</body></html>';
 
     window._catalogReportHtml = rHtml;
