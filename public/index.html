@@ -25,7 +25,7 @@
     <!-- Auto-update: check server version, show visible banner with "Actualizar" button (no silent reload) -->
     <script>
     (function(){
-        var _curVer='NV122';
+        var _curVer='NV123';
         var _pendingVer='';
         var _autoTimer=null;
         var _shownVer='';
@@ -1422,7 +1422,7 @@
             <div>
                 <div class="header-name" id="storeHeaderName">Inventario Pro</div>
                 <div class="header-role" id="userRole">rol</div>
-                <div class="header-ver" id="headerVersion">v2.6.74 NV122</div><div style="font-size:8px;color:#fbbf24;background:rgba(251,191,36,0.15);padding:1px 5px;border-radius:3px;margin-top:2px;display:inline-block;font-weight:700;">v122-NATIVE</div>
+                <div class="header-ver" id="headerVersion">v2.6.75 NV123</div><div style="font-size:8px;color:#fbbf24;background:rgba(251,191,36,0.15);padding:1px 5px;border-radius:3px;margin-top:2px;display:inline-block;font-weight:700;">v123-NATIVE</div>
             </div>
         </div>
         <button class="btn-logout" onclick="toggleTheme()" style="background:none;border:none;font-size:20px;cursor:pointer;margin-right:8px;color:var(--text2);" title="Cambiar tema">🌓</button>
@@ -4249,8 +4249,12 @@ function logout() {
 // ====================================================================
 // CHANGELOG — Show latest updates to the user
 // ====================================================================
-var APP_VERSION = '2.6.74 NV122'
+var APP_VERSION = '2.6.75 NV123'
 var CHANGELOG_ENTRIES = [
+    { ver: '2.6.75', date: '30 Sep 2026', items: [
+        { icon: '🛍️', text: '<b>Catálogo web unificado:</b> la página pública para clientes ahora tiene los mismos filtros que tu app — categorías con ícono, filtro por marca, orden por nombre/precio/descuento y especificaciones en colores.' },
+        { icon: '🔍', text: '<b>Contador de resultados:</b> la página del catálogo muestra cuántos productos coinciden con la búsqueda y permite ordenarlos de mayor a menor precio o por mayor descuento.' }
+    ]},
     { ver: '2.6.74', date: '30 Sep 2026', items: [
         { icon: '🔗', text: '<b>Compartir con clientes:</b> nuevo botón «Compartir» en el Catálogo Electrónico — envía por WhatsApp, copia el enlace o comparte el código QR de cada producto o de todo tu catálogo.' },
         { icon: '🌐', text: '<b>Catálogo público completo:</b> ahora tienes un enlace único con todos tus productos para el cliente, con buscador y filtros por categoría.' },
@@ -24359,7 +24363,7 @@ function generateSimplePrintableReport(products, selCats, selBrands) {
     rHtml += '<tr class="grand-total"><td colspan="3">' + totalProductos + ' productos en ' + catKeys.length + ' categorías</td><td class="right">$' + fmtNum(grandTotal) + '</td><td class="center">' + grandStock + '</td></tr>';
     rHtml += '</tbody></table>';
 
-    rHtml += '<div class="footer">Documento generado el ' + dateStr + ' a las ' + timeStr + ' — Inventario Pro v2.6.74 NV122</div>';
+    rHtml += '<div class="footer">Documento generado el ' + dateStr + ' a las ' + timeStr + ' — Inventario Pro v2.6.75 NV123</div>';
     rHtml += '</body></html>';
 
     window._catalogReportHtml = rHtml;
