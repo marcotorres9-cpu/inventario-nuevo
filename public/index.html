@@ -25,7 +25,7 @@
     <!-- Auto-update: check server version every 5 min, reload if newer -->
     <script>
     (function(){
-        var _curVer='NV116';
+        var _curVer='NV117';
         function _checkVer(){
             try{
                 fetch(getServerUrl?getServerUrl():location.origin+'/api/version?_t='+Date.now(),{cache:'no-store'})
@@ -1347,7 +1347,7 @@
             <div>
                 <div class="header-name" id="storeHeaderName">Inventario Pro</div>
                 <div class="header-role" id="userRole">rol</div>
-                <div class="header-ver" id="headerVersion">v2.6.68 NV116</div><div style="font-size:8px;color:#fbbf24;background:rgba(251,191,36,0.15);padding:1px 5px;border-radius:3px;margin-top:2px;display:inline-block;font-weight:700;">v122-NATIVE</div>
+                <div class="header-ver" id="headerVersion">v2.6.69 NV117</div><div style="font-size:8px;color:#fbbf24;background:rgba(251,191,36,0.15);padding:1px 5px;border-radius:3px;margin-top:2px;display:inline-block;font-weight:700;">v122-NATIVE</div>
             </div>
         </div>
         <button class="btn-logout" onclick="toggleTheme()" style="background:none;border:none;font-size:20px;cursor:pointer;margin-right:8px;color:var(--text2);" title="Cambiar tema">🌓</button>
@@ -4173,7 +4173,7 @@ function logout() {
 // ====================================================================
 // CHANGELOG — Show latest updates to the user
 // ====================================================================
-var APP_VERSION = '2.6.68 NV116'
+var APP_VERSION = '2.6.69 NV117'
 var CHANGELOG_ENTRIES = [
     { ver: '2.4.0', date: '24 Abr 2026', items: [
         { icon: '📊', text: '<b>Capacidad por espacio:</b> Controla unidades mínimas y máximas para Exhibición, Local Pequeño, Local Grande desde el panel de Control del Local.' },
@@ -21763,18 +21763,44 @@ function _drawImagePlaceholder(ctx, area) {
 }
 
 // Parse dimensions from description text (Kisuu-style size chart)
-// Supports: "60x50x85", "60x50x85cm", "60 x 50 x 85", "alto:60 ancho:50 fondo:85"
+// Supports: "60x50x85", "60x50x85cm", "60 x 50 x 85",
+//           "147 cm alto × 61.5 cm ancho × 63 cm fondo", "alto:60 ancho:50 fondo:85"
 function _parseDimensions(desc) {
     if (!desc) return [];
     var dims = [];
+    // Pattern: labeled measurements with units between numbers (refris/SBS format)
+    // e.g. "147 cm alto × 61.5 cm ancho × 63 cm fondo" or "174 cm alto × 62.3 cm profundo"
+    var labRe = /(\d+(?:[.,]\d+)?)\s*(cm|mm|m|pulg|in)?\s*(?:cm\s*)?(alto|altura|ancho|largo|fondo|profundidad|profundo)\b/gi;
+    var labelMapL = { 'alto': 'Alto', 'altura': 'Alto', 'ancho': 'Ancho', 'largo': 'Largo', 'fondo': 'Fondo', 'profundidad': 'Profundidad', 'profundo': 'Profundidad' };
+    var seenL = {};
+    var lm;
+    while ((lm = labRe.exec(desc)) !== null) {
+        var numL = parseFloat((lm[1] || '').replace(',', '.'));
+        var unitL = (lm[2] || 'cm').toLowerCase();
+        var rawLabel = (lm[3] || '').toLowerCase();
+        var labelL = labelMapL[rawLabel] || rawLabel;
+        var maxL = unitL === 'mm' ? 3000 : (unitL === 'm' ? 4 : 400);
+        if (!numL || numL <= 0 || numL > maxL) continue;
+        if (seenL[labelL]) continue;
+        seenL[labelL] = true;
+        dims.push({ label: labelL, value: numL + ' ' + unitL, raw: numL, pct: 50 });
+    }
+    if (dims.length >= 2) {
+        var mxL = 0;
+        for (var wl = 0; wl < dims.length; wl++) { if (dims[wl].raw > mxL) mxL = dims[wl].raw; }
+        for (var wl2 = 0; wl2 < dims.length; wl2++) { dims[wl2].pct = mxL > 0 ? (dims[wl2].raw / mxL) * 100 : 50; }
+        return dims;
+    }
+    dims = [];
     // Pattern: numbers with "x" separator (e.g., "60x50x85", "60 x 50 x 85 cm")
-    var xr = desc.match(/(\d+(?:\.\d+)?)\s*[xX×]\s*(\d+(?:\.\d+)?)\s*[xX×]\s*(\d+(?:\.\d+)?)/);
+    var xr = desc.match(/(\d+(?:\.\d+)?)\s*[xX×]\s*(\d+(?:\.\d+)?)\s*[xX×]\s*(\d+(?:\.\d+)?)\s*(cm|mm|m|in|pulg)?/i);
     if (xr) {
         var vals = [parseFloat(xr[1]), parseFloat(xr[2]), parseFloat(xr[3])];
         var mx = Math.max.apply(null, vals);
-        var labels = ['Ancho', 'Fondo', 'Alto'];
-        var units = desc.match(/(cm|mm|m|in|pulg)/i);
-        var unit = units ? units[1].toLowerCase() : 'cm';
+        var labels = ['Alto', 'Ancho', 'Profundidad'];
+        // Unit must come right after the numbers — not searched in the whole text
+        // (previously "Medidas:" made it detect unit "m" instead of "cm")
+        var unit = (xr[4] || 'cm').toLowerCase();
         for (var i = 0; i < vals.length; i++) {
             dims.push({ label: labels[i], value: vals[i] + ' ' + unit, raw: vals[i], pct: (vals[i] / mx) * 100 });
         }
@@ -21929,7 +21955,7 @@ function _finishShareCard(ctx, W, H, product, link, storeInfo, canvas) {
     var badges = [];
     if (product.sku && product.sku.length > 0) badges.push({ text: product.sku.toUpperCase(), bg: '#f0f0f0', fg: '#666' });
     if (stock > 5) badges.push({ text: 'DISPONIBLE', bg: '#e8f5e9', fg: '#2e7d32' });
-    else if (stock > 0) badges.push({ text: '\u00d9LTIMAS UNIDADES', bg: '#fff3e0', fg: '#e65100' });
+    else if (stock > 0) badges.push({ text: '\u00daLTIMAS UNIDADES', bg: '#fff3e0', fg: '#e65100' });
     else badges.push({ text: 'AGOTADO', bg: '#ffebee', fg: '#c62828' });
 
     var badgeX = 30;
@@ -23547,6 +23573,7 @@ function _finalizeCatalogSave(p, slug, btn, imageIds) {
     var catalogProduct = {
         id: p.id, name: p.name || '', brand: p.brand || '', category: p.category || '',
         color: p.color || '', salePrice: parseFloat(p.salePrice) || 0, costPrice: parseFloat(p.costPrice) || 0,
+        stock: parseInt(p.stock) || 0,
         description: desc, specifications: p.specifications || null,
         imageIds: imageIds, specs: _getSpecsStr(p.specifications)
     };
@@ -24120,7 +24147,7 @@ function generateSimplePrintableReport(products, selCats, selBrands) {
     rHtml += '<tr class="grand-total"><td colspan="3">' + totalProductos + ' productos en ' + catKeys.length + ' categorías</td><td class="right">$' + fmtNum(grandTotal) + '</td><td class="center">' + grandStock + '</td></tr>';
     rHtml += '</tbody></table>';
 
-    rHtml += '<div class="footer">Documento generado el ' + dateStr + ' a las ' + timeStr + ' — Inventario Pro v2.6.68 NV116</div>';
+    rHtml += '<div class="footer">Documento generado el ' + dateStr + ' a las ' + timeStr + ' — Inventario Pro v2.6.69 NV117</div>';
     rHtml += '</body></html>';
 
     window._catalogReportHtml = rHtml;

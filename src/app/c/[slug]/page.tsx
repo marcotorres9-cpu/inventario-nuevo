@@ -104,6 +104,21 @@ export default async function CatalogPage({ params }: Props) {
     }
   }
 
+  // LIVE STOCK: catalogs created by older app versions lack the 'stock' field in the
+  // snapshot (which made every product show as "Agotado"). Prefer real-time stock from
+  // the Product table; fall back to the snapshot value; if neither exists, show available.
+  let stockKnown = p != null && (typeof p.stock === 'number' || typeof p.stock === 'string');
+  if (p && p.id) {
+    try {
+      const stockRows = await query('SELECT stock FROM "Product" WHERE id=$1 LIMIT 1', [p.id]);
+      if (stockRows.length > 0) {
+        p.stock = (stockRows[0] as any).stock;
+        stockKnown = true;
+      }
+    } catch {}
+  }
+  const hasStock = stockKnown ? (parseInt(p?.stock) || 0) > 0 : true;
+
   if (!p) {
     return (
       <div style={{ margin: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', fontFamily: '-apple-system,sans-serif', color: '#999', background: '#f5f5f5' }}>
@@ -180,12 +195,40 @@ export default async function CatalogPage({ params }: Props) {
     if (!dimText) dimText = p.description || '';
 
     if (dimText) {
-      const dimMatch = dimText.match(/(\d+(?:\.\d+)?)\s*[xX×]\s*(\d+(?:\.\d+)?)\s*[xX×]\s*(\d+(?:\.\d+)?)\s*(cm|mm|m|in|pulg)?/);
-      if (dimMatch) {
-        const unit = dimMatch[4] || 'cm';
-        measurements.push({ key: 'Alto', value: dimMatch[1] + ' ' + unit, type: 'height' });
-        measurements.push({ key: 'Ancho', value: dimMatch[2] + ' ' + unit, type: 'width' });
-        measurements.push({ key: 'Profundidad', value: dimMatch[3] + ' ' + unit, type: 'depth' });
+      // Pattern 1: labeled measurements with units between numbers, e.g.
+      // "147 cm alto × 61.5 cm ancho × 63 cm fondo" or "174 cm alto × 83.6 cm ancho × 62.3 cm profundo"
+      // (common in refrigeradores/freezer descriptions)
+      const labelTypeMap: Record<string, string> = {
+        alto: 'height', altura: 'height',
+        ancho: 'width',
+        fondo: 'depth', profundidad: 'depth', profundo: 'depth', largo: 'depth',
+      };
+      const labRe = /(\d+(?:[.,]\d+)?)\s*(cm|mm|m|pulg|in)?\s*(?:cm\s*)?(alto|altura|ancho|largo|fondo|profundidad|profundo)\b/gi;
+      const seenTypes = new Set<string>();
+      let lm: RegExpExecArray | null;
+      while ((lm = labRe.exec(dimText)) !== null) {
+        const rawLabel = lm[3].toLowerCase();
+        const type = labelTypeMap[rawLabel];
+        const num = parseFloat(lm[1].replace(',', '.'));
+        const unit = (lm[2] || 'cm').toLowerCase();
+        const maxVal = unit === 'mm' ? 3000 : (unit === 'm' ? 4 : 400);
+        if (!type || !num || num <= 0 || num > maxVal) continue; // sanity bounds (appliance range)
+        if (seenTypes.has(type)) continue;
+        seenTypes.add(type);
+        const prettyLabel = rawLabel.charAt(0).toUpperCase() + rawLabel.slice(1);
+        measurements.push({ key: prettyLabel, value: num + ' ' + unit, type });
+      }
+
+      // Pattern 2: compact "91 x 58 x 55 cm" (common in cocinas/lavadoras descriptions)
+      if (measurements.length < 2) {
+        measurements.length = 0;
+        const dimMatch = dimText.match(/(\d+(?:\.\d+)?)\s*[xX×]\s*(\d+(?:\.\d+)?)\s*[xX×]\s*(\d+(?:\.\d+)?)\s*(cm|mm|m|in|pulg)?/);
+        if (dimMatch) {
+          const unit = dimMatch[4] || 'cm';
+          measurements.push({ key: 'Alto', value: dimMatch[1] + ' ' + unit, type: 'height' });
+          measurements.push({ key: 'Ancho', value: dimMatch[2] + ' ' + unit, type: 'width' });
+          measurements.push({ key: 'Profundidad', value: dimMatch[3] + ' ' + unit, type: 'depth' });
+        }
       }
     }
   }
@@ -437,9 +480,9 @@ export default async function CatalogPage({ params }: Props) {
           <div dangerouslySetInnerHTML={{ __html: storeInfoHtml }} />
 
           {/* Stock badge */}
-          <div className={"catpg-stock-badge " + ((parseInt(p.stock) || 0) > 0 ? 'avail' : 'out')}>
+          <div className={"catpg-stock-badge " + (hasStock ? 'avail' : 'out')}>
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-            {(parseInt(p.stock) || 0) > 0 ? 'Disponible' : 'Agotado'}
+            {hasStock ? 'Disponible' : 'Agotado'}
           </div>
 
           {(p.brand || p.color) && (
