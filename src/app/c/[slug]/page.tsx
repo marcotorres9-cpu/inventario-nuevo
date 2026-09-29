@@ -315,7 +315,7 @@ export default async function CatalogPage({ params }: Props) {
         svg: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#9aa0a6" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a4 4 0 0 0-4 4v2H6a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-9a2 2 0 0 0-2-2h-2V7a4 4 0 0 0-4-4z"/><line x1="6" y1="17" x2="18" y2="17"/></svg>`
       }
     };
-    measureGridHtml = `<div class="catpg-measure-section">
+    measureGridHtml = `<div id="catpgMeasureSentinel" style="height:0;"></div><div class="catpg-measure-section" id="catpgMeasure">
       <div class="catpg-measure-heading">Medidas del producto</div>
       <div class="catpg-measure-grid">
         ${measureNums.map(m => {
@@ -436,9 +436,11 @@ export default async function CatalogPage({ params }: Props) {
         .catpg-spec-value{font-size:13px;font-weight:600;color:#202124;text-align:right;max-width:60%;}
         /* Description */
         .catpg-desc{padding:12px 16px 16px;font-size:14px;color:#3c4043;line-height:1.7;}
-        /* Measurement grid */
-        .catpg-measure-section{margin-bottom:12px;}
-        .catpg-measure-heading{font-size:14px;font-weight:700;color:#202124;margin-bottom:12px;}
+        /* Measurement grid — sticky: stays visible while scrolling description */
+        .catpg-measure-section{position:-webkit-sticky;position:sticky;top:0;z-index:50;background:#fff;padding:10px 0 12px;margin-bottom:12px;transition:box-shadow .25s ease;}
+        .catpg-measure-section.catpg-stuck{box-shadow:0 4px 12px rgba(0,0,0,0.12);}
+        .catpg-measure-section.catpg-stuck .catpg-measure-heading{padding-left:54px;}
+        .catpg-measure-heading{font-size:14px;font-weight:700;color:#202124;margin-bottom:12px;transition:padding-left .2s ease;}
         .catpg-measure-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;background:#f8f9fa;border-radius:10px;padding:16px 8px;}
         .catpg-measure-cell{display:flex;flex-direction:column;align-items:center;gap:4px;text-align:center;}
         .catpg-measure-value{font-size:16px;font-weight:800;color:#1a73e8;line-height:1.2;}
@@ -514,6 +516,20 @@ export default async function CatalogPage({ params }: Props) {
         var IMG_IDS=${imgIdsJson};
         (function(){
           var bb=document.getElementById("catpgBackBtn");if(bb){bb.href='javascript:history.back()';bb.addEventListener('click',function(e){e.preventDefault();if(window.history.length>1){window.history.back();}else{window.location.href='/';}});}
+          /* Sticky medidas: toggle 'catpg-stuck' when the sentinel scrolls out of view */
+          var _ms=document.getElementById("catpgMeasure"),_mSent=document.getElementById("catpgMeasureSentinel");
+          if(_ms&&_mSent){
+            var _mStuck=false;
+            var _mOnScroll=function(){
+              var stuck=_mSent.getBoundingClientRect().top<=0;
+              if(stuck!==_mStuck){
+                _mStuck=stuck;
+                if(stuck){_ms.classList.add("catpg-stuck");}else{_ms.classList.remove("catpg-stuck");}
+              }
+            };
+            window.addEventListener("scroll",_mOnScroll,{passive:true});
+            _mOnScroll();
+          }
           slides=document.querySelectorAll(".catpg-slide");
           dots=document.querySelectorAll(".catpg-dot");
           totalSlides=slides.length;
