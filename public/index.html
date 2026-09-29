@@ -20906,14 +20906,19 @@ function openClientCatalog() {
                 if (costPrice > 0 && costPrice !== price) html += '<span style="font-size:9px;color:var(--text3);text-decoration:line-through;margin-right:3px;">$' + fmtDec(costPrice) + '</span>';
                 html += '<span style="font-size:15px;font-weight:800;color:var(--primary);">$' + fmtDec(price) + '</span></div>';
             }
-            // Specs (up to 2)
+            // Specs as colored pills (same style as inventory catalog)
             if (specsArr.length > 0) {
-                html += '<div style="font-size:9px;color:var(--text3);line-height:1.4;overflow:hidden;max-height:26px;">';
-                var showS = specsArr.slice(0, 2);
+                html += '<div style="display:flex;flex-wrap:wrap;gap:3px;margin-bottom:6px;">';
+                var showS = specsArr.slice(0, 3);
                 for (var si = 0; si < showS.length; si++) {
-                    html += '<div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">• ' + escapeHtml(showS[si]) + '</div>';
+                    html += '<span style="font-size:9px;font-weight:600;padding:2px 7px;border-radius:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100px;';
+                    // Alternate colors like inventory catalog
+                    var specColors = ['#6c5ce7', '#00b894', '#0984e3', '#e17055', '#fdcb6e'];
+                    var sc = specColors[si % specColors.length];
+                    html += 'background:' + sc + '20;color:' + sc + ';';
+                    html += '">' + escapeHtml(showS[si]) + '</span>';
                 }
-                if (specsArr.length > 2) html += '<div style="color:var(--primary);font-weight:600;">+' + (specsArr.length - 2) + ' más</div>';
+                if (specsArr.length > 3) html += '<span style="font-size:9px;color:var(--primary);font-weight:600;padding:2px 5px;">+' + (specsArr.length - 3) + '</span>';
                 html += '</div>';
             }
             html += '</div></div>';
