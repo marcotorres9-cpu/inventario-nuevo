@@ -25,7 +25,7 @@
     <!-- Auto-update: check server version, show visible banner with "Actualizar" button (no silent reload) -->
     <script>
     (function(){
-        var _curVer='NV123';
+        var _curVer='NV124';
         var _pendingVer='';
         var _autoTimer=null;
         var _shownVer='';
@@ -1422,7 +1422,7 @@
             <div>
                 <div class="header-name" id="storeHeaderName">Inventario Pro</div>
                 <div class="header-role" id="userRole">rol</div>
-                <div class="header-ver" id="headerVersion">v2.6.75 NV123</div><div style="font-size:8px;color:#fbbf24;background:rgba(251,191,36,0.15);padding:1px 5px;border-radius:3px;margin-top:2px;display:inline-block;font-weight:700;">v123-NATIVE</div>
+                <div class="header-ver" id="headerVersion">v2.6.76 NV124</div><div style="font-size:8px;color:#fbbf24;background:rgba(251,191,36,0.15);padding:1px 5px;border-radius:3px;margin-top:2px;display:inline-block;font-weight:700;">v124-NATIVE</div>
             </div>
         </div>
         <button class="btn-logout" onclick="toggleTheme()" style="background:none;border:none;font-size:20px;cursor:pointer;margin-right:8px;color:var(--text2);" title="Cambiar tema">🌓</button>
@@ -1661,7 +1661,7 @@
                 <div class="elx-cat-header-actions">
                     <button class="elx-cat-btn elx-cat-btn-primary" onclick="openCatalogShare('')">🔗 Compartir</button>
                     <button class="elx-cat-btn elx-cat-btn-blue" onclick="openEcatalogEditor()">+ Agregar</button>
-                    <button class="elx-cat-btn" onclick="openClientCatalog()">🌐 Vista Clientes</button>
+                    <button class="elx-cat-btn" onclick="openClientCatalog()">🌐 Ver como cliente</button>
                     <button class="elx-cat-btn" onclick="showCatalogCruce()">🔍 Cruce</button>
                     <button class="elx-cat-btn" onclick="syncAllCatalogImages()">🔄 Sincronizar Fotos</button>
                 </div>
@@ -4249,8 +4249,12 @@ function logout() {
 // ====================================================================
 // CHANGELOG — Show latest updates to the user
 // ====================================================================
-var APP_VERSION = '2.6.75 NV123'
+var APP_VERSION = '2.6.76 NV124'
 var CHANGELOG_ENTRIES = [
+    { ver: '2.6.76', date: '1 Oct 2026', items: [
+        { icon: '🖼️', text: '<b>Imágenes y filtros del catálogo corregidos:</b> la página que compartes a tus clientes ahora carga las fotos y los filtros siempre, en cualquier navegador (el buscador, las categorías, el orden y el contador ya no fallan).' },
+        { icon: '🌐', text: '<b>Una sola interfaz de catálogo:</b> el botón «Ver como cliente» de la app ahora abre exactamente la misma página pública que recibe tu cliente — ya no hay dos catálogos distintos que mantener.' }
+    ]},
     { ver: '2.6.75', date: '30 Sep 2026', items: [
         { icon: '🛍️', text: '<b>Catálogo web unificado:</b> la página pública para clientes ahora tiene los mismos filtros que tu app — categorías con ícono, filtro por marca, orden por nombre/precio/descuento y especificaciones en colores.' },
         { icon: '🔍', text: '<b>Contador de resultados:</b> la página del catálogo muestra cuántos productos coinciden con la búsqueda y permite ordenarlos de mayor a menor precio o por mayor descuento.' }
@@ -20786,295 +20790,12 @@ function _openInBrowser(url) {
     return true;
 }
 
-// --- OPEN CLIENT CATALOG (general listing - in-app overlay) ---
+// --- OPEN CLIENT CATALOG (unified: opens the SAME public page the client sees) ---
 function openClientCatalog() {
-    var serverUrl = getServerUrl();
-    // State for client catalog filters
-    var _ccCats = [];       // all catalog data
-    var _ccCategory = 'Todos';
-    var _ccBrand = '';
-    var _ccSearch = '';
-    var _ccSort = 'name';  // name, price-asc, price-desc, discount
-    var _ccOverlay = null;
-
-    // Build overlay structure
-    _ccOverlay = document.createElement('div');
-    _ccOverlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:var(--bg);z-index:99999;display:flex;flex-direction:column;';
-    _ccOverlay.innerHTML =
-        '<div style="display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid var(--border);background:var(--bg2);flex-shrink:0;">' +
-            '<span style="font-size:24px;">🌐</span>' +
-            '<div style="flex:1;min-width:0;">' +
-                '<div style="font-size:17px;font-weight:800;color:var(--text);">Catálogo para Clientes</div>' +
-                '<div style="font-size:11px;color:var(--text3);" id="ccStats">Cargando...</div>' +
-            '</div>' +
-            '<button id="clientCatClose" style="padding:8px 14px;background:#e53935;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;flex-shrink:0;">✕ Cerrar</button>' +
-        '</div>' +
-        '<div style="padding:10px 16px 6px;flex-shrink:0;border-bottom:1px solid var(--border);background:var(--bg2);">' +
-            '<div style="position:relative;margin-bottom:8px;">' +
-                '<span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:14px;color:var(--text3);">🔍</span>' +
-                '<input id="ccSearchInput" type="text" placeholder="Buscar producto, marca, categoría..." style="width:100%;padding:10px 12px 10px 36px;border-radius:10px;border:1.5px solid var(--border);background:var(--bg);color:var(--text);font-size:13px;outline:none;box-sizing:border-box;" onfocus="this.style.borderColor=\'var(--primary)\'" onblur="this.style.borderColor=\'var(--border)\'">' +
-            '</div>' +
-            '<div id="ccCategoryTabs" style="display:flex;gap:6px;overflow-x:auto;padding-bottom:6px;-webkit-overflow-scrolling:touch;"></div>' +
-            '<div id="ccBrandTabs" style="display:none;margin-top:6px;"></div>' +
-            '<div id="ccSortRow" style="display:flex;align-items:center;justify-content:space-between;margin-top:6px;">' +
-                '<div id="ccResultCount" style="font-size:11px;color:var(--text3);"></div>' +
-                '<select id="ccSortSelect" style="padding:5px 8px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text2);font-size:11px;cursor:pointer;">' +
-                    '<option value="name">Nombre A-Z</option>' +
-                    '<option value="price-asc">Precio: menor a mayor</option>' +
-                    '<option value="price-desc">Precio: mayor a menor</option>' +
-                    '<option value="discount">Mayor descuento</option>' +
-                '</select>' +
-            '</div>' +
-        '</div>' +
-        '<div id="ccBody" style="flex:1;overflow-y:auto;padding:12px 16px;"><div style="text-align:center;padding:60px 20px;color:var(--text3);">Cargando catálogo...</div></div>';
-    document.body.appendChild(_ccOverlay);
-    document.getElementById('clientCatClose').onclick = function() { document.body.removeChild(_ccOverlay); };
-
-    // Search input handler
-    var searchInput = document.getElementById('ccSearchInput');
-    var searchTimer = null;
-    searchInput.addEventListener('input', function() {
-        clearTimeout(searchTimer);
-        searchTimer = setTimeout(function() { _ccSearch = searchInput.value.toLowerCase().trim(); _renderCC(); }, 200);
-    });
-    // Sort handler
-    document.getElementById('ccSortSelect').addEventListener('change', function() { _ccSort = this.value; _renderCC(); });
-
-    // --- Helper: get unique categories from data ---
-    function _ccGetCategories() {
-        var set = {};
-        for (var i = 0; i < _ccCats.length; i++) {
-            var p0 = _ccGetP0(_ccCats[i]);
-            if (p0.category) set[p0.category] = true;
-        }
-        return Object.keys(set);
-    }
-    // --- Helper: get brands for active category ---
-    function _ccGetBrands() {
-        var brands = {};
-        for (var i = 0; i < _ccCats.length; i++) {
-            var p0 = _ccGetP0(_ccCats[i]);
-            if ((_ccCategory === 'Todos' || p0.category === _ccCategory) && p0.brand) brands[p0.brand] = true;
-        }
-        return Object.keys(brands);
-    }
-    // --- Helper: get first product ---
-    function _ccGetP0(c) {
-        var prods = [];
-        try { prods = (typeof c.products === 'string') ? JSON.parse(c.products) : (c.products || []); } catch(e) {}
-        return prods[0] || {};
-    }
-    // --- Helper: get specs array ---
-    function _ccGetSpecs(p) {
-        if (!p) return [];
-        var specs = p.specs || p.specifications;
-        if (!specs) return [];
-        try {
-            var obj = (typeof specs === 'string') ? JSON.parse(specs) : specs;
-            if (!obj || typeof obj !== 'object') return [];
-            var parts = [], keys = Object.keys(obj);
-            for (var i = 0; i < keys.length; i++) { var v = (obj[keys[i]] || '').trim(); if (v) parts.push(v); }
-            return parts;
-        } catch(e) { return []; }
-    }
-
-    // --- Render category tabs ---
-    function _renderCCCategoryTabs() {
-        var container = document.getElementById('ccCategoryTabs');
-        if (!container) return;
-        var cats = ['Todos'].concat(_ccGetCategories());
-        var h = '';
-        for (var j = 0; j < cats.length; j++) {
-            var cn = cats[j];
-            var isActive = (cn === _ccCategory);
-            var icon = (cn === 'Todos') ? '📋' : _getCatIcon(cn);
-            var safeCat = cn.replace(/'/g, "\\'");
-            h += '<button data-cc-cat="' + escapeHtml(cn) + '" style="flex-shrink:0;padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;border:1.5px solid ' + (isActive ? 'var(--primary)' : 'var(--border)') + ';background:' + (isActive ? 'var(--primary)' : 'var(--bg)') + ';color:' + (isActive ? '#fff' : 'var(--text2)') + ';cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:4px;transition:all .15s;">' + icon + ' ' + escapeHtml(cn) + '</button>';
-        }
-        container.innerHTML = h;
-        // Attach click handlers
-        var btns = container.querySelectorAll('[data-cc-cat]');
-        for (var b = 0; b < btns.length; b++) {
-            btns[b].addEventListener('click', function() {
-                _ccCategory = this.getAttribute('data-cc-cat');
-                _ccBrand = '';
-                _renderCC();
-            });
-        }
-    }
-    // --- Render brand tabs ---
-    function _renderCCBrandTabs() {
-        var container = document.getElementById('ccBrandTabs');
-        if (!container) return;
-        if (_ccCategory === 'Todos') { container.style.display = 'none'; return; }
-        var brands = _ccGetBrands();
-        if (brands.length <= 1) { container.style.display = 'none'; _ccBrand = ''; return; }
-        container.style.display = 'block';
-        var h = '<div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;-webkit-overflow-scrolling:touch;">';
-        var isAllActive = !_ccBrand;
-        h += '<button data-cc-brand="" style="flex-shrink:0;padding:5px 12px;border-radius:16px;font-size:11px;font-weight:600;border:1px solid ' + (isAllActive ? 'var(--primary)' : 'var(--border)') + ';background:' + (isAllActive ? 'var(--primary)' : 'var(--bg)') + ';color:' + (isAllActive ? '#fff' : 'var(--text2)') + ';cursor:pointer;white-space:nowrap;">Todos</button>';
-        for (var j = 0; j < brands.length; j++) {
-            var bn = brands[j];
-            var isBActive = (bn === _ccBrand);
-            h += '<button data-cc-brand="' + escapeHtml(bn) + '" style="flex-shrink:0;padding:5px 12px;border-radius:16px;font-size:11px;font-weight:600;border:1px solid ' + (isBActive ? 'var(--primary)' : 'var(--border)') + ';background:' + (isBActive ? 'var(--primary)' : 'var(--bg)') + ';color:' + (isBActive ? '#fff' : 'var(--text2)') + ';cursor:pointer;white-space:nowrap;">' + escapeHtml(bn) + '</button>';
-        }
-        h += '</div>';
-        container.innerHTML = h;
-        var btns = container.querySelectorAll('[data-cc-brand]');
-        for (var b = 0; b < btns.length; b++) {
-            btns[b].addEventListener('click', function() {
-                _ccBrand = this.getAttribute('data-cc-brand');
-                _renderCC();
-            });
-        }
-    }
-
-    // --- Main render ---
-    function _renderCC() {
-        if (!_ccCats.length) return;
-        _renderCCCategoryTabs();
-        _renderCCBrandTabs();
-        // Filter
-        var filtered = [];
-        for (var i = 0; i < _ccCats.length; i++) {
-            var c = _ccCats[i];
-            var p0 = _ccGetP0(c);
-            if (_ccCategory !== 'Todos' && p0.category !== _ccCategory) continue;
-            if (_ccBrand && p0.brand !== _ccBrand) continue;
-            if (_ccSearch) {
-                var hay = (p0.name || '').toLowerCase().indexOf(_ccSearch) >= 0 ||
-                          (c.name || '').toLowerCase().indexOf(_ccSearch) >= 0 ||
-                          (p0.brand || '').toLowerCase().indexOf(_ccSearch) >= 0 ||
-                          (p0.category || '').toLowerCase().indexOf(_ccSearch) >= 0;
-                if (!hay) continue;
-            }
-            var price = parseFloat(p0.salePrice) || 0;
-            var costPrice = parseFloat(p0.costPrice) || 0;
-            var discount = 0;
-            if (costPrice > 0 && price > 0 && price < costPrice) discount = Math.round((1 - price / costPrice) * 100);
-            filtered.push({ cat: c, p0: p0, price: price, costPrice: costPrice, discount: discount });
-        }
-        // Sort
-        if (_ccSort === 'name') filtered.sort(function(a, b) { return (a.p0.name || '').localeCompare(b.p0.name || ''); });
-        else if (_ccSort === 'price-asc') filtered.sort(function(a, b) { return a.price - b.price; });
-        else if (_ccSort === 'price-desc') filtered.sort(function(a, b) { return b.price - a.price; });
-        else if (_ccSort === 'discount') filtered.sort(function(a, b) { return b.discount - a.discount; });
-        // Update stats
-        var statsEl = document.getElementById('ccStats');
-        if (statsEl) statsEl.textContent = _ccCats.length + ' productos en catálogo';
-        var countEl = document.getElementById('ccResultCount');
-        if (countEl) countEl.textContent = filtered.length + ' resultado' + (filtered.length !== 1 ? 's' : '');
-        var body = document.getElementById('ccBody');
-        if (!body) return;
-        if (filtered.length === 0) {
-            body.innerHTML = '<div style="text-align:center;padding:60px 20px;color:var(--text3);"><div style="font-size:48px;margin-bottom:12px;">🔍</div><div style="font-size:15px;font-weight:700;">Sin resultados</div><div style="font-size:12px;margin-top:4px;">Intenta con otro filtro o búsqueda.</div></div>';
-            return;
-        }
-        var html = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">';
-        for (var fi = 0; fi < filtered.length; fi++) {
-            var item = filtered[fi];
-            var c = item.cat;
-            var p0 = item.p0;
-            var price = item.price;
-            var costPrice = item.costPrice;
-            var discount = item.discount;
-            var specsArr = _ccGetSpecs(p0);
-            var thumbSrc = '';
-            if (c._thumbEmbedded && c._thumbEmbedded.data) { thumbSrc = 'data:' + (c._thumbEmbedded.type || 'image/jpeg') + ';base64,' + c._thumbEmbedded.data; }
-            var safeSlug = escapeHtml(c.slug).replace(/'/g, "\\'");
-            html += '<div onclick="showCatalogDetail(\'' + safeSlug + '\')" data-cc-slug="' + escapeHtml(c.slug) + '" style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;overflow:hidden;cursor:pointer;transition:transform .15s;" onmousedown="this.style.transform=\'scale(0.97)\'" onmouseup="this.style.transform=\'\'" ontouchstart="this.style.transform=\'scale(0.97)\'" ontouchend="this.style.transform=\'\'">';
-            // Image
-            html += '<div style="position:relative;width:100%;aspect-ratio:1/1;background:var(--bg);display:flex;align-items:center;justify-content:center;overflow:hidden;">';
-            if (discount > 0) html += '<div style="position:absolute;top:6px;left:6px;background:#e53935;color:#fff;font-size:9px;font-weight:700;padding:2px 7px;border-radius:10px;z-index:2;">-' + discount + '%</div>';
-            html += '<img class="cc-thumb" src="' + (thumbSrc ? thumbSrc : '') + '" style="width:82%;height:82%;object-fit:contain;' + (thumbSrc ? '' : 'display:none;') + '" draggable="false">';
-            html += '<span class="cc-ph" style="font-size:36px;opacity:0.2;' + (thumbSrc ? 'display:none;' : '') + '">📦</span>';
-            html += '</div>';
-            // Info
-            html += '<div style="padding:8px 10px 10px;">';
-            // Brand + category chip
-            if (p0.brand || p0.category) {
-                html += '<div style="font-size:9px;color:var(--text3);margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">';
-                if (p0.brand) html += escapeHtml(p0.brand);
-                if (p0.brand && p0.category) html += ' · ';
-                if (p0.category) html += escapeHtml(p0.category);
-                html += '</div>';
-            }
-            // Name
-            html += '<div style="font-size:11px;font-weight:700;color:var(--text);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.3;min-height:29px;margin-bottom:4px;">' + escapeHtml(p0.name || c.name) + '</div>';
-            // Price
-            if (price > 0) {
-                html += '<div style="margin-bottom:4px;">';
-                if (costPrice > 0 && costPrice !== price) html += '<span style="font-size:9px;color:var(--text3);text-decoration:line-through;margin-right:3px;">$' + fmtDec(costPrice) + '</span>';
-                html += '<span style="font-size:15px;font-weight:800;color:var(--primary);">$' + fmtDec(price) + '</span></div>';
-            }
-            // Specs as colored pills (same style as inventory catalog)
-            if (specsArr.length > 0) {
-                html += '<div style="display:flex;flex-wrap:wrap;gap:3px;margin-bottom:6px;">';
-                var showS = specsArr.slice(0, 3);
-                for (var si = 0; si < showS.length; si++) {
-                    html += '<span style="font-size:9px;font-weight:600;padding:2px 7px;border-radius:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100px;';
-                    // Alternate colors like inventory catalog
-                    var specColors = ['#6c5ce7', '#00b894', '#0984e3', '#e17055', '#fdcb6e'];
-                    var sc = specColors[si % specColors.length];
-                    html += 'background:' + sc + '20;color:' + sc + ';';
-                    html += '">' + escapeHtml(showS[si]) + '</span>';
-                }
-                if (specsArr.length > 3) html += '<span style="font-size:9px;color:var(--primary);font-weight:600;padding:2px 5px;">+' + (specsArr.length - 3) + '</span>';
-                html += '</div>';
-            }
-            html += '</div></div>';
-        }
-        html += '</div>';
-        body.innerHTML = html;
-        // Load thumbnails via native bridge
-        for (var ti = 0; ti < filtered.length; ti++) {
-            var tc = filtered[ti].cat;
-            if (tc._thumbEmbedded && tc._thumbEmbedded.data) continue;
-            var fetchId = tc._thumbId || '';
-            if (!fetchId || fetchId === 'embedded') {
-                var tp0 = _ccGetP0(tc);
-                fetchId = (tp0.imageIds || [])[0] || '';
-            }
-            if (fetchId && fetchId !== 'embedded') {
-                (function(slug, imgId) {
-                    _serverFetch('GET', '/api/catalog-upload?id=' + encodeURIComponent(imgId), null, function(text, err2) {
-                        if (!err2 && text) {
-                            try {
-                                var res = JSON.parse(text);
-                                if (res.data) {
-                                    var el = body.querySelector('[data-cc-slug="' + slug + '"] .cc-thumb');
-                                    var ph = body.querySelector('[data-cc-slug="' + slug + '"] .cc-ph');
-                                    if (el) { el.src = 'data:' + (res.imageType || 'image/jpeg') + ';base64,' + res.data; el.style.display = 'block'; }
-                                    if (ph) ph.style.display = 'none';
-                                }
-                            } catch(e) {}
-                        }
-                    });
-                })(tc.slug, fetchId);
-            }
-        }
-    }
-
-    // Fetch data via native bridge (bypasses CORS in WebView)
-    _serverFetch('GET', '/api/catalogs?_t=' + Date.now(), null, function(responseText, err) {
-        if (err || !responseText) {
-            var body = document.getElementById('ccBody');
-            if (body) body.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text3);">Error al cargar. Verifica tu conexión.</div>';
-            return;
-        }
-        var cats;
-        try { cats = JSON.parse(responseText); } catch(e) { cats = []; }
-        if (!Array.isArray(cats)) cats = [];
-        _ccCats = cats;
-        if (cats.length === 0) {
-            var body = document.getElementById('ccBody');
-            if (body) body.innerHTML = '<div style="text-align:center;padding:60px 20px;color:var(--text3);"><div style="font-size:48px;margin-bottom:12px;">📭</div><div style="font-size:16px;font-weight:700;">Sin productos</div><div style="font-size:13px;margin-top:4px;">Agrega productos al catálogo primero.</div></div>';
-            return;
-        }
-        _renderCC();
-    });
+    // Una sola interfaz: la página pública /catalogo (misma que recibe el cliente por Link/QR).
+    // El overlay in-app duplicado fue eliminado — cualquier mejora se hace en la página pública.
+    _openInBrowser(getServerUrl() + '/catalogo');
 }
-
 // --- OPEN CATALOG DETAIL (per-product public page) ---
 function openCatalogDetail(slug) {
     var url = _getCatalogShortLink(slug);
@@ -24363,7 +24084,7 @@ function generateSimplePrintableReport(products, selCats, selBrands) {
     rHtml += '<tr class="grand-total"><td colspan="3">' + totalProductos + ' productos en ' + catKeys.length + ' categorías</td><td class="right">$' + fmtNum(grandTotal) + '</td><td class="center">' + grandStock + '</td></tr>';
     rHtml += '</tbody></table>';
 
-    rHtml += '<div class="footer">Documento generado el ' + dateStr + ' a las ' + timeStr + ' — Inventario Pro v2.6.75 NV123</div>';
+    rHtml += '<div class="footer">Documento generado el ' + dateStr + ' a las ' + timeStr + ' — Inventario Pro v2.6.76 NV124</div>';
     rHtml += '</body></html>';
 
     window._catalogReportHtml = rHtml;
