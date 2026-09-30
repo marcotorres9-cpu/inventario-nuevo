@@ -127,7 +127,6 @@ export default async function PublicCatalogPage() {
         .pl-bc{font-size:10px;color:#9aa0a6;margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
         .pl-name{font-size:13px;font-weight:700;color:#111;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:35px;}
         .pl-price-row{margin-top:6px;}
-        .pl-price-old{font-size:11px;color:#b9bec6;text-decoration:line-through;margin-right:5px;}
         .pl-price{font-size:16px;font-weight:800;color:#16a34a;}
         .pl-pills{display:flex;flex-wrap:wrap;gap:3px;margin-top:7px;}
         .pl-pill{font-size:9px;font-weight:600;padding:2px 7px;border-radius:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100px;}
@@ -140,13 +139,47 @@ export default async function PublicCatalogPage() {
         .pl-nores b{font-size:15px;display:block;}
         .pl-nores span{font-size:12px;color:#9aa0a6;margin-top:4px;display:block;}
         .pl-footer{text-align:center;padding:20px;font-size:11px;color:#c3c8cf;}
+        /* Botón agregar al pedido */
+        .pl-add{position:absolute;top:8px;right:8px;width:34px;height:34px;border-radius:50%;background:#16a34a;color:#fff;border:none;font-size:20px;font-weight:700;line-height:1;cursor:pointer;z-index:3;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.28);padding:0;}
+        .pl-add:active{transform:scale(0.88);}
+        /* Carrito flotante */
+        .pl-fab{position:fixed;bottom:20px;right:16px;width:58px;height:58px;border-radius:50%;background:#16a34a;color:#fff;border:none;font-size:25px;cursor:pointer;z-index:120;display:none;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,0.32);padding:0;}
+        .pl-fab:active{transform:scale(0.93);}
+        .pl-fab-badge{position:absolute;top:-4px;right:-4px;background:#e53935;color:#fff;font-size:11px;font-weight:800;min-width:20px;height:20px;border-radius:10px;display:flex;align-items:center;justify-content:center;padding:0 5px;}
+        .pl-toast{position:fixed;bottom:92px;left:50%;transform:translateX(-50%) translateY(10px);background:#0A2540;color:#fff;font-size:13px;font-weight:600;padding:10px 18px;border-radius:10px;opacity:0;transition:all .25s ease;z-index:130;pointer-events:none;max-width:86%;text-align:center;}
+        .pl-toast-show{opacity:1;transform:translateX(-50%) translateY(0);}
+        /* Panel del pedido */
+        .pl-cart-ov{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.55);z-index:140;display:flex;align-items:flex-end;justify-content:center;}
+        .pl-cart-sheet{background:#fff;width:100%;max-width:600px;max-height:82vh;border-radius:18px 18px 0 0;display:flex;flex-direction:column;overflow:hidden;}
+        .pl-cart-head{padding:16px 18px 10px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #eef0f3;flex-shrink:0;}
+        .pl-cart-title{font-size:18px;font-weight:800;color:#0A2540;}
+        .pl-cart-sub{font-size:11px;color:#9aa0a6;margin-top:2px;}
+        .pl-cart-x{width:32px;height:32px;border-radius:50%;background:#f1f3f4;border:none;font-size:15px;cursor:pointer;color:#5f6368;flex-shrink:0;}
+        .pl-cart-list{flex:1;overflow-y:auto;padding:6px 18px;-webkit-overflow-scrolling:touch;}
+        .pl-row{display:flex;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid #f2f4f7;}
+        .pl-row-info{flex:1;min-width:0;}
+        .pl-row-name{font-size:13px;font-weight:700;color:#111;line-height:1.3;}
+        .pl-row-unit{font-size:11px;color:#9aa0a6;margin-top:2px;}
+        .pl-stepper{display:flex;align-items:center;gap:8px;flex-shrink:0;}
+        .pl-st{width:28px;height:28px;border-radius:50%;border:1.5px solid #16a34a;background:#fff;color:#16a34a;font-size:16px;font-weight:800;cursor:pointer;line-height:1;padding:0;display:flex;align-items:center;justify-content:center;}
+        .pl-qty{font-size:14px;font-weight:800;color:#111;min-width:18px;text-align:center;}
+        .pl-row-total{font-size:13px;font-weight:800;color:#0A2540;min-width:54px;text-align:right;flex-shrink:0;}
+        .pl-row-del{width:30px;height:30px;border-radius:8px;border:none;background:#feecec;font-size:14px;cursor:pointer;flex-shrink:0;padding:0;}
+        .pl-cart-foot{padding:12px 18px 20px;border-top:1px solid #eef0f3;background:#fff;flex-shrink:0;}
+        .pl-cart-total{display:flex;justify-content:space-between;align-items:center;font-size:14px;color:#5f6368;margin-bottom:10px;}
+        .pl-cart-total b{font-size:20px;color:#0A2540;}
+        .pl-cart-send{width:100%;background:#25D366;color:#fff;border:none;border-radius:12px;padding:14px 0;font-size:15px;font-weight:800;cursor:pointer;display:block;}
+        .pl-cart-send:active{transform:scale(0.98);}
+        .pl-cart-empty{text-align:center;padding:44px 20px;color:#9aa0a6;font-size:14px;}
+        .pl-cart-empty .ico{font-size:40px;margin-bottom:8px;}
+        .pl-cart-clear{background:none;border:none;color:#9aa0a6;font-size:12px;cursor:pointer;text-decoration:underline;padding:0;}
       ` }} />
 
       <div className="pl-back">
         <a className="pl-back-btn" id="plBackBtn" href="#">&#8592;</a>
       </div>
 
-      <div className="pl-wrap">
+      <div className="pl-wrap" data-phone={esc(storePhone)} data-store={esc(storeName || '')}>
         <div className="pl-hero">
           <span className="pl-hero-tag">Catálogo</span>
           <h1>{esc(storeName || 'Nuestros productos')}</h1>
@@ -163,7 +196,6 @@ export default async function PublicCatalogPage() {
               <option value="name">Nombre A-Z</option>
               <option value="price-asc">Precio: menor a mayor</option>
               <option value="price-desc">Precio: mayor a menor</option>
-              <option value="discount">Mayor descuento</option>
             </select>
           </div>
         </div>
@@ -185,9 +217,12 @@ export default async function PublicCatalogPage() {
                   <a key={i} className="pl-card" href={`/c/${esc(it.slug)}`}
                      data-name={esc(it.name.toLowerCase())} data-brand={esc(it.brand.toLowerCase())}
                      data-cat={esc(it.category)} data-img-id={esc(it.imgId)}
-                     data-price={it.price} data-disc={it.discount}>
-                    {it.discount > 0 && <span className="pl-disc">-{it.discount}%</span>}
-                    <div className="pl-img"><span className="pl-ph" data-ph>📦</span></div>
+                     data-price={it.price}>
+                    <div className="pl-img">
+                      <span className="pl-ph" data-ph>📦</span>
+                      <button type="button" className="pl-add" aria-label="Agregar al pedido"
+                              data-slug={esc(it.slug)} data-name={esc(it.name)} data-price={it.price}>+</button>
+                    </div>
                     <div className="pl-body">
                       {(it.brand || it.category) && (
                         <div className="pl-bc">{esc(it.brand)}{it.brand && it.category ? ' · ' : ''}{esc(it.category)}</div>
@@ -195,7 +230,6 @@ export default async function PublicCatalogPage() {
                       <div className="pl-name">{esc(it.name)}</div>
                       {it.price > 0 && (
                         <div className="pl-price-row">
-                          {it.discount > 0 && <span className="pl-price-old">${fmtDec(it.costPrice)}</span>}
                           <span className="pl-price">${fmtDec(it.price)}</span>
                         </div>
                       )}
