@@ -469,7 +469,7 @@ export default async function CatalogPage({ params }: Props) {
         <a className="catpg-back-btn" id="catpgBackBtn" href="#">&#8592;</a>
       </div>
 
-      <div className="catpg-wrap">
+      <div className="catpg-wrap" data-cart-store={esc(storeName)} data-cart-phone={esc(String(storeInfo.phone || storeInfo.whatsapp || ''))}>
         <div className="catpg-gallery" id="catpgGallery" data-imgs={imgIdsJson}>
           <div dangerouslySetInnerHTML={{ __html: slidesHtml + dotsHtml + counterHtml }} />
         </div>
@@ -493,6 +493,12 @@ export default async function CatalogPage({ params }: Props) {
           )}
           {showPrice && price > 0 && <div className="catpg-price">${price.toLocaleString('es-MX')}</div>}
 
+          {/* Agregar al pedido (carrito compartido en public/carrito.js) */}
+          <button type="button" className="catpg-addbtn" id="catpgAddBtn"
+                  data-slug={esc(String(slug || ''))} data-name={esc(String(p.name || ''))} data-price={price}>
+            🛒 Agregar al pedido
+          </button>
+
           {/* Measurement grid (Kisuu-style) - shown prominently after price */}
           {showMeasurements && <div dangerouslySetInnerHTML={{ __html: measureGridHtml }} />}
 
@@ -512,6 +518,7 @@ export default async function CatalogPage({ params }: Props) {
         {storeName && <div className="catpg-footer">{esc(storeName)}</div>}
       </div>
 
+      <Script src="/carrito.js" strategy="afterInteractive" />
       <Script src="/catalogo-producto.js" strategy="afterInteractive" />
     </>
   );
