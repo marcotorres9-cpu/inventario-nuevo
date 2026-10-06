@@ -25,7 +25,7 @@
     <!-- Auto-update: check server version, show visible banner with "Actualizar" button (no silent reload) -->
     <script>
     (function(){
-        var _curVer='NV126';
+        var _curVer='NV127';
         var _pendingVer='';
         var _autoTimer=null;
         var _shownVer='';
@@ -1422,7 +1422,7 @@
             <div>
                 <div class="header-name" id="storeHeaderName">Inventario Pro</div>
                 <div class="header-role" id="userRole">rol</div>
-                <div class="header-ver" id="headerVersion">v2.6.78 NV126</div><div style="font-size:8px;color:#fbbf24;background:rgba(251,191,36,0.15);padding:1px 5px;border-radius:3px;margin-top:2px;display:inline-block;font-weight:700;">v126-NATIVE</div>
+                <div class="header-ver" id="headerVersion">v2.6.79 NV127</div><div style="font-size:8px;color:#fbbf24;background:rgba(251,191,36,0.15);padding:1px 5px;border-radius:3px;margin-top:2px;display:inline-block;font-weight:700;">v127-NATIVE</div>
             </div>
         </div>
         <button class="btn-logout" onclick="toggleTheme()" style="background:none;border:none;font-size:20px;cursor:pointer;margin-right:8px;color:var(--text2);" title="Cambiar tema">🌓</button>
@@ -4249,8 +4249,11 @@ function logout() {
 // ====================================================================
 // CHANGELOG — Show latest updates to the user
 // ====================================================================
-var APP_VERSION = '2.6.78 NV126'
+var APP_VERSION = '2.6.79 NV127'
 var CHANGELOG_ENTRIES = [
+    { ver: '2.6.79', date: '6 Oct 2026', items: [
+        { icon: '🔄', text: '<b>Cambios al instante en la web:</b> al modificar un producto en la app, la página del catálogo que ven tus clientes se actualiza sola — nombre, precio, marca, especificaciones, descripción y stock — sin volver a publicar nada.' }
+    ]},
     { ver: '2.6.78', date: '30 Sep 2026', items: [
         { icon: '🪪', text: '<b>Pedidos identificados:</b> el cliente escribe su nombre al confirmar y cada pedido llega a tu WhatsApp con su nombre (además del número desde el que lo envía).' },
         { icon: '💾', text: '<b>Pedido guardado:</b> el pedido queda guardado en el teléfono del cliente — puede volver más tarde para agregar o quitar productos y reenviarlo cuando quiera.' },
@@ -24093,7 +24096,7 @@ function generateSimplePrintableReport(products, selCats, selBrands) {
     rHtml += '<tr class="grand-total"><td colspan="3">' + totalProductos + ' productos en ' + catKeys.length + ' categorías</td><td class="right">$' + fmtNum(grandTotal) + '</td><td class="center">' + grandStock + '</td></tr>';
     rHtml += '</tbody></table>';
 
-    rHtml += '<div class="footer">Documento generado el ' + dateStr + ' a las ' + timeStr + ' — Inventario Pro v2.6.78 NV126</div>';
+    rHtml += '<div class="footer">Documento generado el ' + dateStr + ' a las ' + timeStr + ' — Inventario Pro v2.6.79 NV127</div>';
     rHtml += '</body></html>';
 
     window._catalogReportHtml = rHtml;

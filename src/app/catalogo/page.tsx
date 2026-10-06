@@ -1,4 +1,5 @@
 import { query } from '@/lib/db';
+import { fetchLiveProducts, mergeLive, specsFromSpecObj } from '@/lib/catalogLive';
 import { Metadata, Viewport } from 'next';
 import Script from 'next/script';
 
@@ -47,18 +48,32 @@ export default async function PublicCatalogPage() {
     const rows = await query(
       'SELECT slug, name, products, "storeInfo", "mainImage" FROM "ElectronicCatalog" ORDER BY "updatedAt" DESC'
     );
+    // NV127: datos VIVOS del inventario — si el producto se edita en la app, la
+    // página pública refleja el cambio sin volver a publicar el catálogo.
+    const snapP0s: any[] = [];
+    for (const r of rows as any[]) {
+      let ps0: any[] = [];
+      try { ps0 = typeof r.products === 'string' ? JSON.parse(r.products) : (r.products || []); } catch {}
+      if (ps0[0]) snapP0s.push(ps0[0]);
+    }
+    const liveIds: string[] = [];
+    for (const p0 of snapP0s) { const idv = String(p0.id || ''); if (idv && liveIds.indexOf(idv) === -1) liveIds.push(idv); }
+    const liveMap = await fetchLiveProducts(liveIds);
     for (const r of rows as any[]) {
       let prods: any[] = [];
       try { prods = typeof r.products === 'string' ? JSON.parse(r.products) : (r.products || []); } catch {}
-      const p0 = prods[0];
-      if (!p0) continue;
+      const p0raw = prods[0];
+      if (!p0raw) continue;
+      const p0 = mergeLive(p0raw, liveMap[String(p0raw.id || '')]);
       const price = parseFloat(p0.salePrice) || 0;
       const costPrice = parseFloat(p0.costPrice) || 0;
       const discount = (costPrice > 0 && price > 0 && price < costPrice)
         ? Math.round((1 - price / costPrice) * 100) : 0;
       let specs: string[] = [];
       try {
-        if (p0.specs) {
+        if (p0.specifications && typeof p0.specifications === 'object' && !Array.isArray(p0.specifications) && Object.keys(p0.specifications).length > 0) {
+          specs = specsFromSpecObj(p0.specifications);
+        } else if (p0.specs) {
           if (Array.isArray(p0.specs)) specs = p0.specs.map((s: any) => String(s.text || s)).filter(Boolean);
           else if (typeof p0.specs === 'object') specs = Object.values(p0.specs).map((s: any) => String(s && s.text ? s.text : s)).filter(Boolean);
         }

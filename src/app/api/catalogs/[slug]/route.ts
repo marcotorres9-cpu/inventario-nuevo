@@ -1,5 +1,6 @@
 import {NextResponse} from 'next/server';
 import {query} from '@/lib/db';
+import {fetchLiveProducts, mergeLive} from '@/lib/catalogLive';
 export const dynamic='force-dynamic';
 
 const H = {'Cache-Control':'no-store','Access-Control-Allow-Origin':'*'};
@@ -31,6 +32,14 @@ export async function GET(request:Request,{params}:{params:Promise<{slug:string}
     const cat=rows[0] as any;
     let prods:any[]=[];
     try{prods=typeof cat.products==='string'?JSON.parse(cat.products):(cat.products||[]);}catch{}
+
+    // NV127: datos VIVOS del inventario sobre el snapshot
+    try{
+      const _ids:string[]=[];
+      for(const _p of prods){ if(_p&&_p.id&&_ids.indexOf(String(_p.id))===-1)_ids.push(String(_p.id)); }
+      const _live=await fetchLiveProducts(_ids);
+      prods=prods.map((_p:any)=>(_p&&_p.id&&_live[String(_p.id)])?mergeLive(_p,_live[String(_p.id)]):_p);
+    }catch{}
 
     // Resolve imageIds to full image objects
     await ensureImageTable();

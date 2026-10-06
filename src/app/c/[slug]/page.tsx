@@ -1,4 +1,5 @@
 import { query } from '@/lib/db';
+import { fetchLiveProducts, mergeLive } from '@/lib/catalogLive';
 import { Metadata, Viewport } from 'next';
 import Script from 'next/script';
 
@@ -38,7 +39,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     if (rows.length === 0) return { title: 'Producto no encontrado' };
     const cat = rows[0] as any;
     const prods: any[] = typeof cat.products === 'string' ? JSON.parse(cat.products) : (cat.products || []);
-    const p = prods[0] || {};
+    let p: any = prods[0] || {};
+    // NV127: datos vivos del inventario (el snapshot queda viejo si se edita el producto)
+    try {
+      const lm = await fetchLiveProducts([String(p.id || '')]);
+      const lv = lm[String(p.id || '')];
+      if (lv) p = mergeLive(p, lv);
+    } catch {}
     const price = parseFloat(p.salePrice) || 0;
     const ogImages: string[] = [`https://inventario-nuevo.vercel.app/api/catalog-og-image/${slug}`];
     return {
@@ -111,9 +118,11 @@ export default async function CatalogPage({ params }: Props) {
   let stockKnown = p != null && (typeof p.stock === 'number' || typeof p.stock === 'string');
   if (p && p.id) {
     try {
-      const stockRows = await query('SELECT stock FROM "Product" WHERE id=$1 LIMIT 1', [p.id]);
-      if (stockRows.length > 0) {
-        p.stock = (stockRows[0] as any).stock;
+      // NV127: mezcla COMPLETA de datos vivos (nombre, precios, marca, specs, descripción, stock)
+      const liveMap = await fetchLiveProducts([String(p.id)]);
+      const live = liveMap[String(p.id)];
+      if (live) {
+        p = mergeLive(p, live);
         stockKnown = true;
       }
     } catch {}

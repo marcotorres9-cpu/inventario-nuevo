@@ -1,5 +1,6 @@
 import {NextResponse} from 'next/server';
 import {query} from '@/lib/db';
+import {fetchLiveProducts, mergeLive} from '@/lib/catalogLive';
 export const dynamic='force-dynamic';
 export const maxDuration=30;
 
@@ -78,6 +79,22 @@ export async function GET(){
     await ensureTable();
     await ensureImageTable();
     const rows=await query('SELECT id,slug,name,description,products,"storeInfo","storeId","mainImage","createdAt","updatedAt" FROM "ElectronicCatalog" ORDER BY "updatedAt" DESC');
+    // NV127: mezcla datos VIVOS del inventario — el gestor de catálogos de la app
+    // ve el nombre/precio/specs actuales aunque el snapshot sea anterior.
+    const _ids:string[]=[];
+    const _allProds:any[][]=[];
+    for(const r of rows as any[]){
+      let _prods:any[]=[];
+      try{_prods=typeof r.products==='string'?JSON.parse(r.products):(r.products||[]);}catch{}
+      _allProds.push(_prods);
+      for(const _p of _prods){ if(_p&&_p.id&&_ids.indexOf(String(_p.id))===-1)_ids.push(String(_p.id)); }
+    }
+    const _live=await fetchLiveProducts(_ids);
+    for(let _i=0;_i<rows.length;_i++){
+      const _merged:any[]=[];
+      for(const _p of _allProds[_i]){ _merged.push(_p&&_p.id&&_live[String(_p.id)]?mergeLive(_p,_live[String(_p.id)]):_p); }
+      (rows[_i] as any).products=_merged;
+    }
     // Resolve first image ID per catalog for thumbnail (send ID only, not full data)
     for(const r of rows as any[]){
       let prods:any[]=[];
